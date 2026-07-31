@@ -110,7 +110,7 @@ Enforce owner-only permissions for authorization and Account data. Never log aut
 - Use newtypes where raw integers or strings from different domains could be confused, especially Account, peer, Chat, Message, and request identifiers.
 - Keep public interfaces small. Accept dependencies rather than constructing hidden globals, and return observable results rather than producing untestable side effects.
 - Document public items and non-obvious invariants. Do not add decorative section-divider comments.
-- In struct definitions with field attributes, leave a blank line between fields so each attributed field remains visually distinct.
+- When any field in a struct has an attribute, leave a blank line between every field in that struct. When any enum variant has an attribute, leave a blank line between every variant in that enum.
 - Avoid wildcard imports outside test modules and deliberate preludes.
 - Do not optimize speculative hot paths. Add measurements before performance-specific complexity.
 
