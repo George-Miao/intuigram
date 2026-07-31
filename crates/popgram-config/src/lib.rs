@@ -1,6 +1,7 @@
 //! Layered configuration for Popgram.
 
 use std::path::PathBuf;
+use std::{fmt, ops};
 
 use figment::Figment;
 use figment::providers::{Env, Format, Json, Serialized, Toml, Yaml};
@@ -32,6 +33,46 @@ pub struct Config {
     pub paths: Paths,
     /// Media cache policy.
     pub media: Media,
+    /// Telegram application and login settings.
+    pub telegram: Telegram,
+}
+
+/// Telegram settings supplied by the user rather than embedded in Popgram.
+#[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
+pub struct Telegram {
+    /// Telegram application ID from my.telegram.org.
+    pub api_id: Option<i32>,
+    /// Telegram application hash from my.telegram.org.
+    pub api_hash: Option<ApiHash>,
+    /// Phone number used when a new authorization is required.
+    pub phone_number: Option<String>,
+}
+
+/// Secret Telegram application hash whose diagnostics are always redacted.
+#[derive(Clone, Eq, PartialEq, Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct ApiHash(String);
+
+impl ApiHash {
+    /// Borrows the hash for authentication without allocating another copy.
+    #[must_use]
+    pub fn expose(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Debug for ApiHash {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("ApiHash([REDACTED])")
+    }
+}
+
+impl ops::Deref for ApiHash {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.expose()
+    }
 }
 
 /// Filesystem locations used by Popgram.
@@ -150,6 +191,7 @@ impl ConfigLoader {
             media: Media {
                 cache_bytes: DEFAULT_MEDIA_CACHE_BYTES,
             },
+            telegram: Telegram::default(),
         };
         let mut figment = Figment::from(Serialized::defaults(defaults))
             .merge(Toml::file(self.defaults.config.join("config.toml")))
@@ -247,5 +289,29 @@ mod tests {
 
         assert_eq!(config.paths.data, command_line_data);
         assert_eq!(config.media.cache_bytes, 8192);
+    }
+
+    #[test]
+    fn telegram_api_hash_is_loaded_but_redacted_from_diagnostics() {
+        let temporary = tempdir().expect("temporary directory should be created");
+        let platform = defaults(temporary.path());
+        fs::create_dir_all(&platform.config).expect("config directory should be created");
+        fs::write(
+            platform.config.join("config.toml"),
+            "[telegram]\napi_id = 42\napi_hash = 'super-secret-hash'\n",
+        )
+        .expect("TOML config should be written");
+
+        let config = ConfigLoader::new(platform)
+            .read_environment(false)
+            .load()
+            .expect("Telegram configuration should load");
+
+        let hash = config
+            .telegram
+            .api_hash
+            .expect("Telegram API hash should exist");
+        assert_eq!(hash.expose(), "super-secret-hash");
+        assert_eq!(format!("{hash:?}"), "ApiHash([REDACTED])");
     }
 }

@@ -1,0 +1,21 @@
+[package]
+name = "popgram"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+async-channel.workspace = true
+compio.workspace = true
+dirs.workspace = true
+futures-lite.workspace = true
+popgram-app = { path = "../popgram-app" }
+popgram-config = { path = "../popgram-config" }
+popgram-store = { path = "../popgram-store" }
+popgram-telegram = { path = "../popgram-telegram" }
+popgram-tui = { path = "../popgram-tui" }
+rpassword.workspace = true
+snafu.workspace = true
+
+[lints]
+workspace = true

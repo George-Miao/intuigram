@@ -1,0 +1,16 @@
+[package]
+name = "compio-mtproto"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+compio.workspace = true
+futures-util.workspace = true
+grammers-crypto.workspace = true
+grammers-mtproto.workspace = true
+grammers-tl-types.workspace = true
+snafu.workspace = true
+
+[lints]
+workspace = true

@@ -1,8 +1,8 @@
-use std::fs;
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::thread::{self, JoinHandle};
+use std::{fmt, fs};
 
 use rusqlite::backup::Backup;
 use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
@@ -26,6 +26,7 @@ pub enum Error {
         /// Underlying filesystem failure.
         source: std::io::Error,
     },
+
     /// Owner-only permissions could not be applied.
     #[snafu(display("failed to protect data path {}", path.display()))]
     ProtectDataPath {
@@ -34,6 +35,7 @@ pub enum Error {
         /// Underlying filesystem failure.
         source: std::io::Error,
     },
+
     /// The database engine could not open the account database.
     #[snafu(display("failed to open account database {}", path.display()))]
     OpenDatabase {
@@ -42,18 +44,21 @@ pub enum Error {
         /// Underlying database failure.
         source: rusqlite::Error,
     },
+
     /// A requested authorized Account database does not exist.
     #[snafu(display("account database does not exist at {}", path.display()))]
     MissingDatabase {
         /// Expected account database path.
         path: PathBuf,
     },
+
     /// A database worker thread could not be started.
     #[snafu(display("failed to start account database worker"))]
     SpawnWorker {
         /// Underlying thread creation failure.
         source: std::io::Error,
     },
+
     /// Embedded migrations could not be applied.
     #[snafu(display("failed to migrate account database {}", path.display()))]
     MigrateDatabase {
@@ -62,6 +67,7 @@ pub enum Error {
         /// Underlying migration failure.
         source: refinery::Error,
     },
+
     /// The installed migration state could not be inspected.
     #[snafu(display("failed to inspect migrations in account database {}", path.display()))]
     InspectMigrations {
@@ -70,6 +76,7 @@ pub enum Error {
         /// Underlying database failure.
         source: rusqlite::Error,
     },
+
     /// A collision-safe pre-migration backup path could not be reserved.
     #[snafu(display(
         "failed to back up account database {} to {}",
@@ -84,6 +91,7 @@ pub enum Error {
         /// Underlying filesystem failure.
         source: std::io::Error,
     },
+
     /// The database engine could not snapshot a database before migration.
     #[snafu(display(
         "failed to snapshot account database {} to {}",
@@ -98,12 +106,14 @@ pub enum Error {
         /// Underlying database failure.
         source: rusqlite::Error,
     },
+
     /// No collision-safe pre-migration backup filename was available.
     #[snafu(display("could not reserve a backup filename for {}", path.display()))]
     BackupNamesExhausted {
         /// Database being protected.
         path: PathBuf,
     },
+
     /// A post-migration database check could not run.
     #[snafu(display("account database check could not run for {}: {check}", path.display()))]
     RunDatabaseCheck {
@@ -114,6 +124,7 @@ pub enum Error {
         /// Underlying database failure.
         source: rusqlite::Error,
     },
+
     /// A database failed a completed post-migration check.
     #[snafu(display("account database check failed for {}: {check}", path.display()))]
     DatabaseCheckFailed {
@@ -122,12 +133,14 @@ pub enum Error {
         /// Check that reported a failure.
         check: &'static str,
     },
+
     /// The stored account identity could not be read.
     #[snafu(display("failed to read the account identity"))]
     ReadIdentity {
         /// Underlying database failure.
         source: rusqlite::Error,
     },
+
     /// The authorized account identity could not be stored.
     #[snafu(display("failed to persist Telegram user ID {}", account.get()))]
     WriteIdentity {
@@ -136,6 +149,7 @@ pub enum Error {
         /// Underlying database failure.
         source: rusqlite::Error,
     },
+
     /// The pending database could not be renamed to its account path.
     #[snafu(display(
         "failed to promote pending database {} to {}",
@@ -150,18 +164,22 @@ pub enum Error {
         /// Underlying filesystem failure.
         source: std::io::Error,
     },
+
     /// Promotion would overwrite an existing account database.
     #[snafu(display("account database already exists at {}", path.display()))]
     AccountAlreadyExists {
         /// Existing account database path.
         path: PathBuf,
     },
+
     /// The database worker stopped before completing an operation.
     #[snafu(display("account database worker is unavailable"))]
     WorkerUnavailable,
+
     /// The database worker panicked while shutting down.
     #[snafu(display("account database worker panicked"))]
     WorkerPanicked,
+
     /// The database filename and persisted Telegram user ID disagree.
     #[snafu(display(
         "account database for {} contains identity {:?}",
@@ -174,12 +192,35 @@ pub enum Error {
         /// Telegram user ID stored inside the database.
         actual: Option<AccountId>,
     },
+
     /// The database contained a Telegram user ID outside the accepted domain.
     #[snafu(display("account database contains invalid Telegram user ID {value}"))]
     InvalidIdentity {
         /// Invalid stored value.
         value: i64,
     },
+
+    /// The current `MTProto` session could not be read.
+    #[snafu(display("failed to read the MTProto session"))]
+    ReadSession {
+        /// Underlying database failure.
+        source: rusqlite::Error,
+    },
+
+    /// The current `MTProto` session could not be written.
+    #[snafu(display("failed to persist the MTProto session"))]
+    WriteSession {
+        /// Underlying database failure.
+        source: rusqlite::Error,
+    },
+
+    /// Stored authorization material did not contain exactly 256 bytes.
+    #[snafu(display("stored MTProto authorization key has invalid length {length}"))]
+    InvalidAuthorizationKey {
+        /// Invalid number of bytes read from storage.
+        length: usize,
+    },
+
     /// This build cannot enforce owner-only permissions on the platform.
     #[snafu(display("owner-only database permissions are unsupported on this platform"))]
     UnsupportedPermissions,
@@ -188,12 +229,73 @@ pub enum Error {
 /// Result returned by account database operations.
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
+/// Durable connection material for one Telegram data-center authorization.
+#[derive(Clone, Eq, PartialEq)]
+pub struct SessionMaterial {
+    /// Telegram data-center number.
+    pub dc_id: i32,
+    /// Direct TCP endpoint associated with this authorization.
+    pub endpoint: String,
+    /// Secret authorization key. Never include this value in diagnostics.
+    auth_key: [u8; 256],
+    /// Difference between local and Telegram server time.
+    pub time_offset: i32,
+    /// Most recently known server salt.
+    pub first_salt: i64,
+}
+
+impl fmt::Debug for SessionMaterial {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("SessionMaterial")
+            .field("dc_id", &self.dc_id)
+            .field("endpoint", &self.endpoint)
+            .field("auth_key", &"[REDACTED]")
+            .field("time_offset", &self.time_offset)
+            .field("first_salt", &self.first_salt)
+            .finish()
+    }
+}
+
+impl SessionMaterial {
+    /// Creates durable session material.
+    #[must_use]
+    pub const fn new(
+        dc_id: i32,
+        endpoint: String,
+        auth_key: [u8; 256],
+        time_offset: i32,
+        first_salt: i64,
+    ) -> Self {
+        Self {
+            dc_id,
+            endpoint,
+            auth_key,
+            time_offset,
+            first_salt,
+        }
+    }
+
+    /// Copies the secret key into the protocol adapter.
+    #[must_use]
+    pub const fn auth_key(&self) -> [u8; 256] {
+        self.auth_key
+    }
+}
+
 enum Command {
     ReadIdentity {
         reply: SyncSender<Result<Option<AccountId>>>,
     },
     WriteIdentity {
         account: AccountId,
+        reply: SyncSender<Result<()>>,
+    },
+    ReadSession {
+        reply: SyncSender<Result<Option<SessionMaterial>>>,
+    },
+    WriteSession {
+        session: Box<SessionMaterial>,
         reply: SyncSender<Result<()>>,
     },
     Shutdown,
@@ -254,6 +356,27 @@ impl AccountDatabase {
         let (reply, response) = mpsc::sync_channel(1);
         self.commands
             .send(Command::ReadIdentity { reply })
+            .map_err(|_| Error::WorkerUnavailable)?;
+        response.recv().map_err(|_| Error::WorkerUnavailable)?
+    }
+
+    /// Returns the current durable Telegram authorization, when present.
+    pub fn session(&self) -> Result<Option<SessionMaterial>> {
+        let (reply, response) = mpsc::sync_channel(1);
+        self.commands
+            .send(Command::ReadSession { reply })
+            .map_err(|_| Error::WorkerUnavailable)?;
+        response.recv().map_err(|_| Error::WorkerUnavailable)?
+    }
+
+    /// Persists a Telegram authorization before it can be used by the UI.
+    pub fn save_session(&self, session: SessionMaterial) -> Result<()> {
+        let (reply, response) = mpsc::sync_channel(1);
+        self.commands
+            .send(Command::WriteSession {
+                session: Box::new(session),
+                reply,
+            })
             .map_err(|_| Error::WorkerUnavailable)?;
         response.recv().map_err(|_| Error::WorkerUnavailable)?
     }
@@ -366,6 +489,26 @@ fn run_worker(
                     )
                     .map(|_| ())
                     .context(WriteIdentitySnafu { account });
+                let _ = reply.send(result);
+            }
+            Command::ReadSession { reply } => {
+                let _ = reply.send(read_session(&connection));
+            }
+            Command::WriteSession { session, reply } => {
+                let result = connection
+                    .execute(
+                        "INSERT OR REPLACE INTO mtproto_session (singleton, dc_id, endpoint, \
+                         auth_key, time_offset, first_salt) VALUES (1, ?1, ?2, ?3, ?4, ?5)",
+                        params![
+                            session.dc_id,
+                            session.endpoint,
+                            session.auth_key.as_slice(),
+                            session.time_offset,
+                            session.first_salt
+                        ],
+                    )
+                    .map(|_| ())
+                    .context(WriteSessionSnafu);
                 let _ = reply.send(result);
             }
             Command::Shutdown => break,
@@ -503,6 +646,40 @@ fn read_account_id(connection: &Connection) -> Result<Option<AccountId>> {
         .transpose()
 }
 
+fn read_session(connection: &Connection) -> Result<Option<SessionMaterial>> {
+    let row = connection
+        .query_row(
+            "SELECT dc_id, endpoint, auth_key, time_offset, first_salt FROM mtproto_session WHERE \
+             singleton = 1",
+            [],
+            |row| {
+                Ok((
+                    row.get::<_, i32>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Vec<u8>>(2)?,
+                    row.get::<_, i32>(3)?,
+                    row.get::<_, i64>(4)?,
+                ))
+            },
+        )
+        .optional()
+        .context(ReadSessionSnafu)?;
+    row.map(|(dc_id, endpoint, key, time_offset, first_salt)| {
+        let length = key.len();
+        let auth_key = key
+            .try_into()
+            .map_err(|_| Error::InvalidAuthorizationKey { length })?;
+        Ok(SessionMaterial::new(
+            dc_id,
+            endpoint,
+            auth_key,
+            time_offset,
+            first_salt,
+        ))
+    })
+    .transpose()
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -510,7 +687,7 @@ mod tests {
     use rusqlite::Connection;
     use tempfile::tempdir;
 
-    use super::AccountDatabase;
+    use super::{AccountDatabase, SessionMaterial};
     use crate::{AccountId, StoreLayout};
 
     #[test]
@@ -540,6 +717,26 @@ mod tests {
         );
         assert!(!layout.pending_database().exists());
         assert!(layout.account_database(account).exists());
+    }
+
+    #[test]
+    fn mtproto_session_round_trips_without_appearing_in_debug_output() {
+        let temporary = tempdir().expect("temporary directory should be created");
+        let layout = StoreLayout::new(temporary.path().join("popgram"));
+        let database =
+            AccountDatabase::begin_login(&layout).expect("pending login database should open");
+        let session = SessionMaterial::new(2, "149.154.167.40:443".to_owned(), [0xa5; 256], -2, 42);
+
+        database
+            .save_session(session.clone())
+            .expect("session should persist");
+
+        assert_eq!(
+            database.session().expect("session should load"),
+            Some(session.clone())
+        );
+        assert!(!format!("{session:?}").contains("a5"));
+        assert!(format!("{session:?}").contains("[REDACTED]"));
     }
 
     #[test]

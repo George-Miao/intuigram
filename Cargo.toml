@@ -17,6 +17,17 @@ rusqlite = { version = "0.39", features = ["backup", "bundled"] }
 rustix = { version = "1", features = ["fs"] }
 async-channel = "2"
 futures-lite = "2"
+futures-util = "0.3"
+crossterm = { version = "0.29", features = ["bracketed-paste"] }
+ratatui = "0.30"
+dirs = "6"
+rpassword = "7.5"
+time = { version = "0.3.54", features = ["local-offset"] }
+compio = { version = "0.19.1", default-features = false, features = ["io", "net", "runtime"] }
+grammers-crypto = "0.10"
+grammers-mtproto = "0.10"
+grammers-tl-types = "0.10"
+getrandom = { version = "0.3", features = ["std"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

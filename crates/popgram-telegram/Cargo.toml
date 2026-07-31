@@ -1,14 +1,17 @@
 [package]
-name = "popgram-tui"
+name = "popgram-telegram"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
+compio-mtproto = { path = "../compio-mtproto" }
+grammers-crypto.workspace = true
+grammers-tl-types.workspace = true
+getrandom.workspace = true
 popgram-app = { path = "../popgram-app" }
-crossterm.workspace = true
-ratatui.workspace = true
 snafu.workspace = true
+time.workspace = true
 
 [lints]
 workspace = true
