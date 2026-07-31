@@ -1,0 +1,3 @@
+# Use a single-writer application event loop
+
+One asynchronous `popgram-app` task exclusively owns mutable application state and applies typed user intents and adapter events in a deterministic order. The TUI renders immutable view snapshots or deltas, while Telegram, storage, media, clipboard, and other I/O execute outside the state owner and return typed results through bounded channels. No adapter exposes shared mutable state or requires cross-crate locking. This makes update, optimistic-action, acknowledgement, selection, and Draft ordering testable through the `popgram-app` interface at the cost of explicit event and backpressure design.

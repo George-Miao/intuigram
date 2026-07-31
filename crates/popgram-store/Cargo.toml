@@ -1,0 +1,17 @@
+[package]
+name = "popgram-store"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+refinery.workspace = true
+rusqlite.workspace = true
+rustix.workspace = true
+snafu.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
