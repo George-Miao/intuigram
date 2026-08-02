@@ -166,10 +166,16 @@ pub struct Binding {
 
 const BINDINGS: &[Binding] = &[
     binding(
-        KeyChord::control(Key::Char('q')),
+        KeyChord::control(Key::Char('c')),
         "Quit",
         Action::Quit,
         true,
+    ),
+    binding(
+        KeyChord::control(Key::Char('q')),
+        "Quit",
+        Action::Quit,
+        false,
     ),
     binding(KeyChord::plain(Key::Char('?')), "Help", Action::Help, true),
     binding(KeyChord::plain(Key::Up), "Up", Action::MoveUp, true),
@@ -1197,7 +1203,12 @@ mod tests {
 
     #[test]
     fn displayed_action_bar_and_help_bindings_are_the_bindings_input_resolves() {
-        let current_view = view(vec![Action::Search, Action::JumpLatest, Action::Help]);
+        let current_view = view(vec![
+            Action::Quit,
+            Action::Search,
+            Action::JumpLatest,
+            Action::Help,
+        ]);
         let keymap = EffectiveKeymap::defaults();
 
         for binding in keymap.help(&current_view) {
@@ -1210,6 +1221,17 @@ mod tests {
         assert_eq!(
             keymap.resolve(&current_view, KeyChord::control(Key::Char('f'))),
             Some(Action::Search)
+        );
+        assert_eq!(
+            keymap.resolve(&current_view, KeyChord::control(Key::Char('c'))),
+            Some(Action::Quit)
+        );
+        assert_eq!(
+            keymap
+                .action_bar(&current_view)
+                .find(|binding| binding.action == Action::Quit)
+                .map(|binding| binding.key),
+            Some(KeyChord::control(Key::Char('c')))
         );
         assert_eq!(
             keymap.resolve(&current_view, KeyChord::shift(Key::Down)),
@@ -1275,9 +1297,21 @@ mod tests {
 
     #[test]
     fn terminal_events_resolve_against_the_current_view() {
-        let current_view = view(vec![Action::Search]);
+        let current_view = view(vec![Action::Quit, Action::Search]);
         let keymap = EffectiveKeymap::defaults();
 
+        assert_eq!(
+            resolve_event(
+                &keymap,
+                &current_view,
+                Event::Key(KeyEvent::new_with_kind(
+                    CrosstermKey::Char('c'),
+                    KeyModifiers::CONTROL,
+                    KeyEventKind::Press,
+                )),
+            ),
+            Some(UiEvent::Intent(intuigram_app::Intent::Action(Action::Quit)))
+        );
         assert_eq!(
             resolve_event(
                 &keymap,
