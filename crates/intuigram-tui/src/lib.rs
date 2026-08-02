@@ -193,6 +193,13 @@ const BINDINGS: &[Binding] = &[
         Action::Compose,
         true,
     ),
+    binding(KeyChord::plain(Key::Enter), "Send", Action::Send, true),
+    binding(
+        KeyChord::shift(Key::Enter),
+        "New Line",
+        Action::Newline,
+        true,
+    ),
     binding(
         KeyChord::control(Key::Enter),
         "Send (enhanced terminal)",
@@ -203,7 +210,7 @@ const BINDINGS: &[Binding] = &[
         KeyChord::control(Key::Char('s')),
         "Send",
         Action::Send,
-        true,
+        false,
     ),
     binding(
         KeyChord::control(Key::Char('r')),
@@ -574,7 +581,6 @@ fn resolve_event(keymap: &EffectiveKeymap, view: &View, event: Event) -> Option<
                     Some(UiEvent::Intent(Intent::Insert(character.to_string())))
                 }
                 CrosstermKey::Backspace => Some(UiEvent::Intent(Intent::Backspace)),
-                CrosstermKey::Enter => Some(UiEvent::Intent(Intent::Newline)),
                 _ => None,
             }
         }
@@ -1214,7 +1220,7 @@ mod tests {
             Some(Action::JumpLatest)
         );
 
-        let composer = view(vec![Action::Send]);
+        let composer = view(vec![Action::Send, Action::Newline]);
         assert_eq!(
             keymap.resolve(&composer, KeyChord::control(Key::Char('s'))),
             Some(Action::Send)
@@ -1224,7 +1230,18 @@ mod tests {
                 .action_bar(&composer)
                 .find(|binding| binding.action == Action::Send)
                 .map(|binding| binding.key),
-            Some(KeyChord::control(Key::Char('s')))
+            Some(KeyChord::plain(Key::Enter))
+        );
+        assert_eq!(
+            keymap.resolve(&composer, KeyChord::shift(Key::Enter)),
+            Some(Action::Newline)
+        );
+        assert_eq!(
+            keymap
+                .action_bar(&composer)
+                .find(|binding| binding.action == Action::Newline)
+                .map(|binding| binding.key),
+            Some(KeyChord::shift(Key::Enter))
         );
     }
 
@@ -1286,7 +1303,7 @@ mod tests {
             Some(UiEvent::Redraw)
         );
 
-        let mut composer = view(vec![Action::Send]);
+        let mut composer = view(vec![Action::Send, Action::Newline]);
         composer.focus = Focus::Composer;
         assert_eq!(
             resolve_event(
@@ -1294,11 +1311,25 @@ mod tests {
                 &composer,
                 Event::Key(KeyEvent::new_with_kind(
                     CrosstermKey::Enter,
-                    KeyModifiers::CONTROL,
+                    KeyModifiers::NONE,
                     KeyEventKind::Press,
                 )),
             ),
             Some(UiEvent::Intent(intuigram_app::Intent::Action(Action::Send)))
+        );
+        assert_eq!(
+            resolve_event(
+                &keymap,
+                &composer,
+                Event::Key(KeyEvent::new_with_kind(
+                    CrosstermKey::Enter,
+                    KeyModifiers::SHIFT,
+                    KeyEventKind::Press,
+                )),
+            ),
+            Some(UiEvent::Intent(intuigram_app::Intent::Action(
+                Action::Newline
+            )))
         );
     }
 

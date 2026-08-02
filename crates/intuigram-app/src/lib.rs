@@ -153,6 +153,8 @@ pub enum Action {
     Compose,
     /// Send the current Draft.
     Send,
+    /// Insert a line break into the current Draft.
+    Newline,
     /// Reply to the Active Message.
     Reply,
     /// Target the previous Message, entering the Transcript from the Composer.
@@ -180,8 +182,6 @@ pub enum Intent {
     Insert(String),
     /// Remove the final character from the active text field.
     Backspace,
-    /// Insert a newline into the Draft.
-    Newline,
 }
 
 /// Initial synchronized data supplied by an adapter.
@@ -484,12 +484,6 @@ impl App {
                 }
                 None
             }
-            Intent::Newline => {
-                if self.view.focus == Focus::Composer {
-                    self.view.composer.text.push('\n');
-                }
-                None
-            }
             Intent::Action(action) => self.apply_action(action),
         }
     }
@@ -588,6 +582,12 @@ impl App {
                 None
             }
             Action::Send => self.send_message(),
+            Action::Newline => {
+                if self.view.focus == Focus::Composer {
+                    self.view.composer.text.push('\n');
+                }
+                None
+            }
         }
     }
 
@@ -815,6 +815,7 @@ impl App {
             Focus::Composer => {
                 actions.extend([
                     Action::Send,
+                    Action::Newline,
                     Action::Cancel,
                     Action::Search,
                     Action::TargetPreviousMessage,
@@ -1044,12 +1045,14 @@ mod tests {
                     transition(&handle, Input::Intent(Intent::Action(action))).await;
                 }
                 transition(&handle, Input::Intent(Intent::Insert("hello".to_owned()))).await;
+                transition(&handle, Input::Intent(Intent::Action(Action::Newline))).await;
+                transition(&handle, Input::Intent(Intent::Insert("world".to_owned()))).await;
                 let sent = transition(&handle, Input::Intent(Intent::Action(Action::Send))).await;
                 assert_eq!(
                     sent.effect,
                     Some(Effect::SendMessage {
                         chat: ChatId(10),
-                        text: "hello".to_owned(),
+                        text: "hello\nworld".to_owned(),
                         reply_to: Some(MessageId(3)),
                     })
                 );
