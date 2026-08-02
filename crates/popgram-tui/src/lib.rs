@@ -723,8 +723,6 @@ fn render_main(frame: &mut Frame<'_>, area: Rect, view: &View) {
             Constraint::Length(32),
             Constraint::Length(1),
             Constraint::Min(48),
-            Constraint::Length(1),
-            Constraint::Length(24),
         ])
         .split(area)
     } else {
@@ -737,24 +735,6 @@ fn render_main(frame: &mut Frame<'_>, area: Rect, view: &View) {
     };
     render_chats(frame, columns[0], view);
     render_active_chat(frame, columns[2], view);
-    if columns.len() == 5 {
-        frame.render_widget(
-            Paragraph::new(vec![
-                Line::from(Span::styled(
-                    "Details",
-                    Style::default().add_modifier(Modifier::BOLD),
-                )),
-                Line::from(""),
-                Line::from(Span::styled(
-                    "Threads and media will appear here.",
-                    Style::default().fg(Color::DarkGray),
-                )),
-            ])
-            .style(surface_style(false))
-            .wrap(Wrap { trim: false }),
-            columns[4],
-        );
-    }
 }
 
 fn render_chats(frame: &mut Frame<'_>, area: Rect, view: &View) {
@@ -1269,5 +1249,23 @@ mod tests {
             terminal.backend().buffer()[(5, 23)].bg,
             Color::Rgb(28, 28, 28)
         );
+    }
+
+    #[test]
+    fn wide_layout_does_not_render_empty_details() {
+        let backend = TestBackend::new(140, 30);
+        let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
+        terminal
+            .draw(|frame| render(frame, &view(Vec::new()), &EffectiveKeymap::defaults()))
+            .expect("view should render");
+
+        let rendered: String = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect();
+        assert!(!rendered.contains("Details"));
     }
 }

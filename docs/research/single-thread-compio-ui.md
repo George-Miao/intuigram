@@ -13,7 +13,7 @@ in the style of Winio?
 Yes. This is a good fit for Popgram, with one important qualification: putting
 several futures on one runtime only creates concurrency when every future
 returns `Poll::Pending` promptly instead of blocking the thread. The TUI can be
-a long-lived future, but Crossterm input must be polled without waiting and
+a long-lived future, terminal input must suspend on Compio readiness, and
 Ratatui drawing remains a short synchronous section. SQLite should keep its
 dedicated worker thread.
 
@@ -40,8 +40,7 @@ UI, state, and protocol tasks cooperatively.
 `Runtime::block_on` should drive one orchestration future. That future should
 spawn the long-lived actors with `compio::runtime::spawn`; it should not manually
 poll all application futures. Compio also supplies async timers (`sleep`,
-`interval`, and timeouts), which are enough to wake a terminal-input polling
-loop without blocking
+`interval`, and timeouts) for deadlines and periodic work without blocking
 ([Compio time module](https://docs.rs/compio/0.19.1/compio/runtime/time/)).
 
 `FuturesUnordered` is not a runtime or a task scheduler. It is a stream of

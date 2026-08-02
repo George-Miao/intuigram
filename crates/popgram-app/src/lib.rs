@@ -428,7 +428,7 @@ impl App {
             Intent::Insert(text) => {
                 if let Some(search) = &mut self.view.search {
                     search.query.push_str(&text);
-                } else if self.view.active_chat.is_some() {
+                } else if self.view.active_chat.is_some() && self.view.focus != Focus::Chats {
                     self.view.focus = Focus::Composer;
                     self.view.active_message = None;
                     self.view.composer.text.push_str(&text);
@@ -1029,6 +1029,13 @@ mod tests {
                     Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
                 )
                 .await;
+                let chat_list = transition(
+                    &handle,
+                    Input::Intent(Intent::Insert("does not enter".to_owned())),
+                )
+                .await;
+                assert_eq!(chat_list.view.focus, Focus::Chats);
+                assert!(chat_list.view.composer.text.is_empty());
                 transition(&handle, Input::Intent(Intent::Action(Action::Open))).await;
                 let composer =
                     transition(&handle, Input::Intent(Intent::Action(Action::NextFolder))).await;
