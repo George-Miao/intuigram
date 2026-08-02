@@ -1,12 +1,12 @@
 [package]
-name = "popgram-tui"
+name = "intuigram-tui"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
 compio-term = { path = "../compio-term" }
-popgram-app = { path = "../popgram-app" }
+intuigram-app = { path = "../intuigram-app" }
 crossterm = { workspace = true, features = ["bracketed-paste"] }
 futures-util.workspace = true
 qrcode = { version = "0.14.1", default-features = false }

@@ -6,19 +6,19 @@ use std::path::PathBuf;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use popgram_app::{
+use intuigram_app::{
     AdapterEvent, App, AppChannels, Bootstrap, ChatId, ChatView, DeliveryState, Effect, FolderView,
     Input, MessageDirection, MessageId, MessageView, bounded_channels,
 };
-use popgram_config::{Config, ConfigLoader, Overrides, PlatformDefaults};
-use popgram_store::{
+use intuigram_config::{Config, ConfigLoader, Overrides, PlatformDefaults};
+use intuigram_store::{
     AccountDatabase, AccountId, AccountRecord, GlobalDatabase, SessionMaterial, StoreLayout,
 };
-use popgram_telegram::{
+use intuigram_telegram::{
     ApplicationCredentials, AuthorizedUser, Client, CodeRequest, CodeSignIn, LoginCodeDelivery,
     LoginCodeDeliveryMethod, LoginCodeToken, QrLogin, Session,
 };
-use popgram_tui::{QrLoginAction, QrLoginUi, TerminalUi, UiEvent};
+use intuigram_tui::{QrLoginAction, QrLoginUi, TerminalUi, UiEvent};
 use snafu::{OptionExt, ResultExt, Snafu};
 
 const PRIMARY_DC_ID: i32 = 2;
@@ -36,23 +36,29 @@ enum Error {
     #[snafu(display("unknown argument {argument}"))]
     UnknownArgument { argument: String },
 
-    #[snafu(display("failed to load Popgram configuration"))]
-    LoadConfiguration { source: popgram_config::Error },
+    #[snafu(display("failed to load Intuigram configuration"))]
+    LoadConfiguration { source: intuigram_config::Error },
 
     #[snafu(display("Telegram setting {setting} is required; configure it or use --demo"))]
     MissingTelegramSetting { setting: &'static str },
 
-    #[snafu(display("failed to open Popgram Account registry"))]
-    OpenAccountRegistry { source: popgram_store::GlobalError },
+    #[snafu(display("failed to open Intuigram Account registry"))]
+    OpenAccountRegistry {
+        source: intuigram_store::GlobalError,
+    },
 
-    #[snafu(display("failed to read Popgram Account registry"))]
-    ReadAccountRegistry { source: popgram_store::GlobalError },
+    #[snafu(display("failed to read Intuigram Account registry"))]
+    ReadAccountRegistry {
+        source: intuigram_store::GlobalError,
+    },
 
-    #[snafu(display("failed to update Popgram Account registry"))]
-    UpdateAccountRegistry { source: popgram_store::GlobalError },
+    #[snafu(display("failed to update Intuigram Account registry"))]
+    UpdateAccountRegistry {
+        source: intuigram_store::GlobalError,
+    },
 
-    #[snafu(display("failed to access Popgram Account database"))]
-    AccountDatabase { source: popgram_store::Error },
+    #[snafu(display("failed to access Intuigram Account database"))]
+    AccountDatabase { source: intuigram_store::Error },
 
     #[snafu(display("Account {} has no saved MTProto session", account.get()))]
     MissingSession { account: AccountId },
@@ -73,7 +79,7 @@ enum Error {
     Runtime { source: io::Error },
 
     #[snafu(display("Telegram operation failed"))]
-    Telegram { source: popgram_telegram::Error },
+    Telegram { source: intuigram_telegram::Error },
 
     #[snafu(display("failed to read {field} from the terminal"))]
     Prompt {
@@ -109,10 +115,10 @@ enum Error {
     UpdatesClosed,
 
     #[snafu(display("terminal UI failed"))]
-    Terminal { source: popgram_tui::Error },
+    Terminal { source: intuigram_tui::Error },
 
     #[snafu(display("application state owner failed"))]
-    StateOwner { source: popgram_app::Error },
+    StateOwner { source: intuigram_app::Error },
 
     #[snafu(display("application state owner panicked"))]
     StateOwnerPanicked,
@@ -222,17 +228,17 @@ impl ApplicationBackend for Backend {
 }
 
 trait ApplicationUi {
-    fn draw(&mut self, view: &popgram_app::View) -> popgram_tui::Result<()>;
+    fn draw(&mut self, view: &intuigram_app::View) -> intuigram_tui::Result<()>;
 
-    async fn next_event(&mut self, view: &popgram_app::View) -> popgram_tui::Result<UiEvent>;
+    async fn next_event(&mut self, view: &intuigram_app::View) -> intuigram_tui::Result<UiEvent>;
 }
 
 impl ApplicationUi for TerminalUi {
-    fn draw(&mut self, view: &popgram_app::View) -> popgram_tui::Result<()> {
+    fn draw(&mut self, view: &intuigram_app::View) -> intuigram_tui::Result<()> {
         Self::draw(self, view)
     }
 
-    async fn next_event(&mut self, view: &popgram_app::View) -> popgram_tui::Result<UiEvent> {
+    async fn next_event(&mut self, view: &intuigram_app::View) -> intuigram_tui::Result<UiEvent> {
         Self::next_event(self, view).await
     }
 }
@@ -247,7 +253,7 @@ fn main() {
 fn print_error_chain(error: &(dyn std::error::Error + 'static)) {
     for (depth, line) in error_lines(error).into_iter().enumerate() {
         if depth == 0 {
-            eprintln!("popgram: {line}");
+            eprintln!("intuigram: {line}");
         } else {
             eprintln!("  caused by: {line}");
         }
@@ -331,13 +337,13 @@ fn run() -> Result<()> {
 
 fn spawn_ui_worker(
     inputs: async_channel::Sender<Input>,
-    updates: async_channel::Receiver<popgram_app::Update>,
+    updates: async_channel::Receiver<intuigram_app::Update>,
     effects: async_channel::Sender<Effect>,
     shutdown: async_channel::Receiver<()>,
-    update: popgram_app::Update,
+    update: intuigram_app::Update,
 ) -> Result<JoinHandle<Result<()>>> {
     thread::Builder::new()
-        .name("popgram-tui".to_owned())
+        .name("intuigram-tui".to_owned())
         .spawn(move || {
             let runtime = compio::runtime::Runtime::new().context(RuntimeSnafu)?;
             let mut terminal = TerminalUi::enter().context(TerminalSnafu)?;
@@ -360,10 +366,10 @@ fn finish_ui_worker(worker: JoinHandle<Result<()>>) -> Result<()> {
 async fn run_ui_loop(
     terminal: &mut impl ApplicationUi,
     inputs: &async_channel::Sender<Input>,
-    updates: &async_channel::Receiver<popgram_app::Update>,
+    updates: &async_channel::Receiver<intuigram_app::Update>,
     effects: &async_channel::Sender<Effect>,
     shutdown: &async_channel::Receiver<()>,
-    mut update: popgram_app::Update,
+    mut update: intuigram_app::Update,
 ) -> Result<()> {
     loop {
         terminal.draw(&update.view).context(TerminalSnafu)?;
@@ -401,20 +407,20 @@ async fn run_ui_loop(
 }
 
 enum UiWake {
-    Event(popgram_tui::Result<UiEvent>),
-    Update(Box<std::result::Result<popgram_app::Update, async_channel::RecvError>>),
+    Event(intuigram_tui::Result<UiEvent>),
+    Update(Box<std::result::Result<intuigram_app::Update, async_channel::RecvError>>),
     Shutdown,
 }
 
 enum UpdateWake {
-    Update(Box<std::result::Result<popgram_app::Update, async_channel::RecvError>>),
+    Update(Box<std::result::Result<intuigram_app::Update, async_channel::RecvError>>),
     Shutdown,
 }
 
 async fn next_ui_wake(
     terminal: &mut impl ApplicationUi,
-    view: &popgram_app::View,
-    updates: &async_channel::Receiver<popgram_app::Update>,
+    view: &intuigram_app::View,
+    updates: &async_channel::Receiver<intuigram_app::Update>,
     shutdown: &async_channel::Receiver<()>,
 ) -> UiWake {
     futures_lite::future::race(
@@ -430,7 +436,7 @@ async fn next_ui_wake(
 }
 
 async fn next_update_or_shutdown(
-    updates: &async_channel::Receiver<popgram_app::Update>,
+    updates: &async_channel::Receiver<intuigram_app::Update>,
     shutdown: &async_channel::Receiver<()>,
 ) -> UpdateWake {
     futures_lite::future::race(
@@ -768,7 +774,7 @@ fn sign_in_with_delivered_code(
 fn sign_in_with_password(
     runtime: &compio::runtime::Runtime,
     client: &mut Client,
-    prompt: popgram_telegram::PasswordPrompt,
+    prompt: intuigram_telegram::PasswordPrompt,
 ) -> Result<AuthorizedUser> {
     if let Some(hint) = prompt.hint {
         println!("2FA password hint: {hint}");
@@ -978,14 +984,14 @@ fn platform_defaults(config_override: Option<PathBuf>) -> Result<PlatformDefault
             .context(MissingPlatformDirectorySnafu {
                 kind: "configuration",
             })?
-            .join("popgram"),
+            .join("intuigram"),
     };
     let data = dirs::data_dir()
         .context(MissingPlatformDirectorySnafu { kind: "data" })?
-        .join("popgram");
+        .join("intuigram");
     let cache = dirs::cache_dir()
         .context(MissingPlatformDirectorySnafu { kind: "cache" })?
-        .join("popgram");
+        .join("intuigram");
     let downloads =
         dirs::download_dir().context(MissingPlatformDirectorySnafu { kind: "downloads" })?;
     Ok(PlatformDefaults {
@@ -996,14 +1002,14 @@ fn platform_defaults(config_override: Option<PathBuf>) -> Result<PlatformDefault
     })
 }
 
-fn spawn_state_owner(channels: AppChannels) -> Result<JoinHandle<popgram_app::Result<()>>> {
+fn spawn_state_owner(channels: AppChannels) -> Result<JoinHandle<intuigram_app::Result<()>>> {
     thread::Builder::new()
-        .name("popgram-app".to_owned())
+        .name("intuigram-app".to_owned())
         .spawn(move || futures_lite::future::block_on(App::new().run(channels)))
         .context(SpawnStateOwnerSnafu)
 }
 
-fn finish_state_owner(worker: JoinHandle<popgram_app::Result<()>>) -> Result<()> {
+fn finish_state_owner(worker: JoinHandle<intuigram_app::Result<()>>) -> Result<()> {
     worker
         .join()
         .map_err(|_| Error::StateOwnerPanicked)?
@@ -1015,15 +1021,15 @@ fn send_input(sender: &async_channel::Sender<Input>, input: Input) -> Result<()>
 }
 
 fn recv_update(
-    receiver: &async_channel::Receiver<popgram_app::Update>,
-) -> Result<popgram_app::Update> {
+    receiver: &async_channel::Receiver<intuigram_app::Update>,
+) -> Result<intuigram_app::Update> {
     receiver.recv_blocking().map_err(|_| Error::UpdatesClosed)
 }
 
 fn print_help() {
     println!(
-        "Popgram terminal client\n\n\
-         Usage: popgram [OPTIONS]\n\n\
+        "Intuigram terminal client\n\n\
+         Usage: intuigram [OPTIONS]\n\n\
          Options:\n\
            --demo                  Run without Telegram credentials or network access\n\
            --config-dir PATH       Override the platform config directory\n\
@@ -1032,13 +1038,13 @@ fn print_help() {
            --downloads-dir PATH    Override the platform Downloads directory\n\
            -h, --help              Print this help\n\n\
          Configure telegram.api_id and telegram.api_hash in config.toml, YAML, JSON, or the\n\
-         POPGRAM_TELEGRAM__API_ID and POPGRAM_TELEGRAM__API_HASH environment variables."
+         INTUIGRAM_TELEGRAM__API_ID and INTUIGRAM_TELEGRAM__API_HASH environment variables."
     );
 }
 
 fn demo_data() -> Bootstrap {
     Bootstrap {
-        account_name: "Popgram Demo".to_owned(),
+        account_name: "Intuigram Demo".to_owned(),
         folders: vec![
             FolderView {
                 id: 0,
@@ -1060,13 +1066,13 @@ fn demo_data() -> Bootstrap {
             ChatView {
                 id: ChatId(100),
                 title: "Saved Messages".to_owned(),
-                preview: "Popgram design notes".to_owned(),
+                preview: "Intuigram design notes".to_owned(),
                 unread: 0,
                 pinned: true,
             },
             ChatView {
                 id: ChatId(101),
-                title: "Popgram Contributors".to_owned(),
+                title: "Intuigram Contributors".to_owned(),
                 preview: "The dense layout feels right.".to_owned(),
                 unread: 3,
                 pinned: true,
@@ -1087,7 +1093,7 @@ fn demo_messages() -> Vec<MessageView> {
     vec![
         MessageView {
             id: MessageId(1),
-            sender: "Popgram".to_owned(),
+            sender: "Intuigram".to_owned(),
             body: "Welcome. This is the live terminal UI, backed by the single-owner app loop."
                 .to_owned(),
             timestamp: "09:41".to_owned(),
@@ -1106,7 +1112,7 @@ fn demo_messages() -> Vec<MessageView> {
         },
         MessageView {
             id: MessageId(3),
-            sender: "Popgram".to_owned(),
+            sender: "Intuigram".to_owned(),
             body: "Press ? for exhaustive context help. Type or paste in any open Chat.".to_owned(),
             timestamp: "09:43".to_owned(),
             direction: MessageDirection::Incoming,
@@ -1124,9 +1130,9 @@ mod tests {
     use std::sync::mpsc;
     use std::time::Duration;
 
-    use popgram_app::{Action, ChatId, Effect, Intent, MessageId, MessageView, bounded_channels};
-    use popgram_telegram::{LoginCodeDelivery, LoginCodeDeliveryMethod};
-    use popgram_tui::UiEvent;
+    use intuigram_app::{Action, ChatId, Effect, Intent, MessageId, MessageView, bounded_channels};
+    use intuigram_telegram::{LoginCodeDelivery, LoginCodeDeliveryMethod};
+    use intuigram_tui::UiEvent;
 
     use super::{
         ApplicationBackend, ApplicationUi, Error, PRIMARY_DC_ENDPOINT, Result, error_lines,
@@ -1166,11 +1172,14 @@ mod tests {
     }
 
     impl ApplicationUi for QuitUi {
-        fn draw(&mut self, _view: &popgram_app::View) -> popgram_tui::Result<()> {
+        fn draw(&mut self, _view: &intuigram_app::View) -> intuigram_tui::Result<()> {
             Ok(())
         }
 
-        async fn next_event(&mut self, _view: &popgram_app::View) -> popgram_tui::Result<UiEvent> {
+        async fn next_event(
+            &mut self,
+            _view: &intuigram_app::View,
+        ) -> intuigram_tui::Result<UiEvent> {
             self.read
                 .send(())
                 .expect("test should observe terminal input polling");
@@ -1303,20 +1312,20 @@ mod tests {
         let parsed = parse_arguments([
             "--demo".to_owned(),
             "--data-dir".to_owned(),
-            "/tmp/popgram-data".to_owned(),
+            "/tmp/intuigram-data".to_owned(),
             "--cache-dir".to_owned(),
-            "/tmp/popgram-cache".to_owned(),
+            "/tmp/intuigram-cache".to_owned(),
         ])
         .expect("valid command line should parse");
 
         assert!(parsed.demo);
         assert_eq!(
             parsed.data.expect("data override should exist"),
-            PathBuf::from("/tmp/popgram-data")
+            PathBuf::from("/tmp/intuigram-data")
         );
         assert_eq!(
             parsed.cache.expect("cache override should exist"),
-            PathBuf::from("/tmp/popgram-cache")
+            PathBuf::from("/tmp/intuigram-cache")
         );
     }
 

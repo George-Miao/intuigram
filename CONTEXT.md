@@ -1,6 +1,6 @@
-# Popgram
+# Intuigram
 
-Popgram is a terminal interface for using Telegram fluently as a primary client.
+Intuigram is a terminal interface for using Telegram fluently as a primary client.
 
 ## Language
 
@@ -41,7 +41,7 @@ A Chat whose peer is a human user, bot, or the current Account itself.
 _Avoid_: Direct Message when referring to the Chat itself
 
 **Secret Chat**:
-A device-specific, end-to-end encrypted Telegram conversation that is not part of the Telegram cloud. Secret Chats are explicitly outside Popgram's Daily Driver promise; they must not be represented as ordinary Private Chats or partially implemented without a complete, reviewed security design.
+A device-specific, end-to-end encrypted Telegram conversation that is not part of the Telegram cloud. Secret Chats are explicitly outside Intuigram's Daily Driver promise; they must not be represented as ordinary Private Chats or partially implemented without a complete, reviewed security design.
 _Avoid_: Private Chat, cloud Chat, encrypted-at-rest Chat
 
 **Basic Group**:
@@ -73,15 +73,15 @@ A Telegram user identity, identified in storage by its unique Telegram user ID.
 _Avoid_: Local UUID, profile
 
 **Read State**:
-Telegram's acknowledgement that incoming Messages have been seen. Popgram advances Read State only when the Chat has focus and its newest Message is visible, not when the Chat is selected, previewed, or synchronized.
+Telegram's acknowledgement that incoming Messages have been seen. Intuigram advances Read State only when the Chat has focus and its newest Message is visible, not when the Chat is selected, previewed, or synchronized.
 _Avoid_: Loaded state, selected state
 
 **Notification**:
-An operating-system alert for an incoming Message outside the focused Chat, subject to Telegram mute settings and Popgram's privacy preference. A terminal bell is the fallback when desktop integration is unavailable.
+An operating-system alert for an incoming Message outside the focused Chat, subject to Telegram mute settings and Intuigram's privacy preference. A terminal bell is the fallback when desktop integration is unavailable.
 _Avoid_: In-app status message
 
 **Unsupported Content**:
-Message content that Popgram cannot present natively but still represents with an explicit, informative placeholder.
+Message content that Intuigram cannot present natively but still represents with an explicit, informative placeholder.
 _Avoid_: Empty message, omitted message
 
 **Media Card**:
@@ -121,7 +121,7 @@ The local representation of Telegram data that is immediately usable at startup 
 _Avoid_: Offline snapshot, manual refresh
 
 **Local Record**:
-Durable Account data that Popgram retains until the user explicitly clears Account data or logs out, including synchronized Chat metadata, Message text, Drafts, Draft History, search data, and operation state.
+Durable Account data that Intuigram retains until the user explicitly clears Account data or logs out, including synchronized Chat metadata, Message text, Drafts, Draft History, search data, and operation state.
 _Avoid_: Media Cache, temporary file
 
 **Media Cache**:
@@ -141,15 +141,15 @@ A destructive deletion of an Account's local session, Local Records, and Media C
 _Avoid_: Logout, clear media cache
 
 **Rebuild Cache**:
-An explicit recovery operation that replaces only redownloadable synchronized Account data while preserving authorization, Drafts, Draft History, configuration, and other unique Local Records. If preservation cannot be guaranteed, Popgram must require export or explicit abandonment instead of presenting the operation as a safe rebuild.
+An explicit recovery operation that replaces only redownloadable synchronized Account data while preserving authorization, Drafts, Draft History, configuration, and other unique Local Records. If preservation cannot be guaranteed, Intuigram must require export or explicit abandonment instead of presenting the operation as a safe rebuild.
 _Avoid_: Delete Account, Logout, automatic database recreation
 
 **Reconnect Cooldown**:
-A disconnected state in which automatic reconnection is deliberately paused after unsuccessful attempts. Only in this state does Popgram offer an explicit Reconnect action.
+A disconnected state in which automatic reconnection is deliberately paused after unsuccessful attempts. Only in this state does Intuigram offer an explicit Reconnect action.
 _Avoid_: Any transient connection loss
 
 **Pending Action**:
-An optimistic Telegram operation accepted while Popgram is running but not yet acknowledged by Telegram. It remains visibly pending and is retried automatically after reconnection, but is not promised to survive process exit or a crash.
+An optimistic Telegram operation accepted while Intuigram is running but not yet acknowledged by Telegram. It remains visibly pending and is retried automatically after reconnection, but is not promised to survive process exit or a crash.
 _Avoid_: Draft, durable Outbox, completed action
 
 **Outbox**:
@@ -157,7 +157,7 @@ A future durable record of Pending Actions that survives process exit and preser
 _Avoid_: Draft, in-memory request queue
 
 **Scheduled Message**:
-A Message submitted to Telegram for future delivery at a specified time or, where supported, when the recipient is online. It is managed through a Chat's scheduled-message history and survives Popgram exiting.
+A Message submitted to Telegram for future delivery at a specified time or, where supported, when the recipient is online. It is managed through a Chat's scheduled-message history and survives Intuigram exiting.
 _Avoid_: Draft, Pending Action, Outbox item
 
 **Current Action**:

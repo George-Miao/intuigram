@@ -1,10 +1,10 @@
-# Popgram repository guidance
+# Intuigram repository guidance
 
 Keep this file accurate when the repository structure, toolchain, architecture, or required checks change. Communicate with the user in English.
 
 ## Project direction
 
-Popgram is a fluent, configurable Telegram terminal client intended to become a Daily Driver. It uses a dense, adaptive interface inspired by Telegram Desktop and k9s. Important context-sensitive actions and their effective keys remain visible on screen.
+Intuigram is a fluent, configurable Telegram terminal client intended to become a Daily Driver. It uses a dense, adaptive interface inspired by Telegram Desktop and k9s. Important context-sensitive actions and their effective keys remain visible on screen.
 
 The current root Rust package and `src/` tree are a disposable proof of concept. Do not preserve their architecture, behavior, dependencies, or compatibility unless a current design document explicitly requires it. In particular, manual refresh, text-only scope, keyboard modes, and the existing high-level grammers integration are obsolete.
 
@@ -22,24 +22,24 @@ Treat these documents as the current source of truth over `README.md` and the pr
 
 The target is a virtual Cargo workspace. Every package belongs under `crates/`.
 
-- `crates/popgram`: executable and adapter composition.
-- `crates/popgram-app`: sole owner of application state, transitions, user intents, adapter events, and read-only view data.
-- `crates/popgram-tui`: terminal input, adaptive layout, and rendering.
-- `crates/popgram-telegram`: Telegram login, synchronization, raw requests, update reconciliation, and translation to Popgram-owned data.
-- `crates/popgram-store`: durable application records, migrations, backups, and recovery.
-- `crates/popgram-media`: media transfer, cache policy, and media lifecycle.
-- `crates/popgram-config`: layered Figment configuration.
+- `crates/intuigram`: executable and adapter composition.
+- `crates/intuigram-app`: sole owner of application state, transitions, user intents, adapter events, and read-only view data.
+- `crates/intuigram-tui`: terminal input, adaptive layout, and rendering.
+- `crates/intuigram-telegram`: Telegram login, synchronization, raw requests, update reconciliation, and translation to Intuigram-owned data.
+- `crates/intuigram-store`: durable application records, migrations, backups, and recovery.
+- `crates/intuigram-media`: media transfer, cache policy, and media lifecycle.
+- `crates/intuigram-config`: layered Figment configuration.
 - `crates/compio-mtproto`: reusable Compio-based MTProto connection, session, invocation, and update-stream library.
 - `crates/compio-term`: experimental reusable Compio-native terminal event readiness; keep its API explicitly unstable until the Windows backend and cross-platform behavior are resolved.
 - `crates/rich-clipboard`: reusable native clipboard-content library.
 
-Use `popgram-*` for Popgram-specific crates. Give genuinely reusable crates independent names. Do not create a crate merely to group related types. A crate must hide meaningful behavior behind a small interface at a demonstrated seam.
+Use `intuigram-*` for Intuigram-specific crates. Give genuinely reusable crates independent names. Do not create a crate merely to group related types. A crate must hide meaningful behavior behind a small interface at a demonstrated seam.
 
-Dependencies point toward `popgram-app`; the `popgram` executable composes adapters. Keep adapter-specific values out of `popgram-app`, including ratatui widgets, Telegram TL constructors, SQLite rows, and platform clipboard types. Avoid dependency cycles and shared catch-all type crates.
+Dependencies point toward `intuigram-app`; the `intuigram` executable composes adapters. Keep adapter-specific values out of `intuigram-app`, including ratatui widgets, Telegram TL constructors, SQLite rows, and platform clipboard types. Avoid dependency cycles and shared catch-all type crates.
 
 ## State and concurrency
 
-- One asynchronous `popgram-app` task exclusively owns mutable application state.
+- One asynchronous `intuigram-app` task exclusively owns mutable application state.
 - TUI input and adapters communicate with it through bounded, typed channels.
 - Terminal input and rendering must remain responsive while adapter effects are pending. Never execute Telegram, database, media, clipboard, notification, or platform work synchronously in the terminal event loop.
 - The TUI renders immutable snapshots or deltas.
@@ -50,29 +50,29 @@ Dependencies point toward `popgram-app`; the `popgram` executable composes adapt
 ## Telegram and runtime
 
 - Do not use `grammers-client`, `grammers-mtsender`, or `grammers-session` in the target architecture.
-- Build raw Telegram behavior in `popgram-telegram` on the small `compio-mtproto` interface.
+- Build raw Telegram behavior in `intuigram-telegram` on the small `compio-mtproto` interface.
 - Initially retain mature low-level grammers crates for generated TL types, MTProto codecs, and cryptographic primitives. Do not rewrite cryptography or TL generation without a separate reviewed decision.
-- Use grammers' sender implementation as a behavioral reference for protocol state transitions, acknowledgements, retries, reconnection, data-center handling, and edge cases. Do not copy its Tokio-specific interface into Popgram.
+- Use grammers' sender implementation as a behavioral reference for protocol state transitions, acknowledgements, retries, reconnection, data-center handling, and edge cases. Do not copy its Tokio-specific interface into Intuigram.
 - Use Compio owned-buffer I/O for the transport. Do not hide Compio behind Tokio `AsyncRead` or `AsyncWrite` compatibility that defeats completion-based I/O.
 - Direct Telegram TCP transport is p-core. Keep the transport seam ready for p-high SOCKS5, HTTP CONNECT, and MTProxy adapters.
-- Telegram TL values must be normalized into Popgram-owned data before crossing into `popgram-app` or persistence.
+- Telegram TL values must be normalized into Intuigram-owned data before crossing into `intuigram-app` or persistence.
 - Unknown or newly introduced Telegram constructors must remain synchronizable and appear as Unsupported Content rather than being dropped or crashing the update loop.
 
 ## Persistence and filesystem
 
-Use `rusqlite` and Refinery behind `popgram-store`. Run blocking SQLite work on a dedicated database thread rather than an asynchronous executor thread.
+Use `rusqlite` and Refinery behind `intuigram-store`. Run blocking SQLite work on a dedicated database thread rather than an asynchronous executor thread.
 
 Use the platform config, data, cache, and download directories. The logical layout is:
 
 ```text
-<config>/popgram/config.toml
+<config>/intuigram/config.toml
 
-<data>/popgram/global.db
-<data>/popgram/.pending.db
-<data>/popgram/<telegram-user-id>.db
+<data>/intuigram/global.db
+<data>/intuigram/.pending.db
+<data>/intuigram/<telegram-user-id>.db
 
-<cache>/popgram/<telegram-user-id>/media/
-<cache>/popgram/<telegram-user-id>/thumbnails/
+<cache>/intuigram/<telegram-user-id>/media/
+<cache>/intuigram/<telegram-user-id>/thumbnails/
 ```
 
 Figment may also load YAML, JSON, environment, and command-line sources. Do not store user configuration in SQLite merely because a global database exists.
@@ -129,7 +129,7 @@ Test modules through the same interfaces callers use. Prefer deterministic tests
 
 Required coverage includes:
 
-- `popgram-app` state transitions and event ordering.
+- `intuigram-app` state transitions and event ordering.
 - MTProto framing, acknowledgement, retry, reconnection, salt, sequence, and data-center behavior using deterministic fixtures and a fake transport.
 - Storage migrations from every released schema, backup/recovery behavior, transaction rollback, and cursor/data atomicity.
 - Telegram constructor normalization, including fixtures for unknown constructors.

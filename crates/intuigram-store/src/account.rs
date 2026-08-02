@@ -386,7 +386,7 @@ impl AccountDatabase {
         let (commands, requests) = mpsc::sync_channel(32);
         let (ready, initialized) = mpsc::sync_channel(1);
         let worker = thread::Builder::new()
-            .name("popgram-account-db".to_owned())
+            .name("intuigram-account-db".to_owned())
             .spawn(move || run_worker(&path, create, &requests, &ready))
             .context(SpawnWorkerSnafu)?;
         initialized.recv().map_err(|_| Error::WorkerUnavailable)??;
@@ -693,7 +693,7 @@ mod tests {
     #[test]
     fn pending_login_is_promoted_to_a_persistent_account_database() {
         let temporary = tempdir().expect("temporary directory should be created");
-        let layout = StoreLayout::new(temporary.path().join("popgram"));
+        let layout = StoreLayout::new(temporary.path().join("intuigram"));
         let account = AccountId::new(4_242).expect("fixture ID should be positive");
 
         let pending =
@@ -722,7 +722,7 @@ mod tests {
     #[test]
     fn mtproto_session_round_trips_without_appearing_in_debug_output() {
         let temporary = tempdir().expect("temporary directory should be created");
-        let layout = StoreLayout::new(temporary.path().join("popgram"));
+        let layout = StoreLayout::new(temporary.path().join("intuigram"));
         let database =
             AccountDatabase::begin_login(&layout).expect("pending login database should open");
         let session = SessionMaterial::new(2, "149.154.167.40:443".to_owned(), [0xa5; 256], -2, 42);
@@ -742,7 +742,7 @@ mod tests {
     #[test]
     fn opening_a_missing_account_does_not_create_a_database() {
         let temporary = tempdir().expect("temporary directory should be created");
-        let layout = StoreLayout::new(temporary.path().join("popgram"));
+        let layout = StoreLayout::new(temporary.path().join("intuigram"));
         let account = AccountId::new(7).expect("fixture ID should be positive");
 
         assert!(AccountDatabase::open(&layout, account).is_err());
@@ -752,7 +752,7 @@ mod tests {
     #[test]
     fn promotion_never_replaces_an_existing_account_database() {
         let temporary = tempdir().expect("temporary directory should be created");
-        let layout = StoreLayout::new(temporary.path().join("popgram"));
+        let layout = StoreLayout::new(temporary.path().join("intuigram"));
         fs::create_dir_all(layout.data_directory()).expect("data directory should be created");
         let account = AccountId::new(8).expect("fixture ID should be positive");
         let target = layout.account_database(account);
@@ -772,7 +772,7 @@ mod tests {
     #[test]
     fn an_existing_unmigrated_database_is_backed_up_before_migration() {
         let temporary = tempdir().expect("temporary directory should be created");
-        let layout = StoreLayout::new(temporary.path().join("popgram"));
+        let layout = StoreLayout::new(temporary.path().join("intuigram"));
         fs::create_dir_all(layout.data_directory()).expect("data directory should be created");
         let pending_path = layout.pending_database();
         let connection = Connection::open(&pending_path).expect("fixture database should open");

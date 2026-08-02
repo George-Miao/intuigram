@@ -1,4 +1,4 @@
-//! Durable, account-isolated storage for Popgram.
+//! Durable, account-isolated storage for Intuigram.
 
 mod account;
 mod global;

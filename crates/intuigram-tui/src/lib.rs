@@ -11,7 +11,9 @@ use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
 use futures_util::StreamExt;
-use popgram_app::{Action, ConnectionState, DeliveryState, Focus, Intent, MessageDirection, View};
+use intuigram_app::{
+    Action, ConnectionState, DeliveryState, Focus, Intent, MessageDirection, View,
+};
 use qrcode::render::unicode::Dense1x2;
 use qrcode::types::Color as QrColor;
 use qrcode::{EcLevel, QrCode};
@@ -374,7 +376,7 @@ pub enum QrLoginAction {
     /// Fall back to phone-number authentication.
     PhoneLogin,
 
-    /// Abort Popgram startup.
+    /// Abort Intuigram startup.
     Cancel,
 }
 
@@ -601,7 +603,7 @@ fn render_qr_login(frame: &mut Frame<'_>, qr: &QrLoginSymbols, expires_in: u64) 
     frame.render_widget(
         Paragraph::new(vec![
             Line::from(Span::styled(
-                "Link Popgram to Telegram",
+                "Link Intuigram to Telegram",
                 Style::default().add_modifier(Modifier::BOLD),
             )),
             Line::from("Scan in Telegram: Settings → Devices → Link Desktop Device"),
@@ -1023,7 +1025,7 @@ fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
 #[cfg(test)]
 mod tests {
     use crossterm::event::{Event, KeyCode as CrosstermKey, KeyEvent, KeyEventKind, KeyModifiers};
-    use popgram_app::{
+    use intuigram_app::{
         Action, ChatId, ChatView, ComposerView, ConnectionState, DeliveryState, Focus, FolderView,
         MessageDirection, MessageId, MessageView, SearchView, View,
     };
@@ -1151,11 +1153,13 @@ mod tests {
                     KeyEventKind::Press,
                 )),
             ),
-            Some(UiEvent::Intent(popgram_app::Intent::Action(Action::Search)))
+            Some(UiEvent::Intent(intuigram_app::Intent::Action(
+                Action::Search
+            )))
         );
         assert_eq!(
             resolve_event(&keymap, &view, Event::Paste("hello".to_owned())),
-            Some(UiEvent::Intent(popgram_app::Intent::Insert(
+            Some(UiEvent::Intent(intuigram_app::Intent::Insert(
                 "hello".to_owned()
             )))
         );
@@ -1180,7 +1184,7 @@ mod tests {
         }];
         view.chats = vec![ChatView {
             id: ChatId(10),
-            title: "Popgram".to_owned(),
+            title: "Intuigram".to_owned(),
             preview: "daily driver".to_owned(),
             unread: 1,
             pinned: true,

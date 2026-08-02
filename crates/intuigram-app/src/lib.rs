@@ -1,4 +1,4 @@
-//! Deterministic, single-owner application state for Popgram.
+//! Deterministic, single-owner application state for Intuigram.
 
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
@@ -135,7 +135,7 @@ pub struct SearchView {
 /// Context-sensitive actions shown by every user interface.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Action {
-    /// Exit Popgram cleanly.
+    /// Exit Intuigram cleanly.
     Quit,
     /// Open exhaustive context help.
     Help,
@@ -346,7 +346,7 @@ impl App {
         Self {
             view: View {
                 connection: ConnectionState::Connecting,
-                account_name: "Popgram".to_owned(),
+                account_name: "Intuigram".to_owned(),
                 folders: Vec::new(),
                 active_folder: 0,
                 chats: Vec::new(),
@@ -772,7 +772,7 @@ mod tests {
             }],
             chats: vec![ChatView {
                 id: ChatId(10),
-                title: "Popgram".to_owned(),
+                title: "Intuigram".to_owned(),
                 preview: "daily driver".to_owned(),
                 unread: 2,
                 pinned: true,

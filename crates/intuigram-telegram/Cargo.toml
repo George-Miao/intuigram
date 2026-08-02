@@ -1,5 +1,5 @@
 [package]
-name = "popgram-telegram"
+name = "intuigram-telegram"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,7 +11,7 @@ compio = { version = "0.19.1", default-features = false, features = ["time"] }
 grammers-crypto.workspace = true
 grammers-tl-types.workspace = true
 getrandom = { workspace = true, features = ["std"] }
-popgram-app = { path = "../popgram-app" }
+intuigram-app = { path = "../intuigram-app" }
 snafu.workspace = true
 time = { workspace = true, features = ["local-offset"] }
 

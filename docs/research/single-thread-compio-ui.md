@@ -4,13 +4,13 @@ Research snapshot: 2026-08-02
 
 ## Question
 
-Can Popgram represent the TUI as a future and run it cooperatively with the
+Can Intuigram represent the TUI as a future and run it cooperatively with the
 application-state owner and Telegram I/O on one Compio 0.19.1 runtime thread,
 in the style of Winio?
 
 ## Conclusion
 
-Yes. This is a good fit for Popgram, with one important qualification: putting
+Yes. This is a good fit for Intuigram, with one important qualification: putting
 several futures on one runtime only creates concurrency when every future
 returns `Poll::Pending` promptly instead of blocking the thread. The TUI can be
 a long-lived future, terminal input must suspend on Compio readiness, and
@@ -23,7 +23,7 @@ can be issued on the GUI thread without blocking the interface. Its example
 passes a root component future to `App::block_on`, and its component's event
 listener is an async function
 ([Winio README](https://github.com/compio-rs/winio#readme),
-[Winio crate docs](https://docs.rs/winio/latest/winio/)). Popgram can use the
+[Winio crate docs](https://docs.rs/winio/latest/winio/)). Intuigram can use the
 same broad arrangement while retaining its own typed channels and immutable
 view snapshots.
 
@@ -64,7 +64,7 @@ root supervisor future
 ├── TUI task
 │   ├── synchronously render the newest immutable View
 │   └── await the Compio terminal stream, View changes, or shutdown
-├── popgram-app state-owner task
+├── intuigram-app state-owner task
 │   └── select typed Intents and AdapterEvents; emit Views and Effects
 ├── Telegram connection actor
 │   ├── own Client / MTProto connection state
@@ -145,7 +145,7 @@ The current Telegram API cannot become concurrent merely by spawning several
 call futures. `Client` methods take `&mut self`, and
 `EncryptedConnection::invoke` sends one request then reads until that request's
 result arrives
-([current client](../../crates/popgram-telegram/src/lib.rs),
+([current client](../../crates/intuigram-telegram/src/lib.rs),
 [current sender](../../crates/compio-mtproto/src/sender.rs)). This correctly
 serializes RPCs while still allowing UI responsiveness. True overlapping RPCs
 requires the planned connection actor to:
@@ -166,7 +166,7 @@ and its cancellation metadata should have a clean waker path rather than a
 sub-executor
 ([spawn](https://docs.rs/compio/0.19.1/compio/runtime/fn.spawn.html),
 [`FutureExt`](https://docs.rs/compio/0.19.1/compio/runtime/trait.FutureExt.html)).
-Popgram should therefore own every long-lived task handle and use explicit
+Intuigram should therefore own every long-lived task handle and use explicit
 shutdown messages and deadlines. Dropping a task or an in-flight completion I/O
 future must not be treated as proof that a Telegram operation was not sent.
 
@@ -201,7 +201,7 @@ preempt a future that parses an unbounded update batch or renders indefinitely.
    Only after this is stable, prototype request correlation for overlapping RPCs.
 
 If this prototype passes, replace the current OS-thread composition in
-`crates/popgram/src/main.rs` and update the single-writer ADR. The likely result
+`crates/intuigram/src/main.rs` and update the single-writer ADR. The likely result
 is a simpler and more faithful Compio architecture: one cooperative runtime
 thread for UI, app state, and network actors, plus the deliberately blocking
 database thread.

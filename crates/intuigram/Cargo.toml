@@ -1,5 +1,5 @@
 [package]
-name = "popgram"
+name = "intuigram"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,11 +9,11 @@ async-channel.workspace = true
 compio = { version = "0.19.1", default-features = false, features = ["runtime"] }
 dirs.workspace = true
 futures-lite.workspace = true
-popgram-app = { path = "../popgram-app" }
-popgram-config = { path = "../popgram-config" }
-popgram-store = { path = "../popgram-store" }
-popgram-telegram = { path = "../popgram-telegram" }
-popgram-tui = { path = "../popgram-tui" }
+intuigram-app = { path = "../intuigram-app" }
+intuigram-config = { path = "../intuigram-config" }
+intuigram-store = { path = "../intuigram-store" }
+intuigram-telegram = { path = "../intuigram-telegram" }
+intuigram-tui = { path = "../intuigram-tui" }
 rpassword.workspace = true
 snafu.workspace = true
 

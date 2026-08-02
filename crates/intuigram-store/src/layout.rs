@@ -18,14 +18,15 @@ impl AccountId {
     }
 }
 
-/// Resolves Popgram's durable database paths.
+/// Resolves Intuigram's durable database paths.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StoreLayout {
     data: PathBuf,
 }
 
 impl StoreLayout {
-    /// Creates a layout rooted at the platform-specific Popgram data directory.
+    /// Creates a layout rooted at the platform-specific Intuigram data
+    /// directory.
     #[must_use]
     pub fn new(data: impl Into<PathBuf>) -> Self {
         Self { data: data.into() }

@@ -1,5 +1,5 @@
 [package]
-name = "popgram-app"
+name = "intuigram-app"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

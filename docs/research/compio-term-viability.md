@@ -96,7 +96,7 @@ Expose one small, single-consumer `EventStream` wrapper. Its concrete shape is
 `FusedStream`, while `sys::unix` owns `PollFd`, signals, and platform
 descriptors. Mutable stream polling makes exclusive event ownership visible and
 prevents concurrent waiters from racing the terminal queue. Initially return
-Crossterm's public event types so Popgram and Ratatui integration do not need
+Crossterm's public event types so Intuigram and Ratatui integration do not need
 another translation layer
 ([public event model](https://github.com/crossterm-rs/crossterm/blob/a2a4523ddd37dcbd7e17bda973efbca3e5ad6125/src/event.rs)).
 

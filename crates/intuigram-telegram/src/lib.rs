@@ -1,4 +1,4 @@
-//! Telegram API orchestration and Popgram-owned normalization.
+//! Telegram API orchestration and Intuigram-owned normalization.
 
 use std::collections::HashMap;
 use std::fmt;
@@ -13,7 +13,7 @@ use compio_mtproto::{
 use grammers_crypto::two_factor_auth::{calculate_2fa, check_p_and_g};
 use grammers_tl_types as tl;
 use grammers_tl_types::Deserializable as _;
-use popgram_app::{
+use intuigram_app::{
     Bootstrap, ChatId, ChatView, DeliveryState, FolderView, MessageDirection, MessageId,
     MessageView,
 };
@@ -141,7 +141,7 @@ pub struct PasswordPrompt {
     pub hint: Option<String>,
 }
 
-/// Popgram-owned identity returned after authentication.
+/// Intuigram-owned identity returned after authentication.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AuthorizedUser {
     /// Stable Telegram user ID.
@@ -332,7 +332,7 @@ pub enum Error {
     /// The requested Chat is not present in the current Telegram peer cache.
     #[snafu(display("Telegram peer for Chat {chat_id} is unavailable"))]
     PeerUnavailable {
-        /// Popgram Chat identifier.
+        /// Intuigram Chat identifier.
         chat_id: i64,
     },
 
@@ -343,10 +343,10 @@ pub enum Error {
         source: getrandom::Error,
     },
 
-    /// A Popgram Message ID could not be represented by Telegram's API.
+    /// A Intuigram Message ID could not be represented by Telegram's API.
     #[snafu(display("Message ID {message_id} is outside Telegram's signed 32-bit domain"))]
     InvalidMessageId {
-        /// Invalid Popgram Message ID.
+        /// Invalid Intuigram Message ID.
         message_id: i64,
     },
 
@@ -357,7 +357,7 @@ pub enum Error {
         dc_id: i32,
     },
 
-    /// Popgram connected to Telegram's isolated test environment.
+    /// Intuigram connected to Telegram's isolated test environment.
     #[snafu(display("connected to a Telegram test data center instead of production"))]
     TestDataCenter,
 }
@@ -383,7 +383,7 @@ impl Error {
     }
 }
 
-/// Sequential Telegram API client built on Popgram's Compio `MTProto` sender.
+/// Sequential Telegram API client built on Intuigram's Compio `MTProto` sender.
 pub struct Client {
     connection: EncryptedConnection,
     credentials: ApplicationCredentials,

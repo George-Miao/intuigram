@@ -21,7 +21,7 @@ pub struct AccountRecord {
     pub id: AccountId,
     /// Last synchronized display name.
     pub display_name: String,
-    /// Whether Popgram should open this Account at startup.
+    /// Whether Intuigram should open this Account at startup.
     pub active: bool,
 }
 
@@ -202,7 +202,7 @@ impl GlobalDatabase {
         let (commands, requests) = mpsc::sync_channel(32);
         let (ready, initialized) = mpsc::sync_channel(1);
         let worker = thread::Builder::new()
-            .name("popgram-global-db".to_owned())
+            .name("intuigram-global-db".to_owned())
             .spawn(move || run_worker(&path, &requests, &ready))
             .context(SpawnWorkerSnafu)?;
         initialized.recv().map_err(|_| Error::WorkerUnavailable)??;
@@ -471,7 +471,7 @@ mod tests {
     #[test]
     fn account_registry_persists_one_active_account() {
         let temporary = tempdir().expect("temporary directory should be created");
-        let layout = StoreLayout::new(temporary.path().join("popgram"));
+        let layout = StoreLayout::new(temporary.path().join("intuigram"));
         let first = AccountId::new(11).expect("fixture ID should be positive");
         let second = AccountId::new(22).expect("fixture ID should be positive");
         let database = GlobalDatabase::open(&layout).expect("global database should open");
@@ -503,7 +503,7 @@ mod tests {
     #[test]
     fn an_existing_global_database_is_backed_up_before_migration() {
         let temporary = tempdir().expect("temporary directory should be created");
-        let layout = StoreLayout::new(temporary.path().join("popgram"));
+        let layout = StoreLayout::new(temporary.path().join("intuigram"));
         fs::create_dir_all(layout.data_directory()).expect("data directory should be created");
         let path = layout.global_database();
         let connection = Connection::open(&path).expect("fixture database should open");

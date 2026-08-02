@@ -1,4 +1,4 @@
-//! Layered configuration for Popgram.
+//! Layered configuration for Intuigram.
 
 use std::path::PathBuf;
 use std::{fmt, ops};
@@ -15,7 +15,7 @@ const DEFAULT_MEDIA_CACHE_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 #[snafu(visibility(pub))]
 pub enum Error {
     /// A configured source could not be merged or deserialized.
-    #[snafu(display("failed to resolve Popgram configuration"))]
+    #[snafu(display("failed to resolve Intuigram configuration"))]
     Resolve {
         /// Underlying Figment failure.
         #[snafu(source(from(figment::Error, Box::new)))]
@@ -26,10 +26,10 @@ pub enum Error {
 /// Result returned by configuration operations.
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
-/// Fully resolved Popgram configuration.
+/// Fully resolved Intuigram configuration.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct Config {
-    /// Filesystem locations used by Popgram.
+    /// Filesystem locations used by Intuigram.
     pub paths: Paths,
     /// Media cache policy.
     pub media: Media,
@@ -37,7 +37,7 @@ pub struct Config {
     pub telegram: Telegram,
 }
 
-/// Telegram settings supplied by the user rather than embedded in Popgram.
+/// Telegram settings supplied by the user rather than embedded in Intuigram.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
 pub struct Telegram {
     /// Telegram application ID from my.telegram.org.
@@ -75,7 +75,7 @@ impl ops::Deref for ApiHash {
     }
 }
 
-/// Filesystem locations used by Popgram.
+/// Filesystem locations used by Intuigram.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct Paths {
     /// Directory containing durable databases.
@@ -143,7 +143,7 @@ struct MediaOverrides {
     cache_bytes: Option<u64>,
 }
 
-/// Loads layered Popgram configuration.
+/// Loads layered Intuigram configuration.
 pub struct ConfigLoader {
     defaults: PlatformDefaults,
     environment: bool,
@@ -199,7 +199,7 @@ impl ConfigLoader {
             .merge(Yaml::file(self.defaults.config.join("config.yml")))
             .merge(Json::file(self.defaults.config.join("config.json")));
         if self.environment {
-            figment = figment.merge(Env::prefixed("POPGRAM_").split("__"));
+            figment = figment.merge(Env::prefixed("INTUIGRAM_").split("__"));
         }
         let overrides = OverrideSource {
             paths: PathOverrides {
