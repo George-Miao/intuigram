@@ -2,6 +2,8 @@
 
 use std::fmt::Write as _;
 use std::io::{self, Stdout};
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 use compio_term::EventStream;
@@ -13,7 +15,7 @@ use crossterm::execute;
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
-use futures_util::StreamExt;
+use futures_util::{Stream, StreamExt};
 use intuigram_app::{
     Action, ConnectionState, DeliveryState, Focus, Intent, MessageDirection, View,
 };
@@ -481,17 +483,14 @@ impl Drop for QrLoginUi {
 pub struct TerminalUi {
     terminal: Terminal<CrosstermBackend<Stdout>>,
     keymap: EffectiveKeymap,
-    events: EventStream,
 }
 
 impl TerminalUi {
     /// Enters raw mode and the alternate screen.
     pub fn enter() -> Result<Self> {
-        let events = EventStream::new().context(InitializeEventStreamSnafu)?;
         Ok(Self {
             terminal: enter_terminal()?,
             keymap: EffectiveKeymap::defaults(),
-            events,
         })
     }
 
@@ -504,18 +503,44 @@ impl TerminalUi {
         Ok(())
     }
 
-    /// Waits asynchronously for one application-relevant terminal event.
-    pub async fn next_event(&mut self, view: &View) -> Result<UiEvent> {
-        loop {
-            let event = self
-                .events
-                .next()
-                .await
-                .context(EventStreamClosedSnafu)?
-                .context(StreamEventSnafu)?;
-            if let Some(event) = resolve_event(&self.keymap, view, event) {
-                return Ok(event);
-            }
+    /// Resolves a raw terminal event against the latest application view.
+    #[must_use]
+    pub fn resolve_event(&self, view: &View, event: Event) -> Option<UiEvent> {
+        resolve_event(&self.keymap, view, event)
+    }
+}
+
+/// Persistent Compio-driven terminal input source.
+#[derive(Debug)]
+pub struct TerminalEvents {
+    events: EventStream,
+}
+
+impl TerminalEvents {
+    /// Opens the controlling terminal event source on the active Compio
+    /// runtime thread.
+    pub fn new() -> Result<Self> {
+        Ok(Self {
+            events: EventStream::new().context(InitializeEventStreamSnafu)?,
+        })
+    }
+
+    /// Waits for one raw terminal event without binding it to a stale view.
+    pub async fn next_event(&mut self) -> Result<Event> {
+        self.events
+            .next()
+            .await
+            .context(EventStreamClosedSnafu)?
+            .context(StreamEventSnafu)
+    }
+
+    /// Polls the persistent source in-place so callers can multiplex it
+    /// without constructing and cancelling one-shot read futures.
+    pub fn poll_next_event(&mut self, cx: &mut Context<'_>) -> Poll<Result<Event>> {
+        match Pin::new(&mut self.events).poll_next(cx) {
+            Poll::Ready(Some(event)) => Poll::Ready(event.context(StreamEventSnafu)),
+            Poll::Ready(None) => Poll::Ready(EventStreamClosedSnafu.fail()),
+            Poll::Pending => Poll::Pending,
         }
     }
 }

@@ -1,10 +1,6 @@
 //! Deterministic, single-owner application state for Intuigram.
 
 use std::collections::HashMap;
-use std::num::NonZeroUsize;
-
-use async_channel::{Receiver, Sender};
-use snafu::Snafu;
 
 /// Stable identifier for a Telegram chat.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -310,48 +306,6 @@ pub struct Update {
     pub effect: Option<Effect>,
 }
 
-/// Failure while running the state owner.
-#[derive(Debug, Snafu)]
-pub enum Error {
-    /// All view consumers disconnected while the application was running.
-    #[snafu(display("application output channel closed"))]
-    OutputClosed,
-}
-
-/// Result returned by the application state owner.
-pub type Result<T, E = Error> = std::result::Result<T, E>;
-
-/// UI and adapter endpoints for a bounded application channel pair.
-pub struct AppHandle {
-    /// Ordered input producer.
-    pub inputs: Sender<Input>,
-    /// Immutable updates from the state owner.
-    pub updates: Receiver<Update>,
-}
-
-/// State-owner endpoints that can only be created as a bounded pair.
-pub struct AppChannels {
-    inputs: Receiver<Input>,
-    updates: Sender<Update>,
-}
-
-/// Creates the typed bounded channels used by one application state owner.
-#[must_use]
-pub fn bounded_channels(capacity: NonZeroUsize) -> (AppHandle, AppChannels) {
-    let (input_tx, input_rx) = async_channel::bounded(capacity.get());
-    let (update_tx, update_rx) = async_channel::bounded(capacity.get());
-    (
-        AppHandle {
-            inputs: input_tx,
-            updates: update_rx,
-        },
-        AppChannels {
-            inputs: input_rx,
-            updates: update_tx,
-        },
-    )
-}
-
 /// Sole owner of mutable application state.
 pub struct App {
     view: View,
@@ -366,7 +320,7 @@ impl App {
     /// Creates an application waiting for initial adapter data.
     #[must_use]
     pub fn new() -> Self {
-        Self {
+        let mut app = Self {
             view: View {
                 connection: ConnectionState::Connecting,
                 account_name: "Intuigram".to_owned(),
@@ -389,19 +343,27 @@ impl App {
             transcript_anchors: HashMap::new(),
             loading_chat: None,
             queued_chat: None,
+        };
+        app.refresh_actions();
+        app
+    }
+
+    /// Applies one ordered input and returns the resulting immutable view and
+    /// adapter effect.
+    #[must_use]
+    pub fn transition(&mut self, input: Input) -> Update {
+        let effect = self.apply(input);
+        self.refresh_actions();
+        Update {
+            view: self.view.clone(),
+            effect,
         }
     }
 
-    /// Processes ordered input until every producer disconnects.
-    pub async fn run(mut self, channels: AppChannels) -> Result<()> {
-        self.refresh_actions();
-        self.publish(&channels.updates, None).await?;
-        while let Ok(input) = channels.inputs.recv().await {
-            let effect = self.apply(input);
-            self.refresh_actions();
-            self.publish(&channels.updates, effect).await?;
-        }
-        Ok(())
+    /// Returns the current immutable view without changing application state.
+    #[must_use]
+    pub fn view(&self) -> View {
+        self.view.clone()
     }
 
     fn apply(&mut self, input: Input) -> Option<Effect> {
@@ -828,16 +790,6 @@ impl App {
         }
         self.view.actions = actions;
     }
-
-    async fn publish(&self, updates: &Sender<Update>, effect: Option<Effect>) -> Result<()> {
-        updates
-            .send(Update {
-                view: self.view.clone(),
-                effect,
-            })
-            .await
-            .map_err(|_| Error::OutputClosed)
-    }
 }
 
 impl Default for App {
@@ -860,14 +812,10 @@ fn move_index(current: Option<usize>, length: usize, forward: bool) -> Option<us
 
 #[cfg(test)]
 mod tests {
-    use std::num::NonZeroUsize;
-
-    use futures_lite::future;
-
     use super::{
         Action, AdapterEvent, App, Bootstrap, ChatId, ChatView, ConnectionState, DeliveryState,
         Effect, Focus, FolderView, Input, Intent, MessageDirection, MessageId, MessageView,
-        SearchScope, bounded_channels,
+        SearchScope,
     };
 
     fn bootstrap() -> Bootstrap {
@@ -916,485 +864,269 @@ mod tests {
         fixture
     }
 
-    async fn transition(handle: &super::AppHandle, input: Input) -> super::Update {
-        handle
-            .inputs
-            .send(input)
-            .await
-            .expect("input should be accepted");
-        handle
-            .updates
-            .recv()
-            .await
-            .expect("updated view should arrive")
+    fn apply(app: &mut App, input: Input) {
+        drop(app.transition(input));
+    }
+
+    #[test]
+    fn reducer_applies_one_input_synchronously() {
+        let mut app = App::new();
+
+        let update = app.transition(Input::Adapter(AdapterEvent::Bootstrap(bootstrap())));
+
+        assert_eq!(update.view.account_name, "Ada");
+        assert_eq!(update.view.connection, ConnectionState::Connected);
+        assert_eq!(update.effect, None);
     }
 
     #[test]
     fn new_messages_do_not_snap_transcript_while_reading_older_history() {
-        future::block_on(async {
-            let capacity = NonZeroUsize::new(8).expect("fixture capacity should be positive");
-            let (handle, channels) = bounded_channels(capacity);
-            let drive = App::new().run(channels);
-            let observe = async move {
-                handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("initial view should arrive");
-                handle
-                    .inputs
-                    .send(Input::Adapter(AdapterEvent::Bootstrap(bootstrap())))
-                    .await
-                    .expect("bootstrap should be accepted");
-                handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("bootstrap view should arrive");
-                handle
-                    .inputs
-                    .send(Input::Intent(Intent::Action(Action::Open)))
-                    .await
-                    .expect("open should be accepted");
-                handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("transcript view should arrive");
-                handle
-                    .inputs
-                    .send(Input::Intent(Intent::Action(Action::TargetPreviousMessage)))
-                    .await
-                    .expect("message targeting should be accepted");
-                handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("message target view should arrive");
-                handle
-                    .inputs
-                    .send(Input::Intent(Intent::Action(Action::TargetPreviousMessage)))
-                    .await
-                    .expect("navigation should be accepted");
-                let older = handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("navigation view should arrive");
-                assert_eq!(older.view.active_message, Some(1));
+        let mut app = App::new();
+        apply(
+            &mut app,
+            Input::Adapter(AdapterEvent::Bootstrap(bootstrap())),
+        );
+        apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
+        apply(
+            &mut app,
+            Input::Intent(Intent::Action(Action::TargetPreviousMessage)),
+        );
+        let older = app.transition(Input::Intent(Intent::Action(Action::TargetPreviousMessage)));
+        assert_eq!(older.view.active_message, Some(1));
 
-                handle
-                    .inputs
-                    .send(Input::Adapter(AdapterEvent::MessageAdded {
-                        chat: ChatId(10),
-                        message: MessageView {
-                            id: MessageId(4),
-                            sender: "Lin".to_owned(),
-                            body: "new".to_owned(),
-                            timestamp: "12:01".to_owned(),
-                            direction: MessageDirection::Incoming,
-                            delivery: DeliveryState::Sent,
-                            reply_to: None,
-                        },
-                    }))
-                    .await
-                    .expect("new message should be accepted");
-                let updated = handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("message view should arrive");
-                assert_eq!(updated.view.active_message, Some(1));
-                assert!(updated.view.has_newer_messages);
-                drop(handle.inputs);
-            };
-            let (result, ()) = future::zip(drive, observe).await;
-            result.expect("application should shut down cleanly");
-        });
+        let updated = app.transition(Input::Adapter(AdapterEvent::MessageAdded {
+            chat: ChatId(10),
+            message: MessageView {
+                id: MessageId(4),
+                sender: "Lin".to_owned(),
+                body: "new".to_owned(),
+                timestamp: "12:01".to_owned(),
+                direction: MessageDirection::Incoming,
+                delivery: DeliveryState::Sent,
+                reply_to: None,
+            },
+        }));
+
+        assert_eq!(updated.view.active_message, Some(1));
+        assert!(updated.view.has_newer_messages);
     }
 
     #[test]
     fn search_scope_and_reply_send_follow_current_context() {
-        future::block_on(async {
-            let capacity = NonZeroUsize::new(16).expect("fixture capacity should be positive");
-            let (handle, channels) = bounded_channels(capacity);
-            let drive = App::new().run(channels);
-            let observe = async move {
-                handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("initial view should arrive");
-                transition(
-                    &handle,
-                    Input::Adapter(AdapterEvent::Bootstrap(bootstrap())),
-                )
-                .await;
-                let search =
-                    transition(&handle, Input::Intent(Intent::Action(Action::Search))).await;
-                assert_eq!(
-                    search.view.search.expect("search should be open").scope,
-                    SearchScope::Account
-                );
-                for action in [
-                    Action::Cancel,
-                    Action::Open,
-                    Action::TargetPreviousMessage,
-                    Action::Reply,
-                ] {
-                    transition(&handle, Input::Intent(Intent::Action(action))).await;
-                }
-                transition(&handle, Input::Intent(Intent::Insert("hello".to_owned()))).await;
-                transition(&handle, Input::Intent(Intent::Action(Action::Newline))).await;
-                transition(&handle, Input::Intent(Intent::Insert("world".to_owned()))).await;
-                let sent = transition(&handle, Input::Intent(Intent::Action(Action::Send))).await;
-                assert_eq!(
-                    sent.effect,
-                    Some(Effect::SendMessage {
-                        chat: ChatId(10),
-                        text: "hello\nworld".to_owned(),
-                        reply_to: Some(MessageId(3)),
-                    })
-                );
-                assert_eq!(sent.view.focus, Focus::Composer);
-                drop(handle.inputs);
-            };
-            let (result, ()) = future::zip(drive, observe).await;
-            result.expect("application should shut down cleanly");
-        });
+        let mut app = App::new();
+        apply(
+            &mut app,
+            Input::Adapter(AdapterEvent::Bootstrap(bootstrap())),
+        );
+        let search = app.transition(Input::Intent(Intent::Action(Action::Search)));
+        assert_eq!(
+            search.view.search.expect("search should be open").scope,
+            SearchScope::Account
+        );
+        for action in [
+            Action::Cancel,
+            Action::Open,
+            Action::TargetPreviousMessage,
+            Action::Reply,
+        ] {
+            apply(&mut app, Input::Intent(Intent::Action(action)));
+        }
+        apply(&mut app, Input::Intent(Intent::Insert("hello".to_owned())));
+        apply(&mut app, Input::Intent(Intent::Action(Action::Newline)));
+        apply(&mut app, Input::Intent(Intent::Insert("world".to_owned())));
+        let sent = app.transition(Input::Intent(Intent::Action(Action::Send)));
+        assert_eq!(
+            sent.effect,
+            Some(Effect::SendMessage {
+                chat: ChatId(10),
+                text: "hello\nworld".to_owned(),
+                reply_to: Some(MessageId(3)),
+            })
+        );
+        assert_eq!(sent.view.focus, Focus::Composer);
     }
 
     #[test]
     fn chat_movement_changes_active_chat_and_preserves_each_draft() {
-        future::block_on(async {
-            let capacity = NonZeroUsize::new(16).expect("fixture capacity should be positive");
-            let (handle, channels) = bounded_channels(capacity);
-            let drive = App::new().run(channels);
-            let observe = async move {
-                handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("initial view should arrive");
-                transition(
-                    &handle,
-                    Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
-                )
-                .await;
-                let opened = transition(&handle, Input::Intent(Intent::Action(Action::Open))).await;
-                assert_eq!(opened.view.focus, Focus::Composer);
-                transition(
-                    &handle,
-                    Input::Adapter(AdapterEvent::ChatLoaded {
-                        chat: ChatId(10),
-                        messages: hierarchy_bootstrap().messages,
-                    }),
-                )
-                .await;
-                transition(
-                    &handle,
-                    Input::Intent(Intent::Insert("first draft".to_owned())),
-                )
-                .await;
-                transition(&handle, Input::Intent(Intent::Action(Action::Cancel))).await;
-                let second =
-                    transition(&handle, Input::Intent(Intent::Action(Action::MoveDown))).await;
-                assert_eq!(second.view.active_chat, Some(1));
-                assert!(second.view.messages.is_empty());
-                assert!(second.view.composer.text.is_empty());
-                assert_eq!(second.effect, Some(Effect::LoadChat { chat: ChatId(20) }));
-                let first =
-                    transition(&handle, Input::Intent(Intent::Action(Action::MoveUp))).await;
-                assert_eq!(first.view.active_chat, Some(0));
-                assert_eq!(first.view.messages, hierarchy_bootstrap().messages);
-                assert_eq!(first.view.composer.text, "first draft");
-                assert_eq!(first.effect, None);
+        let mut app = App::new();
+        apply(
+            &mut app,
+            Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
+        );
+        let opened = app.transition(Input::Intent(Intent::Action(Action::Open)));
+        assert_eq!(opened.view.focus, Focus::Composer);
+        apply(
+            &mut app,
+            Input::Adapter(AdapterEvent::ChatLoaded {
+                chat: ChatId(10),
+                messages: hierarchy_bootstrap().messages,
+            }),
+        );
+        apply(
+            &mut app,
+            Input::Intent(Intent::Insert("first draft".to_owned())),
+        );
+        apply(&mut app, Input::Intent(Intent::Action(Action::Cancel)));
+        let second = app.transition(Input::Intent(Intent::Action(Action::MoveDown)));
+        assert_eq!(second.view.active_chat, Some(1));
+        assert!(second.view.messages.is_empty());
+        assert!(second.view.composer.text.is_empty());
+        assert_eq!(second.effect, Some(Effect::LoadChat { chat: ChatId(20) }));
+        let first = app.transition(Input::Intent(Intent::Action(Action::MoveUp)));
+        assert_eq!(first.view.active_chat, Some(0));
+        assert_eq!(first.view.messages, hierarchy_bootstrap().messages);
+        assert_eq!(first.view.composer.text, "first draft");
+        assert_eq!(first.effect, None);
 
-                let queued = transition(
-                    &handle,
-                    Input::Adapter(AdapterEvent::ChatLoaded {
-                        chat: ChatId(20),
-                        messages: Vec::new(),
-                    }),
-                )
-                .await;
-                assert_eq!(queued.effect, Some(Effect::LoadChat { chat: ChatId(10) }));
-                drop(handle.inputs);
-            };
-            let (result, ()) = future::zip(drive, observe).await;
-            result.expect("application should shut down cleanly");
-        });
+        let queued = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+            chat: ChatId(20),
+            messages: Vec::new(),
+        }));
+        assert_eq!(queued.effect, Some(Effect::LoadChat { chat: ChatId(10) }));
     }
 
     #[test]
     fn revisiting_a_loaded_chat_renders_cached_history_while_refreshing() {
-        future::block_on(async {
-            let capacity = NonZeroUsize::new(16).expect("fixture capacity should be positive");
-            let (handle, channels) = bounded_channels(capacity);
-            let drive = App::new().run(channels);
-            let observe = async move {
-                handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("initial view should arrive");
-                let initial = hierarchy_bootstrap().messages;
-                transition(
-                    &handle,
-                    Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
-                )
-                .await;
+        let mut app = App::new();
+        let initial = hierarchy_bootstrap().messages;
+        apply(
+            &mut app,
+            Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
+        );
 
-                let second =
-                    transition(&handle, Input::Intent(Intent::Action(Action::MoveDown))).await;
-                assert!(second.view.messages.is_empty());
-                assert_eq!(second.effect, Some(Effect::LoadChat { chat: ChatId(20) }));
+        let second = app.transition(Input::Intent(Intent::Action(Action::MoveDown)));
+        assert!(second.view.messages.is_empty());
+        assert_eq!(second.effect, Some(Effect::LoadChat { chat: ChatId(20) }));
 
-                let second_history = vec![MessageView {
-                    id: MessageId(20),
-                    sender: "Ferris".to_owned(),
-                    body: "cached second chat".to_owned(),
-                    timestamp: "12:20".to_owned(),
-                    direction: MessageDirection::Incoming,
-                    delivery: DeliveryState::Read,
-                    reply_to: None,
-                }];
-                let loaded = transition(
-                    &handle,
-                    Input::Adapter(AdapterEvent::ChatLoaded {
-                        chat: ChatId(20),
-                        messages: second_history.clone(),
-                    }),
-                )
-                .await;
-                assert_eq!(loaded.view.messages, second_history);
+        let second_history = vec![MessageView {
+            id: MessageId(20),
+            sender: "Ferris".to_owned(),
+            body: "cached second chat".to_owned(),
+            timestamp: "12:20".to_owned(),
+            direction: MessageDirection::Incoming,
+            delivery: DeliveryState::Read,
+            reply_to: None,
+        }];
+        let loaded = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+            chat: ChatId(20),
+            messages: second_history.clone(),
+        }));
+        assert_eq!(loaded.view.messages, second_history);
 
-                let first =
-                    transition(&handle, Input::Intent(Intent::Action(Action::MoveUp))).await;
-                assert_eq!(first.view.messages, initial);
-                assert_eq!(first.effect, Some(Effect::LoadChat { chat: ChatId(10) }));
+        let first = app.transition(Input::Intent(Intent::Action(Action::MoveUp)));
+        assert_eq!(first.view.messages, initial);
+        assert_eq!(first.effect, Some(Effect::LoadChat { chat: ChatId(10) }));
 
-                let mut refreshed = hierarchy_bootstrap().messages;
-                refreshed.push(MessageView {
-                    id: MessageId(4),
-                    sender: "Lin".to_owned(),
-                    body: "arrived while away".to_owned(),
-                    timestamp: "12:21".to_owned(),
-                    direction: MessageDirection::Incoming,
-                    delivery: DeliveryState::Sent,
-                    reply_to: None,
-                });
-                let refreshed_view = transition(
-                    &handle,
-                    Input::Adapter(AdapterEvent::ChatLoaded {
-                        chat: ChatId(10),
-                        messages: refreshed.clone(),
-                    }),
-                )
-                .await;
-                assert_eq!(refreshed_view.view.messages, refreshed);
-                drop(handle.inputs);
-            };
-            let (result, ()) = future::zip(drive, observe).await;
-            result.expect("application should shut down cleanly");
+        let mut refreshed = hierarchy_bootstrap().messages;
+        refreshed.push(MessageView {
+            id: MessageId(4),
+            sender: "Lin".to_owned(),
+            body: "arrived while away".to_owned(),
+            timestamp: "12:21".to_owned(),
+            direction: MessageDirection::Incoming,
+            delivery: DeliveryState::Sent,
+            reply_to: None,
         });
+        let refreshed_view = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+            chat: ChatId(10),
+            messages: refreshed.clone(),
+        }));
+        assert_eq!(refreshed_view.view.messages, refreshed);
     }
 
     #[test]
     fn delayed_message_results_update_their_destination_chat_only() {
-        future::block_on(async {
-            let capacity = NonZeroUsize::new(16).expect("fixture capacity should be positive");
-            let (handle, channels) = bounded_channels(capacity);
-            let drive = App::new().run(channels);
-            let observe = async move {
-                handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("initial view should arrive");
-                transition(
-                    &handle,
-                    Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
-                )
-                .await;
-                transition(&handle, Input::Intent(Intent::Action(Action::MoveDown))).await;
+        let mut app = App::new();
+        apply(
+            &mut app,
+            Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
+        );
+        apply(&mut app, Input::Intent(Intent::Action(Action::MoveDown)));
 
-                let delayed = transition(
-                    &handle,
-                    Input::Adapter(AdapterEvent::MessageAdded {
-                        chat: ChatId(10),
-                        message: MessageView {
-                            id: MessageId(4),
-                            sender: "You".to_owned(),
-                            body: "sent before switching".to_owned(),
-                            timestamp: "12:22".to_owned(),
-                            direction: MessageDirection::Outgoing,
-                            delivery: DeliveryState::Sent,
-                            reply_to: None,
-                        },
-                    }),
-                )
-                .await;
-                assert!(delayed.view.messages.is_empty());
+        let delayed = app.transition(Input::Adapter(AdapterEvent::MessageAdded {
+            chat: ChatId(10),
+            message: MessageView {
+                id: MessageId(4),
+                sender: "You".to_owned(),
+                body: "sent before switching".to_owned(),
+                timestamp: "12:22".to_owned(),
+                direction: MessageDirection::Outgoing,
+                delivery: DeliveryState::Sent,
+                reply_to: None,
+            },
+        }));
+        assert!(delayed.view.messages.is_empty());
 
-                let first =
-                    transition(&handle, Input::Intent(Intent::Action(Action::MoveUp))).await;
-                assert_eq!(
-                    first.view.messages.last().map(|message| message.id),
-                    Some(MessageId(4))
-                );
-                drop(handle.inputs);
-            };
-            let (result, ()) = future::zip(drive, observe).await;
-            result.expect("application should shut down cleanly");
-        });
+        let first = app.transition(Input::Intent(Intent::Action(Action::MoveUp)));
+        assert_eq!(
+            first.view.messages.last().map(|message| message.id),
+            Some(MessageId(4))
+        );
     }
 
     #[test]
     fn returning_to_the_composer_preserves_the_older_transcript_anchor() {
-        future::block_on(async {
-            let capacity = NonZeroUsize::new(8).expect("fixture capacity should be positive");
-            let (handle, channels) = bounded_channels(capacity);
-            let drive = App::new().run(channels);
-            let observe = async move {
-                handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("initial view should arrive");
-                transition(
-                    &handle,
-                    Input::Adapter(AdapterEvent::Bootstrap(bootstrap())),
-                )
-                .await;
-                transition(&handle, Input::Intent(Intent::Action(Action::Open))).await;
-                transition(
-                    &handle,
-                    Input::Intent(Intent::Action(Action::TargetPreviousMessage)),
-                )
-                .await;
-                transition(
-                    &handle,
-                    Input::Intent(Intent::Action(Action::TargetPreviousMessage)),
-                )
-                .await;
+        let mut app = App::new();
+        apply(
+            &mut app,
+            Input::Adapter(AdapterEvent::Bootstrap(bootstrap())),
+        );
+        apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
+        apply(
+            &mut app,
+            Input::Intent(Intent::Action(Action::TargetPreviousMessage)),
+        );
+        apply(
+            &mut app,
+            Input::Intent(Intent::Action(Action::TargetPreviousMessage)),
+        );
 
-                let composer =
-                    transition(&handle, Input::Intent(Intent::Action(Action::Cancel))).await;
-                assert_eq!(composer.view.focus, Focus::Composer);
-                assert_eq!(composer.view.active_message, None);
-                assert_eq!(composer.view.transcript_anchor, Some(1));
-                drop(handle.inputs);
-            };
-            let (result, ()) = future::zip(drive, observe).await;
-            result.expect("application should shut down cleanly");
-        });
+        let composer = app.transition(Input::Intent(Intent::Action(Action::Cancel)));
+        assert_eq!(composer.view.focus, Focus::Composer);
+        assert_eq!(composer.view.active_message, None);
+        assert_eq!(composer.view.transcript_anchor, Some(1));
     }
 
     #[test]
     fn escape_ascends_the_hierarchy_and_folders_change_only_from_chat_list() {
-        future::block_on(async {
-            let capacity = NonZeroUsize::new(16).expect("fixture capacity should be positive");
-            let (handle, channels) = bounded_channels(capacity);
-            let drive = App::new().run(channels);
-            let observe = async move {
-                handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("initial view should arrive");
-                transition(
-                    &handle,
-                    Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
-                )
-                .await;
-                let chat_list = transition(
-                    &handle,
-                    Input::Intent(Intent::Insert("does not enter".to_owned())),
-                )
-                .await;
-                assert_eq!(chat_list.view.focus, Focus::Chats);
-                assert!(chat_list.view.composer.text.is_empty());
-                transition(&handle, Input::Intent(Intent::Action(Action::Open))).await;
-                let composer =
-                    transition(&handle, Input::Intent(Intent::Action(Action::NextFolder))).await;
-                assert_eq!(composer.view.active_folder, 0);
-                let targeted = transition(
-                    &handle,
-                    Input::Intent(Intent::Action(Action::TargetPreviousMessage)),
-                )
-                .await;
-                assert_eq!(targeted.view.focus, Focus::Transcript);
-                let newest = transition(
-                    &handle,
-                    Input::Intent(Intent::Action(Action::TargetNextMessage)),
-                )
-                .await;
-                assert_eq!(newest.view.focus, Focus::Composer);
-                transition(
-                    &handle,
-                    Input::Intent(Intent::Action(Action::TargetPreviousMessage)),
-                )
-                .await;
-                let composer =
-                    transition(&handle, Input::Intent(Intent::Action(Action::Cancel))).await;
-                assert_eq!(composer.view.focus, Focus::Composer);
-                let chats =
-                    transition(&handle, Input::Intent(Intent::Action(Action::Cancel))).await;
-                assert_eq!(chats.view.focus, Focus::Chats);
-                let folder =
-                    transition(&handle, Input::Intent(Intent::Action(Action::NextFolder))).await;
-                assert_eq!(folder.view.active_folder, 1);
-                drop(handle.inputs);
-            };
-            let (result, ()) = future::zip(drive, observe).await;
-            result.expect("application should shut down cleanly");
-        });
+        let mut app = App::new();
+        apply(
+            &mut app,
+            Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
+        );
+        let chat_list = app.transition(Input::Intent(Intent::Insert("does not enter".to_owned())));
+        assert_eq!(chat_list.view.focus, Focus::Chats);
+        assert!(chat_list.view.composer.text.is_empty());
+        apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
+        let composer = app.transition(Input::Intent(Intent::Action(Action::NextFolder)));
+        assert_eq!(composer.view.active_folder, 0);
+        let targeted = app.transition(Input::Intent(Intent::Action(Action::TargetPreviousMessage)));
+        assert_eq!(targeted.view.focus, Focus::Transcript);
+        let newest = app.transition(Input::Intent(Intent::Action(Action::TargetNextMessage)));
+        assert_eq!(newest.view.focus, Focus::Composer);
+        apply(
+            &mut app,
+            Input::Intent(Intent::Action(Action::TargetPreviousMessage)),
+        );
+        let composer = app.transition(Input::Intent(Intent::Action(Action::Cancel)));
+        assert_eq!(composer.view.focus, Focus::Composer);
+        let chats = app.transition(Input::Intent(Intent::Action(Action::Cancel)));
+        assert_eq!(chats.view.focus, Focus::Chats);
+        let folder = app.transition(Input::Intent(Intent::Action(Action::NextFolder)));
+        assert_eq!(folder.view.active_folder, 1);
     }
 
     #[test]
     fn reconnect_is_available_only_during_cooldown() {
-        future::block_on(async {
-            let capacity = NonZeroUsize::new(4).expect("fixture capacity should be positive");
-            let (handle, channels) = bounded_channels(capacity);
-            let drive = App::new().run(channels);
-            let observe = async move {
-                let initial = handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("initial view should arrive");
-                assert!(!initial.view.actions.contains(&Action::Reconnect));
-                handle
-                    .inputs
-                    .send(Input::Adapter(AdapterEvent::ConnectionChanged(
-                        ConnectionState::ReconnectCooldown,
-                    )))
-                    .await
-                    .expect("cooldown event should be accepted");
-                let cooldown = handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("cooldown view should arrive");
-                assert!(cooldown.view.actions.contains(&Action::Reconnect));
-                handle
-                    .inputs
-                    .send(Input::Intent(Intent::Action(Action::Reconnect)))
-                    .await
-                    .expect("reconnect intent should be accepted");
-                let reconnecting = handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("reconnect view should arrive");
-                assert_eq!(reconnecting.view.connection, ConnectionState::Connecting);
-                assert!(!reconnecting.view.actions.contains(&Action::Reconnect));
-                assert_eq!(reconnecting.effect, Some(Effect::Reconnect));
-                drop(handle.inputs);
-            };
-            let (result, ()) = future::zip(drive, observe).await;
-            result.expect("application should shut down cleanly");
-        });
+        let mut app = App::new();
+        assert!(!app.view().actions.contains(&Action::Reconnect));
+        let cooldown = app.transition(Input::Adapter(AdapterEvent::ConnectionChanged(
+            ConnectionState::ReconnectCooldown,
+        )));
+        assert!(cooldown.view.actions.contains(&Action::Reconnect));
+        let reconnecting = app.transition(Input::Intent(Intent::Action(Action::Reconnect)));
+        assert_eq!(reconnecting.view.connection, ConnectionState::Connecting);
+        assert!(!reconnecting.view.actions.contains(&Action::Reconnect));
+        assert_eq!(reconnecting.effect, Some(Effect::Reconnect));
     }
 }

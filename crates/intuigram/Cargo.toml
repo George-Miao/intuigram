@@ -5,10 +5,9 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-async-channel.workspace = true
 compio = { version = "0.19.1", default-features = false, features = ["runtime"] }
+crossterm.workspace = true
 dirs.workspace = true
-futures-lite.workspace = true
 intuigram-app = { path = "../intuigram-app" }
 intuigram-config = { path = "../intuigram-config" }
 intuigram-store = { path = "../intuigram-store" }
