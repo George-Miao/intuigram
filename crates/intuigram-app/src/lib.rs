@@ -204,8 +204,13 @@ pub enum AdapterEvent {
     Bootstrap(Bootstrap),
     /// Telegram connectivity changed.
     ConnectionChanged(ConnectionState),
-    /// A new or acknowledged Message belongs in the active Transcript.
-    MessageAdded(MessageView),
+    /// A new or acknowledged Message belongs in a Chat history.
+    MessageAdded {
+        /// Chat that owns the Message.
+        chat: ChatId,
+        /// Newly available Message.
+        message: MessageView,
+    },
     /// A requested Chat history became available.
     ChatLoaded {
         /// Chat whose history was loaded.
@@ -252,30 +257,46 @@ pub enum Effect {
 pub struct View {
     /// Current Telegram connectivity.
     pub connection: ConnectionState,
+
     /// Active Account display name.
     pub account_name: String,
+
     /// Synchronized Telegram Folders.
     pub folders: Vec<FolderView>,
+
     /// Active Folder index.
     pub active_folder: usize,
+
     /// Chats in the active Folder.
     pub chats: Vec<ChatView>,
+
     /// Active Chat index.
     pub active_chat: Option<usize>,
+
     /// Loaded messages for the active Chat.
     pub messages: Vec<MessageView>,
+
     /// Active Message index.
     pub active_message: Option<usize>,
+
+    /// Message index anchoring the Transcript when no Message is active.
+    pub transcript_anchor: Option<usize>,
+
     /// Region receiving navigation and editing input.
     pub focus: Focus,
+
     /// Current Draft.
     pub composer: ComposerView,
+
     /// Active search, when open.
     pub search: Option<SearchView>,
+
     /// Whether unseen messages arrived while reading older history.
     pub has_newer_messages: bool,
+
     /// Whether exhaustive context help is open.
     pub help_open: bool,
+
     /// Actions valid in the current context.
     pub actions: Vec<Action>,
 }
@@ -336,6 +357,7 @@ pub struct App {
     view: View,
     drafts: HashMap<ChatId, ComposerView>,
     histories: HashMap<ChatId, Vec<MessageView>>,
+    transcript_anchors: HashMap<ChatId, MessageId>,
     loading_chat: Option<ChatId>,
     queued_chat: Option<ChatId>,
 }
@@ -354,6 +376,7 @@ impl App {
                 active_chat: None,
                 messages: Vec::new(),
                 active_message: None,
+                transcript_anchor: None,
                 focus: Focus::Chats,
                 composer: ComposerView::default(),
                 search: None,
@@ -363,6 +386,7 @@ impl App {
             },
             drafts: HashMap::new(),
             histories: HashMap::new(),
+            transcript_anchors: HashMap::new(),
             loading_chat: None,
             queued_chat: None,
         }
@@ -389,11 +413,13 @@ impl App {
                 self.view.chats = bootstrap.chats;
                 self.view.active_chat = (!self.view.chats.is_empty()).then_some(0);
                 self.histories.clear();
+                self.transcript_anchors.clear();
                 if let Some(chat) = self.active_chat_id() {
-                    self.histories.insert(chat, bootstrap.messages.clone());
+                    self.histories.insert(chat, bootstrap.messages);
                 }
-                self.view.messages = bootstrap.messages;
                 self.view.active_message = None;
+                self.view.transcript_anchor = None;
+                self.refresh_active_history();
                 self.loading_chat = None;
                 self.queued_chat = None;
                 None
@@ -402,30 +428,27 @@ impl App {
                 self.view.connection = connection;
                 None
             }
-            Input::Adapter(AdapterEvent::MessageAdded(message)) => {
-                let was_latest = self.at_latest();
-                if let Some(chat) = self.active_chat_id() {
-                    self.histories
-                        .entry(chat)
-                        .or_default()
-                        .push(message.clone());
+            Input::Adapter(AdapterEvent::MessageAdded { chat, message }) => {
+                let active = self.active_chat_id() == Some(chat);
+                let was_latest = active && self.at_latest();
+                let active_message = active.then(|| self.active_message_id()).flatten();
+                let transcript_anchor = active.then(|| self.transcript_anchor_id()).flatten();
+                self.histories.entry(chat).or_default().push(message);
+                if active {
+                    self.refresh_active_history_at(active_message, transcript_anchor);
+                    self.view.has_newer_messages = !was_latest;
                 }
-                self.view.messages.push(message);
-                self.view.has_newer_messages = !was_latest;
                 None
             }
             Input::Adapter(AdapterEvent::ChatLoaded { chat, messages }) => {
-                self.histories.insert(chat, messages.clone());
                 if self.active_chat_id() == Some(chat) {
                     let active_message = self.active_message_id();
-                    self.view.messages = messages;
-                    self.view.active_message = active_message.and_then(|active| {
-                        self.view
-                            .messages
-                            .iter()
-                            .position(|message| message.id == active)
-                    });
+                    let transcript_anchor = self.transcript_anchor_id();
+                    self.histories.insert(chat, messages);
+                    self.refresh_active_history_at(active_message, transcript_anchor);
                     self.view.has_newer_messages = false;
+                } else {
+                    self.histories.insert(chat, messages);
                 }
 
                 if self.loading_chat != Some(chat) {
@@ -448,8 +471,7 @@ impl App {
                 if let Some(search) = &mut self.view.search {
                     search.query.push_str(&text);
                 } else if self.view.active_chat.is_some() && self.view.focus != Focus::Chats {
-                    self.view.focus = Focus::Composer;
-                    self.view.active_message = None;
+                    self.focus_composer_at_anchor();
                     self.view.composer.text.push_str(&text);
                 }
                 None
@@ -496,24 +518,21 @@ impl App {
             }
             Action::Open => {
                 if let Some(chat) = self.active_chat_id() {
-                    self.view.focus = Focus::Composer;
-                    self.view.active_message = None;
+                    self.focus_composer_at_anchor();
                     return self.request_chat_load(chat);
                 }
                 None
             }
             Action::Compose => {
                 if self.view.active_chat.is_some() {
-                    self.view.focus = Focus::Composer;
-                    self.view.active_message = None;
+                    self.focus_composer_at_anchor();
                 }
                 None
             }
             Action::Reply => {
                 self.view.composer.reply_to = self.active_message_id();
                 if self.view.composer.reply_to.is_some() {
-                    self.view.focus = Focus::Composer;
-                    self.view.active_message = None;
+                    self.focus_composer_at_anchor();
                 }
                 None
             }
@@ -549,8 +568,7 @@ impl App {
                 } else if self.view.composer.reply_to.take().is_some() {
                     self.view.focus = Focus::Composer;
                 } else if self.view.focus == Focus::Transcript {
-                    self.view.active_message = None;
-                    self.view.focus = Focus::Composer;
+                    self.focus_composer_at_anchor();
                 } else if self.view.focus == Focus::Composer {
                     self.view.focus = Focus::Chats;
                 }
@@ -558,11 +576,13 @@ impl App {
             }
             Action::JumpEarliest => {
                 self.view.active_message = (!self.view.messages.is_empty()).then_some(0);
+                self.view.transcript_anchor = self.view.active_message;
                 self.view.focus = Focus::Transcript;
                 None
             }
             Action::JumpLatest => {
                 self.view.active_message = self.view.messages.len().checked_sub(1);
+                self.view.transcript_anchor = self.view.active_message;
                 self.view.has_newer_messages = false;
                 self.view.focus = Focus::Transcript;
                 None
@@ -586,6 +606,7 @@ impl App {
         self.view.composer = ComposerView::default();
         self.drafts.remove(&chat);
         self.view.active_message = None;
+        self.view.transcript_anchor = None;
         self.view.focus = Focus::Composer;
         Some(effect)
     }
@@ -599,13 +620,15 @@ impl App {
             return None;
         }
         self.save_active_draft();
+        self.save_transcript_anchor();
         self.view.active_chat = next;
         self.restore_active_draft();
-        self.view.messages = self
+        let transcript_anchor = self
             .active_chat_id()
-            .and_then(|chat| self.histories.get(&chat).cloned())
-            .unwrap_or_default();
+            .and_then(|chat| self.transcript_anchors.get(&chat).copied());
         self.view.active_message = None;
+        self.view.transcript_anchor = None;
+        self.refresh_active_history_at(None, transcript_anchor);
         self.view.has_newer_messages = false;
         self.active_chat_id()
             .and_then(|chat| self.request_chat_load(chat))
@@ -643,10 +666,13 @@ impl App {
         if self.view.messages.is_empty() {
             return;
         }
-        self.view.active_message = Some(match self.view.active_message {
-            Some(index) => index.saturating_sub(1),
-            None => self.view.messages.len() - 1,
-        });
+        self.view.active_message = Some(
+            match self.view.active_message.or(self.view.transcript_anchor) {
+                Some(index) => index.saturating_sub(1),
+                None => self.view.messages.len() - 1,
+            },
+        );
+        self.view.transcript_anchor = self.view.active_message;
         self.view.focus = Focus::Transcript;
     }
 
@@ -660,8 +686,10 @@ impl App {
         };
         if index + 1 < self.view.messages.len() {
             self.view.active_message = Some(index + 1);
+            self.view.transcript_anchor = self.view.active_message;
         } else {
             self.view.active_message = None;
+            self.view.transcript_anchor = self.view.messages.len().checked_sub(1);
             self.view.has_newer_messages = false;
             self.view.focus = Focus::Composer;
         }
@@ -673,6 +701,14 @@ impl App {
         }
     }
 
+    fn focus_composer_at_anchor(&mut self) {
+        if self.view.active_message.is_some() {
+            self.view.transcript_anchor = self.view.active_message;
+        }
+        self.view.active_message = None;
+        self.view.focus = Focus::Composer;
+    }
+
     fn restore_active_draft(&mut self) {
         self.view.composer = self
             .active_chat_id()
@@ -680,9 +716,56 @@ impl App {
             .unwrap_or_default();
     }
 
+    fn save_transcript_anchor(&mut self) {
+        let Some(chat) = self.active_chat_id() else {
+            return;
+        };
+        if let Some(anchor) = self.transcript_anchor_id() {
+            self.transcript_anchors.insert(chat, anchor);
+        } else {
+            self.transcript_anchors.remove(&chat);
+        }
+    }
+
+    fn refresh_active_history(&mut self) {
+        let active_message = self.active_message_id();
+        let transcript_anchor = self.transcript_anchor_id();
+        self.refresh_active_history_at(active_message, transcript_anchor);
+    }
+
+    fn refresh_active_history_at(
+        &mut self,
+        active_message: Option<MessageId>,
+        transcript_anchor: Option<MessageId>,
+    ) {
+        self.view.messages = self
+            .active_chat_id()
+            .and_then(|chat| self.histories.get(&chat).cloned())
+            .unwrap_or_default();
+        self.view.active_message =
+            active_message.and_then(|message| self.history_position(message));
+        self.view.transcript_anchor =
+            transcript_anchor.and_then(|message| self.history_position(message));
+    }
+
+    fn history_position(&self, message: MessageId) -> Option<usize> {
+        self.view
+            .messages
+            .iter()
+            .position(|candidate| candidate.id == message)
+    }
+
     fn active_message_id(&self) -> Option<MessageId> {
         self.view
             .active_message
+            .and_then(|index| self.view.messages.get(index))
+            .map(|message| message.id)
+    }
+
+    fn transcript_anchor_id(&self) -> Option<MessageId> {
+        self.view
+            .active_message
+            .or(self.view.transcript_anchor)
             .and_then(|index| self.view.messages.get(index))
             .map(|message| message.id)
     }
@@ -695,8 +778,10 @@ impl App {
     }
 
     fn at_latest(&self) -> bool {
-        self.view.focus != Focus::Transcript
-            || self.view.active_message == self.view.messages.len().checked_sub(1)
+        self.view
+            .active_message
+            .or(self.view.transcript_anchor)
+            .is_none_or(|index| Some(index) == self.view.messages.len().checked_sub(1))
     }
 
     fn refresh_actions(&mut self) {
@@ -899,15 +984,18 @@ mod tests {
 
                 handle
                     .inputs
-                    .send(Input::Adapter(AdapterEvent::MessageAdded(MessageView {
-                        id: MessageId(4),
-                        sender: "Lin".to_owned(),
-                        body: "new".to_owned(),
-                        timestamp: "12:01".to_owned(),
-                        direction: MessageDirection::Incoming,
-                        delivery: DeliveryState::Sent,
-                        reply_to: None,
-                    })))
+                    .send(Input::Adapter(AdapterEvent::MessageAdded {
+                        chat: ChatId(10),
+                        message: MessageView {
+                            id: MessageId(4),
+                            sender: "Lin".to_owned(),
+                            body: "new".to_owned(),
+                            timestamp: "12:01".to_owned(),
+                            direction: MessageDirection::Incoming,
+                            delivery: DeliveryState::Sent,
+                            reply_to: None,
+                        },
+                    }))
                     .await
                     .expect("new message should be accepted");
                 let updated = handle
@@ -1102,6 +1190,97 @@ mod tests {
                 )
                 .await;
                 assert_eq!(refreshed_view.view.messages, refreshed);
+                drop(handle.inputs);
+            };
+            let (result, ()) = future::zip(drive, observe).await;
+            result.expect("application should shut down cleanly");
+        });
+    }
+
+    #[test]
+    fn delayed_message_results_update_their_destination_chat_only() {
+        future::block_on(async {
+            let capacity = NonZeroUsize::new(16).expect("fixture capacity should be positive");
+            let (handle, channels) = bounded_channels(capacity);
+            let drive = App::new().run(channels);
+            let observe = async move {
+                handle
+                    .updates
+                    .recv()
+                    .await
+                    .expect("initial view should arrive");
+                transition(
+                    &handle,
+                    Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
+                )
+                .await;
+                transition(&handle, Input::Intent(Intent::Action(Action::MoveDown))).await;
+
+                let delayed = transition(
+                    &handle,
+                    Input::Adapter(AdapterEvent::MessageAdded {
+                        chat: ChatId(10),
+                        message: MessageView {
+                            id: MessageId(4),
+                            sender: "You".to_owned(),
+                            body: "sent before switching".to_owned(),
+                            timestamp: "12:22".to_owned(),
+                            direction: MessageDirection::Outgoing,
+                            delivery: DeliveryState::Sent,
+                            reply_to: None,
+                        },
+                    }),
+                )
+                .await;
+                assert!(delayed.view.messages.is_empty());
+
+                let first =
+                    transition(&handle, Input::Intent(Intent::Action(Action::MoveUp))).await;
+                assert_eq!(
+                    first.view.messages.last().map(|message| message.id),
+                    Some(MessageId(4))
+                );
+                drop(handle.inputs);
+            };
+            let (result, ()) = future::zip(drive, observe).await;
+            result.expect("application should shut down cleanly");
+        });
+    }
+
+    #[test]
+    fn returning_to_the_composer_preserves_the_older_transcript_anchor() {
+        future::block_on(async {
+            let capacity = NonZeroUsize::new(8).expect("fixture capacity should be positive");
+            let (handle, channels) = bounded_channels(capacity);
+            let drive = App::new().run(channels);
+            let observe = async move {
+                handle
+                    .updates
+                    .recv()
+                    .await
+                    .expect("initial view should arrive");
+                transition(
+                    &handle,
+                    Input::Adapter(AdapterEvent::Bootstrap(bootstrap())),
+                )
+                .await;
+                transition(&handle, Input::Intent(Intent::Action(Action::Open))).await;
+                transition(
+                    &handle,
+                    Input::Intent(Intent::Action(Action::TargetPreviousMessage)),
+                )
+                .await;
+                transition(
+                    &handle,
+                    Input::Intent(Intent::Action(Action::TargetPreviousMessage)),
+                )
+                .await;
+
+                let composer =
+                    transition(&handle, Input::Intent(Intent::Action(Action::Cancel))).await;
+                assert_eq!(composer.view.focus, Focus::Composer);
+                assert_eq!(composer.view.active_message, None);
+                assert_eq!(composer.view.transcript_anchor, Some(1));
                 drop(handle.inputs);
             };
             let (result, ()) = future::zip(drive, observe).await;

@@ -485,7 +485,10 @@ fn run_backend_loop(
                 if stop_after_adapter_work(effects, &mut pending_effect) {
                     break;
                 }
-                send_input(inputs, Input::Adapter(AdapterEvent::MessageAdded(message)))?;
+                send_input(
+                    inputs,
+                    Input::Adapter(AdapterEvent::MessageAdded { chat, message }),
+                )?;
             }
         }
     }

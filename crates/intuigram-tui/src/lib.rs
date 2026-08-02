@@ -193,12 +193,17 @@ const BINDINGS: &[Binding] = &[
         Action::Compose,
         true,
     ),
-    binding(KeyChord::control(Key::Enter), "Send", Action::Send, true),
     binding(
-        KeyChord::control(Key::Char('s')),
-        "Send (fallback)",
+        KeyChord::control(Key::Enter),
+        "Send (enhanced terminal)",
         Action::Send,
         false,
+    ),
+    binding(
+        KeyChord::control(Key::Char('s')),
+        "Send",
+        Action::Send,
+        true,
     ),
     binding(
         KeyChord::control(Key::Char('r')),
@@ -899,7 +904,7 @@ fn render_transcript(frame: &mut Frame<'_>, area: Rect, view: &View, focused: bo
     let visible_items = usize::from(area.height) / 2;
     let range = anchored_window(
         view.messages.len(),
-        view.active_message,
+        view.active_message.or(view.transcript_anchor),
         visible_items,
         true,
     );
@@ -1174,6 +1179,7 @@ mod tests {
             active_chat: None,
             messages: Vec::new(),
             active_message: None,
+            transcript_anchor: None,
             focus: Focus::Chats,
             composer: ComposerView::default(),
             search: None::<SearchView>,
@@ -1212,6 +1218,13 @@ mod tests {
         assert_eq!(
             keymap.resolve(&composer, KeyChord::control(Key::Char('s'))),
             Some(Action::Send)
+        );
+        assert_eq!(
+            keymap
+                .action_bar(&composer)
+                .find(|binding| binding.action == Action::Send)
+                .map(|binding| binding.key),
+            Some(KeyChord::control(Key::Char('s')))
         );
     }
 
@@ -1357,6 +1370,42 @@ mod tests {
         let buffer = terminal.backend().buffer();
 
         assert_eq!(buffer[(31, 6)].symbol(), "│");
+        assert_eq!(buffer[(33, 7)].symbol(), "M");
+    }
+
+    #[test]
+    fn transcript_scroll_preserves_an_inactive_anchor() {
+        let mut view = view(Vec::new());
+        view.chats = vec![ChatView {
+            id: ChatId(10),
+            title: "Intuigram".to_owned(),
+            preview: String::new(),
+            unread: 0,
+            pinned: false,
+        }];
+        view.active_chat = Some(0);
+        view.messages = (0..20)
+            .map(|index| MessageView {
+                id: MessageId(index),
+                sender: "Lin".to_owned(),
+                body: format!("Message {index}"),
+                timestamp: "12:00".to_owned(),
+                direction: MessageDirection::Incoming,
+                delivery: DeliveryState::Read,
+                reply_to: None,
+            })
+            .collect();
+        view.transcript_anchor = Some(10);
+        view.focus = Focus::Composer;
+
+        let backend = TestBackend::new(100, 24);
+        let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
+        terminal
+            .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
+            .expect("view should render");
+        let buffer = terminal.backend().buffer();
+
+        assert_eq!(buffer[(31, 6)].symbol(), " ");
         assert_eq!(buffer[(33, 7)].symbol(), "M");
     }
 
