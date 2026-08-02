@@ -734,6 +734,11 @@ impl Client {
     /// Loads the first dialog page and normalizes it into application-owned
     /// data without leaking Telegram TL values.
     pub async fn bootstrap(&mut self, limit: i32) -> Result<Bootstrap> {
+        let dialog_filters = self
+            .connection
+            .invoke(&tl::functions::messages::GetDialogFilters {})
+            .await
+            .context(InvokeSnafu)?;
         let response = self
             .connection
             .invoke(&tl::functions::messages::GetDialogs {
@@ -785,20 +790,14 @@ impl Client {
             .identity
             .as_ref()
             .map_or_else(|| "Telegram".to_owned(), |user| user.display_name.clone());
+        let tl::enums::messages::DialogFilters::Filters(dialog_filters) = dialog_filters;
+        let folders = normalize_dialog_folders(
+            dialog_filters.filters,
+            chat_views.iter().map(|chat| chat.unread).sum(),
+        );
         Ok(Bootstrap {
             account_name,
-            folders: vec![
-                FolderView {
-                    id: 0,
-                    title: "All".to_owned(),
-                    unread: chat_views.iter().map(|chat| chat.unread).sum(),
-                },
-                FolderView {
-                    id: 1,
-                    title: "Archive".to_owned(),
-                    unread: 0,
-                },
-            ],
+            folders,
             chats: chat_views,
             messages: initial_messages,
         })
@@ -1152,6 +1151,53 @@ fn dialog_parts(dialogs: tl::enums::messages::Dialogs) -> Result<DialogParts> {
     }
 }
 
+fn normalize_dialog_folders(
+    filters: Vec<tl::enums::DialogFilter>,
+    all_unread: u32,
+) -> Vec<FolderView> {
+    let mut folders = filters
+        .into_iter()
+        .map(|filter| match filter {
+            tl::enums::DialogFilter::Default => FolderView {
+                id: 0,
+                title: "All".to_owned(),
+                unread: all_unread,
+            },
+            tl::enums::DialogFilter::Filter(filter) => FolderView {
+                id: filter.id,
+                title: text_with_entities(filter.title),
+                unread: 0,
+            },
+            tl::enums::DialogFilter::Chatlist(filter) => FolderView {
+                id: filter.id,
+                title: text_with_entities(filter.title),
+                unread: 0,
+            },
+        })
+        .collect::<Vec<_>>();
+    if !folders.iter().any(|folder| folder.id == 0) {
+        folders.insert(
+            0,
+            FolderView {
+                id: 0,
+                title: "All".to_owned(),
+                unread: all_unread,
+            },
+        );
+    }
+    folders.push(FolderView {
+        id: -1,
+        title: "Archive".to_owned(),
+        unread: 0,
+    });
+    folders
+}
+
+fn text_with_entities(text: tl::enums::TextWithEntities) -> String {
+    let tl::enums::TextWithEntities::Entities(text) = text;
+    text.text
+}
+
 fn message_parts(
     messages: tl::enums::messages::Messages,
 ) -> (
@@ -1333,8 +1379,8 @@ mod tests {
     use super::{
         Error, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginErrorAction,
         contains_login_token_update, direct_data_centers, ensure_production_environment,
-        login_error_action, normalize_code_delivery, normalize_code_delivery_method, qr_login_uri,
-        rpc_migration_dc,
+        login_error_action, normalize_code_delivery, normalize_code_delivery_method,
+        normalize_dialog_folders, qr_login_uri, rpc_migration_dc,
     };
 
     #[test]
@@ -1436,6 +1482,65 @@ mod tests {
             ))
         );
         assert!(!selected.contains_key(&2));
+    }
+
+    #[test]
+    fn dialog_filters_include_custom_and_shared_folders_in_server_order() {
+        let title = |text: &str| {
+            tl::types::TextWithEntities {
+                text: text.to_owned(),
+                entities: Vec::new(),
+            }
+            .into()
+        };
+        let filters = vec![
+            tl::enums::DialogFilter::Default,
+            tl::types::DialogFilter {
+                contacts: false,
+                non_contacts: false,
+                groups: false,
+                broadcasts: false,
+                bots: false,
+                exclude_muted: false,
+                exclude_read: false,
+                exclude_archived: false,
+                title_noanimate: false,
+                id: 2,
+                title: title("Work"),
+                emoticon: None,
+                color: None,
+                pinned_peers: Vec::new(),
+                include_peers: Vec::new(),
+                exclude_peers: Vec::new(),
+            }
+            .into(),
+            tl::types::DialogFilterChatlist {
+                has_my_invites: false,
+                title_noanimate: false,
+                id: 3,
+                title: title("Shared"),
+                emoticon: None,
+                color: None,
+                pinned_peers: Vec::new(),
+                include_peers: Vec::new(),
+            }
+            .into(),
+        ];
+
+        let folders = normalize_dialog_folders(filters, 7);
+
+        assert_eq!(
+            folders
+                .iter()
+                .map(|folder| (folder.id, folder.title.as_str(), folder.unread))
+                .collect::<Vec<_>>(),
+            vec![
+                (0, "All", 7),
+                (2, "Work", 0),
+                (3, "Shared", 0),
+                (-1, "Archive", 0),
+            ]
+        );
     }
 
     fn dc_option(

@@ -42,6 +42,7 @@
 - [ ] **p-high:** Manage Scheduled Messages per Chat: schedule for an explicitly zoned local date and time, send when online where Telegram permits it, and view, edit, reschedule, delete, or send now. Keep scheduled state distinct from Drafts and Pending Actions; delivery remains server-side and survives Intuigram exiting.
 - [ ] **p-high:** Add SOCKS5, HTTP CONNECT, and MTProxy transports, including secret parsing, proxy authentication, explicit DNS behavior, connection testing, and automatic fallback.
 - [ ] **p-low:** Make keyboard bindings configurable through a Figment-based configuration system. Support layered TOML, YAML, JSON, environment, and command-line sources; keep a complete default keymap; and generate the on-screen Action Bar and Help from the active configuration.
+- [ ] **p-low:** Make the terminal palette configurable, keep Everforest Light as a built-in bright theme, and add automatic light/dark terminal-background detection with an explicit configuration override.
 - [ ] **p-mid:** Add first-class forum Topics. Opening a forum Chat shows its Topic list; each Topic keeps independent unread state, Draft, pin state, and position; General remains visible; and channel replies open in Details or the narrow-screen navigation stack.
 - [ ] **p-mid:** Add topic-enabled bot Private Chats.
 - [ ] **p-mid:** Add Saved Messages 2.0 per-origin dialogs.

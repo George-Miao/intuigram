@@ -335,6 +335,7 @@ pub fn bounded_channels(capacity: NonZeroUsize) -> (AppHandle, AppChannels) {
 pub struct App {
     view: View,
     drafts: HashMap<ChatId, ComposerView>,
+    histories: HashMap<ChatId, Vec<MessageView>>,
     loading_chat: Option<ChatId>,
     queued_chat: Option<ChatId>,
 }
@@ -361,6 +362,7 @@ impl App {
                 actions: Vec::new(),
             },
             drafts: HashMap::new(),
+            histories: HashMap::new(),
             loading_chat: None,
             queued_chat: None,
         }
@@ -385,8 +387,12 @@ impl App {
                 self.view.account_name = bootstrap.account_name;
                 self.view.folders = bootstrap.folders;
                 self.view.chats = bootstrap.chats;
-                self.view.messages = bootstrap.messages;
                 self.view.active_chat = (!self.view.chats.is_empty()).then_some(0);
+                self.histories.clear();
+                if let Some(chat) = self.active_chat_id() {
+                    self.histories.insert(chat, bootstrap.messages.clone());
+                }
+                self.view.messages = bootstrap.messages;
                 self.view.active_message = None;
                 self.loading_chat = None;
                 self.queued_chat = None;
@@ -398,14 +404,27 @@ impl App {
             }
             Input::Adapter(AdapterEvent::MessageAdded(message)) => {
                 let was_latest = self.at_latest();
+                if let Some(chat) = self.active_chat_id() {
+                    self.histories
+                        .entry(chat)
+                        .or_default()
+                        .push(message.clone());
+                }
                 self.view.messages.push(message);
                 self.view.has_newer_messages = !was_latest;
                 None
             }
             Input::Adapter(AdapterEvent::ChatLoaded { chat, messages }) => {
+                self.histories.insert(chat, messages.clone());
                 if self.active_chat_id() == Some(chat) {
+                    let active_message = self.active_message_id();
                     self.view.messages = messages;
-                    self.view.active_message = None;
+                    self.view.active_message = active_message.and_then(|active| {
+                        self.view
+                            .messages
+                            .iter()
+                            .position(|message| message.id == active)
+                    });
                     self.view.has_newer_messages = false;
                 }
 
@@ -582,7 +601,10 @@ impl App {
         self.save_active_draft();
         self.view.active_chat = next;
         self.restore_active_draft();
-        self.view.messages.clear();
+        self.view.messages = self
+            .active_chat_id()
+            .and_then(|chat| self.histories.get(&chat).cloned())
+            .unwrap_or_default();
         self.view.active_message = None;
         self.view.has_newer_messages = false;
         self.active_chat_id()
@@ -993,6 +1015,7 @@ mod tests {
                 let first =
                     transition(&handle, Input::Intent(Intent::Action(Action::MoveUp))).await;
                 assert_eq!(first.view.active_chat, Some(0));
+                assert_eq!(first.view.messages, hierarchy_bootstrap().messages);
                 assert_eq!(first.view.composer.text, "first draft");
                 assert_eq!(first.effect, None);
 
@@ -1005,6 +1028,80 @@ mod tests {
                 )
                 .await;
                 assert_eq!(queued.effect, Some(Effect::LoadChat { chat: ChatId(10) }));
+                drop(handle.inputs);
+            };
+            let (result, ()) = future::zip(drive, observe).await;
+            result.expect("application should shut down cleanly");
+        });
+    }
+
+    #[test]
+    fn revisiting_a_loaded_chat_renders_cached_history_while_refreshing() {
+        future::block_on(async {
+            let capacity = NonZeroUsize::new(16).expect("fixture capacity should be positive");
+            let (handle, channels) = bounded_channels(capacity);
+            let drive = App::new().run(channels);
+            let observe = async move {
+                handle
+                    .updates
+                    .recv()
+                    .await
+                    .expect("initial view should arrive");
+                let initial = hierarchy_bootstrap().messages;
+                transition(
+                    &handle,
+                    Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
+                )
+                .await;
+
+                let second =
+                    transition(&handle, Input::Intent(Intent::Action(Action::MoveDown))).await;
+                assert!(second.view.messages.is_empty());
+                assert_eq!(second.effect, Some(Effect::LoadChat { chat: ChatId(20) }));
+
+                let second_history = vec![MessageView {
+                    id: MessageId(20),
+                    sender: "Ferris".to_owned(),
+                    body: "cached second chat".to_owned(),
+                    timestamp: "12:20".to_owned(),
+                    direction: MessageDirection::Incoming,
+                    delivery: DeliveryState::Read,
+                    reply_to: None,
+                }];
+                let loaded = transition(
+                    &handle,
+                    Input::Adapter(AdapterEvent::ChatLoaded {
+                        chat: ChatId(20),
+                        messages: second_history.clone(),
+                    }),
+                )
+                .await;
+                assert_eq!(loaded.view.messages, second_history);
+
+                let first =
+                    transition(&handle, Input::Intent(Intent::Action(Action::MoveUp))).await;
+                assert_eq!(first.view.messages, initial);
+                assert_eq!(first.effect, Some(Effect::LoadChat { chat: ChatId(10) }));
+
+                let mut refreshed = hierarchy_bootstrap().messages;
+                refreshed.push(MessageView {
+                    id: MessageId(4),
+                    sender: "Lin".to_owned(),
+                    body: "arrived while away".to_owned(),
+                    timestamp: "12:21".to_owned(),
+                    direction: MessageDirection::Incoming,
+                    delivery: DeliveryState::Sent,
+                    reply_to: None,
+                });
+                let refreshed_view = transition(
+                    &handle,
+                    Input::Adapter(AdapterEvent::ChatLoaded {
+                        chat: ChatId(10),
+                        messages: refreshed.clone(),
+                    }),
+                )
+                .await;
+                assert_eq!(refreshed_view.view.messages, refreshed);
                 drop(handle.inputs);
             };
             let (result, ()) = future::zip(drive, observe).await;

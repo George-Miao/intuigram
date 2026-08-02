@@ -5,7 +5,10 @@ use std::io::{self, Stdout};
 use std::time::Duration;
 
 use compio_term::EventStream;
-use crossterm::event::{self, Event, KeyCode as CrosstermKey, KeyEventKind, KeyModifiers};
+use crossterm::event::{
+    self, Event, KeyCode as CrosstermKey, KeyEventKind, KeyModifiers, KeyboardEnhancementFlags,
+    PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+};
 use crossterm::execute;
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
@@ -25,9 +28,16 @@ use ratatui::widgets::{Clear, List, ListItem, Paragraph, Wrap};
 use ratatui::{Frame, Terminal};
 use snafu::{OptionExt, ResultExt, Snafu};
 
-const SURFACE_BACKGROUND: Color = Color::Rgb(16, 16, 16);
-const FOCUSED_SURFACE_BACKGROUND: Color = Color::Rgb(28, 28, 28);
-const CHROME_BACKGROUND: Color = Color::Rgb(8, 8, 8);
+// OpenCode's Everforest light palette, kept local until themes become
+// configurable.
+const BACKGROUND: Color = Color::Rgb(253, 246, 227);
+const SURFACE_BACKGROUND: Color = Color::Rgb(244, 240, 217);
+const FOCUSED_SURFACE_BACKGROUND: Color = Color::Rgb(230, 226, 204);
+const CHROME_BACKGROUND: Color = Color::Rgb(239, 235, 212);
+const TEXT: Color = Color::Rgb(92, 106, 114);
+const MUTED_TEXT: Color = Color::Rgb(130, 145, 129);
+const PRIMARY: Color = Color::Rgb(141, 161, 1);
+const SECONDARY: Color = Color::Rgb(58, 148, 197);
 
 /// A terminal key independent of a concrete terminal backend.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -185,6 +195,12 @@ const BINDINGS: &[Binding] = &[
     ),
     binding(KeyChord::control(Key::Enter), "Send", Action::Send, true),
     binding(
+        KeyChord::control(Key::Char('s')),
+        "Send (fallback)",
+        Action::Send,
+        false,
+    ),
+    binding(
         KeyChord::control(Key::Char('r')),
         "Reply",
         Action::Reply,
@@ -310,6 +326,13 @@ pub enum Error {
     /// The alternate screen could not be entered.
     #[snafu(display("failed to enter terminal alternate screen"))]
     EnterScreen {
+        /// Underlying terminal failure.
+        source: io::Error,
+    },
+
+    /// Enhanced keyboard reporting could not be enabled.
+    #[snafu(display("failed to enable unambiguous terminal keyboard reporting"))]
+    EnableKeyboardReporting {
         /// Underlying terminal failure.
         source: io::Error,
     },
@@ -492,11 +515,19 @@ fn enter_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>> {
         let _ = disable_raw_mode();
         return Err(Error::EnterScreen { source });
     }
+    if let Err(source) = execute!(
+        stdout,
+        PushKeyboardEnhancementFlags(terminal_keyboard_flags())
+    ) {
+        let _ = execute!(stdout, LeaveAlternateScreen);
+        let _ = disable_raw_mode();
+        return Err(Error::EnableKeyboardReporting { source });
+    }
     match Terminal::new(CrosstermBackend::new(stdout)) {
         Ok(terminal) => Ok(terminal),
         Err(source) => {
             let mut stdout = io::stdout();
-            let _ = execute!(stdout, LeaveAlternateScreen);
+            let _ = execute!(stdout, PopKeyboardEnhancementFlags, LeaveAlternateScreen);
             let _ = disable_raw_mode();
             Err(Error::InitializeTerminal { source })
         }
@@ -505,8 +536,17 @@ fn enter_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>> {
 
 fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) {
     let _ = disable_raw_mode();
-    let _ = execute!(terminal.backend_mut(), LeaveAlternateScreen);
+    let _ = execute!(
+        terminal.backend_mut(),
+        PopKeyboardEnhancementFlags,
+        LeaveAlternateScreen
+    );
     let _ = terminal.show_cursor();
+}
+
+const fn terminal_keyboard_flags() -> KeyboardEnhancementFlags {
+    KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+        .union(KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES)
 }
 
 fn resolve_event(keymap: &EffectiveKeymap, view: &View, event: Event) -> Option<UiEvent> {
@@ -703,6 +743,11 @@ fn chord_from_crossterm(code: CrosstermKey, modifiers: KeyModifiers) -> Option<K
 
 fn render(frame: &mut Frame<'_>, view: &View, keymap: &EffectiveKeymap) {
     let area = frame.area();
+    frame.render_widget(Clear, area);
+    frame.render_widget(
+        Paragraph::new("").style(Style::default().fg(TEXT).bg(BACKGROUND)),
+        area,
+    );
     let rows = Layout::vertical([
         Constraint::Min(5),
         Constraint::Length(1),
@@ -747,35 +792,41 @@ fn render_chats(frame: &mut Frame<'_>, area: Rect, view: &View) {
             Span::styled("Chats", Style::default().add_modifier(Modifier::BOLD)),
             Span::styled(
                 format!("  {}", view.account_name),
-                Style::default().fg(Color::DarkGray),
+                Style::default().fg(MUTED_TEXT),
             ),
         ]))
         .style(surface_style(focused)),
         rows[0],
     );
-    let items = view.chats.iter().enumerate().map(|(index, chat)| {
-        let marker = if chat.pinned { "●" } else { " " };
-        let unread = if chat.unread > 0 {
-            format!(" {}", chat.unread)
-        } else {
-            String::new()
-        };
-        let selected = view.active_chat == Some(index);
-        ListItem::new(vec![
-            Line::from(vec![
-                selection_rule(selected),
-                Span::styled(
-                    format!("{marker} {}", chat.title),
-                    Style::default().add_modifier(Modifier::BOLD),
-                ),
-                Span::styled(unread, Style::default().fg(Color::Cyan)),
-            ]),
-            Line::from(vec![
-                selection_rule(selected),
-                Span::styled(chat.preview.clone(), Style::default().fg(Color::DarkGray)),
-            ]),
-        ])
-    });
+    let visible_items = usize::from(rows[1].height) / 2;
+    let range = anchored_window(view.chats.len(), view.active_chat, visible_items, false);
+    let items = view.chats[range.clone()]
+        .iter()
+        .enumerate()
+        .map(|(offset, chat)| {
+            let index = range.start + offset;
+            let marker = if chat.pinned { "●" } else { " " };
+            let unread = if chat.unread > 0 {
+                format!(" {}", chat.unread)
+            } else {
+                String::new()
+            };
+            let selected = view.active_chat == Some(index);
+            ListItem::new(vec![
+                Line::from(vec![
+                    selection_rule(selected),
+                    Span::styled(
+                        format!("{marker} {}", chat.title),
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(unread, Style::default().fg(PRIMARY)),
+                ]),
+                Line::from(vec![
+                    selection_rule(selected),
+                    Span::styled(chat.preview.clone(), Style::default().fg(MUTED_TEXT)),
+                ]),
+            ])
+        });
     frame.render_widget(List::new(items).style(surface_style(focused)), rows[1]);
 }
 
@@ -794,7 +845,7 @@ fn render_active_chat(frame: &mut Frame<'_>, area: Rect, view: &View) {
             || {
                 Line::from(Span::styled(
                     "No active Chat",
-                    Style::default().fg(Color::DarkGray),
+                    Style::default().fg(MUTED_TEXT),
                 ))
             },
             |chat| {
@@ -809,13 +860,33 @@ fn render_active_chat(frame: &mut Frame<'_>, area: Rect, view: &View) {
                         } else {
                             "  up to date".to_owned()
                         },
-                        Style::default().fg(Color::DarkGray),
+                        Style::default().fg(MUTED_TEXT),
+                    ),
+                ])
+            },
+        );
+    let active_message = view
+        .active_message
+        .and_then(|index| view.messages.get(index))
+        .map_or_else(
+            || Line::from(""),
+            |message| {
+                Line::from(vec![
+                    selection_rule(true),
+                    Span::styled(
+                        "Active message",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!(" · {} · {}", message.sender, message.timestamp),
+                        Style::default().fg(MUTED_TEXT),
                     ),
                 ])
             },
         );
     frame.render_widget(
-        Paragraph::new(header).style(surface_style(view.focus == Focus::Transcript)),
+        Paragraph::new(vec![header, active_message])
+            .style(surface_style(view.focus == Focus::Transcript)),
         rows[0],
     );
     render_transcript(frame, rows[1], view, view.focus == Focus::Transcript);
@@ -825,44 +896,53 @@ fn render_active_chat(frame: &mut Frame<'_>, area: Rect, view: &View) {
 }
 
 fn render_transcript(frame: &mut Frame<'_>, area: Rect, view: &View, focused: bool) {
-    let items = view.messages.iter().enumerate().map(|(index, message)| {
-        let selected = view.active_message == Some(index);
-        let direction = match message.direction {
-            MessageDirection::Incoming => "←",
-            MessageDirection::Outgoing => "→",
-        };
-        let delivery = match message.delivery {
-            DeliveryState::Pending => "…",
-            DeliveryState::Sent => "✓",
-            DeliveryState::Read => "✓✓",
-            DeliveryState::Failed => "!",
-        };
-        let reply = message
-            .reply_to
-            .map_or_else(String::new, |id| format!(" ↩{}", id.0));
-        let header = Line::from(vec![
-            selection_rule(selected),
-            Span::styled(
-                format!("{direction} {}", message.sender),
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(reply, Style::default().fg(Color::DarkGray)),
-            Span::raw("  "),
-            Span::styled(
-                format!("{} {delivery}", message.timestamp),
-                Style::default().fg(Color::DarkGray),
-            ),
-        ]);
-        ListItem::new(vec![
-            header,
-            Line::from(vec![
+    let visible_items = usize::from(area.height) / 2;
+    let range = anchored_window(
+        view.messages.len(),
+        view.active_message,
+        visible_items,
+        true,
+    );
+    let items = view.messages[range.clone()]
+        .iter()
+        .enumerate()
+        .map(|(offset, message)| {
+            let index = range.start + offset;
+            let selected = view.active_message == Some(index);
+            let direction = match message.direction {
+                MessageDirection::Incoming => "←",
+                MessageDirection::Outgoing => "→",
+            };
+            let delivery = match message.delivery {
+                DeliveryState::Pending => "…",
+                DeliveryState::Sent => "✓",
+                DeliveryState::Read => "✓✓",
+                DeliveryState::Failed => "!",
+            };
+            let reply = message
+                .reply_to
+                .map_or_else(String::new, |id| format!(" ↩{}", id.0));
+            let header = Line::from(vec![
                 selection_rule(selected),
-                Span::raw(message.body.clone()),
-            ]),
-        ])
-    });
+                Span::styled(
+                    format!("{direction} {}", message.sender),
+                    Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(reply, Style::default().fg(MUTED_TEXT)),
+                Span::raw("  "),
+                Span::styled(
+                    format!("{} {delivery}", message.timestamp),
+                    Style::default().fg(MUTED_TEXT),
+                ),
+            ]);
+            ListItem::new(vec![
+                header,
+                Line::from(vec![
+                    selection_rule(selected),
+                    Span::raw(message.body.clone()),
+                ]),
+            ])
+        });
     frame.render_widget(List::new(items).style(surface_style(focused)), area);
 }
 
@@ -873,10 +953,7 @@ fn render_composer(frame: &mut Frame<'_>, area: Rect, view: &View) {
         |message| format!("Reply to {}", message.0),
     );
     let draft_content = if view.composer.text.is_empty() {
-        Span::styled(
-            "Type or paste a message…",
-            Style::default().fg(Color::DarkGray),
-        )
+        Span::styled("Type or paste a message…", Style::default().fg(MUTED_TEXT))
     } else {
         Span::raw(view.composer.text.clone())
     };
@@ -884,7 +961,7 @@ fn render_composer(frame: &mut Frame<'_>, area: Rect, view: &View) {
         Paragraph::new(vec![
             Line::from(vec![
                 interaction_rule(focused),
-                Span::styled(composer_label, Style::default().fg(Color::DarkGray)),
+                Span::styled(composer_label, Style::default().fg(MUTED_TEXT)),
             ]),
             Line::from(vec![interaction_rule(focused), draft_content]),
         ])
@@ -900,7 +977,7 @@ fn render_folders(frame: &mut Frame<'_>, area: Rect, view: &View) {
         let style = if active {
             Style::default().add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(Color::Gray)
+            Style::default().fg(MUTED_TEXT)
         };
         let unread = if folder.unread > 0 {
             format!(" {}", folder.unread)
@@ -924,9 +1001,7 @@ fn render_actions(frame: &mut Frame<'_>, area: Rect, view: &View, keymap: &Effec
     for binding in keymap.action_bar(view) {
         spans.push(Span::styled(
             binding.key.label(),
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
+            Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
         ));
         spans.push(Span::raw(format!(" {}  ", binding.label)));
     }
@@ -953,7 +1028,7 @@ fn render_status(frame: &mut Frame<'_>, area: Rect, view: &View) {
     let style = if view.focus == Focus::Search {
         surface_style(true)
     } else {
-        Style::default().fg(Color::DarkGray).bg(CHROME_BACKGROUND)
+        Style::default().fg(MUTED_TEXT).bg(CHROME_BACKGROUND)
     };
     frame.render_widget(Paragraph::new(status).style(style), area);
 }
@@ -969,7 +1044,7 @@ fn render_help(frame: &mut Frame<'_>, area: Rect, view: &View, keymap: &Effectiv
         Line::from(vec![
             Span::styled(
                 format!("{:>12}", binding.key.label()),
-                Style::default().fg(Color::Cyan),
+                Style::default().fg(PRIMARY),
             ),
             Span::raw(format!("  {}", binding.label)),
         ])
@@ -985,7 +1060,7 @@ fn render_help(frame: &mut Frame<'_>, area: Rect, view: &View, keymap: &Effectiv
 
 fn selection_rule(selected: bool) -> Span<'static> {
     if selected {
-        Span::styled("│ ", Style::default().fg(Color::Cyan))
+        Span::styled("│ ", Style::default().fg(PRIMARY))
     } else {
         Span::raw("  ")
     }
@@ -993,18 +1068,36 @@ fn selection_rule(selected: bool) -> Span<'static> {
 
 fn interaction_rule(active: bool) -> Span<'static> {
     if active {
-        Span::styled("│ ", Style::default().fg(Color::Cyan))
+        Span::styled("│ ", Style::default().fg(PRIMARY))
     } else {
-        Span::styled("│ ", Style::default().fg(Color::DarkGray))
+        Span::styled("│ ", Style::default().fg(MUTED_TEXT))
     }
 }
 
 fn surface_style(focused: bool) -> Style {
-    Style::default().fg(Color::Gray).bg(if focused {
+    Style::default().fg(TEXT).bg(if focused {
         FOCUSED_SURFACE_BACKGROUND
     } else {
         SURFACE_BACKGROUND
     })
+}
+
+fn anchored_window(
+    length: usize,
+    active: Option<usize>,
+    visible_items: usize,
+    default_to_end: bool,
+) -> std::ops::Range<usize> {
+    let visible_items = visible_items.max(1).min(length);
+    let active = active
+        .map(|index| index.min(length.saturating_sub(1)))
+        .or_else(|| default_to_end.then(|| length.saturating_sub(1)))
+        .unwrap_or(0);
+    let anchor = visible_items / 3;
+    let start = active
+        .saturating_sub(anchor)
+        .min(length.saturating_sub(visible_items));
+    start..start + visible_items
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
@@ -1024,7 +1117,10 @@ fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
 
 #[cfg(test)]
 mod tests {
-    use crossterm::event::{Event, KeyCode as CrosstermKey, KeyEvent, KeyEventKind, KeyModifiers};
+    use crossterm::event::{
+        Event, KeyCode as CrosstermKey, KeyEvent, KeyEventKind, KeyModifiers,
+        KeyboardEnhancementFlags,
+    };
     use intuigram_app::{
         Action, ChatId, ChatView, ComposerView, ConnectionState, DeliveryState, Focus, FolderView,
         MessageDirection, MessageId, MessageView, SearchView, View,
@@ -1035,7 +1131,7 @@ mod tests {
 
     use super::{
         EffectiveKeymap, Key, KeyChord, UiEvent, chord_from_crossterm, qr_login_symbols, render,
-        resolve_event,
+        resolve_event, terminal_keyboard_flags,
     };
 
     #[test]
@@ -1089,24 +1185,33 @@ mod tests {
 
     #[test]
     fn displayed_action_bar_and_help_bindings_are_the_bindings_input_resolves() {
-        let view = view(vec![Action::Search, Action::JumpLatest, Action::Help]);
+        let current_view = view(vec![Action::Search, Action::JumpLatest, Action::Help]);
         let keymap = EffectiveKeymap::defaults();
 
-        for binding in keymap.help(&view) {
-            assert_eq!(keymap.resolve(&view, binding.key), Some(binding.action));
+        for binding in keymap.help(&current_view) {
+            assert_eq!(
+                keymap.resolve(&current_view, binding.key),
+                Some(binding.action)
+            );
             assert!(!binding.key.label().is_empty());
         }
         assert_eq!(
-            keymap.resolve(&view, KeyChord::control(Key::Char('f'))),
+            keymap.resolve(&current_view, KeyChord::control(Key::Char('f'))),
             Some(Action::Search)
         );
         assert_eq!(
-            keymap.resolve(&view, KeyChord::shift(Key::Down)),
+            keymap.resolve(&current_view, KeyChord::shift(Key::Down)),
             Some(Action::JumpLatest)
         );
         assert_eq!(
-            keymap.resolve(&view, KeyChord::plain(Key::End)),
+            keymap.resolve(&current_view, KeyChord::plain(Key::End)),
             Some(Action::JumpLatest)
+        );
+
+        let composer = view(vec![Action::Send]);
+        assert_eq!(
+            keymap.resolve(&composer, KeyChord::control(Key::Char('s'))),
+            Some(Action::Send)
         );
     }
 
@@ -1140,13 +1245,13 @@ mod tests {
 
     #[test]
     fn terminal_events_resolve_against_the_current_view() {
-        let view = view(vec![Action::Search]);
+        let current_view = view(vec![Action::Search]);
         let keymap = EffectiveKeymap::defaults();
 
         assert_eq!(
             resolve_event(
                 &keymap,
-                &view,
+                &current_view,
                 Event::Key(KeyEvent::new_with_kind(
                     CrosstermKey::Char('f'),
                     KeyModifiers::CONTROL,
@@ -1158,15 +1263,143 @@ mod tests {
             )))
         );
         assert_eq!(
-            resolve_event(&keymap, &view, Event::Paste("hello".to_owned())),
+            resolve_event(&keymap, &current_view, Event::Paste("hello".to_owned())),
             Some(UiEvent::Intent(intuigram_app::Intent::Insert(
                 "hello".to_owned()
             )))
         );
         assert_eq!(
-            resolve_event(&keymap, &view, Event::Resize(100, 30)),
+            resolve_event(&keymap, &current_view, Event::Resize(100, 30)),
             Some(UiEvent::Redraw)
         );
+
+        let mut composer = view(vec![Action::Send]);
+        composer.focus = Focus::Composer;
+        assert_eq!(
+            resolve_event(
+                &keymap,
+                &composer,
+                Event::Key(KeyEvent::new_with_kind(
+                    CrosstermKey::Enter,
+                    KeyModifiers::CONTROL,
+                    KeyEventKind::Press,
+                )),
+            ),
+            Some(UiEvent::Intent(intuigram_app::Intent::Action(Action::Send)))
+        );
+    }
+
+    #[test]
+    fn terminal_keyboard_protocol_disambiguates_modified_enter() {
+        let flags = terminal_keyboard_flags();
+
+        assert!(flags.contains(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES));
+        assert!(flags.contains(KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES));
+    }
+
+    #[test]
+    fn chat_list_scroll_keeps_the_active_chat_near_one_third_height() {
+        let mut view = view(Vec::new());
+        view.chats = (0..14)
+            .map(|index| ChatView {
+                id: ChatId(index),
+                title: format!("Chat {index}"),
+                preview: format!("Preview {index}"),
+                unread: 0,
+                pinned: false,
+            })
+            .collect();
+        view.active_chat = Some(8);
+
+        let backend = TestBackend::new(100, 24);
+        let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
+        terminal
+            .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
+            .expect("view should render");
+        let buffer = terminal.backend().buffer();
+        let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
+
+        assert_eq!(buffer[(0, 8)].symbol(), "│");
+        assert!(rendered.contains("Chat 8"));
+        assert!(!rendered.contains("Chat 0"));
+    }
+
+    #[test]
+    fn transcript_scroll_keeps_the_active_message_visible() {
+        let mut view = view(Vec::new());
+        view.chats = vec![ChatView {
+            id: ChatId(10),
+            title: "Intuigram".to_owned(),
+            preview: String::new(),
+            unread: 0,
+            pinned: false,
+        }];
+        view.active_chat = Some(0);
+        view.messages = (0..20)
+            .map(|index| MessageView {
+                id: MessageId(index),
+                sender: "Lin".to_owned(),
+                body: format!("Message {index}"),
+                timestamp: "12:00".to_owned(),
+                direction: MessageDirection::Incoming,
+                delivery: DeliveryState::Read,
+                reply_to: None,
+            })
+            .collect();
+        view.active_message = Some(10);
+        view.focus = Focus::Transcript;
+
+        let backend = TestBackend::new(100, 24);
+        let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
+        terminal
+            .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
+            .expect("view should render");
+        let buffer = terminal.backend().buffer();
+
+        assert_eq!(buffer[(31, 6)].symbol(), "│");
+        assert_eq!(buffer[(33, 7)].symbol(), "M");
+    }
+
+    #[test]
+    fn everforest_light_palette_is_used_for_the_terminal_surface() {
+        let backend = TestBackend::new(100, 24);
+        let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
+        terminal
+            .draw(|frame| render(frame, &view(Vec::new()), &EffectiveKeymap::defaults()))
+            .expect("view should render");
+        let buffer = terminal.backend().buffer();
+
+        assert_eq!(buffer[(30, 5)].bg, Color::Rgb(253, 246, 227));
+        assert_eq!(buffer[(5, 5)].bg, Color::Rgb(230, 226, 204));
+        assert_eq!(buffer[(5, 5)].fg, Color::Rgb(92, 106, 114));
+    }
+
+    #[test]
+    fn redrawing_shorter_chat_text_clears_the_previous_frame() {
+        let mut view = view(Vec::new());
+        view.chats = vec![ChatView {
+            id: ChatId(10),
+            title: "A title with stale trailing characters".to_owned(),
+            preview: "A preview with stale trailing characters".to_owned(),
+            unread: 0,
+            pinned: false,
+        }];
+        view.active_chat = Some(0);
+        let backend = TestBackend::new(100, 24);
+        let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
+        terminal
+            .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
+            .expect("long view should render");
+
+        view.chats[0].title = "X".to_owned();
+        view.chats[0].preview.clear();
+        terminal
+            .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
+            .expect("short view should render");
+        let buffer = terminal.backend().buffer();
+
+        assert!((5..30).all(|x| buffer[(x, 2)].symbol() == " "));
+        assert!((2..30).all(|x| buffer[(x, 3)].symbol() == " "));
     }
 
     #[test]
@@ -1212,16 +1445,16 @@ mod tests {
         assert_eq!(buffer[(0, 2)].symbol(), "│");
         assert_eq!(buffer[(31, 2)].symbol(), "│");
         assert_eq!(buffer[(39, 2)].symbol(), "↩");
-        assert_eq!(buffer[(39, 2)].fg, Color::DarkGray);
+        assert_eq!(buffer[(39, 2)].fg, Color::Rgb(130, 145, 129));
         assert_eq!(buffer[(31, 18)].symbol(), "│");
         assert_eq!(buffer[(33, 18)].symbol(), "D");
-        assert_eq!(buffer[(5, 5)].bg, Color::Rgb(16, 16, 16));
-        assert_eq!(buffer[(40, 5)].bg, Color::Rgb(16, 16, 16));
-        assert_eq!(buffer[(40, 18)].bg, Color::Rgb(28, 28, 28));
-        assert_eq!(buffer[(30, 5)].bg, Color::Reset);
-        assert_eq!(buffer[(5, 21)].bg, Color::Rgb(16, 16, 16));
-        assert_eq!(buffer[(5, 22)].bg, Color::Rgb(16, 16, 16));
-        assert_eq!(buffer[(5, 23)].bg, Color::Rgb(8, 8, 8));
+        assert_eq!(buffer[(5, 5)].bg, Color::Rgb(244, 240, 217));
+        assert_eq!(buffer[(40, 5)].bg, Color::Rgb(244, 240, 217));
+        assert_eq!(buffer[(40, 18)].bg, Color::Rgb(230, 226, 204));
+        assert_eq!(buffer[(30, 5)].bg, Color::Rgb(253, 246, 227));
+        assert_eq!(buffer[(5, 21)].bg, Color::Rgb(244, 240, 217));
+        assert_eq!(buffer[(5, 22)].bg, Color::Rgb(244, 240, 217));
+        assert_eq!(buffer[(5, 23)].bg, Color::Rgb(239, 235, 212));
         assert!(
             buffer
                 .content
@@ -1234,16 +1467,16 @@ mod tests {
             .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
             .expect("Chat-list focus should render");
         let buffer = terminal.backend().buffer();
-        assert_eq!(buffer[(5, 5)].bg, Color::Rgb(28, 28, 28));
-        assert_eq!(buffer[(40, 18)].bg, Color::Rgb(16, 16, 16));
+        assert_eq!(buffer[(5, 5)].bg, Color::Rgb(230, 226, 204));
+        assert_eq!(buffer[(40, 18)].bg, Color::Rgb(244, 240, 217));
 
         view.focus = Focus::Transcript;
         terminal
             .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
             .expect("Transcript focus should render");
         let buffer = terminal.backend().buffer();
-        assert_eq!(buffer[(40, 5)].bg, Color::Rgb(28, 28, 28));
-        assert_eq!(buffer[(40, 18)].bg, Color::Rgb(16, 16, 16));
+        assert_eq!(buffer[(40, 5)].bg, Color::Rgb(230, 226, 204));
+        assert_eq!(buffer[(40, 18)].bg, Color::Rgb(244, 240, 217));
 
         view.focus = Focus::Search;
         terminal
@@ -1251,7 +1484,7 @@ mod tests {
             .expect("search focus should render");
         assert_eq!(
             terminal.backend().buffer()[(5, 23)].bg,
-            Color::Rgb(28, 28, 28)
+            Color::Rgb(230, 226, 204)
         );
     }
 
