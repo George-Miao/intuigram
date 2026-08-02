@@ -5,8 +5,11 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+compio-term = { path = "../compio-term" }
 popgram-app = { path = "../popgram-app" }
-crossterm.workspace = true
+crossterm = { workspace = true, features = ["bracketed-paste"] }
+futures-util.workspace = true
+qrcode = { version = "0.14.1", default-features = false }
 ratatui.workspace = true
 snafu.workspace = true
 

@@ -5,8 +5,8 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-figment.workspace = true
-serde.workspace = true
+figment = { workspace = true, features = ["env", "json", "toml", "yaml"] }
+serde = { workspace = true, features = ["derive"] }
 snafu.workspace = true
 
 [dev-dependencies]

@@ -1,3 +1,3 @@
-# Isolate accounts by Telegram user ID
+# Account isolation
 
 Popgram keeps `global.db` for cross-Account runtime records and one `<telegram-user-id>.db` for each Account. An Account database contains its MTProto authorization and session state, synchronization cursors, Synchronized Cache, Drafts, Draft History, search index, media metadata, and future durable Outbox, allowing related state to commit transactionally. A new login uses `.pending.db` until authorization reveals the user ID, then closes and atomically renames it. Redownloadable media bytes remain outside SQLite under the OS cache directory keyed by Telegram user ID. This avoids surrogate identifiers, limits corruption and recovery scope, permits per-Account Local Lock and removal, and prevents one Account's writer load from blocking every other Account at the cost of migrating and managing multiple databases.

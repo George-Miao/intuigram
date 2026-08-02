@@ -30,6 +30,7 @@ The target is a virtual Cargo workspace. Every package belongs under `crates/`.
 - `crates/popgram-media`: media transfer, cache policy, and media lifecycle.
 - `crates/popgram-config`: layered Figment configuration.
 - `crates/compio-mtproto`: reusable Compio-based MTProto connection, session, invocation, and update-stream library.
+- `crates/compio-term`: experimental reusable Compio-native terminal event readiness; keep its API explicitly unstable until the Windows backend and cross-platform behavior are resolved.
 - `crates/rich-clipboard`: reusable native clipboard-content library.
 
 Use `popgram-*` for Popgram-specific crates. Give genuinely reusable crates independent names. Do not create a crate merely to group related types. A crate must hide meaningful behavior behind a small interface at a demonstrated seam.
@@ -40,6 +41,7 @@ Dependencies point toward `popgram-app`; the `popgram` executable composes adapt
 
 - One asynchronous `popgram-app` task exclusively owns mutable application state.
 - TUI input and adapters communicate with it through bounded, typed channels.
+- Terminal input and rendering must remain responsive while adapter effects are pending. Never execute Telegram, database, media, clipboard, notification, or platform work synchronously in the terminal event loop.
 - The TUI renders immutable snapshots or deltas.
 - Long-running Telegram, database, media, clipboard, notification, and platform work stays outside the state owner and returns typed results.
 - Do not introduce cross-crate shared mutable state or mutex-protected application state.
@@ -85,12 +87,19 @@ Enforce owner-only permissions for authorization and Account data. Never log aut
 
 ## TUI invariants
 
-- Do not add keyboard modes. Interaction is focus-driven and uses modifier keys.
+- Do not add keyboard modes or a flat focus cycle. Interaction follows the Chat list → Active Chat → Active Message hierarchy and uses modifier keys for lateral actions.
+- Moving through the Chat list immediately changes the Active Chat and updates the adjacent Transcript without entering the Chat. `Enter` descends into the Active Chat with its Composer active by default; `Esc` ascends to the Chat list.
+- The Composer remains the ordinary interaction target while a Chat is open, including after sending. `Alt+Up` moves from the Composer to the newest Message and toward older Messages; `Alt+Down` moves toward newer Messages and returns to the Composer after the newest. `Esc` clears an Active Message and returns to the Composer before ascending further.
+- Folders are Chat-list navigation rather than a focusable region. `Alt+Left` and `Alt+Right` switch the Active Folder only while the Chat list is the interaction target; they are unavailable from the Composer or an Active Message.
 - Keep the context-sensitive Action Bar at the bottom, above the status bar. It shows all important actions currently available; `?` opens exhaustive context help.
 - Keep the Folder strip above the Action Bar.
 - Generate the Action Bar and Help from the same effective keymap. Do not hardcode displayed shortcuts separately from input handling.
-- `Ctrl+F` is context-sensitive search. Transcript focus searches the active Chat; Chat-list focus searches the active Account globally.
-- Use a dense Transcript without chat bubbles. Preserve Active Message, Message Selection, anchored scroll position, Draft, and focus across resize and navigation.
+- The current PoC visual pass may assume enough terminal space to show the Chat list and Active Chat side by side. Responsive stacking, narrow layouts, and resize preservation are p-high follow-up work.
+- `Ctrl+F` is context-sensitive search. Anywhere inside the Active Chat searches that Chat; Chat-list interaction searches the active Account globally.
+- Use an OpenCode-inspired visual language: avoid full rectangular panel borders and titles embedded in borders; separate regions with whitespace, one-cell gutters, restrained surfaces, plain bold headings, muted metadata, and a single accent color.
+- Indicate the current item or interaction target with a one-cell vertical rule at its left. Do not invert or replace both foreground and background colors for selection; the interface must remain legible under user terminal themes.
+- Keep the Composer in the Active Chat column directly below the Transcript. Present it as a restrained surface with a left accent rule and inline Draft, reply, edit, and attachment context rather than as a titled box.
+- Use a dense Transcript without chat bubbles. Preserve Active Message, Message Selection, anchored scroll position, Draft, and interaction target across navigation.
 - Do not snap to the latest Message while the user reads older history. Show an explicit new-message affordance.
 - Advance Read State only when the Chat has focus and its newest Message is visible.
 - Do not add manual refresh. Offer Reconnect only during Reconnect Cooldown.
@@ -124,7 +133,7 @@ Required coverage includes:
 - MTProto framing, acknowledgement, retry, reconnection, salt, sequence, and data-center behavior using deterministic fixtures and a fake transport.
 - Storage migrations from every released schema, backup/recovery behavior, transaction rollback, and cursor/data atomicity.
 - Telegram constructor normalization, including fixtures for unknown constructors.
-- TUI action resolution, effective key display, focus behavior, resize preservation, and narrow/normal/wide layouts.
+- TUI action resolution, effective key display, focus behavior, and the supported side-by-side PoC layout.
 - Clipboard format precedence and platform-adapter fallbacks without accessing the real clipboard in unit tests.
 
 Run the narrowest relevant checks while iterating. Before handing off a broad change, run from the repository root, preferably inside `nix develop`:

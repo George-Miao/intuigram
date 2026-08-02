@@ -30,6 +30,8 @@
 ## Future
 
 - [ ] **p-high:** Add polished onboarding, packaging, migration, and support for public distribution, including a deliberate Telegram application-credential policy.
+- [ ] **p-high:** Add responsive TUI layouts for narrow, normal, and wide terminals, including stacked hierarchy navigation and preservation of the Active Chat, Active Message, Message Selection, anchored history, Draft, and interaction target across resize.
+- [ ] **p-high:** Implement the Windows console-input backend for `compio-term` behind its existing `EventStream(sys::EventStream)` boundary, including key, mouse, focus, paste, and resize events without timer polling or a helper thread.
 - [ ] **p-high:** Add QR login rendered directly in the terminal, including token expiry, data-center migration, and 2FA continuation.
 - [ ] **p-high:** Add `Save As` and destination selection for media and file downloads; never overwrite an existing path silently.
 - [ ] **p-high:** Add an optional Local Lock that encrypts both the Account cache and Telegram authorization material, unlocked through an OS keyring or passphrase.

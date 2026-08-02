@@ -9,7 +9,7 @@ A primary Telegram client that supports routine communication fluently, includin
 _Avoid_: Minimal client, text-only client, companion client
 
 **Folder**:
-A user-defined Telegram grouping that determines which Chats appear together. All Chats and Archive are presented through the same navigation concept.
+A user-defined Telegram grouping that determines which Chats appear together. The Active Folder scopes the Chat list without becoming an interaction target; All Chats and Archive use the same navigation concept.
 _Avoid_: Workspace, category, tab
 
 **Message**:
@@ -21,8 +21,8 @@ The complete chronological sequence of Messages in a Chat, loaded incrementally 
 _Avoid_: Latest page, 100-message snapshot
 
 **Active Message**:
-The single Message targeted by navigation and Current Actions when the Transcript has focus.
-_Avoid_: Read Message, newest Message
+The single Message temporarily targeted by navigation and compatible Current Actions within the Active Chat. Activating a Message transfers interaction from the Composer to the Transcript until the target is cleared.
+_Avoid_: Selected Message, Read Message, newest Message
 
 **Message Selection**:
 One or more explicitly selected Messages targeted together by compatible Current Actions.
@@ -31,6 +31,10 @@ _Avoid_: Active Message, visible Messages
 **Chat**:
 A Telegram conversation and the container for its Messages.
 _Avoid_: Conversation, thread
+
+**Active Chat**:
+The single Chat currently shown in the Transcript and targeted by Chat-level actions. Moving through the Chat list changes the Active Chat immediately, independently of whether the Chat list or the Chat itself has focus.
+_Avoid_: Selected Chat, current Chat, preview Chat
 
 **Private Chat**:
 A Chat whose peer is a human user, bot, or the current Account itself.
@@ -93,16 +97,20 @@ Secondary content for the active Chat, such as information, members, shared medi
 _Avoid_: Permanent sidebar, empty third pane
 
 **Chat Search**:
-Search for Messages within the active Chat, invoked with `Ctrl+F` when the Transcript has focus.
+Search for Messages within the Active Chat, invoked with `Ctrl+F` from anywhere inside that Chat.
 _Avoid_: Global Search
 
 **Global Search**:
-Search for Chats and Messages across the active Account, invoked with `Ctrl+F` when the Chat list has focus.
+Search for Chats and Messages across the active Account, invoked with `Ctrl+F` from the Chat list.
 _Avoid_: Chat Search
 
 **Draft**:
 The durable, Telegram-synchronized unsent content for a Chat. Concurrent local and remote changes resolve by last writer, except that active typing is never replaced in place.
 _Avoid_: Composer buffer
+
+**Composer**:
+The Chat input surface associated with the Active Chat's Draft and pending reply or attachment context.
+_Avoid_: Draft bar, input bar, text box
 
 **Draft History**:
 A small local recovery history containing Draft versions displaced during synchronization.

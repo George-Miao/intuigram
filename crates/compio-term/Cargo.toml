@@ -1,0 +1,15 @@
+[package]
+name = "compio-term"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+compio = { version = "0.19.1", default-features = false, features = ["runtime"] }
+crossterm.workspace = true
+futures-util.workspace = true
+signal-hook.workspace = true
+snafu.workspace = true
+
+[lints]
+workspace = true

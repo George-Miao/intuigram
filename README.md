@@ -17,6 +17,9 @@ The implemented workspace seams are:
   effective keymap;
 - `compio-mtproto`: Compio `Framed` abridged transport, authorization-key
   exchange, and sequential encrypted RPC invocation;
+- `compio-term`: an experimental terminal-event stream with Unix TTY and
+  `SIGWINCH` readiness behind a platform-specific backend while Crossterm
+  still supplies event decoding;
 - `popgram-telegram`: login, dialog/history requests, sending, and normalization
   from Telegram constructors to Popgram-owned view data;
 - `popgram`: platform paths, onboarding, adapter composition, and the executable.
@@ -48,14 +51,15 @@ is 2 GiB.
 
 ## Running the PoC
 
-Create an application at `my.telegram.org`, then put its credentials in the
-platform config directory's `config.toml`:
+Create an application at `my.telegram.org`, copy
+[`config.example.toml`](config.example.toml) to the platform config directory as
+`config.toml`, then replace its example credentials:
 
 ```toml
 [telegram]
 api_id = 123456
 api_hash = "your-api-hash"
-# phone_number = "+12025550123" # optional; otherwise Popgram prompts
+# phone_number = "+12025550123" # optional phone-login fallback
 ```
 
 Environment variables are also accepted:
@@ -66,7 +70,11 @@ POPGRAM_TELEGRAM__API_HASH=your-api-hash \
 cargo run -p popgram
 ```
 
-Popgram prompts for the login code and, when enabled, a hidden 2FA password.
+On a new Account, Popgram displays a QR code that can be scanned from Telegram
+under **Settings → Devices → Link Desktop Device**. The code refreshes
+automatically. Press `P` on that screen to use phone-number login instead;
+Popgram then prompts for the delivered code and, when enabled, a hidden 2FA
+password.
 Run the deterministic offline interface with `cargo run -p popgram -- --demo`.
 Use `Ctrl+Q` to quit and `?` for the context-sensitive key reference.
 

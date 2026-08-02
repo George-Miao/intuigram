@@ -8,31 +8,33 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
-figment = { version = "0.10.19", features = ["env", "json", "toml", "yaml"] }
-serde = { version = "1", features = ["derive"] }
+figment = "0.10.19"
+serde = "1"
 snafu = "0.8"
 tempfile = "3"
-refinery = { version = "0.9.2", features = ["rusqlite"] }
-rusqlite = { version = "0.39", features = ["backup", "bundled"] }
-rustix = { version = "1", features = ["fs"] }
+refinery = "0.9.2"
+rusqlite = "0.39"
+rustix = "1"
 async-channel = "2"
 futures-lite = "2"
 futures-util = "0.3"
-crossterm = { version = "0.29", features = ["bracketed-paste"] }
+crossterm = "0.29"
 ratatui = "0.30"
 dirs = "6"
 rpassword = "7.5"
-time = { version = "0.3.54", features = ["local-offset"] }
-compio = { version = "0.19.1", default-features = false, features = ["io", "net", "runtime"] }
+time = "0.3.54"
+compio = "0.19.1"
 grammers-crypto = "0.10"
 grammers-mtproto = "0.10"
 grammers-tl-types = "0.10"
-getrandom = { version = "0.3", features = ["std"] }
+getrandom = "0.3"
+base64 = "0.22.1"
+qrcode = "0.14.1"
+signal-hook = "0.3.18"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
 
 [workspace.lints.clippy]
-pedantic = { level = "warn", priority = -1 }
 missing_errors_doc = "allow"
 module_name_repetitions = "allow"

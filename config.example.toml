@@ -1,0 +1,20 @@
+# Telegram application credentials from https://my.telegram.org/apps.
+# Each Popgram user supplies their own application ID and hash.
+[telegram]
+api_id = 123456
+api_hash = "replace-with-your-api-hash"
+
+# Optional phone-login fallback. When omitted, Popgram prompts after you press P
+# on the QR-login screen.
+# phone_number = "+12025550123"
+
+[media]
+# Maximum redownloadable media-cache size in bytes. The default is 2 GiB.
+cache_bytes = 2147483648
+
+# Popgram normally uses platform-native data, cache, and Downloads directories.
+# Uncomment only the paths you want to override.
+# [paths]
+# data = "/path/to/popgram-data"
+# cache = "/path/to/popgram-cache"
+# downloads = "/path/to/Downloads"

@@ -5,13 +5,15 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+base64.workspace = true
 compio-mtproto = { path = "../compio-mtproto" }
+compio = { version = "0.19.1", default-features = false, features = ["time"] }
 grammers-crypto.workspace = true
 grammers-tl-types.workspace = true
-getrandom.workspace = true
+getrandom = { workspace = true, features = ["std"] }
 popgram-app = { path = "../popgram-app" }
 snafu.workspace = true
-time.workspace = true
+time = { workspace = true, features = ["local-offset"] }
 
 [lints]
 workspace = true

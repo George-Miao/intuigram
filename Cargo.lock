@@ -384,6 +384,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "compio-term"
+version = "0.1.0"
+dependencies = [
+ "compio",
+ "crossterm",
+ "futures-util",
+ "signal-hook",
+ "snafu",
+]
+
+[[package]]
 name = "concurrent-queue"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1873,6 +1884,8 @@ dependencies = [
 name = "popgram-telegram"
 version = "0.1.0"
 dependencies = [
+ "base64",
+ "compio",
  "compio-mtproto",
  "getrandom 0.3.4",
  "grammers-crypto",
@@ -1886,8 +1899,11 @@ dependencies = [
 name = "popgram-tui"
 version = "0.1.0"
 dependencies = [
+ "compio-term",
  "crossterm",
+ "futures-util",
  "popgram-app",
+ "qrcode",
  "ratatui",
  "snafu",
 ]
@@ -1934,6 +1950,12 @@ dependencies = [
  "version_check",
  "yansi",
 ]
+
+[[package]]
+name = "qrcode"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d68782463e408eb1e668cf6152704bd856c78c5b6417adaee3203d8f4c1fc9ec"
 
 [[package]]
 name = "quote"

@@ -5,9 +5,9 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-refinery.workspace = true
-rusqlite.workspace = true
-rustix.workspace = true
+refinery = { workspace = true, features = ["rusqlite"] }
+rusqlite = { workspace = true, features = ["backup", "bundled"] }
+rustix = { workspace = true, features = ["fs"] }
 snafu.workspace = true
 
 [dev-dependencies]

@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-compio.workspace = true
+compio = { version = "0.19.1", default-features = false, features = ["io", "net", "runtime"] }
 futures-util.workspace = true
 grammers-crypto.workspace = true
 grammers-mtproto.workspace = true

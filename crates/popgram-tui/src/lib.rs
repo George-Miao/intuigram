@@ -2,20 +2,30 @@
 
 use std::fmt::Write as _;
 use std::io::{self, Stdout};
+use std::time::Duration;
 
+use compio_term::EventStream;
 use crossterm::event::{self, Event, KeyCode as CrosstermKey, KeyEventKind, KeyModifiers};
 use crossterm::execute;
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
+use futures_util::StreamExt;
 use popgram_app::{Action, ConnectionState, DeliveryState, Focus, Intent, MessageDirection, View};
+use qrcode::render::unicode::Dense1x2;
+use qrcode::types::Color as QrColor;
+use qrcode::{EcLevel, QrCode};
 use ratatui::backend::CrosstermBackend;
-use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
+use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap};
+use ratatui::widgets::{Clear, List, ListItem, Paragraph, Wrap};
 use ratatui::{Frame, Terminal};
-use snafu::{ResultExt, Snafu};
+use snafu::{OptionExt, ResultExt, Snafu};
+
+const SURFACE_BACKGROUND: Color = Color::Rgb(16, 16, 16);
+const FOCUSED_SURFACE_BACKGROUND: Color = Color::Rgb(28, 28, 28);
+const CHROME_BACKGROUND: Color = Color::Rgb(8, 8, 8);
 
 /// A terminal key independent of a concrete terminal backend.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -28,6 +38,12 @@ pub enum Key {
     /// Down arrow.
     Down,
 
+    /// Left arrow.
+    Left,
+
+    /// Right arrow.
+    Right,
+
     /// Home key.
     Home,
 
@@ -39,9 +55,6 @@ pub enum Key {
 
     /// Escape key.
     Escape,
-
-    /// Tab key.
-    Tab,
 }
 
 /// A terminal key with modifier state.
@@ -115,11 +128,12 @@ impl KeyChord {
             Key::Char(character) => return format!("{label}{}", character.to_ascii_uppercase()),
             Key::Up => "Up",
             Key::Down => "Down",
+            Key::Left => "Left",
+            Key::Right => "Right",
             Key::Home => "Home",
             Key::End => "End",
             Key::Enter => "Enter",
             Key::Escape => "Esc",
-            Key::Tab => "Tab",
         });
         label
     }
@@ -146,9 +160,20 @@ const BINDINGS: &[Binding] = &[
         true,
     ),
     binding(KeyChord::plain(Key::Char('?')), "Help", Action::Help, true),
-    binding(KeyChord::plain(Key::Tab), "Focus", Action::FocusNext, true),
     binding(KeyChord::plain(Key::Up), "Up", Action::MoveUp, true),
     binding(KeyChord::plain(Key::Down), "Down", Action::MoveDown, true),
+    binding(
+        KeyChord::alt(Key::Left),
+        "Previous Folder",
+        Action::PreviousFolder,
+        true,
+    ),
+    binding(
+        KeyChord::alt(Key::Right),
+        "Next Folder",
+        Action::NextFolder,
+        true,
+    ),
     binding(KeyChord::plain(Key::Enter), "Open", Action::Open, true),
     binding(
         KeyChord::control(Key::Char('n')),
@@ -164,12 +189,24 @@ const BINDINGS: &[Binding] = &[
         true,
     ),
     binding(
+        KeyChord::alt(Key::Up),
+        "Previous Message",
+        Action::TargetPreviousMessage,
+        true,
+    ),
+    binding(
+        KeyChord::alt(Key::Down),
+        "Next Message",
+        Action::TargetNextMessage,
+        true,
+    ),
+    binding(
         KeyChord::control(Key::Char('f')),
         "Search",
         Action::Search,
         true,
     ),
-    binding(KeyChord::plain(Key::Escape), "Cancel", Action::Cancel, true),
+    binding(KeyChord::plain(Key::Escape), "Back", Action::Cancel, true),
     binding(
         KeyChord::shift(Key::Up),
         "Earliest",
@@ -295,31 +332,123 @@ pub enum Error {
         /// Underlying terminal failure.
         source: io::Error,
     },
+
+    /// The Compio terminal event stream could not be initialized.
+    #[snafu(display("failed to initialize terminal input"))]
+    InitializeEventStream {
+        /// Underlying terminal-event adapter failure.
+        source: compio_term::EventError,
+    },
+
+    /// The Compio terminal event stream failed.
+    #[snafu(display("failed to receive terminal input"))]
+    StreamEvent {
+        /// Underlying terminal-event adapter failure.
+        source: compio_term::EventError,
+    },
+
+    /// The terminal event source ended while the UI was active.
+    #[snafu(display("terminal input closed"))]
+    EventStreamClosed,
+
+    /// A Telegram login URI could not be encoded as a QR symbol.
+    #[snafu(display("failed to encode Telegram login QR code"))]
+    EncodeQr {
+        /// Underlying QR encoding failure.
+        source: qrcode::types::QrError,
+    },
 }
 
 /// Result returned by terminal operations.
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
+/// User action available from the QR-login screen.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum QrLoginAction {
+    /// No relevant terminal input is waiting.
+    None,
+
+    /// Redraw after a terminal resize.
+    Redraw,
+
+    /// Fall back to phone-number authentication.
+    PhoneLogin,
+
+    /// Abort Popgram startup.
+    Cancel,
+}
+
+/// Temporary alternate-screen session used during Telegram QR login.
+pub struct QrLoginUi {
+    terminal: Terminal<CrosstermBackend<Stdout>>,
+}
+
+impl QrLoginUi {
+    /// Enters raw mode and the alternate screen.
+    pub fn enter() -> Result<Self> {
+        Ok(Self {
+            terminal: enter_terminal()?,
+        })
+    }
+
+    /// Draws the current QR token and its remaining lifetime.
+    pub fn draw(&mut self, uri: &str, expires_in: u64) -> Result<()> {
+        let qr = qr_login_symbols(uri)?;
+        self.terminal
+            .draw(|frame| render_qr_login(frame, &qr, expires_in))
+            .context(DrawSnafu)?;
+        Ok(())
+    }
+
+    /// Polls for a QR-screen action without blocking the Telegram receive loop.
+    pub fn poll_action(&self, timeout: Duration) -> Result<QrLoginAction> {
+        if !event::poll(timeout).context(ReadEventSnafu)? {
+            return Ok(QrLoginAction::None);
+        }
+        match event::read().context(ReadEventSnafu)? {
+            Event::Resize(..) => Ok(QrLoginAction::Redraw),
+            Event::Key(key) if matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) => {
+                match key.code {
+                    CrosstermKey::Char('p' | 'P')
+                        if !key
+                            .modifiers
+                            .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
+                    {
+                        Ok(QrLoginAction::PhoneLogin)
+                    }
+                    CrosstermKey::Esc => Ok(QrLoginAction::Cancel),
+                    CrosstermKey::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        Ok(QrLoginAction::Cancel)
+                    }
+                    _ => Ok(QrLoginAction::None),
+                }
+            }
+            _ => Ok(QrLoginAction::None),
+        }
+    }
+}
+
+impl Drop for QrLoginUi {
+    fn drop(&mut self) {
+        restore_terminal(&mut self.terminal);
+    }
+}
+
 /// Active alternate-screen terminal session.
 pub struct TerminalUi {
     terminal: Terminal<CrosstermBackend<Stdout>>,
     keymap: EffectiveKeymap,
+    events: EventStream,
 }
 
 impl TerminalUi {
     /// Enters raw mode and the alternate screen.
     pub fn enter() -> Result<Self> {
-        enable_raw_mode().context(EnableRawModeSnafu)?;
-        let mut stdout = io::stdout();
-        if let Err(source) = execute!(stdout, EnterAlternateScreen) {
-            let _ = disable_raw_mode();
-            return Err(Error::EnterScreen { source });
-        }
-        let terminal =
-            Terminal::new(CrosstermBackend::new(stdout)).context(InitializeTerminalSnafu)?;
+        let events = EventStream::new().context(InitializeEventStreamSnafu)?;
         Ok(Self {
-            terminal,
+            terminal: enter_terminal()?,
             keymap: EffectiveKeymap::defaults(),
+            events,
         })
     }
 
@@ -332,35 +461,17 @@ impl TerminalUi {
         Ok(())
     }
 
-    /// Blocks until one application-relevant terminal event arrives.
-    pub fn read_event(&self, view: &View) -> Result<UiEvent> {
+    /// Waits asynchronously for one application-relevant terminal event.
+    pub async fn next_event(&mut self, view: &View) -> Result<UiEvent> {
         loop {
-            match event::read().context(ReadEventSnafu)? {
-                Event::Resize(..) => return Ok(UiEvent::Redraw),
-                Event::Paste(text) => return Ok(UiEvent::Intent(Intent::Insert(text))),
-                Event::Key(key)
-                    if matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) =>
-                {
-                    let chord = chord_from_crossterm(key.code, key.modifiers);
-                    if let Some(chord) = chord
-                        && let Some(action) = self.keymap.resolve(view, chord)
-                    {
-                        return Ok(UiEvent::Intent(Intent::Action(action)));
-                    }
-                    match key.code {
-                        CrosstermKey::Char(character)
-                            if !key
-                                .modifiers
-                                .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
-                        {
-                            return Ok(UiEvent::Intent(Intent::Insert(character.to_string())));
-                        }
-                        CrosstermKey::Backspace => return Ok(UiEvent::Intent(Intent::Backspace)),
-                        CrosstermKey::Enter => return Ok(UiEvent::Intent(Intent::Newline)),
-                        _ => {}
-                    }
-                }
-                _ => {}
+            let event = self
+                .events
+                .next()
+                .await
+                .context(EventStreamClosedSnafu)?
+                .context(StreamEventSnafu)?;
+            if let Some(event) = resolve_event(&self.keymap, view, event) {
+                return Ok(event);
             }
         }
     }
@@ -368,10 +479,203 @@ impl TerminalUi {
 
 impl Drop for TerminalUi {
     fn drop(&mut self) {
-        let _ = disable_raw_mode();
-        let _ = execute!(self.terminal.backend_mut(), LeaveAlternateScreen);
-        let _ = self.terminal.show_cursor();
+        restore_terminal(&mut self.terminal);
     }
+}
+
+fn enter_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>> {
+    enable_raw_mode().context(EnableRawModeSnafu)?;
+    let mut stdout = io::stdout();
+    if let Err(source) = execute!(stdout, EnterAlternateScreen) {
+        let _ = disable_raw_mode();
+        return Err(Error::EnterScreen { source });
+    }
+    match Terminal::new(CrosstermBackend::new(stdout)) {
+        Ok(terminal) => Ok(terminal),
+        Err(source) => {
+            let mut stdout = io::stdout();
+            let _ = execute!(stdout, LeaveAlternateScreen);
+            let _ = disable_raw_mode();
+            Err(Error::InitializeTerminal { source })
+        }
+    }
+}
+
+fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) {
+    let _ = disable_raw_mode();
+    let _ = execute!(terminal.backend_mut(), LeaveAlternateScreen);
+    let _ = terminal.show_cursor();
+}
+
+fn resolve_event(keymap: &EffectiveKeymap, view: &View, event: Event) -> Option<UiEvent> {
+    match event {
+        Event::Resize(..) => Some(UiEvent::Redraw),
+        Event::Paste(text) => Some(UiEvent::Intent(Intent::Insert(text))),
+        Event::Key(key) if matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) => {
+            let chord = chord_from_crossterm(key.code, key.modifiers);
+            if let Some(chord) = chord
+                && let Some(action) = keymap.resolve(view, chord)
+            {
+                return Some(UiEvent::Intent(Intent::Action(action)));
+            }
+            match key.code {
+                CrosstermKey::Char(character)
+                    if !key
+                        .modifiers
+                        .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
+                {
+                    Some(UiEvent::Intent(Intent::Insert(character.to_string())))
+                }
+                CrosstermKey::Backspace => Some(UiEvent::Intent(Intent::Backspace)),
+                CrosstermKey::Enter => Some(UiEvent::Intent(Intent::Newline)),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+struct QrLoginSymbols {
+    dense: String,
+    compact: String,
+}
+
+fn qr_login_symbols(uri: &str) -> Result<QrLoginSymbols> {
+    let dense = QrCode::new(uri.as_bytes()).context(EncodeQrSnafu)?;
+    let compact =
+        QrCode::with_error_correction_level(uri.as_bytes(), EcLevel::L).context(EncodeQrSnafu)?;
+    Ok(QrLoginSymbols {
+        dense: dense
+            .render::<Dense1x2>()
+            .module_dimensions(1, 1)
+            .quiet_zone(true)
+            .build(),
+        compact: render_braille_qr(&compact),
+    })
+}
+
+fn render_braille_qr(code: &QrCode) -> String {
+    const QUIET_ZONE: usize = 4;
+    const BRAILLE: [[u8; 2]; 4] = [[0, 3], [1, 4], [2, 5], [6, 7]];
+
+    let source_width = code.width();
+    let width = source_width + QUIET_ZONE * 2;
+    let colors = code.to_colors();
+    let mut rendered = String::new();
+    for cell_y in (0..width).step_by(4) {
+        if cell_y > 0 {
+            rendered.push('\n');
+        }
+        for cell_x in (0..width).step_by(2) {
+            let mut dots = 0_u8;
+            for (dy, row) in BRAILLE.iter().enumerate() {
+                for (dx, bit) in row.iter().enumerate() {
+                    let x = cell_x + dx;
+                    let y = cell_y + dy;
+                    if x >= QUIET_ZONE
+                        && y >= QUIET_ZONE
+                        && x < source_width + QUIET_ZONE
+                        && y < source_width + QUIET_ZONE
+                        && colors[(y - QUIET_ZONE) * source_width + (x - QUIET_ZONE)]
+                            == QrColor::Dark
+                    {
+                        dots |= 1 << bit;
+                    }
+                }
+            }
+            rendered.push(char::from_u32(0x2800 + u32::from(dots)).expect("valid Braille cell"));
+        }
+    }
+    rendered
+}
+
+fn render_qr_login(frame: &mut Frame<'_>, qr: &QrLoginSymbols, expires_in: u64) {
+    let area = frame.area();
+    let rows = Layout::vertical([
+        Constraint::Length(2),
+        Constraint::Min(3),
+        Constraint::Length(1),
+        Constraint::Length(1),
+    ])
+    .split(area);
+    frame.render_widget(
+        Paragraph::new(vec![
+            Line::from(Span::styled(
+                "Link Popgram to Telegram",
+                Style::default().add_modifier(Modifier::BOLD),
+            )),
+            Line::from("Scan in Telegram: Settings → Devices → Link Desktop Device"),
+        ])
+        .alignment(Alignment::Center),
+        rows[0],
+    );
+
+    let symbol = [&qr.dense, &qr.compact].into_iter().find(|symbol| {
+        let width = symbol
+            .lines()
+            .map(|line| line.chars().count())
+            .max()
+            .unwrap_or(0);
+        symbol.lines().count() <= usize::from(rows[1].height) && width <= usize::from(rows[1].width)
+    });
+    if let Some(symbol) = symbol {
+        let qr_height = u16::try_from(symbol.lines().count()).unwrap_or(u16::MAX);
+        let qr_width = u16::try_from(
+            symbol
+                .lines()
+                .map(|line| line.chars().count())
+                .max()
+                .unwrap_or(0),
+        )
+        .unwrap_or(u16::MAX);
+        let qr_area = Rect {
+            x: rows[1].x + rows[1].width.saturating_sub(qr_width) / 2,
+            y: rows[1].y + rows[1].height.saturating_sub(qr_height) / 2,
+            width: qr_width,
+            height: qr_height,
+        };
+        frame.render_widget(
+            Paragraph::new(symbol.as_str())
+                .style(Style::default().fg(Color::Black).bg(Color::White)),
+            qr_area,
+        );
+    } else {
+        frame.render_widget(
+            Paragraph::new("Terminal is too small to display a scannable QR code")
+                .alignment(Alignment::Center)
+                .style(Style::default().fg(Color::Yellow)),
+            rows[1],
+        );
+    }
+
+    frame.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(
+                "P",
+                Style::default()
+                    .fg(Color::Black)
+                    .bg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(" Phone login  "),
+            Span::styled(
+                "Esc",
+                Style::default()
+                    .fg(Color::Black)
+                    .bg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(" Cancel"),
+        ])),
+        rows[2],
+    );
+    frame.render_widget(
+        Paragraph::new(format!(
+            " waiting for scan · refreshes automatically · expires in {expires_in}s"
+        ))
+        .style(Style::default().fg(Color::Black).bg(Color::DarkGray)),
+        rows[3],
+    );
 }
 
 fn chord_from_crossterm(code: CrosstermKey, modifiers: KeyModifiers) -> Option<KeyChord> {
@@ -379,77 +683,94 @@ fn chord_from_crossterm(code: CrosstermKey, modifiers: KeyModifiers) -> Option<K
         CrosstermKey::Char(character) => Key::Char(character.to_ascii_lowercase()),
         CrosstermKey::Up => Key::Up,
         CrosstermKey::Down => Key::Down,
+        CrosstermKey::Left => Key::Left,
+        CrosstermKey::Right => Key::Right,
         CrosstermKey::Home => Key::Home,
         CrosstermKey::End => Key::End,
         CrosstermKey::Enter => Key::Enter,
         CrosstermKey::Esc => Key::Escape,
-        CrosstermKey::Tab | CrosstermKey::BackTab => Key::Tab,
         _ => return None,
     };
     Some(KeyChord {
         key,
         control: modifiers.contains(KeyModifiers::CONTROL),
-        shift: modifiers.contains(KeyModifiers::SHIFT) || code == CrosstermKey::BackTab,
+        shift: modifiers.contains(KeyModifiers::SHIFT),
         alt: modifiers.contains(KeyModifiers::ALT),
     })
 }
 
 fn render(frame: &mut Frame<'_>, view: &View, keymap: &EffectiveKeymap) {
     let area = frame.area();
-    let composer_height = if view.active_chat.is_some() { 3 } else { 0 };
-    let rows = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Min(5),
-            Constraint::Length(composer_height),
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Length(1),
-        ])
-        .split(area);
+    let rows = Layout::vertical([
+        Constraint::Min(5),
+        Constraint::Length(1),
+        Constraint::Length(1),
+        Constraint::Length(1),
+    ])
+    .split(area);
     render_main(frame, rows[0], view);
-    if composer_height > 0 {
-        render_composer(frame, rows[1], view);
-    }
-    render_folders(frame, rows[2], view);
-    render_actions(frame, rows[3], view, keymap);
-    render_status(frame, rows[4], view);
+    render_folders(frame, rows[1], view);
+    render_actions(frame, rows[2], view, keymap);
+    render_status(frame, rows[3], view);
     if view.help_open {
         render_help(frame, area, view, keymap);
     }
 }
 
 fn render_main(frame: &mut Frame<'_>, area: Rect, view: &View) {
-    if area.width < 72 {
-        if matches!(view.focus, Focus::Chats | Focus::Folders) || view.active_chat.is_none() {
-            render_chats(frame, area, view);
-        } else {
-            render_transcript(frame, area, view);
-        }
-        return;
-    }
     let columns = if area.width >= 120 {
         Layout::horizontal([
-            Constraint::Length(34),
+            Constraint::Length(32),
+            Constraint::Length(1),
             Constraint::Min(48),
+            Constraint::Length(1),
             Constraint::Length(24),
         ])
         .split(area)
     } else {
-        Layout::horizontal([Constraint::Length(32), Constraint::Min(40)]).split(area)
+        Layout::horizontal([
+            Constraint::Length(30),
+            Constraint::Length(1),
+            Constraint::Min(40),
+        ])
+        .split(area)
     };
     render_chats(frame, columns[0], view);
-    render_transcript(frame, columns[1], view);
-    if columns.len() == 3 {
-        let detail = Paragraph::new("Details\n\nThreads and media will appear here.")
-            .wrap(Wrap { trim: false })
-            .block(Block::default().title(" Details ").borders(Borders::ALL));
-        frame.render_widget(detail, columns[2]);
+    render_active_chat(frame, columns[2], view);
+    if columns.len() == 5 {
+        frame.render_widget(
+            Paragraph::new(vec![
+                Line::from(Span::styled(
+                    "Details",
+                    Style::default().add_modifier(Modifier::BOLD),
+                )),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "Threads and media will appear here.",
+                    Style::default().fg(Color::DarkGray),
+                )),
+            ])
+            .style(surface_style(false))
+            .wrap(Wrap { trim: false }),
+            columns[4],
+        );
     }
 }
 
 fn render_chats(frame: &mut Frame<'_>, area: Rect, view: &View) {
     let focused = view.focus == Focus::Chats;
+    let rows = Layout::vertical([Constraint::Length(2), Constraint::Min(1)]).split(area);
+    frame.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled("Chats", Style::default().add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!("  {}", view.account_name),
+                Style::default().fg(Color::DarkGray),
+            ),
+        ]))
+        .style(surface_style(focused)),
+        rows[0],
+    );
     let items = view.chats.iter().enumerate().map(|(index, chat)| {
         let marker = if chat.pinned { "●" } else { " " };
         let unread = if chat.unread > 0 {
@@ -457,36 +778,73 @@ fn render_chats(frame: &mut Frame<'_>, area: Rect, view: &View) {
         } else {
             String::new()
         };
-        let style = selected_style(view.active_chat == Some(index), focused);
+        let selected = view.active_chat == Some(index);
         ListItem::new(vec![
             Line::from(vec![
+                selection_rule(selected),
                 Span::styled(
                     format!("{marker} {}", chat.title),
                     Style::default().add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(unread, Style::default().fg(Color::Cyan)),
             ]),
-            Line::from(Span::styled(
-                chat.preview.clone(),
-                Style::default().fg(Color::DarkGray),
-            )),
+            Line::from(vec![
+                selection_rule(selected),
+                Span::styled(chat.preview.clone(), Style::default().fg(Color::DarkGray)),
+            ]),
         ])
-        .style(style)
     });
-    let title = format!(" Chats · {} ", view.account_name);
-    frame.render_widget(List::new(items).block(focused_block(title, focused)), area);
+    frame.render_widget(List::new(items).style(surface_style(focused)), rows[1]);
 }
 
-fn render_transcript(frame: &mut Frame<'_>, area: Rect, view: &View) {
-    let focused = view.focus == Focus::Transcript;
-    let title = view
+fn render_active_chat(frame: &mut Frame<'_>, area: Rect, view: &View) {
+    let composer_height = if view.active_chat.is_some() { 3 } else { 0 };
+    let rows = Layout::vertical([
+        Constraint::Length(2),
+        Constraint::Min(1),
+        Constraint::Length(composer_height),
+    ])
+    .split(area);
+    let header = view
         .active_chat
         .and_then(|index| view.chats.get(index))
         .map_or_else(
-            || " Transcript ".to_owned(),
-            |chat| format!(" {} ", chat.title),
+            || {
+                Line::from(Span::styled(
+                    "No active Chat",
+                    Style::default().fg(Color::DarkGray),
+                ))
+            },
+            |chat| {
+                Line::from(vec![
+                    Span::styled(
+                        chat.title.clone(),
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        if chat.unread > 0 {
+                            format!("  {} unread", chat.unread)
+                        } else {
+                            "  up to date".to_owned()
+                        },
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                ])
+            },
         );
+    frame.render_widget(
+        Paragraph::new(header).style(surface_style(view.focus == Focus::Transcript)),
+        rows[0],
+    );
+    render_transcript(frame, rows[1], view, view.focus == Focus::Transcript);
+    if composer_height > 0 {
+        render_composer(frame, rows[2], view);
+    }
+}
+
+fn render_transcript(frame: &mut Frame<'_>, area: Rect, view: &View, focused: bool) {
     let items = view.messages.iter().enumerate().map(|(index, message)| {
+        let selected = view.active_message == Some(index);
         let direction = match message.direction {
             MessageDirection::Incoming => "←",
             MessageDirection::Outgoing => "→",
@@ -501,54 +859,64 @@ fn render_transcript(frame: &mut Frame<'_>, area: Rect, view: &View) {
             .reply_to
             .map_or_else(String::new, |id| format!(" ↩{}", id.0));
         let header = Line::from(vec![
+            selection_rule(selected),
             Span::styled(
                 format!("{direction} {}", message.sender),
                 Style::default()
                     .fg(Color::Cyan)
                     .add_modifier(Modifier::BOLD),
             ),
-            Span::styled(reply, Style::default().fg(Color::Magenta)),
+            Span::styled(reply, Style::default().fg(Color::DarkGray)),
             Span::raw("  "),
             Span::styled(
                 format!("{} {delivery}", message.timestamp),
                 Style::default().fg(Color::DarkGray),
             ),
         ]);
-        ListItem::new(vec![header, Line::from(message.body.clone())])
-            .style(selected_style(view.active_message == Some(index), focused))
+        ListItem::new(vec![
+            header,
+            Line::from(vec![
+                selection_rule(selected),
+                Span::raw(message.body.clone()),
+            ]),
+        ])
     });
-    frame.render_widget(List::new(items).block(focused_block(title, focused)), area);
+    frame.render_widget(List::new(items).style(surface_style(focused)), area);
 }
 
 fn render_composer(frame: &mut Frame<'_>, area: Rect, view: &View) {
     let focused = view.focus == Focus::Composer;
-    let title = view.composer.reply_to.map_or_else(
-        || " Draft ".to_owned(),
-        |message| format!(" Reply to {} ", message.0),
+    let composer_label = view.composer.reply_to.map_or_else(
+        || "Draft".to_owned(),
+        |message| format!("Reply to {}", message.0),
     );
-    let text = if view.composer.text.is_empty() {
-        Line::from(Span::styled(
+    let draft_content = if view.composer.text.is_empty() {
+        Span::styled(
             "Type or paste a message…",
             Style::default().fg(Color::DarkGray),
-        ))
+        )
     } else {
-        Line::from(view.composer.text.clone())
+        Span::raw(view.composer.text.clone())
     };
     frame.render_widget(
-        Paragraph::new(text)
-            .block(focused_block(title, focused))
-            .wrap(Wrap { trim: false }),
+        Paragraph::new(vec![
+            Line::from(vec![
+                interaction_rule(focused),
+                Span::styled(composer_label, Style::default().fg(Color::DarkGray)),
+            ]),
+            Line::from(vec![interaction_rule(focused), draft_content]),
+        ])
+        .style(surface_style(focused))
+        .wrap(Wrap { trim: false }),
         area,
     );
 }
 
 fn render_folders(frame: &mut Frame<'_>, area: Rect, view: &View) {
     let spans = view.folders.iter().enumerate().flat_map(|(index, folder)| {
-        let style = if index == view.active_folder {
-            Style::default()
-                .fg(Color::Black)
-                .bg(Color::Cyan)
-                .add_modifier(Modifier::BOLD)
+        let active = index == view.active_folder;
+        let style = if active {
+            Style::default().add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::Gray)
         };
@@ -558,11 +926,15 @@ fn render_folders(frame: &mut Frame<'_>, area: Rect, view: &View) {
             String::new()
         };
         [
-            Span::styled(format!(" {}{unread} ", folder.title), style),
+            selection_rule(active),
+            Span::styled(format!("{}{unread}", folder.title), style),
             Span::raw(" "),
         ]
     });
-    frame.render_widget(Paragraph::new(Line::from(spans.collect::<Vec<_>>())), area);
+    frame.render_widget(
+        Paragraph::new(Line::from(spans.collect::<Vec<_>>())).style(surface_style(false)),
+        area,
+    );
 }
 
 fn render_actions(frame: &mut Frame<'_>, area: Rect, view: &View, keymap: &EffectiveKeymap) {
@@ -571,13 +943,15 @@ fn render_actions(frame: &mut Frame<'_>, area: Rect, view: &View, keymap: &Effec
         spans.push(Span::styled(
             binding.key.label(),
             Style::default()
-                .fg(Color::Black)
-                .bg(Color::Cyan)
+                .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         ));
         spans.push(Span::raw(format!(" {}  ", binding.label)));
     }
-    frame.render_widget(Paragraph::new(Line::from(spans)), area);
+    frame.render_widget(
+        Paragraph::new(Line::from(spans)).style(surface_style(false)),
+        area,
+    );
 }
 
 fn render_status(frame: &mut Frame<'_>, area: Rect, view: &View) {
@@ -586,7 +960,7 @@ fn render_status(frame: &mut Frame<'_>, area: Rect, view: &View) {
         ConnectionState::Connecting => "connecting",
         ConnectionState::ReconnectCooldown => "reconnect cooldown",
     };
-    let mut status = format!(" {} · {:?} · {connection}", view.account_name, view.focus);
+    let mut status = format!("{} · {:?} · {connection}", view.account_name, view.focus);
     if let Some(search) = &view.search {
         write!(status, " · {:?} search: {}", search.scope, search.query)
             .expect("writing to a String cannot fail");
@@ -594,15 +968,22 @@ fn render_status(frame: &mut Frame<'_>, area: Rect, view: &View) {
     if view.has_newer_messages {
         status.push_str(" · new messages ↓");
     }
-    frame.render_widget(
-        Paragraph::new(status).style(Style::default().fg(Color::Black).bg(Color::DarkGray)),
-        area,
-    );
+    let style = if view.focus == Focus::Search {
+        surface_style(true)
+    } else {
+        Style::default().fg(Color::DarkGray).bg(CHROME_BACKGROUND)
+    };
+    frame.render_widget(Paragraph::new(status).style(style), area);
 }
 
 fn render_help(frame: &mut Frame<'_>, area: Rect, view: &View, keymap: &EffectiveKeymap) {
     let popup = centered_rect(70, 75, area);
-    let lines = keymap.help(view).map(|binding| {
+    let lines = std::iter::once(Line::from(Span::styled(
+        "Context Help",
+        Style::default().add_modifier(Modifier::BOLD),
+    )))
+    .chain(std::iter::once(Line::from("")))
+    .chain(keymap.help(view).map(|binding| {
         Line::from(vec![
             Span::styled(
                 format!("{:>12}", binding.key.label()),
@@ -610,41 +991,38 @@ fn render_help(frame: &mut Frame<'_>, area: Rect, view: &View, keymap: &Effectiv
             ),
             Span::raw(format!("  {}", binding.label)),
         ])
-    });
+    }));
     frame.render_widget(Clear, popup);
     frame.render_widget(
         Paragraph::new(lines.collect::<Vec<_>>())
-            .block(
-                Block::default()
-                    .title(" Context Help ")
-                    .borders(Borders::ALL),
-            )
+            .style(surface_style(true))
             .wrap(Wrap { trim: false }),
         popup,
     );
 }
 
-fn focused_block(title: String, focused: bool) -> Block<'static> {
-    let border = if focused {
-        Color::Cyan
+fn selection_rule(selected: bool) -> Span<'static> {
+    if selected {
+        Span::styled("│ ", Style::default().fg(Color::Cyan))
     } else {
-        Color::DarkGray
-    };
-    Block::default()
-        .title(title)
-        .title_alignment(Alignment::Left)
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(border))
+        Span::raw("  ")
+    }
 }
 
-fn selected_style(selected: bool, focused: bool) -> Style {
-    if selected && focused {
-        Style::default().fg(Color::Black).bg(Color::Cyan)
-    } else if selected {
-        Style::default().bg(Color::DarkGray)
+fn interaction_rule(active: bool) -> Span<'static> {
+    if active {
+        Span::styled("│ ", Style::default().fg(Color::Cyan))
     } else {
-        Style::default()
+        Span::styled("│ ", Style::default().fg(Color::DarkGray))
     }
+}
+
+fn surface_style(focused: bool) -> Style {
+    Style::default().fg(Color::Gray).bg(if focused {
+        FOCUSED_SURFACE_BACKGROUND
+    } else {
+        SURFACE_BACKGROUND
+    })
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
@@ -664,9 +1042,49 @@ fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
 
 #[cfg(test)]
 mod tests {
-    use popgram_app::{Action, ComposerView, ConnectionState, Focus, SearchView, View};
+    use crossterm::event::{Event, KeyCode as CrosstermKey, KeyEvent, KeyEventKind, KeyModifiers};
+    use popgram_app::{
+        Action, ChatId, ChatView, ComposerView, ConnectionState, DeliveryState, Focus, FolderView,
+        MessageDirection, MessageId, MessageView, SearchView, View,
+    };
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    use ratatui::style::Color;
 
-    use super::{EffectiveKeymap, Key, KeyChord};
+    use super::{
+        EffectiveKeymap, Key, KeyChord, UiEvent, chord_from_crossterm, qr_login_symbols, render,
+        resolve_event,
+    };
+
+    #[test]
+    fn qr_login_renderer_produces_a_compact_high_contrast_symbol() {
+        let rendered = qr_login_symbols("tg://login?token=-_8").expect("login URI should fit a QR");
+        let lines = rendered.dense.lines().collect::<Vec<_>>();
+
+        assert!(lines.len() > 10);
+        assert!(lines.len() < 30);
+        assert!(lines.iter().any(|line| line.contains('█')));
+        assert!(lines.iter().all(|line| line.chars().count() > 20));
+    }
+
+    #[test]
+    fn full_size_login_token_has_an_80_by_24_terminal_fallback() {
+        let uri = format!("tg://login?token={}", "a".repeat(350));
+        let rendered = qr_login_symbols(&uri).expect("login URI should fit a QR");
+        let lines = rendered.compact.lines().collect::<Vec<_>>();
+
+        assert!(lines.len() <= 20);
+        assert!(
+            lines
+                .iter()
+                .all(|line| line.chars().count() <= usize::from(80_u16))
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.chars().any(|ch| ch > '\u{2800}'))
+        );
+    }
 
     fn view(actions: Vec<Action>) -> View {
         View {
@@ -707,6 +1125,149 @@ mod tests {
         assert_eq!(
             keymap.resolve(&view, KeyChord::plain(Key::End)),
             Some(Action::JumpLatest)
+        );
+    }
+
+    #[test]
+    fn hierarchy_modifiers_resolve_only_in_their_effective_context() {
+        let keymap = EffectiveKeymap::defaults();
+        let chat_list = view(vec![
+            Action::PreviousFolder,
+            Action::NextFolder,
+            Action::Open,
+        ]);
+        assert_eq!(
+            keymap.resolve(&chat_list, KeyChord::alt(Key::Left)),
+            Some(Action::PreviousFolder)
+        );
+        assert_eq!(
+            keymap.resolve(&chat_list, KeyChord::alt(Key::Right)),
+            Some(Action::NextFolder)
+        );
+
+        let mut composer = view(vec![Action::TargetPreviousMessage, Action::Cancel]);
+        composer.focus = Focus::Composer;
+        assert_eq!(
+            keymap.resolve(&composer, KeyChord::alt(Key::Up)),
+            Some(Action::TargetPreviousMessage)
+        );
+        assert_eq!(keymap.resolve(&composer, KeyChord::alt(Key::Left)), None);
+        assert_eq!(keymap.resolve(&composer, KeyChord::alt(Key::Right)), None);
+        assert!(chord_from_crossterm(CrosstermKey::Tab, KeyModifiers::NONE).is_none());
+    }
+
+    #[test]
+    fn terminal_events_resolve_against_the_current_view() {
+        let view = view(vec![Action::Search]);
+        let keymap = EffectiveKeymap::defaults();
+
+        assert_eq!(
+            resolve_event(
+                &keymap,
+                &view,
+                Event::Key(KeyEvent::new_with_kind(
+                    CrosstermKey::Char('f'),
+                    KeyModifiers::CONTROL,
+                    KeyEventKind::Press,
+                )),
+            ),
+            Some(UiEvent::Intent(popgram_app::Intent::Action(Action::Search)))
+        );
+        assert_eq!(
+            resolve_event(&keymap, &view, Event::Paste("hello".to_owned())),
+            Some(UiEvent::Intent(popgram_app::Intent::Insert(
+                "hello".to_owned()
+            )))
+        );
+        assert_eq!(
+            resolve_event(&keymap, &view, Event::Resize(100, 30)),
+            Some(UiEvent::Redraw)
+        );
+    }
+
+    #[test]
+    fn side_by_side_render_separates_sections_and_highlights_the_interaction_target() {
+        let mut view = view(vec![
+            Action::Send,
+            Action::Cancel,
+            Action::TargetPreviousMessage,
+        ]);
+        view.account_name = "Ada".to_owned();
+        view.folders = vec![FolderView {
+            id: 0,
+            title: "All".to_owned(),
+            unread: 1,
+        }];
+        view.chats = vec![ChatView {
+            id: ChatId(10),
+            title: "Popgram".to_owned(),
+            preview: "daily driver".to_owned(),
+            unread: 1,
+            pinned: true,
+        }];
+        view.active_chat = Some(0);
+        view.messages = vec![MessageView {
+            id: MessageId(1),
+            sender: "Lin".to_owned(),
+            body: "hello".to_owned(),
+            timestamp: "12:00".to_owned(),
+            direction: MessageDirection::Incoming,
+            delivery: DeliveryState::Read,
+            reply_to: Some(MessageId(0)),
+        }];
+        view.active_message = Some(0);
+        view.focus = Focus::Composer;
+
+        let backend = TestBackend::new(100, 24);
+        let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
+        terminal
+            .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
+            .expect("view should render");
+        let buffer = terminal.backend().buffer();
+
+        assert_eq!(buffer[(0, 2)].symbol(), "│");
+        assert_eq!(buffer[(31, 2)].symbol(), "│");
+        assert_eq!(buffer[(39, 2)].symbol(), "↩");
+        assert_eq!(buffer[(39, 2)].fg, Color::DarkGray);
+        assert_eq!(buffer[(31, 18)].symbol(), "│");
+        assert_eq!(buffer[(33, 18)].symbol(), "D");
+        assert_eq!(buffer[(5, 5)].bg, Color::Rgb(16, 16, 16));
+        assert_eq!(buffer[(40, 5)].bg, Color::Rgb(16, 16, 16));
+        assert_eq!(buffer[(40, 18)].bg, Color::Rgb(28, 28, 28));
+        assert_eq!(buffer[(30, 5)].bg, Color::Reset);
+        assert_eq!(buffer[(5, 21)].bg, Color::Rgb(16, 16, 16));
+        assert_eq!(buffer[(5, 22)].bg, Color::Rgb(16, 16, 16));
+        assert_eq!(buffer[(5, 23)].bg, Color::Rgb(8, 8, 8));
+        assert!(
+            buffer
+                .content
+                .iter()
+                .all(|cell| { !matches!(cell.symbol(), "┌" | "┐" | "└" | "┘" | "─") })
+        );
+
+        view.focus = Focus::Chats;
+        terminal
+            .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
+            .expect("Chat-list focus should render");
+        let buffer = terminal.backend().buffer();
+        assert_eq!(buffer[(5, 5)].bg, Color::Rgb(28, 28, 28));
+        assert_eq!(buffer[(40, 18)].bg, Color::Rgb(16, 16, 16));
+
+        view.focus = Focus::Transcript;
+        terminal
+            .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
+            .expect("Transcript focus should render");
+        let buffer = terminal.backend().buffer();
+        assert_eq!(buffer[(40, 5)].bg, Color::Rgb(28, 28, 28));
+        assert_eq!(buffer[(40, 18)].bg, Color::Rgb(16, 16, 16));
+
+        view.focus = Focus::Search;
+        terminal
+            .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
+            .expect("search focus should render");
+        assert_eq!(
+            terminal.backend().buffer()[(5, 23)].bg,
+            Color::Rgb(28, 28, 28)
         );
     }
 }

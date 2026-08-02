@@ -6,7 +6,7 @@ license.workspace = true
 
 [dependencies]
 async-channel.workspace = true
-compio.workspace = true
+compio = { version = "0.19.1", default-features = false, features = ["runtime"] }
 dirs.workspace = true
 futures-lite.workspace = true
 popgram-app = { path = "../popgram-app" }

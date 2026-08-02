@@ -1,5 +1,6 @@
 //! Deterministic, single-owner application state for Popgram.
 
+use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
 use async_channel::{Receiver, Sender};
@@ -24,11 +25,9 @@ pub enum ConnectionState {
     ReconnectCooldown,
 }
 
-/// Interface region receiving unmodified navigation and editing keys.
+/// Current interaction target within the TUI hierarchy.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Focus {
-    /// Telegram Folder strip.
-    Folders,
     /// Chat list.
     Chats,
     /// Active Chat transcript.
@@ -140,13 +139,15 @@ pub enum Action {
     Quit,
     /// Open exhaustive context help.
     Help,
-    /// Advance focus without entering a keyboard mode.
-    FocusNext,
     /// Move the active item upward.
     MoveUp,
     /// Move the active item downward.
     MoveDown,
-    /// Open the active Chat or focus the Transcript.
+    /// Switch to the previous Folder from the Chat list.
+    PreviousFolder,
+    /// Switch to the next Folder from the Chat list.
+    NextFolder,
+    /// Enter the Active Chat with its Composer focused.
     Open,
     /// Focus the Draft editor.
     Compose,
@@ -154,6 +155,10 @@ pub enum Action {
     Send,
     /// Reply to the Active Message.
     Reply,
+    /// Target the previous Message, entering the Transcript from the Composer.
+    TargetPreviousMessage,
+    /// Target the next Message, returning to the Composer after the newest.
+    TargetNextMessage,
     /// Search using the context selected by focus.
     Search,
     /// Cancel the active transient interaction.
@@ -329,6 +334,9 @@ pub fn bounded_channels(capacity: NonZeroUsize) -> (AppHandle, AppChannels) {
 /// Sole owner of mutable application state.
 pub struct App {
     view: View,
+    drafts: HashMap<ChatId, ComposerView>,
+    loading_chat: Option<ChatId>,
+    queued_chat: Option<ChatId>,
 }
 
 impl App {
@@ -352,6 +360,9 @@ impl App {
                 help_open: false,
                 actions: Vec::new(),
             },
+            drafts: HashMap::new(),
+            loading_chat: None,
+            queued_chat: None,
         }
     }
 
@@ -376,7 +387,9 @@ impl App {
                 self.view.chats = bootstrap.chats;
                 self.view.messages = bootstrap.messages;
                 self.view.active_chat = (!self.view.chats.is_empty()).then_some(0);
-                self.view.active_message = self.view.messages.len().checked_sub(1);
+                self.view.active_message = None;
+                self.loading_chat = None;
+                self.queued_chat = None;
                 None
             }
             Input::Adapter(AdapterEvent::ConnectionChanged(connection)) => {
@@ -386,21 +399,25 @@ impl App {
             Input::Adapter(AdapterEvent::MessageAdded(message)) => {
                 let was_latest = self.at_latest();
                 self.view.messages.push(message);
-                if was_latest || self.view.focus == Focus::Composer {
-                    self.view.active_message = self.view.messages.len().checked_sub(1);
-                    self.view.has_newer_messages = false;
-                } else {
-                    self.view.has_newer_messages = true;
-                }
+                self.view.has_newer_messages = !was_latest;
                 None
             }
             Input::Adapter(AdapterEvent::ChatLoaded { chat, messages }) => {
                 if self.active_chat_id() == Some(chat) {
                     self.view.messages = messages;
-                    self.view.active_message = self.view.messages.len().checked_sub(1);
+                    self.view.active_message = None;
                     self.view.has_newer_messages = false;
                 }
-                None
+
+                if self.loading_chat != Some(chat) {
+                    return None;
+                }
+
+                self.loading_chat = None;
+                self.queued_chat
+                    .take()
+                    .filter(|queued| *queued != chat)
+                    .and_then(|queued| self.request_chat_load(queued))
             }
             Input::Intent(intent) => self.apply_intent(intent),
         }
@@ -413,6 +430,7 @@ impl App {
                     search.query.push_str(&text);
                 } else if self.view.active_chat.is_some() {
                     self.view.focus = Focus::Composer;
+                    self.view.active_message = None;
                     self.view.composer.text.push_str(&text);
                 }
                 None
@@ -447,33 +465,28 @@ impl App {
                 Some(Effect::Reconnect)
             }
             Action::Reconnect => None,
-            Action::FocusNext => {
-                self.view.focus = match self.view.focus {
-                    Focus::Folders => Focus::Chats,
-                    Focus::Chats => Focus::Transcript,
-                    Focus::Transcript | Focus::Search => Focus::Composer,
-                    Focus::Composer => Focus::Folders,
-                };
+            Action::MoveUp => self.move_chat(false),
+            Action::MoveDown => self.move_chat(true),
+            Action::PreviousFolder => {
+                self.move_folder(false);
                 None
             }
-            Action::MoveUp => {
-                self.move_active(false);
-                None
-            }
-            Action::MoveDown => {
-                self.move_active(true);
+            Action::NextFolder => {
+                self.move_folder(true);
                 None
             }
             Action::Open => {
                 if let Some(chat) = self.active_chat_id() {
-                    self.view.focus = Focus::Transcript;
-                    return Some(Effect::LoadChat { chat });
+                    self.view.focus = Focus::Composer;
+                    self.view.active_message = None;
+                    return self.request_chat_load(chat);
                 }
                 None
             }
             Action::Compose => {
                 if self.view.active_chat.is_some() {
                     self.view.focus = Focus::Composer;
+                    self.view.active_message = None;
                 }
                 None
             }
@@ -481,7 +494,16 @@ impl App {
                 self.view.composer.reply_to = self.active_message_id();
                 if self.view.composer.reply_to.is_some() {
                     self.view.focus = Focus::Composer;
+                    self.view.active_message = None;
                 }
+                None
+            }
+            Action::TargetPreviousMessage => {
+                self.target_previous_message();
+                None
+            }
+            Action::TargetNextMessage => {
+                self.target_next_message();
                 None
             }
             Action::Search => {
@@ -500,14 +522,18 @@ impl App {
             Action::Cancel => {
                 if self.view.help_open {
                     self.view.help_open = false;
-                } else if self.view.search.take().is_some() {
-                    self.view.focus = if self.view.active_chat.is_some() {
-                        Focus::Transcript
-                    } else {
-                        Focus::Chats
+                } else if let Some(search) = self.view.search.take() {
+                    self.view.focus = match search.scope {
+                        SearchScope::Account => Focus::Chats,
+                        SearchScope::Chat => Focus::Composer,
                     };
                 } else if self.view.composer.reply_to.take().is_some() {
                     self.view.focus = Focus::Composer;
+                } else if self.view.focus == Focus::Transcript {
+                    self.view.active_message = None;
+                    self.view.focus = Focus::Composer;
+                } else if self.view.focus == Focus::Composer {
+                    self.view.focus = Focus::Chats;
                 }
                 None
             }
@@ -528,43 +554,108 @@ impl App {
 
     fn send_message(&mut self) -> Option<Effect> {
         let chat_index = self.view.active_chat?;
+        let chat = self.view.chats.get(chat_index)?.id;
         let text = self.view.composer.text.trim_end().to_owned();
         if text.is_empty() {
             return None;
         }
         let effect = Effect::SendMessage {
-            chat: self.view.chats[chat_index].id,
+            chat,
             text,
             reply_to: self.view.composer.reply_to,
         };
         self.view.composer = ComposerView::default();
-        self.view.focus = Focus::Transcript;
+        self.drafts.remove(&chat);
+        self.view.active_message = None;
+        self.view.focus = Focus::Composer;
         Some(effect)
     }
 
-    fn move_active(&mut self, forward: bool) {
-        match self.view.focus {
-            Focus::Folders => {
-                self.view.active_folder = move_index(
-                    Some(self.view.active_folder),
-                    self.view.folders.len(),
-                    forward,
-                )
-                .unwrap_or(0);
-            }
-            Focus::Chats => {
-                self.view.active_chat =
-                    move_index(self.view.active_chat, self.view.chats.len(), forward);
-            }
-            Focus::Transcript => {
-                self.view.active_message =
-                    move_index(self.view.active_message, self.view.messages.len(), forward);
-                if self.at_latest() {
-                    self.view.has_newer_messages = false;
-                }
-            }
-            Focus::Composer | Focus::Search => {}
+    fn move_chat(&mut self, forward: bool) -> Option<Effect> {
+        if self.view.focus != Focus::Chats {
+            return None;
         }
+        let next = move_index(self.view.active_chat, self.view.chats.len(), forward);
+        if next == self.view.active_chat {
+            return None;
+        }
+        self.save_active_draft();
+        self.view.active_chat = next;
+        self.restore_active_draft();
+        self.view.messages.clear();
+        self.view.active_message = None;
+        self.view.has_newer_messages = false;
+        self.active_chat_id()
+            .and_then(|chat| self.request_chat_load(chat))
+    }
+
+    fn request_chat_load(&mut self, chat: ChatId) -> Option<Effect> {
+        match self.loading_chat {
+            None => {
+                self.loading_chat = Some(chat);
+                Some(Effect::LoadChat { chat })
+            }
+            Some(loading) if loading == chat => {
+                self.queued_chat = None;
+                None
+            }
+            Some(_) => {
+                self.queued_chat = Some(chat);
+                None
+            }
+        }
+    }
+
+    fn move_folder(&mut self, forward: bool) {
+        if self.view.focus == Focus::Chats {
+            self.view.active_folder = move_index(
+                Some(self.view.active_folder),
+                self.view.folders.len(),
+                forward,
+            )
+            .unwrap_or(0);
+        }
+    }
+
+    fn target_previous_message(&mut self) {
+        if self.view.messages.is_empty() {
+            return;
+        }
+        self.view.active_message = Some(match self.view.active_message {
+            Some(index) => index.saturating_sub(1),
+            None => self.view.messages.len() - 1,
+        });
+        self.view.focus = Focus::Transcript;
+    }
+
+    fn target_next_message(&mut self) {
+        if self.view.focus != Focus::Transcript {
+            return;
+        }
+        let Some(index) = self.view.active_message else {
+            self.view.focus = Focus::Composer;
+            return;
+        };
+        if index + 1 < self.view.messages.len() {
+            self.view.active_message = Some(index + 1);
+        } else {
+            self.view.active_message = None;
+            self.view.has_newer_messages = false;
+            self.view.focus = Focus::Composer;
+        }
+    }
+
+    fn save_active_draft(&mut self) {
+        if let Some(chat) = self.active_chat_id() {
+            self.drafts.insert(chat, self.view.composer.clone());
+        }
+    }
+
+    fn restore_active_draft(&mut self) {
+        self.view.composer = self
+            .active_chat_id()
+            .and_then(|chat| self.drafts.get(&chat).cloned())
+            .unwrap_or_default();
     }
 
     fn active_message_id(&self) -> Option<MessageId> {
@@ -582,28 +673,31 @@ impl App {
     }
 
     fn at_latest(&self) -> bool {
-        self.view.active_message == self.view.messages.len().checked_sub(1)
+        self.view.focus != Focus::Transcript
+            || self.view.active_message == self.view.messages.len().checked_sub(1)
     }
 
     fn refresh_actions(&mut self) {
-        let mut actions = vec![Action::Quit, Action::Help, Action::FocusNext];
+        let mut actions = vec![Action::Quit, Action::Help];
         if self.view.help_open {
             self.view.actions = vec![Action::Quit, Action::Help, Action::Cancel];
             return;
         }
         match self.view.focus {
-            Focus::Folders | Focus::Chats => {
+            Focus::Chats => {
                 actions.extend([
                     Action::MoveUp,
                     Action::MoveDown,
+                    Action::PreviousFolder,
+                    Action::NextFolder,
                     Action::Open,
                     Action::Search,
                 ]);
             }
             Focus::Transcript => {
                 actions.extend([
-                    Action::MoveUp,
-                    Action::MoveDown,
+                    Action::TargetPreviousMessage,
+                    Action::TargetNextMessage,
                     Action::Compose,
                     Action::Reply,
                     Action::Search,
@@ -612,7 +706,12 @@ impl App {
                 ]);
             }
             Focus::Composer => {
-                actions.extend([Action::Send, Action::Cancel]);
+                actions.extend([
+                    Action::Send,
+                    Action::Cancel,
+                    Action::Search,
+                    Action::TargetPreviousMessage,
+                ]);
             }
             Focus::Search => actions.push(Action::Cancel),
         }
@@ -659,8 +758,8 @@ mod tests {
 
     use super::{
         Action, AdapterEvent, App, Bootstrap, ChatId, ChatView, ConnectionState, DeliveryState,
-        Effect, FolderView, Input, Intent, MessageDirection, MessageId, MessageView, SearchScope,
-        bounded_channels,
+        Effect, Focus, FolderView, Input, Intent, MessageDirection, MessageId, MessageView,
+        SearchScope, bounded_channels,
     };
 
     fn bootstrap() -> Bootstrap {
@@ -690,6 +789,36 @@ mod tests {
                 })
                 .collect(),
         }
+    }
+
+    fn hierarchy_bootstrap() -> Bootstrap {
+        let mut fixture = bootstrap();
+        fixture.folders.push(FolderView {
+            id: 1,
+            title: "Work".to_owned(),
+            unread: 0,
+        });
+        fixture.chats.push(ChatView {
+            id: ChatId(20),
+            title: "Rust".to_owned(),
+            preview: "owned buffers".to_owned(),
+            unread: 0,
+            pinned: false,
+        });
+        fixture
+    }
+
+    async fn transition(handle: &super::AppHandle, input: Input) -> super::Update {
+        handle
+            .inputs
+            .send(input)
+            .await
+            .expect("input should be accepted");
+        handle
+            .updates
+            .recv()
+            .await
+            .expect("updated view should arrive")
     }
 
     #[test]
@@ -726,7 +855,17 @@ mod tests {
                     .expect("transcript view should arrive");
                 handle
                     .inputs
-                    .send(Input::Intent(Intent::Action(Action::MoveUp)))
+                    .send(Input::Intent(Intent::Action(Action::TargetPreviousMessage)))
+                    .await
+                    .expect("message targeting should be accepted");
+                handle
+                    .updates
+                    .recv()
+                    .await
+                    .expect("message target view should arrive");
+                handle
+                    .inputs
+                    .send(Input::Intent(Intent::Action(Action::TargetPreviousMessage)))
                     .await
                     .expect("navigation should be accepted");
                 let older = handle
@@ -775,81 +914,27 @@ mod tests {
                     .recv()
                     .await
                     .expect("initial view should arrive");
-                handle
-                    .inputs
-                    .send(Input::Adapter(AdapterEvent::Bootstrap(bootstrap())))
-                    .await
-                    .expect("bootstrap should be accepted");
-                handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("bootstrap view should arrive");
-
-                handle
-                    .inputs
-                    .send(Input::Intent(Intent::Action(Action::Search)))
-                    .await
-                    .expect("search should be accepted");
-                let search = handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("search view should arrive");
+                transition(
+                    &handle,
+                    Input::Adapter(AdapterEvent::Bootstrap(bootstrap())),
+                )
+                .await;
+                let search =
+                    transition(&handle, Input::Intent(Intent::Action(Action::Search))).await;
                 assert_eq!(
                     search.view.search.expect("search should be open").scope,
                     SearchScope::Account
                 );
-                handle
-                    .inputs
-                    .send(Input::Intent(Intent::Action(Action::Cancel)))
-                    .await
-                    .expect("cancel should be accepted");
-                handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("cancel view should arrive");
-                handle
-                    .inputs
-                    .send(Input::Intent(Intent::Action(Action::Open)))
-                    .await
-                    .expect("open should be accepted");
-                handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("transcript view should arrive");
-                handle
-                    .inputs
-                    .send(Input::Intent(Intent::Action(Action::Reply)))
-                    .await
-                    .expect("reply should be accepted");
-                handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("reply view should arrive");
-                handle
-                    .inputs
-                    .send(Input::Intent(Intent::Insert("hello".to_owned())))
-                    .await
-                    .expect("draft should be accepted");
-                handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("draft view should arrive");
-                handle
-                    .inputs
-                    .send(Input::Intent(Intent::Action(Action::Send)))
-                    .await
-                    .expect("send should be accepted");
-                let sent = handle
-                    .updates
-                    .recv()
-                    .await
-                    .expect("send effect should arrive");
+                for action in [
+                    Action::Cancel,
+                    Action::Open,
+                    Action::TargetPreviousMessage,
+                    Action::Reply,
+                ] {
+                    transition(&handle, Input::Intent(Intent::Action(action))).await;
+                }
+                transition(&handle, Input::Intent(Intent::Insert("hello".to_owned()))).await;
+                let sent = transition(&handle, Input::Intent(Intent::Action(Action::Send))).await;
                 assert_eq!(
                     sent.effect,
                     Some(Effect::SendMessage {
@@ -858,6 +943,122 @@ mod tests {
                         reply_to: Some(MessageId(3)),
                     })
                 );
+                assert_eq!(sent.view.focus, Focus::Composer);
+                drop(handle.inputs);
+            };
+            let (result, ()) = future::zip(drive, observe).await;
+            result.expect("application should shut down cleanly");
+        });
+    }
+
+    #[test]
+    fn chat_movement_changes_active_chat_and_preserves_each_draft() {
+        future::block_on(async {
+            let capacity = NonZeroUsize::new(16).expect("fixture capacity should be positive");
+            let (handle, channels) = bounded_channels(capacity);
+            let drive = App::new().run(channels);
+            let observe = async move {
+                handle
+                    .updates
+                    .recv()
+                    .await
+                    .expect("initial view should arrive");
+                transition(
+                    &handle,
+                    Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
+                )
+                .await;
+                let opened = transition(&handle, Input::Intent(Intent::Action(Action::Open))).await;
+                assert_eq!(opened.view.focus, Focus::Composer);
+                transition(
+                    &handle,
+                    Input::Adapter(AdapterEvent::ChatLoaded {
+                        chat: ChatId(10),
+                        messages: hierarchy_bootstrap().messages,
+                    }),
+                )
+                .await;
+                transition(
+                    &handle,
+                    Input::Intent(Intent::Insert("first draft".to_owned())),
+                )
+                .await;
+                transition(&handle, Input::Intent(Intent::Action(Action::Cancel))).await;
+                let second =
+                    transition(&handle, Input::Intent(Intent::Action(Action::MoveDown))).await;
+                assert_eq!(second.view.active_chat, Some(1));
+                assert!(second.view.messages.is_empty());
+                assert!(second.view.composer.text.is_empty());
+                assert_eq!(second.effect, Some(Effect::LoadChat { chat: ChatId(20) }));
+                let first =
+                    transition(&handle, Input::Intent(Intent::Action(Action::MoveUp))).await;
+                assert_eq!(first.view.active_chat, Some(0));
+                assert_eq!(first.view.composer.text, "first draft");
+                assert_eq!(first.effect, None);
+
+                let queued = transition(
+                    &handle,
+                    Input::Adapter(AdapterEvent::ChatLoaded {
+                        chat: ChatId(20),
+                        messages: Vec::new(),
+                    }),
+                )
+                .await;
+                assert_eq!(queued.effect, Some(Effect::LoadChat { chat: ChatId(10) }));
+                drop(handle.inputs);
+            };
+            let (result, ()) = future::zip(drive, observe).await;
+            result.expect("application should shut down cleanly");
+        });
+    }
+
+    #[test]
+    fn escape_ascends_the_hierarchy_and_folders_change_only_from_chat_list() {
+        future::block_on(async {
+            let capacity = NonZeroUsize::new(16).expect("fixture capacity should be positive");
+            let (handle, channels) = bounded_channels(capacity);
+            let drive = App::new().run(channels);
+            let observe = async move {
+                handle
+                    .updates
+                    .recv()
+                    .await
+                    .expect("initial view should arrive");
+                transition(
+                    &handle,
+                    Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
+                )
+                .await;
+                transition(&handle, Input::Intent(Intent::Action(Action::Open))).await;
+                let composer =
+                    transition(&handle, Input::Intent(Intent::Action(Action::NextFolder))).await;
+                assert_eq!(composer.view.active_folder, 0);
+                let targeted = transition(
+                    &handle,
+                    Input::Intent(Intent::Action(Action::TargetPreviousMessage)),
+                )
+                .await;
+                assert_eq!(targeted.view.focus, Focus::Transcript);
+                let newest = transition(
+                    &handle,
+                    Input::Intent(Intent::Action(Action::TargetNextMessage)),
+                )
+                .await;
+                assert_eq!(newest.view.focus, Focus::Composer);
+                transition(
+                    &handle,
+                    Input::Intent(Intent::Action(Action::TargetPreviousMessage)),
+                )
+                .await;
+                let composer =
+                    transition(&handle, Input::Intent(Intent::Action(Action::Cancel))).await;
+                assert_eq!(composer.view.focus, Focus::Composer);
+                let chats =
+                    transition(&handle, Input::Intent(Intent::Action(Action::Cancel))).await;
+                assert_eq!(chats.view.focus, Focus::Chats);
+                let folder =
+                    transition(&handle, Input::Intent(Intent::Action(Action::NextFolder))).await;
+                assert_eq!(folder.view.active_folder, 1);
                 drop(handle.inputs);
             };
             let (result, ()) = future::zip(drive, observe).await;

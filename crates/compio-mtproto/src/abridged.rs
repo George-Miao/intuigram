@@ -97,7 +97,7 @@ impl AbridgedCodec {
     }
 
     fn decode_payload(payload: &[u8]) -> Result<Vec<u8>> {
-        if payload.len() >= 4 {
+        if payload.len() == 4 {
             let status = i32::from_le_bytes(
                 payload[..4]
                     .try_into()
@@ -325,5 +325,22 @@ mod tests {
                 .encode(&[1, 2, 3], &mut Vec::new())
                 .is_err()
         );
+    }
+
+    #[test]
+    fn encrypted_payload_prefix_is_not_misread_as_a_transport_status() {
+        let mut payload = (-992_400_139_i32).to_le_bytes().to_vec();
+        payload.extend_from_slice(&[1, 2, 3, 4]);
+
+        assert_eq!(
+            AbridgedCodec::decode_payload(&payload)
+                .expect("an encrypted frame longer than four bytes is not a status"),
+            payload
+        );
+    }
+
+    #[test]
+    fn four_byte_negative_transport_status_is_rejected() {
+        assert!(AbridgedCodec::decode_payload(&(-404_i32).to_le_bytes()).is_err());
     }
 }
