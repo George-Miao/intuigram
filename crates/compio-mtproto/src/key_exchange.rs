@@ -4,7 +4,7 @@ use grammers_mtproto::mtp::{Deserialization, Mtp, Plain};
 use grammers_tl_types::{Cursor, Deserializable, RemoteCall, Serializable};
 use snafu::{OptionExt, ResultExt, Snafu};
 
-use crate::AbridgedConnection;
+use crate::BoxedTransport;
 
 /// Fresh `MTProto` authorization material produced by the DH exchange.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -62,7 +62,7 @@ pub enum Error {
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// Completes Telegram's four-request authorization-key handshake.
-pub async fn generate_auth_key(connection: &mut AbridgedConnection) -> Result<AuthKeyMaterial> {
+pub async fn generate_auth_key(connection: &mut BoxedTransport) -> Result<AuthKeyMaterial> {
     let mut plain = Plain::new();
 
     let (request, step1) = authentication::step1().context(AuthenticationSnafu)?;
@@ -83,7 +83,7 @@ pub async fn generate_auth_key(connection: &mut AbridgedConnection) -> Result<Au
 }
 
 async fn invoke_plain<R>(
-    connection: &mut AbridgedConnection,
+    connection: &mut BoxedTransport,
     plain: &mut Plain,
     request: &R,
 ) -> Result<R::Return>

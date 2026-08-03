@@ -12,7 +12,7 @@ use grammers_mtproto::mtp::{Deserialization, Encrypted, Mtp};
 use grammers_tl_types::{Deserializable, RemoteCall, Serializable};
 use snafu::ResultExt;
 
-use crate::abridged::AbridgedConnection;
+use crate::BoxedTransport;
 use crate::sender::{
     BadMessageSnafu, DeserializeEnvelopeSnafu, DeserializeResponseSnafu, DriverStoppedSnafu,
     EncodedEnvelope, Error, ResponseFailureSnafu, Result, RpcSnafu, encode_envelope,
@@ -181,7 +181,7 @@ impl Stream for UpdateStream {
 
 /// Persistent single-owner MTProto network driver.
 pub struct ConnectionDriver {
-    transport: AbridgedConnection,
+    transport: BoxedTransport,
     mtp: Encrypted,
     shared: Rc<Shared>,
     pending: Option<QueuedRequest>,
@@ -363,7 +363,7 @@ impl Drop for ConnectionDriver {
 }
 
 pub(crate) fn from_parts(
-    transport: AbridgedConnection,
+    transport: BoxedTransport,
     mtp: Encrypted,
     pending_updates: Vec<Vec<u8>>,
     capacity: NonZeroUsize,

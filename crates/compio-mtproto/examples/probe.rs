@@ -1,6 +1,6 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use compio_mtproto::{AbridgedConnection, generate_auth_key};
+use compio_mtproto::{AbridgedConnection, BoxedTransport, generate_auth_key};
 use snafu::{ResultExt, Snafu};
 
 #[derive(Debug, Snafu)]
@@ -26,9 +26,10 @@ fn main() {
         }
     };
     let result = runtime.block_on(async {
-        let mut connection = AbridgedConnection::connect(endpoint)
+        let connection = AbridgedConnection::connect(endpoint)
             .await
             .context(ConnectSnafu)?;
+        let mut connection = BoxedTransport::new(connection);
         generate_auth_key(&mut connection)
             .await
             .context(KeyExchangeSnafu)

@@ -6,7 +6,7 @@ use grammers_mtproto::mtp::{Deserialization, Encrypted, Mtp};
 use grammers_tl_types::{Deserializable, RemoteCall, Serializable};
 use snafu::{ResultExt, Snafu};
 
-use crate::{AbridgedConnection, AuthKeyMaterial};
+use crate::{AuthKeyMaterial, BoxedTransport, Transport};
 
 const MAXIMUM_ENVELOPE_BYTES: usize = (1024 * 1024) + (8 * 1024);
 const MAXIMUM_REQUEST_BYTES: usize = 1_044_456 - 8 - 16;
@@ -84,6 +84,12 @@ impl Error {
     pub fn is_rpc(&self, expected: &str) -> bool {
         matches!(self, Self::Rpc { message, .. } if message == expected)
     }
+
+    /// Reports whether reconnecting may make the invocation usable again.
+    #[must_use]
+    pub const fn is_connection_failure(&self) -> bool {
+        matches!(self, Self::Transport { .. } | Self::DriverStopped)
+    }
 }
 
 enum RequestOutcome {
@@ -100,7 +106,7 @@ pub(crate) enum EncodedEnvelope {
 
 /// Sequential encrypted RPC connection with owned `MTProto` session state.
 pub struct EncryptedConnection {
-    transport: AbridgedConnection,
+    transport: BoxedTransport,
     mtp: Encrypted,
     pending_updates: Vec<Vec<u8>>,
 }
@@ -109,7 +115,16 @@ impl EncryptedConnection {
     /// Starts encrypted messaging with freshly generated authorization
     /// material.
     #[must_use]
-    pub fn new(transport: AbridgedConnection, material: &AuthKeyMaterial) -> Self {
+    pub fn new<T>(transport: T, material: &AuthKeyMaterial) -> Self
+    where
+        T: Transport + 'static,
+    {
+        Self::from_boxed(BoxedTransport::new(transport), material)
+    }
+
+    /// Starts encrypted messaging on a type-erased transport.
+    #[must_use]
+    pub fn from_boxed(transport: BoxedTransport, material: &AuthKeyMaterial) -> Self {
         let mtp = Encrypted::build()
             .time_offset(material.time_offset)
             .first_salt(material.first_salt)

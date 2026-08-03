@@ -11,6 +11,8 @@ use compio::net::TcpStream;
 use futures_util::{Sink, SinkExt, Stream, StreamExt};
 use snafu::{OptionExt, ResultExt, Snafu};
 
+use crate::Transport;
+
 const PREAMBLE: u8 = 0xef;
 const LONG_HEADER: u8 = 0x7f;
 const MAX_PAYLOAD_BYTES: usize = 0x00ff_ffff * 4;
@@ -216,12 +218,12 @@ impl Framer<Vec<u8>> for AbridgedFramer {
     }
 }
 
-type Transport =
+type FramedTransport =
     SymmetricFramed<TcpStream, TcpStream, AbridgedCodec, AbridgedFramer, Vec<u8>, Vec<u8>>;
 
 /// Direct TCP connection carrying abridged `MTProto` frames through Compio.
 pub struct AbridgedConnection {
-    framed: Transport,
+    framed: FramedTransport,
     queued_send: Option<Vec<u8>>,
     flushing_send: bool,
 }
@@ -281,6 +283,20 @@ impl AbridgedConnection {
             Poll::Ready(None) => Poll::Ready(ConnectionClosedSnafu.fail()),
             Poll::Pending => Poll::Pending,
         }
+    }
+}
+
+impl Transport for AbridgedConnection {
+    fn queue_send(mut self: Pin<&mut Self>, payload: Vec<u8>) {
+        self.as_mut().get_mut().queue_send(payload);
+    }
+
+    fn poll_send(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<()>> {
+        self.as_mut().get_mut().poll_send(cx)
+    }
+
+    fn poll_receive(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<Vec<u8>>> {
+        self.as_mut().get_mut().poll_receive(cx)
     }
 }
 
