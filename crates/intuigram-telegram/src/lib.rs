@@ -12,8 +12,8 @@ use std::time::Duration;
 
 use base64::Engine as _;
 use compio_mtproto::{
-    AbridgedConnection, AuthKeyMaterial, ConnectionDriver, EncryptedConnection, InvocationError,
-    InvocationHandle, UpdateStream, generate_auth_key,
+    AbridgedConnection, AuthKeyMaterial, BoxedTransport, ConnectionDriver, EncryptedConnection,
+    InvocationError, InvocationHandle, UpdateStream, generate_auth_key,
 };
 use futures_util::Stream;
 use grammers_crypto::two_factor_auth::{calculate_2fa, check_p_and_g};
@@ -179,6 +179,16 @@ pub struct Upload {
 
     /// Use Telegram photo semantics instead of a generic document.
     pub photo: bool,
+}
+
+/// Stable Telegram identifiers retained across one upload retry sequence.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct UploadIds {
+    /// Identifier used by Telegram's file-part store.
+    pub file: i64,
+
+    /// Idempotency identifier used by `messages.sendMedia`.
+    pub message: i64,
 }
 
 /// Telegram synchronization position accompanying normalized live events.
@@ -404,12 +414,16 @@ pub enum Error {
         chat_id: i64,
     },
 
-    /// A secure random message identifier could not be generated.
-    #[snafu(display("failed to generate Telegram message random ID"))]
-    RandomId {
-        /// Operating-system random source failure.
-        source: getrandom::Error,
+    /// A requested Telegram Folder is no longer available.
+    #[snafu(display("Telegram Folder {folder_id} is unavailable"))]
+    FolderUnavailable {
+        /// Missing Telegram Folder identifier.
+        folder_id: i32,
     },
+
+    /// Telegram declined a dialog-filter edit without an RPC error.
+    #[snafu(display("Telegram declined the Folder membership change"))]
+    FolderUpdateRejected,
 
     /// A Intuigram Message ID could not be represented by Telegram's API.
     #[snafu(display("Message ID {message_id} is outside Telegram's signed 32-bit domain"))]
@@ -441,6 +455,13 @@ pub enum Error {
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 impl Error {
+    /// Reports whether the operation may be retried after reconnecting.
+    #[must_use]
+    pub const fn is_connection_failure(&self) -> bool {
+        matches!(self, Self::Connect { .. })
+            || matches!(self, Self::Invoke { source } if source.is_connection_failure())
+    }
+
     /// Returns the target data center for a phone-login migration.
     #[must_use]
     pub const fn phone_migration_dc(&self) -> Option<i32> {
@@ -558,9 +579,10 @@ impl Client {
         endpoint: SocketAddr,
         credentials: ApplicationCredentials,
     ) -> Result<(Self, Session)> {
-        let mut transport = AbridgedConnection::connect(endpoint)
+        let transport = AbridgedConnection::connect(endpoint)
             .await
             .context(ConnectSnafu { endpoint })?;
+        let mut transport = BoxedTransport::new(transport);
         let material = generate_auth_key(&mut transport)
             .await
             .context(GenerateKeySnafu)?;
@@ -572,7 +594,9 @@ impl Client {
             first_salt: material.first_salt,
         };
         let mut client = Self {
-            connection: Connection::Login(Box::new(EncryptedConnection::new(transport, &material))),
+            connection: Connection::Login(Box::new(EncryptedConnection::from_boxed(
+                transport, &material,
+            ))),
             credentials,
             password: None,
             identity: None,
@@ -997,10 +1021,7 @@ impl Client {
             .identity
             .as_ref()
             .map_or_else(|| "Telegram".to_owned(), |user| user.display_name.clone());
-        let folders = normalize_dialog_folders(
-            dialog_filters.filters,
-            chat_views.iter().map(|chat| chat.unread).sum(),
-        );
+        let folders = normalize_dialog_folders(dialog_filters.filters, &chat_views);
         Ok(Bootstrap {
             connection: intuigram_app::ConnectionState::Connected,
             account_name,
@@ -1026,6 +1047,59 @@ impl Client {
             date: Some(state.date),
             seq: Some(state.seq),
         })
+    }
+
+    /// Adds or removes a Chat from Archive or a custom Telegram Folder.
+    pub async fn set_chat_folder(
+        &mut self,
+        chat: ChatId,
+        folder: i32,
+        included: bool,
+    ) -> Result<()> {
+        let peer = self
+            .peers
+            .get(&chat)
+            .cloned()
+            .context(PeerUnavailableSnafu { chat_id: chat.0 })?;
+        if folder == -1 {
+            self.connection
+                .invoke(&tl::functions::folders::EditPeerFolders {
+                    folder_peers: vec![
+                        tl::types::InputFolderPeer {
+                            peer,
+                            folder_id: i32::from(included),
+                        }
+                        .into(),
+                    ],
+                })
+                .await
+                .context(InvokeSnafu)?;
+            return Ok(());
+        }
+
+        let tl::enums::messages::DialogFilters::Filters(mut filters) = self
+            .connection
+            .invoke(&tl::functions::messages::GetDialogFilters {})
+            .await
+            .context(InvokeSnafu)?;
+        let filter = filters
+            .filters
+            .iter_mut()
+            .find(|candidate| dialog_filter_id(candidate) == Some(folder))
+            .context(FolderUnavailableSnafu { folder_id: folder })?;
+        set_dialog_filter_membership(filter, peer, included);
+        let accepted = self
+            .connection
+            .invoke(&tl::functions::messages::UpdateDialogFilter {
+                id: folder,
+                filter: Some(filter.clone()),
+            })
+            .await
+            .context(InvokeSnafu)?;
+        if !accepted {
+            return FolderUpdateRejectedSnafu.fail();
+        }
+        Ok(())
     }
 
     /// Loads and normalizes recent history for one cached Chat.
@@ -1103,14 +1177,13 @@ impl Client {
         text: String,
         reply_to: Option<MessageId>,
         thread_root: Option<MessageId>,
+        random_id: i64,
     ) -> Result<()> {
         let peer = self
             .peers
             .get(&chat)
             .cloned()
             .context(PeerUnavailableSnafu { chat_id: chat.0 })?;
-        let mut random_bytes = [0_u8; 8];
-        getrandom::fill(&mut random_bytes).context(RandomIdSnafu)?;
         let reply_to = reply_to
             .or(thread_root)
             .map(|message| {
@@ -1151,7 +1224,7 @@ impl Client {
                 peer,
                 reply_to,
                 message: text,
-                random_id: i64::from_le_bytes(random_bytes),
+                random_id,
                 reply_markup: None,
                 entities: None,
                 schedule_date: None,
@@ -1176,6 +1249,7 @@ impl Client {
         caption: String,
         reply_to: Option<MessageId>,
         thread_root: Option<MessageId>,
+        ids: UploadIds,
     ) -> Result<()> {
         const PART_BYTES: usize = 512 * 1024;
         const BIG_FILE_BYTES: usize = 10 * 1024 * 1024;
@@ -1185,9 +1259,6 @@ impl Client {
             .get(&chat)
             .cloned()
             .context(PeerUnavailableSnafu { chat_id: chat.0 })?;
-        let mut random_bytes = [0_u8; 8];
-        getrandom::fill(&mut random_bytes).context(RandomIdSnafu)?;
-        let file_id = i64::from_le_bytes(random_bytes);
         let part_count = upload.bytes.len().div_ceil(PART_BYTES);
         let part_count = i32::try_from(part_count).map_err(|_| Error::InvalidMessageId {
             message_id: i64::try_from(upload.bytes.len()).unwrap_or(i64::MAX),
@@ -1199,7 +1270,7 @@ impl Client {
             let accepted = if big {
                 self.connection
                     .invoke(&tl::functions::upload::SaveBigFilePart {
-                        file_id,
+                        file_id: ids.file,
                         file_part: part,
                         file_total_parts: part_count,
                         bytes: bytes.to_vec(),
@@ -1209,7 +1280,7 @@ impl Client {
             } else {
                 self.connection
                     .invoke(&tl::functions::upload::SaveFilePart {
-                        file_id,
+                        file_id: ids.file,
                         file_part: part,
                         bytes: bytes.to_vec(),
                     })
@@ -1222,14 +1293,14 @@ impl Client {
         }
         let input_file = if big {
             tl::types::InputFileBig {
-                id: file_id,
+                id: ids.file,
                 parts: part_count,
                 name: upload.name.clone(),
             }
             .into()
         } else {
             tl::types::InputFile {
-                id: file_id,
+                id: ids.file,
                 parts: part_count,
                 name: upload.name.clone(),
                 md5_checksum: format!("{:x}", md5::compute(&upload.bytes)),
@@ -1267,7 +1338,6 @@ impl Client {
             }
             .into()
         };
-        getrandom::fill(&mut random_bytes).context(RandomIdSnafu)?;
         self.connection
             .invoke(&tl::functions::messages::SendMedia {
                 silent: false,
@@ -1281,7 +1351,7 @@ impl Client {
                 reply_to: input_reply_to(reply_to, thread_root)?,
                 media,
                 message: caption,
-                random_id: i64::from_le_bytes(random_bytes),
+                random_id: ids.message,
                 reply_markup: None,
                 entities: None,
                 schedule_date: None,
@@ -1832,7 +1902,7 @@ fn dialog_parts(dialogs: tl::enums::messages::Dialogs) -> Result<DialogParts> {
 
 fn normalize_dialog_folders(
     filters: Vec<tl::enums::DialogFilter>,
-    all_unread: u32,
+    chats: &[ChatView],
 ) -> Vec<FolderView> {
     let mut folders = filters
         .into_iter()
@@ -1840,17 +1910,17 @@ fn normalize_dialog_folders(
             tl::enums::DialogFilter::Default => FolderView {
                 id: 0,
                 title: "All".to_owned(),
-                unread: all_unread,
+                unread: folder_unread(chats, 0),
             },
             tl::enums::DialogFilter::Filter(filter) => FolderView {
                 id: filter.id,
                 title: text_with_entities(filter.title),
-                unread: 0,
+                unread: folder_unread(chats, filter.id),
             },
             tl::enums::DialogFilter::Chatlist(filter) => FolderView {
                 id: filter.id,
                 title: text_with_entities(filter.title),
-                unread: 0,
+                unread: folder_unread(chats, filter.id),
             },
         })
         .collect::<Vec<_>>();
@@ -1860,16 +1930,58 @@ fn normalize_dialog_folders(
             FolderView {
                 id: 0,
                 title: "All".to_owned(),
-                unread: all_unread,
+                unread: folder_unread(chats, 0),
             },
         );
     }
     folders.push(FolderView {
         id: -1,
         title: "Archive".to_owned(),
-        unread: 0,
+        unread: folder_unread(chats, -1),
     });
     folders
+}
+
+fn folder_unread(chats: &[ChatView], folder: i32) -> u32 {
+    chats
+        .iter()
+        .filter(|chat| chat.folders.contains(&folder))
+        .fold(0_u32, |total, chat| total.saturating_add(chat.unread))
+}
+
+fn dialog_filter_id(filter: &tl::enums::DialogFilter) -> Option<i32> {
+    match filter {
+        tl::enums::DialogFilter::Default => None,
+        tl::enums::DialogFilter::Filter(filter) => Some(filter.id),
+        tl::enums::DialogFilter::Chatlist(filter) => Some(filter.id),
+    }
+}
+
+fn set_dialog_filter_membership(
+    filter: &mut tl::enums::DialogFilter,
+    peer: tl::enums::InputPeer,
+    included: bool,
+) {
+    match filter {
+        tl::enums::DialogFilter::Default => {}
+        tl::enums::DialogFilter::Filter(filter) => {
+            filter.pinned_peers.retain(|candidate| candidate != &peer);
+            filter.include_peers.retain(|candidate| candidate != &peer);
+            filter.exclude_peers.retain(|candidate| candidate != &peer);
+            if included {
+                filter.include_peers.push(peer);
+            } else {
+                filter.exclude_peers.push(peer);
+            }
+        }
+        tl::enums::DialogFilter::Chatlist(filter) => {
+            filter.pinned_peers.retain(|candidate| candidate != &peer);
+            filter.include_peers.retain(|candidate| candidate != &peer);
+            if included {
+                filter.include_peers.push(peer);
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -2507,7 +2619,9 @@ mod tests {
 
     use compio_mtproto::InvocationError;
     use grammers_tl_types::{self as tl, Serializable as _};
-    use intuigram_app::{AdapterEvent, ChatId, ChatKind, MediaKind, MessageDirection, MessageId};
+    use intuigram_app::{
+        AdapterEvent, ChatId, ChatKind, ChatView, MediaKind, MessageDirection, MessageId,
+    };
 
     use super::{
         Error, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginErrorAction,
@@ -2515,6 +2629,7 @@ mod tests {
         login_error_action, normalize_code_delivery, normalize_code_delivery_method,
         normalize_dialog_folders, normalize_live_update, normalize_serialized_media,
         normalize_serialized_peer_kind, qr_login_uri, rpc_migration_dc,
+        set_dialog_filter_membership,
     };
 
     #[test]
@@ -2698,7 +2813,27 @@ mod tests {
             .into(),
         ];
 
-        let folders = normalize_dialog_folders(filters, 7);
+        let chats = vec![
+            ChatView {
+                id: ChatId(10),
+                title: "Ada".to_owned(),
+                preview: String::new(),
+                unread: 5,
+                pinned: false,
+                kind: ChatKind::Private,
+                folders: vec![0, 2],
+            },
+            ChatView {
+                id: ChatId(20),
+                title: "Archived".to_owned(),
+                preview: String::new(),
+                unread: 2,
+                pinned: false,
+                kind: ChatKind::Supergroup,
+                folders: vec![-1, 3],
+            },
+        ];
+        let folders = normalize_dialog_folders(filters, &chats);
 
         assert_eq!(
             folders
@@ -2706,12 +2841,61 @@ mod tests {
                 .map(|folder| (folder.id, folder.title.as_str(), folder.unread))
                 .collect::<Vec<_>>(),
             vec![
-                (0, "All", 7),
-                (2, "Work", 0),
-                (3, "Shared", 0),
-                (-1, "Archive", 0),
+                (0, "All", 5),
+                (2, "Work", 5),
+                (3, "Shared", 2),
+                (-1, "Archive", 2),
             ]
         );
+    }
+
+    #[test]
+    fn folder_membership_edit_overrides_rule_based_inclusion_explicitly() {
+        let peer: tl::enums::InputPeer = tl::types::InputPeerUser {
+            user_id: 7,
+            access_hash: 9,
+        }
+        .into();
+        let mut filter: tl::enums::DialogFilter = tl::types::DialogFilter {
+            contacts: true,
+            non_contacts: false,
+            groups: false,
+            broadcasts: false,
+            bots: false,
+            exclude_muted: false,
+            exclude_read: false,
+            exclude_archived: false,
+            title_noanimate: false,
+            id: 2,
+            title: tl::types::TextWithEntities {
+                text: "Work".to_owned(),
+                entities: Vec::new(),
+            }
+            .into(),
+            emoticon: None,
+            color: None,
+            pinned_peers: vec![peer.clone()],
+            include_peers: Vec::new(),
+            exclude_peers: Vec::new(),
+        }
+        .into();
+
+        set_dialog_filter_membership(&mut filter, peer.clone(), false);
+        {
+            let tl::enums::DialogFilter::Filter(contents) = &filter else {
+                panic!("ordinary filter fixture should remain ordinary")
+            };
+            assert!(!contents.pinned_peers.contains(&peer));
+            assert!(!contents.include_peers.contains(&peer));
+            assert_eq!(contents.exclude_peers, vec![peer.clone()]);
+        }
+
+        set_dialog_filter_membership(&mut filter, peer.clone(), true);
+        let tl::enums::DialogFilter::Filter(contents) = &filter else {
+            panic!("ordinary filter fixture should remain ordinary")
+        };
+        assert_eq!(contents.include_peers, vec![peer.clone()]);
+        assert!(!contents.exclude_peers.contains(&peer));
     }
 
     #[test]

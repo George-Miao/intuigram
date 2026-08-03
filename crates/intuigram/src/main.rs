@@ -12,9 +12,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use futures_util::Stream;
 use intuigram_app::{
     AdapterEvent, App, AttachmentId, AttachmentKind, AttachmentView, Bootstrap, ChatId, ChatKind,
-    ChatView, DeliveryState, DraftView, Effect, FolderView, HistoryView, Input, MediaCard,
-    MediaKind, MessageDetails, MessageDirection, MessageId, MessageView, ReactionView, TextEntity,
-    TextEntityKind, Update,
+    ChatView, ConnectionState, DeliveryState, DraftView, Effect, FolderView, HistoryView, Input,
+    MediaCard, MediaKind, MessageDetails, MessageDirection, MessageId, MessageView, ReactionView,
+    TextEntity, TextEntityKind, Update,
 };
 use intuigram_config::{Config, ConfigLoader, Overrides, PlatformDefaults};
 use intuigram_store::{
@@ -116,6 +116,9 @@ enum Error {
     #[snafu(display("pending adapter effect limit ({capacity}) was reached"))]
     EffectsFull { capacity: usize },
 
+    #[snafu(display("failed to create a Telegram operation idempotency token"))]
+    OperationId { source: getrandom::Error },
+
     #[snafu(display("terminal UI failed"))]
     Terminal { source: intuigram_tui::Error },
 }
@@ -195,6 +198,11 @@ impl AttachmentStore {
         let id = AttachmentId(self.next_id);
         self.payloads.insert(id, payload);
         id
+    }
+
+    fn merge(&mut self, mut other: Self) {
+        self.next_id = self.next_id.max(other.next_id);
+        self.payloads.extend(other.payloads.drain());
     }
 }
 
@@ -330,6 +338,7 @@ impl Backend {
         local_id: MessageId,
         text: &str,
         reply_to: Option<MessageId>,
+        thread_root: Option<MessageId>,
         delivery: DeliveryState,
     ) -> Result<()> {
         self.store
@@ -348,7 +357,7 @@ impl Backend {
                 }
                 .to_owned(),
                 reply_to: reply_to.map(|message| message.0),
-                thread_root: None,
+                thread_root: thread_root.map(|message| message.0),
                 content_kind: "text".to_owned(),
                 metadata: String::new(),
             }])
@@ -364,6 +373,7 @@ impl Backend {
         reply_to: Option<MessageId>,
         thread_root: Option<MessageId>,
         attachment_ids: Vec<AttachmentId>,
+        random_id: i64,
     ) -> Result<MessageView> {
         let message_id = {
             let Self {
@@ -374,7 +384,7 @@ impl Backend {
             } = self;
             if attachment_ids.is_empty() {
                 client
-                    .send_text(chat, text.clone(), reply_to, thread_root)
+                    .send_text(chat, text.clone(), reply_to, thread_root, random_id)
                     .await
                     .context(TelegramSnafu)?;
             } else {
@@ -421,6 +431,10 @@ impl Backend {
                             },
                             reply_to,
                             thread_root,
+                            intuigram_telegram::UploadIds {
+                                file: derived_random_id(random_id, index, 0x4649_4c45),
+                                message: derived_random_id(random_id, index, 0x4d45_5353),
+                            },
                         )
                         .await
                         .context(TelegramSnafu)?;
@@ -447,9 +461,27 @@ impl Backend {
         })
     }
 
-    async fn execute(&mut self, effect: Effect) -> Result<Option<AdapterEvent>> {
+    async fn execute(&mut self, effect: AdapterEffect) -> Result<Option<AdapterEvent>> {
+        let AdapterEffect { effect, random_id } = effect;
         match effect {
             Effect::Quit | Effect::Reconnect => Ok(None),
+            Effect::SetChatFolder {
+                chat,
+                folder,
+                included,
+            } => Ok(Some(
+                match self.client.set_chat_folder(chat, folder, included).await {
+                    Ok(()) => AdapterEvent::FolderMembershipChanged {
+                        chat,
+                        folder,
+                        included,
+                    },
+                    Err(source) if source.is_connection_failure() => {
+                        return Err(Error::Telegram { source });
+                    }
+                    Err(error) => AdapterEvent::OperationFailed(error.to_string()),
+                },
+            )),
             Effect::LoadChat { chat } => {
                 let messages = self.load_chat(chat).await?;
                 Ok(Some(AdapterEvent::ChatLoaded { chat, messages }))
@@ -482,18 +514,39 @@ impl Backend {
                 attachments,
                 local_id,
             } => {
-                self.persist_outgoing(chat, local_id, &text, reply_to, DeliveryState::Pending)
-                    .await?;
-                self.save_draft(chat, thread_root, String::new(), None)
-                    .await?;
-                let result = self
-                    .send_message(chat, text.clone(), reply_to, thread_root, attachments)
-                    .await;
                 self.persist_outgoing(
                     chat,
                     local_id,
                     &text,
                     reply_to,
+                    thread_root,
+                    DeliveryState::Pending,
+                )
+                .await?;
+                self.save_draft(chat, thread_root, String::new(), None)
+                    .await?;
+                let result = self
+                    .send_message(
+                        chat,
+                        text.clone(),
+                        reply_to,
+                        thread_root,
+                        attachments,
+                        random_id.expect("every queued send has an idempotency token"),
+                    )
+                    .await;
+                let result = match result {
+                    Err(Error::Telegram { source }) if source.is_connection_failure() => {
+                        return Err(Error::Telegram { source });
+                    }
+                    result => result,
+                };
+                self.persist_outgoing(
+                    chat,
+                    local_id,
+                    &text,
+                    reply_to,
+                    thread_root,
                     if result.is_ok() {
                         DeliveryState::Sent
                     } else {
@@ -638,6 +691,7 @@ where
     let mut app = App::new();
     let mut update = app.transition(Input::Adapter(AdapterEvent::Bootstrap(bootstrap)));
     let mut pending_effects = VecDeque::with_capacity(EFFECT_CAPACITY);
+    let mut retained_attachments = AttachmentStore::default();
     let mut attempt = Some(Box::pin(resume_account(
         credentials.clone(),
         &layout,
@@ -692,12 +746,15 @@ where
                 }
             }
             Wake::Connected(result) if result.is_ok() => {
-                let Ok((backend, mut adapter_events, bootstrap)) = *result else {
+                let Ok((mut backend, mut adapter_events, bootstrap)) = *result else {
                     unreachable!("successful connection result was checked")
                 };
+                backend
+                    .attachments
+                    .merge(std::mem::take(&mut retained_attachments));
                 update =
                     app.transition(Input::Adapter(AdapterEvent::ConnectionRestored(bootstrap)));
-                return run_application_state(
+                match run_application_state(
                     terminal,
                     events,
                     &mut adapter_events,
@@ -706,7 +763,28 @@ where
                     update,
                     pending_effects,
                 )
-                .await;
+                .await?
+                {
+                    ApplicationExit::Quit => return Ok(()),
+                    ApplicationExit::Disconnected(state) => {
+                        let DisconnectedApplication {
+                            app: disconnected_app,
+                            backend: disconnected_backend,
+                            pending_effects: disconnected_effects,
+                        } = *state;
+                        retained_attachments.merge(disconnected_backend.attachments);
+                        app = disconnected_app;
+                        pending_effects = disconnected_effects;
+                        update = app.transition(Input::Adapter(AdapterEvent::ConnectionChanged(
+                            ConnectionState::Connecting,
+                        )));
+                        attempt = Some(Box::pin(resume_account(
+                            credentials.clone(),
+                            &layout,
+                            &account,
+                        )));
+                    }
+                }
             }
             Wake::Connected(result) => {
                 let Err(error) = *result else {
@@ -721,11 +799,11 @@ where
 }
 
 trait ApplicationBackend: Sized + 'static {
-    async fn execute(&mut self, effect: Effect) -> Result<Option<AdapterEvent>>;
+    async fn execute(&mut self, effect: AdapterEffect) -> Result<Option<AdapterEvent>>;
 }
 
 impl ApplicationBackend for Backend {
-    async fn execute(&mut self, effect: Effect) -> Result<Option<AdapterEvent>> {
+    async fn execute(&mut self, effect: AdapterEffect) -> Result<Option<AdapterEvent>> {
         Self::execute(self, effect).await
     }
 }
@@ -800,6 +878,7 @@ impl ApplicationAdapterEvents for BackendEvents {
 
 struct BackendCompletion<B> {
     backend: B,
+    effect: AdapterEffect,
     result: Result<Option<AdapterEvent>>,
 }
 
@@ -811,15 +890,60 @@ enum ApplicationWake<B> {
     Backend(BackendCompletion<B>),
 }
 
-fn start_effect<B: ApplicationBackend>(mut backend: B, effect: Effect) -> PendingEffect<B> {
+struct DisconnectedApplication<B> {
+    app: App,
+    backend: B,
+    pending_effects: VecDeque<AdapterEffect>,
+}
+
+enum ApplicationExit<B> {
+    Quit,
+    Disconnected(Box<DisconnectedApplication<B>>),
+}
+
+fn connection_failure_reason(error: &Error) -> Option<String> {
+    match error {
+        Error::Telegram { source } if source.is_connection_failure() => {
+            Some(error_lines(error).join(": "))
+        }
+        Error::TelegramUpdatesClosed => Some(error.to_string()),
+        _ => None,
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct AdapterEffect {
+    effect: Effect,
+    random_id: Option<i64>,
+}
+
+impl AdapterEffect {
+    fn new(effect: Effect) -> Result<Self> {
+        let random_id = if matches!(effect, Effect::SendMessage { .. }) {
+            let mut bytes = [0_u8; 8];
+            getrandom::fill(&mut bytes).context(OperationIdSnafu)?;
+            Some(i64::from_le_bytes(bytes))
+        } else {
+            None
+        };
+        Ok(Self { effect, random_id })
+    }
+}
+
+fn start_effect<B: ApplicationBackend>(mut backend: B, effect: AdapterEffect) -> PendingEffect<B> {
     Box::pin(async move {
+        let retained = effect.clone();
         let result = backend.execute(effect).await;
-        BackendCompletion { backend, result }
+        BackendCompletion {
+            backend,
+            effect: retained,
+            result,
+        }
     })
 }
 
 fn enqueue_effect<B>(
-    pending: &mut VecDeque<Effect>,
+    pending: &mut VecDeque<AdapterEffect>,
     active: &Option<PendingEffect<B>>,
     effect: Option<Effect>,
 ) -> Result<bool> {
@@ -835,7 +959,7 @@ fn enqueue_effect<B>(
     {
         pending.retain(|pending| {
             !matches!(
-                pending,
+                &pending.effect,
                 Effect::SaveDraft {
                     chat: pending_chat,
                     thread_root: pending_thread,
@@ -850,7 +974,7 @@ fn enqueue_effect<B>(
         }
         .fail();
     }
-    pending.push_back(effect);
+    pending.push_back(AdapterEffect::new(effect)?);
     Ok(false)
 }
 
@@ -869,7 +993,7 @@ where
 {
     let mut app = App::new();
     let update = app.transition(Input::Adapter(AdapterEvent::Bootstrap(bootstrap)));
-    run_application_state(
+    match run_application_state(
         terminal,
         events,
         adapter_events,
@@ -878,7 +1002,11 @@ where
         update,
         VecDeque::with_capacity(EFFECT_CAPACITY),
     )
-    .await
+    .await?
+    {
+        ApplicationExit::Quit => Ok(()),
+        ApplicationExit::Disconnected(_) => TelegramUpdatesClosedSnafu.fail(),
+    }
 }
 
 async fn run_application_state<U, E, A, B>(
@@ -888,8 +1016,8 @@ async fn run_application_state<U, E, A, B>(
     backend: B,
     mut app: App,
     mut update: Update,
-    mut pending_effects: VecDeque<Effect>,
-) -> Result<()>
+    mut pending_effects: VecDeque<AdapterEffect>,
+) -> Result<ApplicationExit<B>>
 where
     U: ApplicationUi,
     E: ApplicationEvents,
@@ -898,14 +1026,28 @@ where
 {
     let mut backend = Some(backend);
     let mut active_effect: Option<PendingEffect<B>> = None;
+    let mut disconnected = false;
 
     loop {
         terminal.draw(&update.view).context(TerminalSnafu)?;
         if enqueue_effect(&mut pending_effects, &active_effect, update.effect.take())? {
-            return Ok(());
+            return Ok(ApplicationExit::Quit);
         }
 
-        if active_effect.is_none()
+        if disconnected && active_effect.is_none() {
+            return Ok(ApplicationExit::Disconnected(Box::new(
+                DisconnectedApplication {
+                    app,
+                    backend: backend
+                        .take()
+                        .expect("completed effects return the disconnected backend"),
+                    pending_effects,
+                },
+            )));
+        }
+
+        if !disconnected
+            && active_effect.is_none()
             && let Some(effect) = pending_effects.pop_front()
         {
             let available = backend
@@ -915,7 +1057,7 @@ where
         }
 
         let wake = poll_fn(|cx| {
-            if let Poll::Ready(event) = adapter_events.poll_adapter_event(cx) {
+            if !disconnected && let Poll::Ready(event) = adapter_events.poll_adapter_event(cx) {
                 return Poll::Ready(ApplicationWake::Adapter(event));
             }
             if let Poll::Ready(event) = events.poll_next_event(cx) {
@@ -943,19 +1085,36 @@ where
                     }
                 }
             }
-            ApplicationWake::Adapter(event) => {
-                update = app.transition(Input::Adapter(event?));
-            }
+            ApplicationWake::Adapter(event) => match event {
+                Ok(event) => update = app.transition(Input::Adapter(event)),
+                Err(error) => {
+                    let Some(reason) = connection_failure_reason(&error) else {
+                        return Err(error);
+                    };
+                    disconnected = true;
+                    update = app.transition(Input::Adapter(AdapterEvent::ConnectionFailed(reason)));
+                }
+            },
             ApplicationWake::Backend(completion) => {
                 active_effect = None;
                 backend = Some(completion.backend);
-                if let Some(event) = completion.result? {
-                    update = app.transition(Input::Adapter(event));
-                } else {
-                    update = Update {
-                        view: app.view(),
-                        effect: None,
-                    };
+                match completion.result {
+                    Ok(Some(event)) => update = app.transition(Input::Adapter(event)),
+                    Ok(None) => {
+                        update = Update {
+                            view: app.view(),
+                            effect: None,
+                        };
+                    }
+                    Err(error) => {
+                        let Some(reason) = connection_failure_reason(&error) else {
+                            return Err(error);
+                        };
+                        pending_effects.push_front(completion.effect);
+                        disconnected = true;
+                        update =
+                            app.transition(Input::Adapter(AdapterEvent::ConnectionFailed(reason)));
+                    }
                 }
             }
         }
@@ -1508,6 +1667,16 @@ fn mime_type_for_path(path: &std::path::Path) -> String {
     .to_owned()
 }
 
+fn derived_random_id(base: i64, index: usize, domain: u64) -> i64 {
+    let index = u64::try_from(index).unwrap_or(u64::MAX);
+    let mut value = (base as u64) ^ domain ^ index.wrapping_mul(0x9e37_79b9_7f4a_7c15);
+    value ^= value >> 30;
+    value = value.wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    value ^= value >> 27;
+    value = value.wrapping_mul(0x94d0_49bb_1331_11eb);
+    (value ^ (value >> 31)) as i64
+}
+
 fn store_cursor(cursor: TelegramCursor) -> StoreSyncCursor {
     StoreSyncCursor {
         scope: "account".to_owned(),
@@ -1977,11 +2146,11 @@ mod tests {
     use intuigram_tui::UiEvent;
 
     use super::{
-        ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents, ApplicationUi,
-        EFFECT_CAPACITY, Error, PRIMARY_DC_ENDPOINT, PendingEffect, Result, application_fixture,
-        cached_bootstrap, enqueue_effect, error_lines, login_code_delivery_message,
-        login_code_delivery_method_name, parse_arguments, run_application, seconds_until_at,
-        stored_message,
+        AdapterEffect, ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents,
+        ApplicationExit, ApplicationUi, AttachmentPayload, AttachmentStore, EFFECT_CAPACITY, Error,
+        PRIMARY_DC_ENDPOINT, PendingEffect, Result, application_fixture, cached_bootstrap,
+        enqueue_effect, error_lines, login_code_delivery_message, login_code_delivery_method_name,
+        parse_arguments, run_application, run_application_state, seconds_until_at, stored_message,
     };
 
     struct PendingHistoryBackend {
@@ -2049,8 +2218,8 @@ mod tests {
     }
 
     impl ApplicationBackend for PendingHistoryBackend {
-        async fn execute(&mut self, effect: Effect) -> Result<Option<AdapterEvent>> {
-            let Effect::LoadChat { chat } = effect else {
+        async fn execute(&mut self, effect: AdapterEffect) -> Result<Option<AdapterEvent>> {
+            let Effect::LoadChat { chat } = effect.effect else {
                 return Ok(None);
             };
             std::future::poll_fn(|cx| {
@@ -2123,6 +2292,25 @@ mod tests {
         }
     }
 
+    struct AlwaysPendingEvents;
+
+    impl ApplicationEvents for AlwaysPendingEvents {
+        fn poll_next_event(&mut self, _cx: &mut Context<'_>) -> Poll<intuigram_tui::Result<Event>> {
+            Poll::Pending
+        }
+    }
+
+    struct FailingConnectionBackend {
+        observed: Rc<RefCell<Vec<AdapterEffect>>>,
+    }
+
+    impl ApplicationBackend for FailingConnectionBackend {
+        async fn execute(&mut self, effect: AdapterEffect) -> Result<Option<AdapterEvent>> {
+            self.observed.borrow_mut().push(effect);
+            Err(Error::TelegramUpdatesClosed)
+        }
+    }
+
     fn key(character: char) -> Event {
         Event::Key(KeyEvent::new(KeyCode::Char(character), KeyModifiers::NONE))
     }
@@ -2169,13 +2357,96 @@ mod tests {
 
     #[test]
     fn a_full_effect_queue_fails_instead_of_blocking_terminal_input() {
-        let mut pending = VecDeque::from(vec![Effect::Reconnect; EFFECT_CAPACITY]);
+        let mut pending = VecDeque::from(vec![
+            AdapterEffect {
+                effect: Effect::Reconnect,
+                random_id: None,
+            };
+            EFFECT_CAPACITY
+        ]);
         let active = None::<PendingEffect<PendingHistoryBackend>>;
 
         let error = enqueue_effect(&mut pending, &active, Some(Effect::Reconnect))
             .expect_err("a saturated effect queue should be reported");
 
         assert!(matches!(error, Error::EffectsFull { .. }));
+    }
+
+    #[test]
+    fn connection_failure_returns_the_same_send_for_retry() {
+        let views = Rc::new(RefCell::new(Vec::new()));
+        let observed = Rc::new(RefCell::new(Vec::new()));
+        let mut terminal = RecordingUi {
+            views: Rc::clone(&views),
+        };
+        let mut events = AlwaysPendingEvents;
+        let mut adapter_events = NoAdapterEvents;
+        let backend = FailingConnectionBackend {
+            observed: Rc::clone(&observed),
+        };
+        let mut app = intuigram_app::App::new();
+        let update = app.transition(intuigram_app::Input::Adapter(AdapterEvent::Bootstrap(
+            application_fixture(),
+        )));
+        let send = AdapterEffect::new(Effect::SendMessage {
+            chat: ChatId(10),
+            text: "retry once connected".to_owned(),
+            reply_to: None,
+            thread_root: None,
+            attachments: Vec::new(),
+            local_id: MessageId(-1),
+        })
+        .expect("operation id should be generated");
+        let expected_random_id = send.random_id;
+        let runtime = compio::runtime::Runtime::new().expect("test runtime should initialize");
+
+        let exit = runtime
+            .block_on(run_application_state(
+                &mut terminal,
+                &mut events,
+                &mut adapter_events,
+                backend,
+                app,
+                update,
+                VecDeque::from([send]),
+            ))
+            .expect("connection failure should become an application handoff");
+        let ApplicationExit::Disconnected(state) = exit else {
+            panic!("connection failure should not quit")
+        };
+
+        assert_eq!(observed.borrow().len(), 1);
+        assert_eq!(state.pending_effects.len(), 1);
+        assert_eq!(state.pending_effects[0].random_id, expected_random_id);
+        assert_eq!(
+            state.app.view().connection,
+            intuigram_app::ConnectionState::ReconnectCooldown
+        );
+        assert!(
+            views.borrow().iter().any(|view| {
+                view.connection == intuigram_app::ConnectionState::ReconnectCooldown
+            }),
+            "the TUI should render the disconnect before reconnecting"
+        );
+    }
+
+    #[test]
+    fn reconnect_handoff_preserves_attachment_payloads_and_ids() {
+        let mut disconnected = AttachmentStore::default();
+        let first = disconnected.register(AttachmentPayload::Image {
+            mime_type: "image/png".to_owned(),
+            bytes: vec![1, 2, 3],
+        });
+        let mut connected = AttachmentStore::default();
+
+        connected.merge(disconnected);
+        let second = connected.register(AttachmentPayload::Image {
+            mime_type: "image/png".to_owned(),
+            bytes: vec![4, 5, 6],
+        });
+
+        assert!(connected.payloads.contains_key(&first));
+        assert!(second.0 > first.0);
     }
 
     #[test]

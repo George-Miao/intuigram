@@ -195,6 +195,18 @@ const BINDINGS: &[Binding] = &[
         Action::NextFolder,
         true,
     ),
+    binding(
+        KeyChord::alt(Key::Char('f')),
+        "Manage Folders",
+        Action::ManageFolders,
+        true,
+    ),
+    binding(
+        KeyChord::plain(Key::Enter),
+        "Toggle Folder",
+        Action::ToggleFolderMembership,
+        true,
+    ),
     binding(KeyChord::plain(Key::Enter), "Open", Action::Open, true),
     binding(
         KeyChord::control(Key::Char('n')),
@@ -816,6 +828,8 @@ fn render(frame: &mut Frame<'_>, view: &View, keymap: &EffectiveKeymap) {
     render_status(frame, rows[3], view);
     if view.help_open {
         render_help(frame, area, view, keymap);
+    } else if view.folder_picker.is_some() {
+        render_folder_picker(frame, area, view);
     }
 }
 
@@ -1211,6 +1225,52 @@ fn render_help(frame: &mut Frame<'_>, area: Rect, view: &View, keymap: &Effectiv
     );
 }
 
+fn render_folder_picker(frame: &mut Frame<'_>, area: Rect, view: &View) {
+    let popup = centered_rect(52, 60, area);
+    let memberships = view
+        .active_chat
+        .and_then(|index| view.chats.get(index))
+        .map(|chat| chat.folders.as_slice())
+        .unwrap_or_default();
+    let lines = std::iter::once(Line::from(Span::styled(
+        "Folder membership",
+        Style::default().add_modifier(Modifier::BOLD),
+    )))
+    .chain(std::iter::once(Line::from(Span::styled(
+        "Choose a Folder to add or remove this Chat",
+        Style::default().fg(MUTED_TEXT),
+    ))))
+    .chain(std::iter::once(Line::from("")))
+    .chain(
+        view.folders
+            .iter()
+            .enumerate()
+            .skip(1)
+            .map(|(index, folder)| {
+                let selected = view.folder_picker == Some(index);
+                let marker = if memberships.contains(&folder.id) {
+                    "[x]"
+                } else {
+                    "[ ]"
+                };
+                Line::from(vec![
+                    selection_rule(selected),
+                    Span::styled(
+                        format!("{marker} {}", folder.title),
+                        Style::default().fg(if selected { PRIMARY } else { TEXT }),
+                    ),
+                ])
+            }),
+    );
+    frame.render_widget(Clear, popup);
+    frame.render_widget(
+        Paragraph::new(lines.collect::<Vec<_>>())
+            .style(surface_style(true))
+            .wrap(Wrap { trim: false }),
+        popup,
+    );
+}
+
 fn selection_rule(selected: bool) -> Span<'static> {
     if selected {
         Span::styled("│ ", Style::default().fg(PRIMARY))
@@ -1335,6 +1395,7 @@ mod tests {
             search: None::<SearchView>,
             has_newer_messages: false,
             help_open: false,
+            folder_picker: None,
             notice: None,
             actions,
         }
@@ -1412,6 +1473,7 @@ mod tests {
         let chat_list = view(vec![
             Action::PreviousFolder,
             Action::NextFolder,
+            Action::ManageFolders,
             Action::Open,
         ]);
         assert_eq!(
@@ -1421,6 +1483,16 @@ mod tests {
         assert_eq!(
             keymap.resolve(&chat_list, KeyChord::alt(Key::Right)),
             Some(Action::NextFolder)
+        );
+        assert_eq!(
+            keymap.resolve(&chat_list, KeyChord::alt(Key::Char('f'))),
+            Some(Action::ManageFolders)
+        );
+
+        let picker = view(vec![Action::ToggleFolderMembership, Action::Cancel]);
+        assert_eq!(
+            keymap.resolve(&picker, KeyChord::plain(Key::Enter)),
+            Some(Action::ToggleFolderMembership)
         );
 
         let mut composer = view(vec![Action::TargetPreviousMessage, Action::Cancel]);
@@ -1512,6 +1584,55 @@ mod tests {
 
         assert!(flags.contains(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES));
         assert!(flags.contains(KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES));
+    }
+
+    #[test]
+    fn folder_membership_overlay_shows_selection_and_current_membership() {
+        let mut view = view(vec![
+            Action::MoveUp,
+            Action::MoveDown,
+            Action::ToggleFolderMembership,
+            Action::Cancel,
+        ]);
+        view.folders = vec![
+            FolderView {
+                id: 0,
+                title: "All".to_owned(),
+                unread: 0,
+            },
+            FolderView {
+                id: 2,
+                title: "Work".to_owned(),
+                unread: 4,
+            },
+        ];
+        view.chats = vec![ChatView {
+            id: ChatId(10),
+            title: "Intuigram".to_owned(),
+            preview: String::new(),
+            unread: 0,
+            pinned: false,
+            kind: ChatKind::Private,
+            folders: vec![0, 2],
+        }];
+        view.active_chat = Some(0);
+        view.folder_picker = Some(1);
+
+        let backend = TestBackend::new(100, 24);
+        let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
+        terminal
+            .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
+            .expect("view should render");
+        let rendered = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+
+        assert!(rendered.contains("Folder membership"));
+        assert!(rendered.contains("[x] Work"));
     }
 
     #[test]

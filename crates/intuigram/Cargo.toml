@@ -9,6 +9,7 @@ compio = { version = "0.19.1", default-features = false, features = ["fs", "runt
 crossterm.workspace = true
 dirs.workspace = true
 futures-util.workspace = true
+getrandom = { workspace = true, features = ["std"] }
 intuigram-app = { path = "../intuigram-app" }
 intuigram-config = { path = "../intuigram-config" }
 intuigram-media = { path = "../intuigram-media" }

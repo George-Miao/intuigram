@@ -407,6 +407,10 @@ pub enum Action {
     PreviousFolder,
     /// Switch to the next Folder from the Chat list.
     NextFolder,
+    /// Open Folder membership for the Active Chat.
+    ManageFolders,
+    /// Toggle the selected Folder membership for the Active Chat.
+    ToggleFolderMembership,
     /// Enter the Active Chat with its Composer focused.
     Open,
     /// Focus the Draft editor.
@@ -484,6 +488,21 @@ pub enum AdapterEvent {
 
     /// Automatic connection attempts entered cooldown after a failure.
     ConnectionFailed(String),
+
+    /// A requested Chat Folder membership change was acknowledged.
+    FolderMembershipChanged {
+        /// Chat whose membership changed.
+        chat: ChatId,
+
+        /// Folder added to or removed from the Chat.
+        folder: i32,
+
+        /// Whether the Chat now belongs to the Folder.
+        included: bool,
+    },
+
+    /// A nonfatal Telegram operation failed.
+    OperationFailed(String),
 
     /// A new or acknowledged Message belongs in a Chat history.
     MessageAdded {
@@ -566,6 +585,17 @@ pub enum Input {
 pub enum Effect {
     /// Start a connection attempt immediately.
     Reconnect,
+    /// Add or remove the Active Chat from one Telegram Folder.
+    SetChatFolder {
+        /// Chat whose membership changes.
+        chat: ChatId,
+
+        /// Custom Folder ID, or `-1` for Archive.
+        folder: i32,
+
+        /// Whether the Chat should belong to the Folder.
+        included: bool,
+    },
     /// Load recent history for the selected Chat.
     LoadChat {
         /// Chat selected by the user.
@@ -671,6 +701,9 @@ pub struct View {
     /// Whether exhaustive context help is open.
     pub help_open: bool,
 
+    /// Selected index in the Folder membership overlay, when open.
+    pub folder_picker: Option<usize>,
+
     /// Latest nonfatal adapter notice.
     pub notice: Option<String>,
 
@@ -727,6 +760,7 @@ impl App {
                 search: None,
                 has_newer_messages: false,
                 help_open: false,
+                folder_picker: None,
                 notice: None,
                 actions: Vec::new(),
             },
@@ -777,6 +811,19 @@ impl App {
             }
             Input::Adapter(AdapterEvent::ConnectionFailed(reason)) => {
                 self.view.connection = ConnectionState::ReconnectCooldown;
+                self.view.notice = Some(reason);
+                None
+            }
+            Input::Adapter(AdapterEvent::FolderMembershipChanged {
+                chat,
+                folder,
+                included,
+            }) => {
+                self.apply_folder_membership(chat, folder, included);
+                self.view.notice = None;
+                None
+            }
+            Input::Adapter(AdapterEvent::OperationFailed(reason)) => {
                 self.view.notice = Some(reason);
                 None
             }
@@ -1062,6 +1109,9 @@ impl App {
     }
 
     fn apply_action(&mut self, action: Action) -> Option<Effect> {
+        if self.view.folder_picker.is_some() && action != Action::Quit {
+            return self.apply_folder_picker_action(action);
+        }
         match action {
             Action::Quit => Some(Effect::Quit),
             Action::Help => {
@@ -1084,6 +1134,11 @@ impl App {
                 self.move_folder(true);
                 None
             }
+            Action::ManageFolders => {
+                self.open_folder_picker();
+                None
+            }
+            Action::ToggleFolderMembership => None,
             Action::Open => {
                 if let Some(chat) = self.active_chat_id() {
                     self.focus_composer_at_anchor();
@@ -1173,6 +1228,71 @@ impl App {
                 self.draft_effect()
             }
         }
+    }
+
+    fn open_folder_picker(&mut self) {
+        if self.active_chat_id().is_some() {
+            self.view.folder_picker = (self.view.folders.len() > 1).then_some(1);
+        }
+    }
+
+    fn apply_folder_picker_action(&mut self, action: Action) -> Option<Effect> {
+        match action {
+            Action::MoveUp => {
+                let selected = self.view.folder_picker.unwrap_or(1);
+                self.view.folder_picker = Some(selected.saturating_sub(1).max(1));
+                None
+            }
+            Action::MoveDown => {
+                let selected = self.view.folder_picker.unwrap_or(1);
+                self.view.folder_picker = Some((selected + 1).min(self.view.folders.len() - 1));
+                None
+            }
+            Action::ToggleFolderMembership => {
+                let chat = self.active_chat_id()?;
+                let folder = self
+                    .view
+                    .folder_picker
+                    .and_then(|index| self.view.folders.get(index))?
+                    .id;
+                let included = !self
+                    .all_chats
+                    .iter()
+                    .find(|candidate| candidate.id == chat)
+                    .is_some_and(|candidate| candidate.folders.contains(&folder));
+                self.view.folder_picker = None;
+                Some(Effect::SetChatFolder {
+                    chat,
+                    folder,
+                    included,
+                })
+            }
+            Action::Cancel | Action::ManageFolders => {
+                self.view.folder_picker = None;
+                None
+            }
+            _ => None,
+        }
+    }
+
+    fn apply_folder_membership(&mut self, chat: ChatId, folder: i32, included: bool) {
+        for chat_view in self
+            .all_chats
+            .iter_mut()
+            .chain(self.view.chats.iter_mut())
+            .filter(|candidate| candidate.id == chat)
+        {
+            chat_view.folders.retain(|candidate| *candidate != folder);
+            if folder == -1 {
+                chat_view.folders.retain(|candidate| *candidate != 0);
+                chat_view.folders.push(if included { -1 } else { 0 });
+            } else if included {
+                chat_view.folders.push(folder);
+            }
+            chat_view.folders.sort_unstable();
+            chat_view.folders.dedup();
+        }
+        self.refresh_folder_chats(Some(chat));
     }
 
     fn send_message(&mut self) -> Option<Effect> {
@@ -1548,6 +1668,16 @@ impl App {
             self.view.actions = vec![Action::Quit, Action::Help, Action::Cancel];
             return;
         }
+        if self.view.folder_picker.is_some() {
+            self.view.actions = vec![
+                Action::Quit,
+                Action::MoveUp,
+                Action::MoveDown,
+                Action::ToggleFolderMembership,
+                Action::Cancel,
+            ];
+            return;
+        }
         match self.view.focus {
             Focus::Chats => {
                 actions.extend([
@@ -1555,6 +1685,7 @@ impl App {
                     Action::MoveDown,
                     Action::PreviousFolder,
                     Action::NextFolder,
+                    Action::ManageFolders,
                     Action::Open,
                     Action::Search,
                 ]);
@@ -2196,5 +2327,63 @@ mod tests {
         assert!(update.view.messages.iter().any(|message| {
             message.id == pending_id && message.delivery == DeliveryState::Pending
         }));
+    }
+
+    #[test]
+    fn folder_picker_adds_and_removes_the_active_chat() {
+        let mut app = App::new();
+        apply(
+            &mut app,
+            Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
+        );
+
+        apply(
+            &mut app,
+            Input::Intent(Intent::Action(Action::ManageFolders)),
+        );
+        let adding = app.transition(Input::Intent(Intent::Action(
+            Action::ToggleFolderMembership,
+        )));
+        assert_eq!(
+            adding.effect,
+            Some(Effect::SetChatFolder {
+                chat: ChatId(10),
+                folder: 1,
+                included: true,
+            })
+        );
+        apply(
+            &mut app,
+            Input::Adapter(AdapterEvent::FolderMembershipChanged {
+                chat: ChatId(10),
+                folder: 1,
+                included: true,
+            }),
+        );
+        let work = app.transition(Input::Intent(Intent::Action(Action::NextFolder)));
+        assert_eq!(
+            work.view
+                .chats
+                .iter()
+                .map(|chat| chat.id)
+                .collect::<Vec<_>>(),
+            vec![ChatId(10), ChatId(20)]
+        );
+
+        apply(
+            &mut app,
+            Input::Intent(Intent::Action(Action::ManageFolders)),
+        );
+        let removing = app.transition(Input::Intent(Intent::Action(
+            Action::ToggleFolderMembership,
+        )));
+        assert_eq!(
+            removing.effect,
+            Some(Effect::SetChatFolder {
+                chat: ChatId(10),
+                folder: 1,
+                included: false,
+            })
+        );
     }
 }

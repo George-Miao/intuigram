@@ -11,7 +11,6 @@ compio = { version = "0.19.1", default-features = false, features = ["time"] }
 futures-util.workspace = true
 grammers-crypto.workspace = true
 grammers-tl-types.workspace = true
-getrandom = { workspace = true, features = ["std"] }
 intuigram-app = { path = "../intuigram-app" }
 md5.workspace = true
 snafu.workspace = true
