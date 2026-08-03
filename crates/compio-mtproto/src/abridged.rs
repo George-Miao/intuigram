@@ -1,12 +1,14 @@
 use std::io;
 use std::net::SocketAddr;
+use std::pin::Pin;
+use std::task::{Context, Poll, ready};
 
 use compio::buf::{IoBuf, IoBufMut, Slice};
 use compio::io::framed::SymmetricFramed;
 use compio::io::framed::codec::{Decoder, Encoder};
 use compio::io::framed::frame::{Frame, Framer};
 use compio::net::TcpStream;
-use futures_util::{SinkExt, StreamExt};
+use futures_util::{Sink, SinkExt, Stream, StreamExt};
 use snafu::{OptionExt, ResultExt, Snafu};
 
 const PREAMBLE: u8 = 0xef;
@@ -220,6 +222,8 @@ type Transport =
 /// Direct TCP connection carrying abridged `MTProto` frames through Compio.
 pub struct AbridgedConnection {
     framed: Transport,
+    queued_send: Option<Vec<u8>>,
+    flushing_send: bool,
 }
 
 impl AbridgedConnection {
@@ -231,7 +235,11 @@ impl AbridgedConnection {
         let framed = SymmetricFramed::symmetric(AbridgedCodec::new(), AbridgedFramer::new())
             .with_duplex(stream)
             .with_buffer(Vec::with_capacity(4096), Vec::with_capacity(4096));
-        Ok(Self { framed })
+        Ok(Self {
+            framed,
+            queued_send: None,
+            flushing_send: false,
+        })
     }
 
     /// Sends one already-serialized `MTProto` envelope.
@@ -242,6 +250,37 @@ impl AbridgedConnection {
     /// Receives one complete `MTProto` envelope.
     pub async fn receive(&mut self) -> Result<Vec<u8>> {
         self.framed.next().await.context(ConnectionClosedSnafu)?
+    }
+
+    pub(crate) fn queue_send(&mut self, payload: Vec<u8>) {
+        debug_assert!(
+            self.queued_send.is_none() && !self.flushing_send,
+            "the connection driver queues only one frame at a time"
+        );
+        self.queued_send = Some(payload);
+    }
+
+    pub(crate) fn poll_send(&mut self, cx: &mut Context<'_>) -> Poll<Result<()>> {
+        if !self.flushing_send {
+            ready!(Pin::new(&mut self.framed).poll_ready(cx))?;
+            let payload = self
+                .queued_send
+                .take()
+                .expect("the driver polls sending only with a queued frame");
+            Pin::new(&mut self.framed).start_send(payload)?;
+            self.flushing_send = true;
+        }
+        ready!(Pin::new(&mut self.framed).poll_flush(cx))?;
+        self.flushing_send = false;
+        Poll::Ready(Ok(()))
+    }
+
+    pub(crate) fn poll_receive(&mut self, cx: &mut Context<'_>) -> Poll<Result<Vec<u8>>> {
+        match Pin::new(&mut self.framed).poll_next(cx) {
+            Poll::Ready(Some(result)) => Poll::Ready(result),
+            Poll::Ready(None) => Poll::Ready(ConnectionClosedSnafu.fail()),
+            Poll::Pending => Poll::Pending,
+        }
     }
 }
 

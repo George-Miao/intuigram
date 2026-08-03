@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use grammers_crypto::DequeBuffer;
 use grammers_mtproto::MsgId;
 use grammers_mtproto::mtp::{Deserialization, Encrypted, Mtp};
@@ -10,7 +12,7 @@ const MAXIMUM_ENVELOPE_BYTES: usize = (1024 * 1024) + (8 * 1024);
 const MAXIMUM_REQUEST_BYTES: usize = 1_044_456 - 8 - 16;
 const LEADING_SPACE: usize = grammers_mtproto::mtp::ENCRYPTED_PACKET_HEADER_LEN
     + grammers_mtproto::mtp::MESSAGE_CONTAINER_HEADER_LEN;
-const MAX_BAD_MESSAGE_RETRIES: usize = 3;
+pub(crate) const MAX_BAD_MESSAGE_RETRIES: usize = 3;
 
 /// Failure while invoking an encrypted Telegram RPC.
 #[derive(Debug, Snafu)]
@@ -60,6 +62,17 @@ pub enum Error {
     /// The request was too large for a bounded `MTProto` envelope.
     #[snafu(display("Telegram request does not fit the bounded MTProto envelope"))]
     RequestTooLarge,
+
+    /// The bounded raw invocation queue is saturated.
+    #[snafu(display("MTProto invocation queue reached its capacity of {capacity}"))]
+    QueueFull {
+        /// Configured maximum number of outstanding invocations.
+        capacity: usize,
+    },
+
+    /// The connection driver stopped before an invocation completed.
+    #[snafu(display("MTProto connection driver stopped before invocation completed"))]
+    DriverStopped,
 }
 
 /// Result returned by encrypted invocations.
@@ -79,7 +92,7 @@ enum RequestOutcome {
 }
 
 #[derive(Debug)]
-enum EncodedEnvelope {
+pub(crate) enum EncodedEnvelope {
     Request { request_id: MsgId, payload: Vec<u8> },
     Service(Vec<u8>),
     AwaitingService,
@@ -141,6 +154,20 @@ impl EncryptedConnection {
     #[must_use]
     pub fn auth_key(&self) -> [u8; 256] {
         self.mtp.auth_key()
+    }
+
+    /// Converts the sequential login connection into a persistent connection
+    /// driver, raw invocation handle, and passive update stream.
+    #[must_use]
+    pub fn into_driver(
+        self,
+        capacity: NonZeroUsize,
+    ) -> (
+        crate::InvocationHandle,
+        crate::UpdateStream,
+        crate::ConnectionDriver,
+    ) {
+        crate::driver::from_parts(self.transport, self.mtp, self.pending_updates, capacity)
     }
 
     fn push_envelope(&mut self, body: &[u8]) -> Result<EncodedEnvelope> {
@@ -239,7 +266,7 @@ impl EncryptedConnection {
     }
 }
 
-fn encode_envelope(mtp: &mut Encrypted, body: &[u8]) -> Result<EncodedEnvelope> {
+pub(crate) fn encode_envelope(mtp: &mut Encrypted, body: &[u8]) -> Result<EncodedEnvelope> {
     if body.len() > MAXIMUM_REQUEST_BYTES {
         return RequestTooLargeSnafu.fail();
     }
@@ -257,6 +284,13 @@ fn encode_envelope(mtp: &mut Encrypted, body: &[u8]) -> Result<EncodedEnvelope> 
             unreachable!("an accepted request produces a non-empty encrypted envelope")
         }
     }
+}
+
+pub(crate) fn finalize_service_envelope(mtp: &mut Encrypted) -> Option<Vec<u8>> {
+    let mut service = DequeBuffer::with_capacity(MAXIMUM_ENVELOPE_BYTES, LEADING_SPACE);
+    mtp.finalize(&mut service)
+        .is_some()
+        .then(|| service[..].to_vec())
 }
 
 #[cfg(test)]
