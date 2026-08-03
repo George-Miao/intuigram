@@ -1,21 +1,28 @@
 //! Telegram API orchestration and Intuigram-owned normalization.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fmt;
+use std::future::Future;
 use std::net::SocketAddr;
+use std::num::NonZeroUsize;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicI64, Ordering};
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 use base64::Engine as _;
 use compio_mtproto::{
-    AbridgedConnection, AuthKeyMaterial, EncryptedConnection, InvocationError, generate_auth_key,
+    AbridgedConnection, AuthKeyMaterial, ConnectionDriver, EncryptedConnection, InvocationError,
+    InvocationHandle, UpdateStream, generate_auth_key,
 };
+use futures_util::Stream;
 use grammers_crypto::two_factor_auth::{calculate_2fa, check_p_and_g};
 use grammers_tl_types as tl;
-use grammers_tl_types::Deserializable as _;
+use grammers_tl_types::{Deserializable as _, Identifiable as _};
 use intuigram_app::{
-    Bootstrap, ChatId, ChatView, DeliveryState, FolderView, MessageDirection, MessageId,
-    MessageView,
+    AdapterEvent, Bootstrap, ChatId, ChatKind, ChatView, DeliveryState, FolderView, MediaCard,
+    MediaKind, MessageDetails, MessageDirection, MessageId, MessageView, ReactionView, TextEntity,
+    TextEntityKind,
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 
@@ -159,6 +166,46 @@ pub struct QrLoginToken {
     expires_at: i32,
 }
 
+/// Owned upload candidate supplied by the composition adapter.
+pub struct Upload {
+    /// Safe display filename.
+    pub name: String,
+
+    /// Internet media type.
+    pub mime_type: String,
+
+    /// Complete file bytes.
+    pub bytes: Vec<u8>,
+
+    /// Use Telegram photo semantics instead of a generic document.
+    pub photo: bool,
+}
+
+/// Telegram synchronization position accompanying normalized live events.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct UpdateCursor {
+    /// Latest persistent update timestamp when supplied by this envelope.
+    pub pts: Option<i32>,
+
+    /// Latest secret update timestamp when supplied by this envelope.
+    pub qts: Option<i32>,
+
+    /// Telegram server date when supplied by this envelope.
+    pub date: Option<i32>,
+
+    /// Latest global update sequence when supplied by this envelope.
+    pub seq: Option<i32>,
+}
+
+/// One normalized adapter event with its durable cursor delta.
+pub struct LiveEvent {
+    /// Intuigram-owned event.
+    pub event: AdapterEvent,
+
+    /// Cursor fields advanced by the same Telegram envelope.
+    pub cursor: UpdateCursor,
+}
+
 impl QrLoginToken {
     /// Returns the `tg://login` URI encoded by the QR symbol.
     #[must_use]
@@ -300,6 +347,27 @@ pub enum Error {
         source: InvocationError,
     },
 
+    /// A passive Telegram update could not be decoded.
+    #[snafu(display("Telegram update payload was invalid"))]
+    DecodeUpdate {
+        /// Underlying TL decoding failure.
+        source: grammers_tl_types::deserialize::Error,
+    },
+
+    /// A serialized Telegram cloud peer could not be decoded.
+    #[snafu(display("Telegram cloud peer payload was invalid"))]
+    DecodePeer {
+        /// Underlying TL decoding failure.
+        source: grammers_tl_types::deserialize::Error,
+    },
+
+    /// A serialized Telegram Message media constructor could not be decoded.
+    #[snafu(display("Telegram Message media payload was invalid"))]
+    DecodeMedia {
+        /// Underlying TL decoding failure.
+        source: grammers_tl_types::deserialize::Error,
+    },
+
     /// Telegram returned a login-code result requiring a paid official flow.
     #[snafu(display("Telegram requires a paid or official-client login-code flow"))]
     LoginPaymentRequired,
@@ -350,6 +418,13 @@ pub enum Error {
         message_id: i64,
     },
 
+    /// Telegram rejected an uploaded file part without an RPC error.
+    #[snafu(display("Telegram rejected upload part {part}"))]
+    UploadPartRejected {
+        /// Zero-based rejected part.
+        part: i32,
+    },
+
     /// Phone authorization must continue on another Telegram data center.
     #[snafu(display("Telegram phone authorization must migrate to data center {dc_id}"))]
     PhoneMigration {
@@ -383,15 +458,96 @@ impl Error {
     }
 }
 
-/// Sequential Telegram API client built on Intuigram's Compio `MTProto` sender.
+enum Connection {
+    Login(Box<EncryptedConnection>),
+    Live(InvocationHandle),
+}
+
+impl Connection {
+    async fn invoke<R>(&mut self, request: &R) -> std::result::Result<R::Return, InvocationError>
+    where
+        R: tl::RemoteCall + tl::Serializable,
+        R::Return: tl::Deserializable,
+    {
+        match self {
+            Self::Login(connection) => connection.invoke(request).await,
+            Self::Live(connection) => connection.invoke(request).await,
+        }
+    }
+
+    fn take_updates(&mut self) -> Vec<Vec<u8>> {
+        match self {
+            Self::Login(connection) => connection.take_updates(),
+            Self::Live(_) => Vec::new(),
+        }
+    }
+}
+
+/// Telegram API client built on Intuigram's Compio `MTProto` sender.
 pub struct Client {
-    connection: EncryptedConnection,
+    connection: Connection,
     credentials: ApplicationCredentials,
     password: Option<tl::types::account::Password>,
     identity: Option<AuthorizedUser>,
     peers: HashMap<ChatId, tl::enums::InputPeer>,
     names: HashMap<ChatId, String>,
     data_centers: HashMap<i32, SocketAddr>,
+}
+
+/// Passive normalized Telegram updates driven by one persistent MTProto
+/// connection.
+pub struct LiveUpdates {
+    driver: Pin<Box<ConnectionDriver>>,
+    updates: UpdateStream,
+    names: HashMap<ChatId, String>,
+    pending: VecDeque<LiveEvent>,
+    terminated: bool,
+}
+
+impl Stream for LiveUpdates {
+    type Item = Result<LiveEvent>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        if let Some(event) = self.pending.pop_front() {
+            return Poll::Ready(Some(Ok(event)));
+        }
+        if self.terminated {
+            return Poll::Ready(None);
+        }
+        match self.driver.as_mut().poll(cx) {
+            Poll::Ready(Err(source)) => {
+                self.terminated = true;
+                return Poll::Ready(Some(Err(Error::Invoke { source })));
+            }
+            Poll::Ready(Ok(())) => {
+                self.terminated = true;
+                return Poll::Ready(None);
+            }
+            Poll::Pending => {}
+        }
+        loop {
+            match Pin::new(&mut self.updates).poll_next(cx) {
+                Poll::Ready(Some(bytes)) => match normalize_live_update(&bytes, &mut self.names) {
+                    Ok(batch) => {
+                        self.pending
+                            .extend(batch.events.into_iter().map(|event| LiveEvent {
+                                event,
+                                cursor: batch.cursor,
+                            }));
+                        if let Some(event) = self.pending.pop_front() {
+                            return Poll::Ready(Some(Ok(event)));
+                        }
+                    }
+                    Err(error) => return Poll::Ready(Some(Err(error))),
+                },
+                Poll::Ready(None) => {
+                    self.terminated = true;
+                    return Poll::Ready(None);
+                }
+                Poll::Pending => return Poll::Pending,
+            }
+        }
+    }
 }
 
 impl Client {
@@ -416,7 +572,7 @@ impl Client {
             first_salt: material.first_salt,
         };
         let mut client = Self {
-            connection: EncryptedConnection::new(transport, &material),
+            connection: Connection::Login(Box::new(EncryptedConnection::new(transport, &material))),
             credentials,
             password: None,
             identity: None,
@@ -461,7 +617,7 @@ impl Client {
             first_salt: session.first_salt,
         };
         let mut client = Self {
-            connection: EncryptedConnection::new(transport, &material),
+            connection: Connection::Login(Box::new(EncryptedConnection::new(transport, &material))),
             credentials,
             password: None,
             identity,
@@ -471,6 +627,43 @@ impl Client {
         };
         client.initialize().await?;
         Ok(client)
+    }
+
+    /// Converts an authenticated sequential connection into a cloneable raw
+    /// invocation endpoint and continuously driven update stream.
+    #[must_use]
+    pub fn into_live(self, capacity: NonZeroUsize) -> (Self, LiveUpdates) {
+        let Self {
+            connection,
+            credentials,
+            password,
+            identity,
+            peers,
+            names,
+            data_centers,
+        } = self;
+        let Connection::Login(connection) = connection else {
+            unreachable!("a Telegram client enters live mode only once after login")
+        };
+        let (handle, updates, driver) = (*connection).into_driver(capacity);
+        (
+            Self {
+                connection: Connection::Live(handle),
+                credentials,
+                password,
+                identity,
+                peers,
+                names: names.clone(),
+                data_centers,
+            },
+            LiveUpdates {
+                driver: Box::pin(driver),
+                updates,
+                names,
+                pending: VecDeque::new(),
+                terminated: false,
+            },
+        )
     }
 
     /// Exports a fresh QR-login token for this authorization key.
@@ -754,6 +947,12 @@ impl Client {
             .context(InvokeSnafu)?;
         let (dialogs, messages, chats, users) = dialog_parts(response)?;
         self.update_peer_cache(&chats, &users);
+        let traits = chat_traits(
+            &chats,
+            &users,
+            self.identity.as_ref().map(|identity| identity.id),
+        );
+        let tl::enums::messages::DialogFilters::Filters(dialog_filters) = dialog_filters;
         let top_messages: HashMap<(ChatId, i32), &tl::enums::Message> = messages
             .iter()
             .map(|message| ((message_chat_id(message), message.id()), message))
@@ -777,6 +976,14 @@ impl Client {
                         preview,
                         unread: u32::try_from(dialog.unread_count.max(0)).unwrap_or(0),
                         pinned: dialog.pinned,
+                        kind: traits
+                            .get(&chat_id)
+                            .map_or(ChatKind::Inaccessible, |traits| traits.kind),
+                        folders: dialog_folder_membership(
+                            dialog,
+                            &dialog_filters.filters,
+                            traits.get(&chat_id),
+                        ),
                     })
                 }
                 tl::enums::Dialog::Folder(_) => None,
@@ -790,16 +997,34 @@ impl Client {
             .identity
             .as_ref()
             .map_or_else(|| "Telegram".to_owned(), |user| user.display_name.clone());
-        let tl::enums::messages::DialogFilters::Filters(dialog_filters) = dialog_filters;
         let folders = normalize_dialog_folders(
             dialog_filters.filters,
             chat_views.iter().map(|chat| chat.unread).sum(),
         );
         Ok(Bootstrap {
+            connection: intuigram_app::ConnectionState::Connected,
             account_name,
             folders,
             chats: chat_views,
             messages: initial_messages,
+            drafts: Vec::new(),
+            histories: Vec::new(),
+        })
+    }
+
+    /// Reads Telegram's complete durable update cursor.
+    pub async fn synchronization_cursor(&mut self) -> Result<UpdateCursor> {
+        let state = self
+            .connection
+            .invoke(&tl::functions::updates::GetState {})
+            .await
+            .context(InvokeSnafu)?;
+        let tl::enums::updates::State::State(state) = state;
+        Ok(UpdateCursor {
+            pts: Some(state.pts),
+            qts: Some(state.qts),
+            date: Some(state.date),
+            seq: Some(state.seq),
         })
     }
 
@@ -833,12 +1058,51 @@ impl Client {
             .collect())
     }
 
+    /// Loads an ordinary Message Thread or Channel comment history.
+    pub async fn thread_history(
+        &mut self,
+        chat: ChatId,
+        root: MessageId,
+        limit: i32,
+    ) -> Result<Vec<MessageView>> {
+        let peer = self
+            .peers
+            .get(&chat)
+            .cloned()
+            .context(PeerUnavailableSnafu { chat_id: chat.0 })?;
+        let root =
+            i32::try_from(root.0).map_err(|_| Error::InvalidMessageId { message_id: root.0 })?;
+        let response = self
+            .connection
+            .invoke(&tl::functions::messages::GetReplies {
+                peer,
+                msg_id: root,
+                offset_id: 0,
+                offset_date: 0,
+                add_offset: 0,
+                limit,
+                max_id: 0,
+                min_id: 0,
+                hash: 0,
+            })
+            .await
+            .context(InvokeSnafu)?;
+        let (mut messages, chats, users) = message_parts(response);
+        self.update_peer_cache(&chats, &users);
+        messages.reverse();
+        Ok(messages
+            .iter()
+            .filter_map(|message| normalize_message(message, &self.names))
+            .collect())
+    }
+
     /// Sends a plain-text Message, optionally as a reply.
     pub async fn send_text(
         &mut self,
         chat: ChatId,
         text: String,
         reply_to: Option<MessageId>,
+        thread_root: Option<MessageId>,
     ) -> Result<()> {
         let peer = self
             .peers
@@ -848,6 +1112,7 @@ impl Client {
         let mut random_bytes = [0_u8; 8];
         getrandom::fill(&mut random_bytes).context(RandomIdSnafu)?;
         let reply_to = reply_to
+            .or(thread_root)
             .map(|message| {
                 let reply_to_msg_id =
                     i32::try_from(message.0).map_err(|_| Error::InvalidMessageId {
@@ -855,7 +1120,13 @@ impl Client {
                     })?;
                 Ok(tl::types::InputReplyToMessage {
                     reply_to_msg_id,
-                    top_msg_id: None,
+                    top_msg_id: thread_root
+                        .filter(|root| *root != message)
+                        .map(|root| {
+                            i32::try_from(root.0)
+                                .map_err(|_| Error::InvalidMessageId { message_id: root.0 })
+                        })
+                        .transpose()?,
                     reply_to_peer_id: None,
                     quote_text: None,
                     quote_entities: None,
@@ -891,6 +1162,135 @@ impl Client {
                 allow_paid_stars: None,
                 suggested_post: None,
                 rich_message: None,
+            })
+            .await
+            .context(InvokeSnafu)?;
+        Ok(())
+    }
+
+    /// Uploads and sends one photo or generic document.
+    pub async fn send_upload(
+        &mut self,
+        chat: ChatId,
+        upload: Upload,
+        caption: String,
+        reply_to: Option<MessageId>,
+        thread_root: Option<MessageId>,
+    ) -> Result<()> {
+        const PART_BYTES: usize = 512 * 1024;
+        const BIG_FILE_BYTES: usize = 10 * 1024 * 1024;
+
+        let peer = self
+            .peers
+            .get(&chat)
+            .cloned()
+            .context(PeerUnavailableSnafu { chat_id: chat.0 })?;
+        let mut random_bytes = [0_u8; 8];
+        getrandom::fill(&mut random_bytes).context(RandomIdSnafu)?;
+        let file_id = i64::from_le_bytes(random_bytes);
+        let part_count = upload.bytes.len().div_ceil(PART_BYTES);
+        let part_count = i32::try_from(part_count).map_err(|_| Error::InvalidMessageId {
+            message_id: i64::try_from(upload.bytes.len()).unwrap_or(i64::MAX),
+        })?;
+        let big = upload.bytes.len() > BIG_FILE_BYTES;
+        for (part, bytes) in upload.bytes.chunks(PART_BYTES).enumerate() {
+            let part = i32::try_from(part)
+                .expect("an in-memory upload cannot exceed Telegram's signed part index");
+            let accepted = if big {
+                self.connection
+                    .invoke(&tl::functions::upload::SaveBigFilePart {
+                        file_id,
+                        file_part: part,
+                        file_total_parts: part_count,
+                        bytes: bytes.to_vec(),
+                    })
+                    .await
+                    .context(InvokeSnafu)?
+            } else {
+                self.connection
+                    .invoke(&tl::functions::upload::SaveFilePart {
+                        file_id,
+                        file_part: part,
+                        bytes: bytes.to_vec(),
+                    })
+                    .await
+                    .context(InvokeSnafu)?
+            };
+            if !accepted {
+                return UploadPartRejectedSnafu { part }.fail();
+            }
+        }
+        let input_file = if big {
+            tl::types::InputFileBig {
+                id: file_id,
+                parts: part_count,
+                name: upload.name.clone(),
+            }
+            .into()
+        } else {
+            tl::types::InputFile {
+                id: file_id,
+                parts: part_count,
+                name: upload.name.clone(),
+                md5_checksum: format!("{:x}", md5::compute(&upload.bytes)),
+            }
+            .into()
+        };
+        let media = if upload.photo {
+            tl::types::InputMediaUploadedPhoto {
+                spoiler: false,
+                live_photo: false,
+                file: input_file,
+                stickers: None,
+                ttl_seconds: None,
+                video: None,
+            }
+            .into()
+        } else {
+            tl::types::InputMediaUploadedDocument {
+                nosound_video: false,
+                force_file: false,
+                spoiler: false,
+                file: input_file,
+                thumb: None,
+                mime_type: upload.mime_type,
+                attributes: vec![
+                    tl::types::DocumentAttributeFilename {
+                        file_name: upload.name,
+                    }
+                    .into(),
+                ],
+                stickers: None,
+                video_cover: None,
+                video_timestamp: None,
+                ttl_seconds: None,
+            }
+            .into()
+        };
+        getrandom::fill(&mut random_bytes).context(RandomIdSnafu)?;
+        self.connection
+            .invoke(&tl::functions::messages::SendMedia {
+                silent: false,
+                background: false,
+                clear_draft: true,
+                noforwards: false,
+                update_stickersets_order: false,
+                invert_media: false,
+                allow_paid_floodskip: false,
+                peer,
+                reply_to: input_reply_to(reply_to, thread_root)?,
+                media,
+                message: caption,
+                random_id: i64::from_le_bytes(random_bytes),
+                reply_markup: None,
+                entities: None,
+                schedule_date: None,
+                schedule_repeat_period: None,
+                send_as: None,
+                quick_reply_shortcut: None,
+                effect: None,
+                allow_paid_stars: None,
+                suggested_post: None,
             })
             .await
             .context(InvokeSnafu)?;
@@ -1035,6 +1435,39 @@ fn normalize_code_delivery(delivery: tl::enums::auth::SentCodeType) -> LoginCode
     }
 }
 
+fn input_reply_to(
+    reply_to: Option<MessageId>,
+    thread_root: Option<MessageId>,
+) -> Result<Option<tl::enums::InputReplyTo>> {
+    reply_to
+        .or(thread_root)
+        .map(|message| {
+            let reply_to_msg_id =
+                i32::try_from(message.0).map_err(|_| Error::InvalidMessageId {
+                    message_id: message.0,
+                })?;
+            Ok(tl::types::InputReplyToMessage {
+                reply_to_msg_id,
+                top_msg_id: thread_root
+                    .filter(|root| *root != message)
+                    .map(|root| {
+                        i32::try_from(root.0)
+                            .map_err(|_| Error::InvalidMessageId { message_id: root.0 })
+                    })
+                    .transpose()?,
+                reply_to_peer_id: None,
+                quote_text: None,
+                quote_entities: None,
+                quote_offset: None,
+                monoforum_peer_id: None,
+                todo_item_id: None,
+                poll_option: None,
+            }
+            .into())
+        })
+        .transpose()
+}
+
 const fn normalize_code_delivery_method(
     delivery: &tl::enums::auth::CodeType,
 ) -> LoginCodeDeliveryMethod {
@@ -1096,7 +1529,253 @@ fn qr_login_uri(token: &[u8]) -> String {
     format!("tg://login?token={encoded}")
 }
 
-fn take_login_token_update(connection: &mut EncryptedConnection) -> bool {
+struct NormalizedLive {
+    events: Vec<AdapterEvent>,
+    cursor: UpdateCursor,
+}
+
+fn normalize_live_update(
+    bytes: &[u8],
+    names: &mut HashMap<ChatId, String>,
+) -> Result<NormalizedLive> {
+    if let Ok(updates) = tl::enums::Updates::from_bytes(bytes) {
+        let cursor = updates_cursor(&updates);
+        let events = match updates {
+            tl::enums::Updates::TooLong | tl::enums::Updates::UpdateShortSentMessage(_) => {
+                Vec::new()
+            }
+            tl::enums::Updates::UpdateShortMessage(message) => {
+                vec![AdapterEvent::MessageAdded {
+                    chat: ChatId(message.user_id),
+                    message: Box::new(MessageView {
+                        id: MessageId(i64::from(message.id)),
+                        sender: if message.out {
+                            "You".to_owned()
+                        } else {
+                            names
+                                .get(&ChatId(message.user_id))
+                                .cloned()
+                                .unwrap_or_else(|| "Unknown user".to_owned())
+                        },
+                        body: message.message,
+                        timestamp: format_timestamp(message.date),
+                        direction: if message.out {
+                            MessageDirection::Outgoing
+                        } else {
+                            MessageDirection::Incoming
+                        },
+                        delivery: DeliveryState::Sent,
+                        reply_to: message.reply_to.as_ref().and_then(reply_message_id),
+                        details: MessageDetails {
+                            entities: normalize_entities(message.entities.as_deref()),
+                            ..MessageDetails::default()
+                        },
+                    }),
+                }]
+            }
+            tl::enums::Updates::UpdateShortChatMessage(message) => {
+                let chat = ChatId(-message.chat_id);
+                vec![AdapterEvent::MessageAdded {
+                    chat,
+                    message: Box::new(MessageView {
+                        id: MessageId(i64::from(message.id)),
+                        sender: if message.out {
+                            "You".to_owned()
+                        } else {
+                            names
+                                .get(&ChatId(message.from_id))
+                                .cloned()
+                                .unwrap_or_else(|| "Unknown user".to_owned())
+                        },
+                        body: message.message,
+                        timestamp: format_timestamp(message.date),
+                        direction: if message.out {
+                            MessageDirection::Outgoing
+                        } else {
+                            MessageDirection::Incoming
+                        },
+                        delivery: DeliveryState::Sent,
+                        reply_to: message.reply_to.as_ref().and_then(reply_message_id),
+                        details: MessageDetails {
+                            entities: normalize_entities(message.entities.as_deref()),
+                            ..MessageDetails::default()
+                        },
+                    }),
+                }]
+            }
+            tl::enums::Updates::UpdateShort(update) => {
+                normalize_update(update.update, names).into_iter().collect()
+            }
+            tl::enums::Updates::Combined(updates) => {
+                update_live_names(names, &updates.chats, &updates.users);
+                updates
+                    .updates
+                    .into_iter()
+                    .filter_map(|update| normalize_update(update, names))
+                    .collect()
+            }
+            tl::enums::Updates::Updates(updates) => {
+                update_live_names(names, &updates.chats, &updates.users);
+                updates
+                    .updates
+                    .into_iter()
+                    .filter_map(|update| normalize_update(update, names))
+                    .collect()
+            }
+        };
+        return Ok(NormalizedLive { events, cursor });
+    }
+    let update = tl::enums::Update::from_bytes(bytes).context(DecodeUpdateSnafu)?;
+    let cursor = update_cursor(&update);
+    Ok(NormalizedLive {
+        events: normalize_update(update, names).into_iter().collect(),
+        cursor,
+    })
+}
+
+fn updates_cursor(updates: &tl::enums::Updates) -> UpdateCursor {
+    match updates {
+        tl::enums::Updates::TooLong => UpdateCursor::default(),
+        tl::enums::Updates::UpdateShortMessage(update) => UpdateCursor {
+            pts: Some(update.pts),
+            date: Some(update.date),
+            ..UpdateCursor::default()
+        },
+        tl::enums::Updates::UpdateShortChatMessage(update) => UpdateCursor {
+            pts: Some(update.pts),
+            date: Some(update.date),
+            ..UpdateCursor::default()
+        },
+        tl::enums::Updates::UpdateShortSentMessage(update) => UpdateCursor {
+            pts: Some(update.pts),
+            date: Some(update.date),
+            ..UpdateCursor::default()
+        },
+        tl::enums::Updates::UpdateShort(update) => {
+            let mut cursor = update_cursor(&update.update);
+            cursor.date = Some(update.date);
+            cursor
+        }
+        tl::enums::Updates::Combined(updates) => {
+            merge_update_cursors(&updates.updates, Some(updates.date), Some(updates.seq))
+        }
+        tl::enums::Updates::Updates(updates) => {
+            merge_update_cursors(&updates.updates, Some(updates.date), Some(updates.seq))
+        }
+    }
+}
+
+fn merge_update_cursors(
+    updates: &[tl::enums::Update],
+    date: Option<i32>,
+    seq: Option<i32>,
+) -> UpdateCursor {
+    updates.iter().fold(
+        UpdateCursor {
+            date,
+            seq,
+            ..UpdateCursor::default()
+        },
+        |mut cursor, update| {
+            let next = update_cursor(update);
+            cursor.pts = next.pts.or(cursor.pts);
+            cursor.qts = next.qts.or(cursor.qts);
+            cursor
+        },
+    )
+}
+
+fn update_cursor(update: &tl::enums::Update) -> UpdateCursor {
+    let pts = match update {
+        tl::enums::Update::NewMessage(update) => Some(update.pts),
+        tl::enums::Update::NewChannelMessage(update) => Some(update.pts),
+        tl::enums::Update::EditMessage(update) => Some(update.pts),
+        tl::enums::Update::EditChannelMessage(update) => Some(update.pts),
+        tl::enums::Update::DeleteMessages(update) => Some(update.pts),
+        tl::enums::Update::DeleteChannelMessages(update) => Some(update.pts),
+        tl::enums::Update::ReadHistoryInbox(update) => Some(update.pts),
+        tl::enums::Update::ReadHistoryOutbox(update) => Some(update.pts),
+        tl::enums::Update::ReadMessagesContents(update) => Some(update.pts),
+        tl::enums::Update::FolderPeers(update) => Some(update.pts),
+        _ => None,
+    };
+    UpdateCursor {
+        pts,
+        ..UpdateCursor::default()
+    }
+}
+
+fn normalize_update(
+    update: tl::enums::Update,
+    names: &HashMap<ChatId, String>,
+) -> Option<AdapterEvent> {
+    let message = match update {
+        tl::enums::Update::NewMessage(update) => update.message,
+        tl::enums::Update::NewChannelMessage(update) => update.message,
+        _ => return None,
+    };
+    let chat = message_chat_id(&message);
+    normalize_message(&message, names).map(|message| AdapterEvent::MessageAdded {
+        chat,
+        message: Box::new(message),
+    })
+}
+
+fn update_live_names(
+    names: &mut HashMap<ChatId, String>,
+    chats: &[tl::enums::Chat],
+    users: &[tl::enums::User],
+) {
+    for user in users {
+        match user {
+            tl::enums::User::User(user) => {
+                names.insert(ChatId(user.id), user_display_name(user));
+            }
+            tl::enums::User::Empty(user) => {
+                names.insert(ChatId(user.id), "Inaccessible user".to_owned());
+            }
+        }
+    }
+    for chat in chats {
+        match chat {
+            tl::enums::Chat::Chat(chat) => {
+                names.insert(ChatId(-chat.id), chat.title.clone());
+            }
+            tl::enums::Chat::Channel(channel) => {
+                names.insert(ChatId(mark_channel_id(channel.id)), channel.title.clone());
+            }
+            tl::enums::Chat::Forbidden(chat) => {
+                names.insert(ChatId(-chat.id), chat.title.clone());
+            }
+            tl::enums::Chat::ChannelForbidden(channel) => {
+                names.insert(ChatId(mark_channel_id(channel.id)), channel.title.clone());
+            }
+            tl::enums::Chat::Empty(chat) => {
+                names.insert(ChatId(-chat.id), "Inaccessible group".to_owned());
+            }
+        }
+    }
+}
+
+/// Normalizes one serialized current-layer Telegram cloud peer into an
+/// Intuigram-owned root Chat category.
+pub fn normalize_serialized_peer_kind(bytes: &[u8], account_id: Option<i64>) -> Result<ChatKind> {
+    let constructor = bytes
+        .get(..4)
+        .and_then(|bytes| <[u8; 4]>::try_from(bytes).ok())
+        .map(u32::from_le_bytes);
+    if matches!(
+        constructor,
+        Some(tl::types::User::CONSTRUCTOR_ID) | Some(tl::types::UserEmpty::CONSTRUCTOR_ID)
+    ) {
+        let user = tl::enums::User::from_bytes(bytes).context(DecodePeerSnafu)?;
+        return Ok(user_chat_kind(&user, account_id));
+    }
+    let chat = tl::enums::Chat::from_bytes(bytes).context(DecodePeerSnafu)?;
+    Ok(cloud_chat_kind(&chat))
+}
+
+fn take_login_token_update(connection: &mut Connection) -> bool {
     connection
         .take_updates()
         .iter()
@@ -1193,6 +1872,139 @@ fn normalize_dialog_folders(
     folders
 }
 
+#[derive(Clone, Copy)]
+struct ChatTraits {
+    kind: ChatKind,
+    contact: bool,
+}
+
+fn chat_traits(
+    chats: &[tl::enums::Chat],
+    users: &[tl::enums::User],
+    account_id: Option<i64>,
+) -> HashMap<ChatId, ChatTraits> {
+    let mut result = HashMap::new();
+    for user in users {
+        let contact = matches!(user, tl::enums::User::User(user) if user.contact);
+        result.insert(
+            ChatId(user.id()),
+            ChatTraits {
+                kind: user_chat_kind(user, account_id),
+                contact,
+            },
+        );
+    }
+    for chat in chats {
+        let id = match chat {
+            tl::enums::Chat::Chat(chat) => ChatId(-chat.id),
+            tl::enums::Chat::Forbidden(chat) => ChatId(-chat.id),
+            tl::enums::Chat::Empty(chat) => ChatId(-chat.id),
+            tl::enums::Chat::Channel(channel) => ChatId(mark_channel_id(channel.id)),
+            tl::enums::Chat::ChannelForbidden(channel) => ChatId(mark_channel_id(channel.id)),
+        };
+        result.insert(
+            id,
+            ChatTraits {
+                kind: cloud_chat_kind(chat),
+                contact: false,
+            },
+        );
+    }
+    result
+}
+
+fn user_chat_kind(user: &tl::enums::User, account_id: Option<i64>) -> ChatKind {
+    match user {
+        tl::enums::User::User(user) if user.is_self || account_id == Some(user.id) => {
+            ChatKind::SavedMessages
+        }
+        tl::enums::User::User(user) if user.bot => ChatKind::Bot,
+        tl::enums::User::User(_) => ChatKind::Private,
+        tl::enums::User::Empty(_) => ChatKind::Inaccessible,
+    }
+}
+
+fn cloud_chat_kind(chat: &tl::enums::Chat) -> ChatKind {
+    match chat {
+        tl::enums::Chat::Chat(_) => ChatKind::BasicGroup,
+        tl::enums::Chat::Channel(channel) if channel.gigagroup => ChatKind::Gigagroup,
+        tl::enums::Chat::Channel(channel) if channel.broadcast => ChatKind::Channel,
+        tl::enums::Chat::Channel(_) => ChatKind::Supergroup,
+        tl::enums::Chat::Forbidden(_)
+        | tl::enums::Chat::ChannelForbidden(_)
+        | tl::enums::Chat::Empty(_) => ChatKind::Inaccessible,
+    }
+}
+
+fn dialog_folder_membership(
+    dialog: &tl::types::Dialog,
+    filters: &[tl::enums::DialogFilter],
+    traits: Option<&ChatTraits>,
+) -> Vec<i32> {
+    let chat = marked_peer_id(&dialog.peer);
+    let archived = dialog.folder_id == Some(1);
+    let mut memberships = vec![if archived { -1 } else { 0 }];
+    for filter in filters {
+        let id = match filter {
+            tl::enums::DialogFilter::Default => continue,
+            tl::enums::DialogFilter::Filter(filter) => {
+                let explicitly_excluded = filter_contains_peer(&filter.exclude_peers, chat, traits);
+                let explicitly_included = filter_contains_peer(&filter.pinned_peers, chat, traits)
+                    || filter_contains_peer(&filter.include_peers, chat, traits);
+                let included_by_kind = traits.is_some_and(|traits| match traits.kind {
+                    ChatKind::SavedMessages | ChatKind::Private => {
+                        (traits.contact && filter.contacts)
+                            || (!traits.contact && filter.non_contacts)
+                    }
+                    ChatKind::Bot => filter.bots,
+                    ChatKind::BasicGroup | ChatKind::Supergroup | ChatKind::Gigagroup => {
+                        filter.groups
+                    }
+                    ChatKind::Channel => filter.broadcasts,
+                    ChatKind::Inaccessible => false,
+                });
+                let excluded_by_state = (filter.exclude_archived && archived)
+                    || (filter.exclude_read && dialog.unread_count == 0);
+                if explicitly_excluded
+                    || excluded_by_state
+                    || (!explicitly_included && !included_by_kind)
+                {
+                    continue;
+                }
+                filter.id
+            }
+            tl::enums::DialogFilter::Chatlist(filter) => {
+                if !filter_contains_peer(&filter.pinned_peers, chat, traits)
+                    && !filter_contains_peer(&filter.include_peers, chat, traits)
+                {
+                    continue;
+                }
+                filter.id
+            }
+        };
+        memberships.push(id);
+    }
+    memberships
+}
+
+fn filter_contains_peer(
+    peers: &[tl::enums::InputPeer],
+    chat: ChatId,
+    traits: Option<&ChatTraits>,
+) -> bool {
+    peers.iter().any(|peer| match peer {
+        tl::enums::InputPeer::PeerSelf => {
+            traits.is_some_and(|traits| traits.kind == ChatKind::SavedMessages)
+        }
+        tl::enums::InputPeer::User(peer) => ChatId(peer.user_id) == chat,
+        tl::enums::InputPeer::Chat(peer) => ChatId(-peer.chat_id) == chat,
+        tl::enums::InputPeer::Channel(peer) => ChatId(mark_channel_id(peer.channel_id)) == chat,
+        tl::enums::InputPeer::Empty
+        | tl::enums::InputPeer::UserFromMessage(_)
+        | tl::enums::InputPeer::ChannelFromMessage(_) => false,
+    })
+}
+
 fn text_with_entities(text: tl::enums::TextWithEntities) -> String {
     let tl::enums::TextWithEntities::Entities(text) = text;
     text.text
@@ -1255,10 +2067,18 @@ fn normalize_message(
                     .unwrap_or_else(|| "Unknown sender".to_owned())
             };
             let reply_to = message.reply_to.as_ref().and_then(reply_message_id);
+            let media = message.media.as_ref().map(normalize_media);
+            let body = if message.message.is_empty() {
+                media
+                    .as_ref()
+                    .map_or_else(|| "[Unsupported content]".to_owned(), media_card_fallback)
+            } else {
+                message.message.clone()
+            };
             Some(MessageView {
                 id: MessageId(i64::from(message.id)),
                 sender,
-                body: message_body(&tl::enums::Message::Message(message.clone())),
+                body,
                 timestamp: format_timestamp(message.date),
                 direction: if message.out {
                     MessageDirection::Outgoing
@@ -1267,26 +2087,50 @@ fn normalize_message(
                 },
                 delivery: DeliveryState::Sent,
                 reply_to,
+                details: MessageDetails {
+                    entities: normalize_entities(message.entities.as_deref()),
+                    forwarded_from: normalize_forward(message.fwd_from.as_ref(), names),
+                    reactions: normalize_reactions(message.reactions.as_ref()),
+                    edited: message.edit_date.is_some(),
+                    pinned: message.pinned,
+                    views: nonnegative_u32(message.views),
+                    forwards: nonnegative_u32(message.forwards),
+                    replies: message.replies.as_ref().and_then(|replies| match replies {
+                        tl::enums::MessageReplies::Replies(replies) => {
+                            u32::try_from(replies.replies).ok()
+                        }
+                    }),
+                    media,
+                    service: None,
+                    thread_root: message.reply_to.as_ref().and_then(thread_root_message_id),
+                },
             })
         }
-        tl::enums::Message::Service(message) => Some(MessageView {
-            id: MessageId(i64::from(message.id)),
-            sender: message
-                .from_id
-                .as_ref()
-                .map(marked_peer_id)
-                .and_then(|id| names.get(&id).cloned())
-                .unwrap_or_else(|| "Telegram".to_owned()),
-            body: "[Service event]".to_owned(),
-            timestamp: format_timestamp(message.date),
-            direction: if message.out {
-                MessageDirection::Outgoing
-            } else {
-                MessageDirection::Incoming
-            },
-            delivery: DeliveryState::Sent,
-            reply_to: message.reply_to.as_ref().and_then(reply_message_id),
-        }),
+        tl::enums::Message::Service(message) => {
+            let description = service_event_description(&message.action);
+            Some(MessageView {
+                id: MessageId(i64::from(message.id)),
+                sender: message
+                    .from_id
+                    .as_ref()
+                    .map(marked_peer_id)
+                    .and_then(|id| names.get(&id).cloned())
+                    .unwrap_or_else(|| "Telegram".to_owned()),
+                body: description.clone(),
+                timestamp: format_timestamp(message.date),
+                direction: if message.out {
+                    MessageDirection::Outgoing
+                } else {
+                    MessageDirection::Incoming
+                },
+                delivery: DeliveryState::Sent,
+                reply_to: message.reply_to.as_ref().and_then(reply_message_id),
+                details: MessageDetails {
+                    service: Some(description),
+                    ..MessageDetails::default()
+                },
+            })
+        }
     }
 }
 
@@ -1299,18 +2143,306 @@ fn reply_message_id(header: &tl::enums::MessageReplyHeader) -> Option<MessageId>
     }
 }
 
+fn thread_root_message_id(header: &tl::enums::MessageReplyHeader) -> Option<MessageId> {
+    match header {
+        tl::enums::MessageReplyHeader::Header(header) => header
+            .reply_to_top_id
+            .or(header.reply_to_msg_id)
+            .map(|id| MessageId(i64::from(id))),
+        tl::enums::MessageReplyHeader::MessageReplyStoryHeader(_) => None,
+    }
+}
+
 fn message_body(message: &tl::enums::Message) -> String {
     match message {
         tl::enums::Message::Message(message) if !message.message.is_empty() => {
             message.message.clone()
         }
-        tl::enums::Message::Message(message) if message.media.is_some() => {
-            "[Media — specialized rendering pending]".to_owned()
-        }
+        tl::enums::Message::Message(message) if message.media.is_some() => message
+            .media
+            .as_ref()
+            .map(normalize_media)
+            .as_ref()
+            .map_or_else(|| "[Unsupported content]".to_owned(), media_card_fallback),
         tl::enums::Message::Empty(_) | tl::enums::Message::Message(_) => {
             "[Unsupported content]".to_owned()
         }
         tl::enums::Message::Service(_) => "[Service event]".to_owned(),
+    }
+}
+
+fn normalize_entities(entities: Option<&[tl::enums::MessageEntity]>) -> Vec<TextEntity> {
+    entities
+        .unwrap_or_default()
+        .iter()
+        .map(|entity| TextEntity {
+            offset: usize::try_from(entity.offset()).unwrap_or(0),
+            length: usize::try_from(entity.length()).unwrap_or(0),
+            kind: match entity {
+                tl::enums::MessageEntity::Bold(_) => TextEntityKind::Bold,
+                tl::enums::MessageEntity::Italic(_) => TextEntityKind::Italic,
+                tl::enums::MessageEntity::Underline(_) => TextEntityKind::Underline,
+                tl::enums::MessageEntity::Strike(_) => TextEntityKind::Strike,
+                tl::enums::MessageEntity::Code(_) => TextEntityKind::Code,
+                tl::enums::MessageEntity::Pre(entity) => TextEntityKind::Pre {
+                    language: (!entity.language.is_empty()).then(|| entity.language.clone()),
+                },
+                tl::enums::MessageEntity::Spoiler(_) => TextEntityKind::Spoiler,
+                tl::enums::MessageEntity::Url(_) => TextEntityKind::Url,
+                tl::enums::MessageEntity::TextUrl(entity) => TextEntityKind::TextUrl {
+                    url: entity.url.clone(),
+                },
+                tl::enums::MessageEntity::CustomEmoji(entity) => TextEntityKind::CustomEmoji {
+                    document_id: entity.document_id,
+                },
+                _ => TextEntityKind::Semantic,
+            },
+        })
+        .collect()
+}
+
+fn normalize_forward(
+    forward: Option<&tl::enums::MessageFwdHeader>,
+    names: &HashMap<ChatId, String>,
+) -> Option<String> {
+    let tl::enums::MessageFwdHeader::Header(forward) = forward?;
+    forward
+        .from_name
+        .clone()
+        .or_else(|| {
+            forward
+                .from_id
+                .as_ref()
+                .map(marked_peer_id)
+                .and_then(|id| names.get(&id).cloned())
+        })
+        .or_else(|| forward.post_author.clone())
+        .or_else(|| Some("Unknown source".to_owned()))
+}
+
+fn normalize_reactions(reactions: Option<&tl::enums::MessageReactions>) -> Vec<ReactionView> {
+    let Some(tl::enums::MessageReactions::Reactions(reactions)) = reactions else {
+        return Vec::new();
+    };
+    reactions
+        .results
+        .iter()
+        .map(|result| {
+            let tl::enums::ReactionCount::Count(result) = result;
+            ReactionView {
+                label: match &result.reaction {
+                    tl::enums::Reaction::Empty => "reaction".to_owned(),
+                    tl::enums::Reaction::Emoji(reaction) => reaction.emoticon.clone(),
+                    tl::enums::Reaction::CustomEmoji(reaction) => {
+                        format!("custom:{}", reaction.document_id)
+                    }
+                    tl::enums::Reaction::Paid => "⭐".to_owned(),
+                },
+                count: u32::try_from(result.count).unwrap_or(0),
+                chosen: result.chosen_order.is_some(),
+            }
+        })
+        .collect()
+}
+
+fn normalize_media(media: &tl::enums::MessageMedia) -> MediaCard {
+    let (kind, title, description, remote_id) = match media {
+        tl::enums::MessageMedia::Photo(media) => (
+            MediaKind::Photo,
+            "Photo".to_owned(),
+            if media.spoiler { "spoiler" } else { "image" }.to_owned(),
+            media.photo.as_ref().and_then(photo_remote_id),
+        ),
+        tl::enums::MessageMedia::Document(media) => normalize_document_media(media),
+        tl::enums::MessageMedia::WebPage(_) => (
+            MediaKind::LinkPreview,
+            "Link preview".to_owned(),
+            "web page".to_owned(),
+            None,
+        ),
+        tl::enums::MessageMedia::Poll(media) => (
+            MediaKind::Poll,
+            "Poll".to_owned(),
+            poll_question(&media.poll),
+            None,
+        ),
+        tl::enums::MessageMedia::Contact(media) => (
+            MediaKind::Contact,
+            "Contact".to_owned(),
+            [media.first_name.as_str(), media.last_name.as_str()]
+                .into_iter()
+                .filter(|part| !part.is_empty())
+                .collect::<Vec<_>>()
+                .join(" "),
+            None,
+        ),
+        tl::enums::MessageMedia::Geo(_) => (
+            MediaKind::Location,
+            "Location".to_owned(),
+            "map coordinates".to_owned(),
+            None,
+        ),
+        tl::enums::MessageMedia::Venue(media) => (
+            MediaKind::Venue,
+            media.title.clone(),
+            media.address.clone(),
+            None,
+        ),
+        tl::enums::MessageMedia::Dice(media) => (
+            MediaKind::Dice,
+            media.emoticon.clone(),
+            format!("result {}", media.value),
+            None,
+        ),
+        tl::enums::MessageMedia::Empty | tl::enums::MessageMedia::Unsupported => (
+            MediaKind::Unsupported,
+            "Unsupported Content".to_owned(),
+            "Telegram media constructor is not available in this client".to_owned(),
+            None,
+        ),
+        tl::enums::MessageMedia::GeoLive(_)
+        | tl::enums::MessageMedia::Game(_)
+        | tl::enums::MessageMedia::Invoice(_)
+        | tl::enums::MessageMedia::Story(_)
+        | tl::enums::MessageMedia::Giveaway(_)
+        | tl::enums::MessageMedia::GiveawayResults(_)
+        | tl::enums::MessageMedia::PaidMedia(_)
+        | tl::enums::MessageMedia::ToDo(_)
+        | tl::enums::MessageMedia::VideoStream(_) => (
+            MediaKind::Specialized,
+            "Specialized Telegram content".to_owned(),
+            "open Details for available metadata".to_owned(),
+            None,
+        ),
+    };
+    MediaCard {
+        kind,
+        title,
+        description,
+        remote_id,
+    }
+}
+
+/// Normalizes one serialized current-layer Telegram media constructor into an
+/// informative Intuigram-owned card, including unsupported constructors.
+pub fn normalize_serialized_media(bytes: &[u8]) -> Result<MediaCard> {
+    let media = tl::enums::MessageMedia::from_bytes(bytes).context(DecodeMediaSnafu)?;
+    Ok(normalize_media(&media))
+}
+
+fn normalize_document_media(
+    media: &tl::types::MessageMediaDocument,
+) -> (MediaKind, String, String, Option<String>) {
+    let Some(tl::enums::Document::Document(document)) = media.document.as_ref() else {
+        return (
+            MediaKind::Unsupported,
+            "Unavailable file".to_owned(),
+            "Telegram did not include document metadata".to_owned(),
+            None,
+        );
+    };
+    let filename = document
+        .attributes
+        .iter()
+        .find_map(|attribute| match attribute {
+            tl::enums::DocumentAttribute::Filename(attribute) => Some(attribute.file_name.clone()),
+            _ => None,
+        });
+    let kind = if media.round {
+        MediaKind::VideoNote
+    } else if media.voice {
+        MediaKind::Voice
+    } else if document.attributes.iter().any(|attribute| {
+        matches!(
+            attribute,
+            tl::enums::DocumentAttribute::Sticker(_) | tl::enums::DocumentAttribute::CustomEmoji(_)
+        )
+    }) {
+        MediaKind::Sticker
+    } else if document
+        .attributes
+        .iter()
+        .any(|attribute| matches!(attribute, tl::enums::DocumentAttribute::Animated))
+    {
+        MediaKind::Animation
+    } else if media.video
+        || document
+            .attributes
+            .iter()
+            .any(|attribute| matches!(attribute, tl::enums::DocumentAttribute::Video(_)))
+    {
+        MediaKind::Video
+    } else if document
+        .attributes
+        .iter()
+        .any(|attribute| matches!(attribute, tl::enums::DocumentAttribute::Audio(_)))
+    {
+        MediaKind::Audio
+    } else {
+        MediaKind::File
+    };
+    let title = filename.unwrap_or_else(|| format!("{:?}", kind));
+    (
+        kind,
+        title,
+        format!("{} · {} bytes", document.mime_type, document.size),
+        Some(document.id.to_string()),
+    )
+}
+
+fn photo_remote_id(photo: &tl::enums::Photo) -> Option<String> {
+    match photo {
+        tl::enums::Photo::Photo(photo) => Some(photo.id.to_string()),
+        tl::enums::Photo::Empty(_) => None,
+    }
+}
+
+fn poll_question(poll: &tl::enums::Poll) -> String {
+    let tl::enums::Poll::Poll(poll) = poll;
+    text_with_entities(poll.question.clone())
+}
+
+fn media_card_fallback(card: &MediaCard) -> String {
+    if card.description.is_empty() {
+        format!("[{}]", card.title)
+    } else {
+        format!("[{}] {}", card.title, card.description)
+    }
+}
+
+fn nonnegative_u32(value: Option<i32>) -> Option<u32> {
+    value.and_then(|value| u32::try_from(value).ok())
+}
+
+fn service_event_description(action: &tl::enums::MessageAction) -> String {
+    match action {
+        tl::enums::MessageAction::ChatCreate(action) => {
+            format!("Created group “{}”", action.title)
+        }
+        tl::enums::MessageAction::ChatEditTitle(action) => {
+            format!("Changed the Chat title to “{}”", action.title)
+        }
+        tl::enums::MessageAction::ChatEditPhoto(_) => "Changed the Chat photo".to_owned(),
+        tl::enums::MessageAction::ChatDeletePhoto => "Removed the Chat photo".to_owned(),
+        tl::enums::MessageAction::ChatAddUser(action) => {
+            format!("Added {} member(s)", action.users.len())
+        }
+        tl::enums::MessageAction::ChatDeleteUser(_) => "Removed a member".to_owned(),
+        tl::enums::MessageAction::ChatJoinedByLink(_) => "Joined through an invite link".to_owned(),
+        tl::enums::MessageAction::ChannelCreate(action) => {
+            format!("Created Channel “{}”", action.title)
+        }
+        tl::enums::MessageAction::PinMessage => "Pinned a Message".to_owned(),
+        tl::enums::MessageAction::HistoryClear => "Cleared Chat history".to_owned(),
+        tl::enums::MessageAction::PhoneCall(_) => "Telegram call".to_owned(),
+        tl::enums::MessageAction::ScreenshotTaken => "Took a screenshot".to_owned(),
+        tl::enums::MessageAction::CustomAction(action) => action.message.clone(),
+        tl::enums::MessageAction::ContactSignUp => "Joined Telegram".to_owned(),
+        tl::enums::MessageAction::TopicCreate(action) => {
+            format!("Created Topic “{}”", action.title)
+        }
+        tl::enums::MessageAction::TopicEdit(_) => "Changed a Topic".to_owned(),
+        _ => "Telegram service event".to_owned(),
     }
 }
 
@@ -1375,12 +2507,14 @@ mod tests {
 
     use compio_mtproto::InvocationError;
     use grammers_tl_types::{self as tl, Serializable as _};
+    use intuigram_app::{AdapterEvent, ChatId, ChatKind, MediaKind, MessageDirection, MessageId};
 
     use super::{
         Error, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginErrorAction,
         contains_login_token_update, direct_data_centers, ensure_production_environment,
         login_error_action, normalize_code_delivery, normalize_code_delivery_method,
-        normalize_dialog_folders, qr_login_uri, rpc_migration_dc,
+        normalize_dialog_folders, normalize_live_update, normalize_serialized_media,
+        normalize_serialized_peer_kind, qr_login_uri, rpc_migration_dc,
     };
 
     #[test]
@@ -1437,6 +2571,43 @@ mod tests {
         assert!(!contains_login_token_update(
             &tl::enums::Updates::TooLong.to_bytes()
         ));
+    }
+
+    #[test]
+    fn passive_short_message_is_normalized_at_the_serialized_tl_boundary() {
+        let update = tl::enums::Updates::UpdateShortMessage(tl::types::UpdateShortMessage {
+            out: false,
+            mentioned: false,
+            media_unread: false,
+            silent: false,
+            id: 42,
+            user_id: 7,
+            message: "hello".to_owned(),
+            pts: 9,
+            pts_count: 1,
+            date: 1_700_000_000,
+            fwd_from: None,
+            via_bot_id: None,
+            reply_to: None,
+            entities: None,
+            ttl_period: None,
+        });
+        let mut names = [(ChatId(7), "Ada".to_owned())].into_iter().collect();
+
+        let batch = normalize_live_update(&update.to_bytes(), &mut names)
+            .expect("serialized short update should normalize");
+
+        assert_eq!(batch.cursor.pts, Some(9));
+        assert_eq!(batch.cursor.date, Some(1_700_000_000));
+        assert_eq!(batch.events.len(), 1);
+        let AdapterEvent::MessageAdded { chat, message } = &batch.events[0] else {
+            panic!("short message should produce a message event")
+        };
+        assert_eq!(*chat, ChatId(7));
+        assert_eq!(message.id, MessageId(42));
+        assert_eq!(message.sender, "Ada");
+        assert_eq!(message.body, "hello");
+        assert_eq!(message.direction, MessageDirection::Incoming);
     }
 
     #[test]
@@ -1541,6 +2712,225 @@ mod tests {
                 (-1, "Archive", 0),
             ]
         );
+    }
+
+    #[test]
+    fn serialized_cloud_peers_cover_every_root_chat_kind() {
+        let cases = [
+            (
+                tl::enums::User::User(user(1, true, false)).to_bytes(),
+                Some(1),
+                ChatKind::SavedMessages,
+            ),
+            (
+                tl::enums::User::User(user(2, false, false)).to_bytes(),
+                Some(1),
+                ChatKind::Private,
+            ),
+            (
+                tl::enums::User::User(user(3, false, true)).to_bytes(),
+                Some(1),
+                ChatKind::Bot,
+            ),
+            (
+                tl::enums::User::Empty(tl::types::UserEmpty { id: 4 }).to_bytes(),
+                Some(1),
+                ChatKind::Inaccessible,
+            ),
+            (
+                tl::enums::Chat::Chat(basic_group()).to_bytes(),
+                Some(1),
+                ChatKind::BasicGroup,
+            ),
+            (
+                tl::enums::Chat::Channel(channel(false, false)).to_bytes(),
+                Some(1),
+                ChatKind::Supergroup,
+            ),
+            (
+                tl::enums::Chat::Channel(channel(false, true)).to_bytes(),
+                Some(1),
+                ChatKind::Gigagroup,
+            ),
+            (
+                tl::enums::Chat::Channel(channel(true, false)).to_bytes(),
+                Some(1),
+                ChatKind::Channel,
+            ),
+            (
+                tl::enums::Chat::Forbidden(tl::types::ChatForbidden {
+                    id: 9,
+                    title: "Unavailable".to_owned(),
+                })
+                .to_bytes(),
+                Some(1),
+                ChatKind::Inaccessible,
+            ),
+        ];
+
+        for (bytes, account_id, expected) in cases {
+            assert_eq!(
+                normalize_serialized_peer_kind(&bytes, account_id)
+                    .expect("current TL peer fixture should normalize"),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn unsupported_and_specialized_media_keep_informative_cards() {
+        let unsupported =
+            normalize_serialized_media(&tl::enums::MessageMedia::Unsupported.to_bytes())
+                .expect("unsupported constructor should remain representable");
+        assert_eq!(unsupported.kind, MediaKind::Unsupported);
+        assert_eq!(unsupported.title, "Unsupported Content");
+        assert!(!unsupported.description.is_empty());
+
+        let live_location = tl::enums::MessageMedia::GeoLive(tl::types::MessageMediaGeoLive {
+            geo: tl::enums::GeoPoint::Point(tl::types::GeoPoint {
+                long: 139.6917,
+                lat: 35.6895,
+                access_hash: 1,
+                accuracy_radius: Some(10),
+            }),
+            heading: None,
+            period: 900,
+            proximity_notification_radius: None,
+        });
+        let specialized = normalize_serialized_media(&live_location.to_bytes())
+            .expect("specialized constructor should remain representable");
+        assert_eq!(specialized.kind, MediaKind::Specialized);
+        assert!(!specialized.title.is_empty());
+        assert!(!specialized.description.is_empty());
+    }
+
+    fn user(id: i64, is_self: bool, bot: bool) -> tl::types::User {
+        tl::types::User {
+            is_self,
+            contact: false,
+            mutual_contact: false,
+            deleted: false,
+            bot,
+            bot_chat_history: false,
+            bot_nochats: false,
+            verified: false,
+            restricted: false,
+            min: false,
+            bot_inline_geo: false,
+            support: false,
+            scam: false,
+            apply_min_photo: false,
+            fake: false,
+            bot_attach_menu: false,
+            premium: false,
+            attach_menu_enabled: false,
+            bot_can_edit: false,
+            close_friend: false,
+            stories_hidden: false,
+            stories_unavailable: false,
+            contact_require_premium: false,
+            bot_business: false,
+            bot_has_main_app: false,
+            bot_forum_view: false,
+            bot_forum_can_manage_topics: false,
+            bot_can_manage_bots: false,
+            bot_guestchat: false,
+            bot_guard: false,
+            id,
+            access_hash: None,
+            first_name: Some("Peer".to_owned()),
+            last_name: None,
+            username: None,
+            phone: None,
+            photo: None,
+            status: None,
+            bot_info_version: bot.then_some(1),
+            restriction_reason: None,
+            bot_inline_placeholder: None,
+            lang_code: None,
+            emoji_status: None,
+            usernames: None,
+            stories_max_id: None,
+            color: None,
+            profile_color: None,
+            bot_active_users: None,
+            bot_verification_icon: None,
+            send_paid_messages_stars: None,
+        }
+    }
+
+    fn basic_group() -> tl::types::Chat {
+        tl::types::Chat {
+            creator: false,
+            left: false,
+            deactivated: false,
+            call_active: false,
+            call_not_empty: false,
+            noforwards: false,
+            id: 5,
+            title: "Basic group".to_owned(),
+            photo: tl::enums::ChatPhoto::Empty,
+            participants_count: 2,
+            date: 0,
+            version: 1,
+            migrated_to: None,
+            admin_rights: None,
+            default_banned_rights: None,
+        }
+    }
+
+    fn channel(broadcast: bool, gigagroup: bool) -> tl::types::Channel {
+        tl::types::Channel {
+            creator: false,
+            left: false,
+            broadcast,
+            verified: false,
+            megagroup: !broadcast,
+            restricted: false,
+            signatures: false,
+            min: false,
+            scam: false,
+            has_link: false,
+            has_geo: false,
+            slowmode_enabled: false,
+            call_active: false,
+            call_not_empty: false,
+            fake: false,
+            gigagroup,
+            noforwards: false,
+            join_to_send: false,
+            join_request: false,
+            forum: false,
+            stories_hidden: false,
+            stories_hidden_min: false,
+            stories_unavailable: false,
+            signature_profiles: false,
+            autotranslation: false,
+            broadcast_messages_allowed: false,
+            monoforum: false,
+            forum_tabs: false,
+            id: 6,
+            access_hash: Some(7),
+            title: "Channel".to_owned(),
+            username: None,
+            photo: tl::enums::ChatPhoto::Empty,
+            date: 0,
+            restriction_reason: None,
+            admin_rights: None,
+            banned_rights: None,
+            default_banned_rights: None,
+            participants_count: None,
+            usernames: None,
+            stories_max_id: None,
+            color: None,
+            profile_color: None,
+            emoji_status: None,
+            level: None,
+            subscription_until_date: None,
+            bot_verification_icon: None,
+            send_paid_messages_stars: None,
+            linked_monoforum_id: None,
+        }
     }
 
     fn dc_option(

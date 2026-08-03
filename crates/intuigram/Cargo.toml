@@ -5,15 +5,20 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-compio = { version = "0.19.1", default-features = false, features = ["runtime"] }
+compio = { version = "0.19.1", default-features = false, features = ["fs", "runtime"] }
 crossterm.workspace = true
 dirs.workspace = true
+futures-util.workspace = true
 intuigram-app = { path = "../intuigram-app" }
 intuigram-config = { path = "../intuigram-config" }
+intuigram-media = { path = "../intuigram-media" }
 intuigram-store = { path = "../intuigram-store" }
 intuigram-telegram = { path = "../intuigram-telegram" }
 intuigram-tui = { path = "../intuigram-tui" }
+rich-clipboard = { path = "../rich-clipboard" }
 rpassword.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 snafu.workspace = true
 
 [lints]

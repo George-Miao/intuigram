@@ -1,26 +1,34 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::env;
 use std::future::{Future, poll_fn};
 use std::io::{self, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::task::Poll;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use futures_util::Stream;
 use intuigram_app::{
-    AdapterEvent, App, Bootstrap, ChatId, ChatView, DeliveryState, Effect, FolderView, Input,
-    MessageDirection, MessageId, MessageView, Update,
+    AdapterEvent, App, AttachmentId, AttachmentKind, AttachmentView, Bootstrap, ChatId, ChatKind,
+    ChatView, DeliveryState, DraftView, Effect, FolderView, HistoryView, Input, MediaCard,
+    MediaKind, MessageDetails, MessageDirection, MessageId, MessageView, ReactionView, TextEntity,
+    TextEntityKind, Update,
 };
 use intuigram_config::{Config, ConfigLoader, Overrides, PlatformDefaults};
 use intuigram_store::{
-    AccountDatabase, AccountId, AccountRecord, GlobalDatabase, SessionMaterial, StoreLayout,
+    AccountDatabase, AccountId, AccountRecord, AccountStore, CachedAccount, DatabaseRequest,
+    GlobalDatabase, SessionMaterial, StoreLayout, StoredChat, StoredFolder, StoredMessage,
+    SyncBatch, SyncCursor as StoreSyncCursor,
 };
 use intuigram_telegram::{
-    ApplicationCredentials, AuthorizedUser, Client, CodeRequest, CodeSignIn, LoginCodeDelivery,
-    LoginCodeDeliveryMethod, LoginCodeToken, QrLogin, Session,
+    ApplicationCredentials, AuthorizedUser, Client, CodeRequest, CodeSignIn, LiveEvent,
+    LiveUpdates, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginCodeToken, QrLogin, Session,
+    UpdateCursor as TelegramCursor,
 };
 use intuigram_tui::{QrLoginAction, QrLoginUi, TerminalEvents, TerminalUi, UiEvent};
+use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
 
 const PRIMARY_DC_ID: i32 = 2;
@@ -42,7 +50,7 @@ enum Error {
     #[snafu(display("failed to load Intuigram configuration"))]
     LoadConfiguration { source: intuigram_config::Error },
 
-    #[snafu(display("Telegram setting {setting} is required; configure it or use --demo"))]
+    #[snafu(display("Telegram setting {setting} is required"))]
     MissingTelegramSetting { setting: &'static str },
 
     #[snafu(display("failed to open Intuigram Account registry"))]
@@ -84,6 +92,15 @@ enum Error {
     #[snafu(display("Telegram operation failed"))]
     Telegram { source: intuigram_telegram::Error },
 
+    #[snafu(display("Telegram update stream stopped"))]
+    TelegramUpdatesClosed,
+
+    #[snafu(display("native Clipboard Paste failed"))]
+    Clipboard { source: rich_clipboard::Error },
+
+    #[snafu(display("failed to read attachment {}", path.display()))]
+    ReadAttachment { path: PathBuf, source: io::Error },
+
     #[snafu(display("failed to read {field} from the terminal"))]
     Prompt {
         field: &'static str,
@@ -111,19 +128,82 @@ struct Arguments {
     data: Option<PathBuf>,
     cache: Option<PathBuf>,
     downloads: Option<PathBuf>,
-    demo: bool,
     help: bool,
 }
 
-enum Backend {
-    Demo {
-        next_message_id: i64,
-    },
-    Telegram {
-        client: Box<Client>,
-        _database: AccountDatabase,
-        next_local_message_id: i64,
-    },
+struct Backend {
+    client: Box<Client>,
+    _database: AccountDatabase,
+    store: AccountStore,
+    next_local_message_id: i64,
+    attachments: AttachmentStore,
+}
+
+#[derive(Default)]
+struct AttachmentStore {
+    next_id: u64,
+    payloads: HashMap<AttachmentId, AttachmentPayload>,
+}
+
+#[derive(Clone)]
+enum AttachmentPayload {
+    Image { mime_type: String, bytes: Vec<u8> },
+    File(PathBuf),
+}
+
+#[derive(Default, Deserialize, Serialize)]
+#[serde(default)]
+struct StoredMessageMetadata {
+    edited: bool,
+    pinned: bool,
+    forwarded_from: Option<String>,
+    views: Option<u32>,
+    forwards: Option<u32>,
+    replies: Option<u32>,
+    service: Option<String>,
+    media: Option<StoredMediaMetadata>,
+    reactions: Vec<StoredReaction>,
+    entities: Vec<StoredEntity>,
+}
+
+#[derive(Deserialize, Serialize)]
+struct StoredMediaMetadata {
+    title: String,
+    description: String,
+    remote_id: Option<String>,
+}
+
+#[derive(Deserialize, Serialize)]
+struct StoredReaction {
+    label: String,
+    count: u32,
+    chosen: bool,
+}
+
+#[derive(Deserialize, Serialize)]
+struct StoredEntity {
+    offset: usize,
+    length: usize,
+    kind: String,
+    value: Option<String>,
+    document_id: Option<i64>,
+}
+
+impl AttachmentStore {
+    fn register(&mut self, payload: AttachmentPayload) -> AttachmentId {
+        self.next_id = self.next_id.saturating_add(1);
+        let id = AttachmentId(self.next_id);
+        self.payloads.insert(id, payload);
+        id
+    }
+}
+
+struct BackendEvents {
+    updates: LiveUpdates,
+    store: AccountStore,
+    cursor: StoreSyncCursor,
+    pending: Option<Pin<Box<DatabaseRequest<()>>>>,
+    pending_event: Option<AdapterEvent>,
 }
 
 enum QrAuthorization {
@@ -132,11 +212,149 @@ enum QrAuthorization {
 }
 
 impl Backend {
+    fn attachment_store(&mut self) -> &mut AttachmentStore {
+        &mut self.attachments
+    }
+
+    async fn read_clipboard(
+        &mut self,
+        chat: ChatId,
+        thread_root: Option<MessageId>,
+    ) -> Result<AdapterEvent> {
+        let content = rich_clipboard::read().await.context(ClipboardSnafu)?;
+        let (text, attachments) = match content {
+            rich_clipboard::ClipboardContent::Text(text) => (Some(text), Vec::new()),
+            rich_clipboard::ClipboardContent::Image { mime_type, bytes } => {
+                let id = self
+                    .attachment_store()
+                    .register(AttachmentPayload::Image { mime_type, bytes });
+                (
+                    None,
+                    vec![AttachmentView {
+                        id,
+                        kind: AttachmentKind::Photo,
+                        name: "clipboard.png".to_owned(),
+                    }],
+                )
+            }
+            rich_clipboard::ClipboardContent::Files(paths) => {
+                let attachments = paths
+                    .into_iter()
+                    .map(|path| {
+                        let name = path.file_name().map_or_else(
+                            || "attachment".to_owned(),
+                            |name| name.to_string_lossy().into_owned(),
+                        );
+                        let id = self
+                            .attachment_store()
+                            .register(AttachmentPayload::File(path));
+                        AttachmentView {
+                            id,
+                            kind: AttachmentKind::File,
+                            name,
+                        }
+                    })
+                    .collect();
+                (None, attachments)
+            }
+        };
+        Ok(AdapterEvent::ClipboardReady {
+            chat,
+            thread_root,
+            text,
+            attachments,
+        })
+    }
+
+    async fn save_draft(
+        &mut self,
+        chat: ChatId,
+        thread_root: Option<MessageId>,
+        text: String,
+        reply_to: Option<MessageId>,
+    ) -> Result<()> {
+        self.store
+            .save_draft(intuigram_store::StoredDraft {
+                chat_id: chat.0,
+                thread_root: thread_root.map(|message| message.0),
+                text,
+                reply_to: reply_to.map(|message| message.0),
+                modified_at: unix_timestamp(),
+            })
+            .context(AccountDatabaseSnafu)?
+            .await
+            .context(AccountDatabaseSnafu)
+    }
+
     async fn load_chat(&mut self, chat: ChatId) -> Result<Vec<MessageView>> {
-        match self {
-            Self::Demo { .. } => Ok(demo_messages()),
-            Self::Telegram { client, .. } => client.history(chat, 100).await.context(TelegramSnafu),
-        }
+        let messages = self
+            .client
+            .history(chat, 100)
+            .await
+            .context(TelegramSnafu)?;
+        self.store
+            .save_messages(
+                messages
+                    .iter()
+                    .map(|message| stored_message(chat, message))
+                    .collect(),
+            )
+            .context(AccountDatabaseSnafu)?
+            .await
+            .context(AccountDatabaseSnafu)?;
+        Ok(messages)
+    }
+
+    async fn load_thread(&mut self, chat: ChatId, root: MessageId) -> Result<Vec<MessageView>> {
+        let messages = self
+            .client
+            .thread_history(chat, root, 100)
+            .await
+            .context(TelegramSnafu)?;
+        self.store
+            .save_messages(
+                messages
+                    .iter()
+                    .map(|message| stored_message(chat, message))
+                    .collect(),
+            )
+            .context(AccountDatabaseSnafu)?
+            .await
+            .context(AccountDatabaseSnafu)?;
+        Ok(messages)
+    }
+
+    async fn persist_outgoing(
+        &mut self,
+        chat: ChatId,
+        local_id: MessageId,
+        text: &str,
+        reply_to: Option<MessageId>,
+        delivery: DeliveryState,
+    ) -> Result<()> {
+        self.store
+            .save_messages(vec![StoredMessage {
+                chat_id: chat.0,
+                id: local_id.0,
+                sender: "You".to_owned(),
+                body: text.to_owned(),
+                timestamp: "now".to_owned(),
+                direction: "outgoing".to_owned(),
+                delivery: match delivery {
+                    DeliveryState::Pending => "pending",
+                    DeliveryState::Sent => "sent",
+                    DeliveryState::Read => "read",
+                    DeliveryState::Failed => "failed",
+                }
+                .to_owned(),
+                reply_to: reply_to.map(|message| message.0),
+                thread_root: None,
+                content_kind: "text".to_owned(),
+                metadata: String::new(),
+            }])
+            .context(AccountDatabaseSnafu)?
+            .await
+            .context(AccountDatabaseSnafu)
     }
 
     async fn send_message(
@@ -144,24 +362,75 @@ impl Backend {
         chat: ChatId,
         text: String,
         reply_to: Option<MessageId>,
+        thread_root: Option<MessageId>,
+        attachment_ids: Vec<AttachmentId>,
     ) -> Result<MessageView> {
-        let message_id = match self {
-            Self::Demo { next_message_id } => {
-                *next_message_id += 1;
-                *next_message_id
-            }
-            Self::Telegram {
+        let message_id = {
+            let Self {
                 client,
                 next_local_message_id,
+                attachments,
                 ..
-            } => {
+            } = self;
+            if attachment_ids.is_empty() {
                 client
-                    .send_text(chat, text.clone(), reply_to)
+                    .send_text(chat, text.clone(), reply_to, thread_root)
                     .await
                     .context(TelegramSnafu)?;
-                *next_local_message_id -= 1;
-                *next_local_message_id
+            } else {
+                let payloads = attachment_ids
+                    .iter()
+                    .filter_map(|id| {
+                        attachments
+                            .payloads
+                            .get(id)
+                            .cloned()
+                            .map(|payload| (*id, payload))
+                    })
+                    .collect::<Vec<_>>();
+                for (index, (_, payload)) in payloads.iter().enumerate() {
+                    let upload = match payload {
+                        AttachmentPayload::Image { mime_type, bytes } => {
+                            intuigram_telegram::Upload {
+                                name: "clipboard.png".to_owned(),
+                                mime_type: mime_type.clone(),
+                                bytes: bytes.clone(),
+                                photo: true,
+                            }
+                        }
+                        AttachmentPayload::File(path) => intuigram_telegram::Upload {
+                            name: path.file_name().map_or_else(
+                                || "attachment".to_owned(),
+                                |name| name.to_string_lossy().into_owned(),
+                            ),
+                            mime_type: mime_type_for_path(path),
+                            bytes: compio::fs::read(path)
+                                .await
+                                .context(ReadAttachmentSnafu { path: path.clone() })?,
+                            photo: false,
+                        },
+                    };
+                    client
+                        .send_upload(
+                            chat,
+                            upload,
+                            if index == 0 {
+                                text.clone()
+                            } else {
+                                String::new()
+                            },
+                            reply_to,
+                            thread_root,
+                        )
+                        .await
+                        .context(TelegramSnafu)?;
+                }
+                for id in &attachment_ids {
+                    attachments.payloads.remove(id);
+                }
             }
+            *next_local_message_id -= 1;
+            *next_local_message_id
         };
         Ok(MessageView {
             id: MessageId(message_id),
@@ -171,6 +440,10 @@ impl Backend {
             direction: MessageDirection::Outgoing,
             delivery: DeliveryState::Sent,
             reply_to,
+            details: MessageDetails {
+                thread_root,
+                ..MessageDetails::default()
+            },
         })
     }
 
@@ -181,13 +454,63 @@ impl Backend {
                 let messages = self.load_chat(chat).await?;
                 Ok(Some(AdapterEvent::ChatLoaded { chat, messages }))
             }
+            Effect::LoadThread { chat, root } => {
+                let messages = self.load_thread(chat, root).await?;
+                Ok(Some(AdapterEvent::ThreadLoaded {
+                    chat,
+                    root,
+                    messages,
+                }))
+            }
+            Effect::ReadClipboard { chat, thread_root } => {
+                self.read_clipboard(chat, thread_root).await.map(Some)
+            }
+            Effect::SaveDraft {
+                chat,
+                thread_root,
+                text,
+                reply_to,
+            } => {
+                self.save_draft(chat, thread_root, text, reply_to).await?;
+                Ok(None)
+            }
             Effect::SendMessage {
                 chat,
                 text,
                 reply_to,
+                thread_root,
+                attachments,
+                local_id,
             } => {
-                let message = self.send_message(chat, text, reply_to).await?;
-                Ok(Some(AdapterEvent::MessageAdded { chat, message }))
+                self.persist_outgoing(chat, local_id, &text, reply_to, DeliveryState::Pending)
+                    .await?;
+                self.save_draft(chat, thread_root, String::new(), None)
+                    .await?;
+                let result = self
+                    .send_message(chat, text.clone(), reply_to, thread_root, attachments)
+                    .await;
+                self.persist_outgoing(
+                    chat,
+                    local_id,
+                    &text,
+                    reply_to,
+                    if result.is_ok() {
+                        DeliveryState::Sent
+                    } else {
+                        DeliveryState::Failed
+                    },
+                )
+                .await?;
+                Ok(Some(match result {
+                    Ok(_) => AdapterEvent::MessageAcknowledged { chat, local_id },
+                    Err(error) => AdapterEvent::MessageFailed {
+                        chat,
+                        local_id,
+                        thread_root,
+                        text,
+                        reason: error.to_string(),
+                    },
+                }))
             }
         }
     }
@@ -271,20 +594,129 @@ async fn run_async(arguments: Arguments) -> Result<()> {
         .context(LoadConfigurationSnafu)?;
     let layout = StoreLayout::new(config.paths.data.clone());
     let global = GlobalDatabase::open(&layout).context(OpenAccountRegistrySnafu)?;
-    let (backend, bootstrap) = if arguments.demo {
-        (
-            Backend::Demo {
-                next_message_id: 10_000,
-            },
-            demo_data(),
-        )
-    } else {
-        initialize_telegram(&config, &layout, &global).await?
-    };
-
     let mut terminal = TerminalUi::enter().context(TerminalSnafu)?;
     let mut events = TerminalEvents::new().context(TerminalSnafu)?;
-    run_application(&mut terminal, &mut events, backend, bootstrap).await
+    let accounts = global.accounts().context(ReadAccountRegistrySnafu)?;
+    if let Some(account) = accounts.into_iter().find(|account| account.active) {
+        let database = AccountDatabase::open(&layout, account.id).context(AccountDatabaseSnafu)?;
+        let cached = database.cached_account().context(AccountDatabaseSnafu)?;
+        drop(database);
+        return run_cached_account(
+            &mut terminal,
+            &mut events,
+            telegram_credentials(&config)?,
+            layout,
+            account.clone(),
+            cached_bootstrap(account.display_name, cached),
+        )
+        .await;
+    }
+    let (backend, mut backend_events, bootstrap) =
+        authorize_new_account(&telegram_credentials(&config)?, &config, &layout, &global).await?;
+    run_application(
+        &mut terminal,
+        &mut events,
+        &mut backend_events,
+        backend,
+        bootstrap,
+    )
+    .await
+}
+
+async fn run_cached_account<U, E>(
+    terminal: &mut U,
+    events: &mut E,
+    credentials: ApplicationCredentials,
+    layout: StoreLayout,
+    account: AccountRecord,
+    bootstrap: Bootstrap,
+) -> Result<()>
+where
+    U: ApplicationUi,
+    E: ApplicationEvents,
+{
+    let mut app = App::new();
+    let mut update = app.transition(Input::Adapter(AdapterEvent::Bootstrap(bootstrap)));
+    let mut pending_effects = VecDeque::with_capacity(EFFECT_CAPACITY);
+    let mut attempt = Some(Box::pin(resume_account(
+        credentials.clone(),
+        &layout,
+        &account,
+    )));
+
+    loop {
+        terminal.draw(&update.view).context(TerminalSnafu)?;
+        if let Some(effect) = update.effect.take() {
+            match effect {
+                Effect::Quit => return Ok(()),
+                Effect::Reconnect if attempt.is_none() => {
+                    attempt = Some(Box::pin(resume_account(
+                        credentials.clone(),
+                        &layout,
+                        &account,
+                    )));
+                }
+                Effect::Reconnect => {}
+                effect => {
+                    enqueue_effect::<Backend>(&mut pending_effects, &None, Some(effect))?;
+                }
+            }
+        }
+
+        enum Wake<T> {
+            Terminal(T),
+            Connected(Box<Result<(Backend, BackendEvents, Bootstrap)>>),
+        }
+        let wake = poll_fn(|cx| {
+            if let Poll::Ready(event) = events.poll_next_event(cx) {
+                return Poll::Ready(Wake::Terminal(event));
+            }
+            if let Some(connection) = &mut attempt
+                && let Poll::Ready(result) = connection.as_mut().poll(cx)
+            {
+                return Poll::Ready(Wake::Connected(Box::new(result)));
+            }
+            Poll::Pending
+        })
+        .await;
+
+        match wake {
+            Wake::Terminal(event) => {
+                let event = event.context(TerminalSnafu)?;
+                let Some(event) = terminal.resolve_event(&update.view, event) else {
+                    continue;
+                };
+                match event {
+                    UiEvent::Redraw => {}
+                    UiEvent::Intent(intent) => update = app.transition(Input::Intent(intent)),
+                }
+            }
+            Wake::Connected(result) if result.is_ok() => {
+                let Ok((backend, mut adapter_events, bootstrap)) = *result else {
+                    unreachable!("successful connection result was checked")
+                };
+                update = app.transition(Input::Adapter(AdapterEvent::Bootstrap(bootstrap)));
+                return run_application_state(
+                    terminal,
+                    events,
+                    &mut adapter_events,
+                    backend,
+                    app,
+                    update,
+                    pending_effects,
+                )
+                .await;
+            }
+            Wake::Connected(result) => {
+                let Err(error) = *result else {
+                    unreachable!("failed connection result was checked")
+                };
+                attempt = None;
+                let reason = error_lines(&error).join(": ");
+                update = app.transition(Input::Adapter(AdapterEvent::ConnectionFailed(reason)));
+            }
+        }
+    }
 }
 
 trait ApplicationBackend: Sized + 'static {
@@ -313,6 +745,58 @@ impl ApplicationEvents for TerminalEvents {
     }
 }
 
+trait ApplicationAdapterEvents {
+    fn poll_adapter_event(&mut self, cx: &mut std::task::Context<'_>)
+    -> Poll<Result<AdapterEvent>>;
+}
+
+impl ApplicationAdapterEvents for BackendEvents {
+    fn poll_adapter_event(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Result<AdapterEvent>> {
+        loop {
+            if let Some(request) = &mut self.pending {
+                match request.as_mut().poll(cx) {
+                    Poll::Ready(Ok(())) => {
+                        self.pending = None;
+                        return Poll::Ready(Ok(self
+                            .pending_event
+                            .take()
+                            .expect("a durable event accompanies every database request")));
+                    }
+                    Poll::Ready(Err(source)) => {
+                        self.pending = None;
+                        return Poll::Ready(Err(Error::AccountDatabase { source }));
+                    }
+                    Poll::Pending => return Poll::Pending,
+                }
+            }
+            match Pin::new(&mut self.updates).poll_next(cx) {
+                Poll::Ready(Some(Ok(event))) => {
+                    apply_cursor_delta(&mut self.cursor, event.cursor);
+                    let batch = sync_batch_for_event(self.cursor.clone(), &event);
+                    let request = match self.store.commit_sync(batch) {
+                        Ok(request) => request,
+                        Err(source) => {
+                            return Poll::Ready(Err(Error::AccountDatabase { source }));
+                        }
+                    };
+                    self.pending_event = Some(event.event);
+                    self.pending = Some(Box::pin(request));
+                }
+                Poll::Ready(Some(Err(source))) => {
+                    return Poll::Ready(Err(Error::Telegram { source }));
+                }
+                Poll::Ready(None) => {
+                    return Poll::Ready(Err(Error::TelegramUpdatesClosed));
+                }
+                Poll::Pending => return Poll::Pending,
+            }
+        }
+    }
+}
+
 struct BackendCompletion<B> {
     backend: B,
     result: Result<Option<AdapterEvent>>,
@@ -322,6 +806,7 @@ type PendingEffect<B> = Pin<Box<dyn Future<Output = BackendCompletion<B>>>>;
 
 enum ApplicationWake<B> {
     Terminal(intuigram_tui::Result<crossterm::event::Event>),
+    Adapter(Result<AdapterEvent>),
     Backend(BackendCompletion<B>),
 }
 
@@ -343,6 +828,21 @@ fn enqueue_effect<B>(
     if effect == Effect::Quit {
         return Ok(true);
     }
+    if let Effect::SaveDraft {
+        chat, thread_root, ..
+    } = &effect
+    {
+        pending.retain(|pending| {
+            !matches!(
+                pending,
+                Effect::SaveDraft {
+                    chat: pending_chat,
+                    thread_root: pending_thread,
+                    ..
+                } if pending_chat == chat && pending_thread == thread_root
+            )
+        });
+    }
     if pending.len() + usize::from(active.is_some()) >= EFFECT_CAPACITY {
         return EffectsFullSnafu {
             capacity: EFFECT_CAPACITY,
@@ -353,22 +853,50 @@ fn enqueue_effect<B>(
     Ok(false)
 }
 
-async fn run_application<U, E, B>(
+async fn run_application<U, E, A, B>(
     terminal: &mut U,
     events: &mut E,
+    adapter_events: &mut A,
     backend: B,
     bootstrap: Bootstrap,
 ) -> Result<()>
 where
     U: ApplicationUi,
     E: ApplicationEvents,
+    A: ApplicationAdapterEvents,
     B: ApplicationBackend,
 {
     let mut app = App::new();
-    let mut update = app.transition(Input::Adapter(AdapterEvent::Bootstrap(bootstrap)));
+    let update = app.transition(Input::Adapter(AdapterEvent::Bootstrap(bootstrap)));
+    run_application_state(
+        terminal,
+        events,
+        adapter_events,
+        backend,
+        app,
+        update,
+        VecDeque::with_capacity(EFFECT_CAPACITY),
+    )
+    .await
+}
+
+async fn run_application_state<U, E, A, B>(
+    terminal: &mut U,
+    events: &mut E,
+    adapter_events: &mut A,
+    backend: B,
+    mut app: App,
+    mut update: Update,
+    mut pending_effects: VecDeque<Effect>,
+) -> Result<()>
+where
+    U: ApplicationUi,
+    E: ApplicationEvents,
+    A: ApplicationAdapterEvents,
+    B: ApplicationBackend,
+{
     let mut backend = Some(backend);
     let mut active_effect: Option<PendingEffect<B>> = None;
-    let mut pending_effects = VecDeque::with_capacity(EFFECT_CAPACITY);
 
     loop {
         terminal.draw(&update.view).context(TerminalSnafu)?;
@@ -386,6 +914,9 @@ where
         }
 
         let wake = poll_fn(|cx| {
+            if let Poll::Ready(event) = adapter_events.poll_adapter_event(cx) {
+                return Poll::Ready(ApplicationWake::Adapter(event));
+            }
             if let Poll::Ready(event) = events.poll_next_event(cx) {
                 return Poll::Ready(ApplicationWake::Terminal(event));
             }
@@ -411,6 +942,9 @@ where
                     }
                 }
             }
+            ApplicationWake::Adapter(event) => {
+                update = app.transition(Input::Adapter(event?));
+            }
             ApplicationWake::Backend(completion) => {
                 active_effect = None;
                 backend = Some(completion.backend);
@@ -427,25 +961,13 @@ where
     }
 }
 
-async fn initialize_telegram(
-    config: &Config,
-    layout: &StoreLayout,
-    global: &GlobalDatabase,
-) -> Result<(Backend, Bootstrap)> {
-    let credentials = telegram_credentials(config)?;
-    let accounts = global.accounts().context(ReadAccountRegistrySnafu)?;
-    if let Some(account) = accounts.iter().find(|account| account.active) {
-        return resume_account(credentials, layout, account).await;
-    }
-    authorize_new_account(&credentials, config, layout, global).await
-}
-
 async fn resume_account(
     credentials: ApplicationCredentials,
     layout: &StoreLayout,
     account: &AccountRecord,
-) -> Result<(Backend, Bootstrap)> {
+) -> Result<(Backend, BackendEvents, Bootstrap)> {
     let database = AccountDatabase::open(layout, account.id).context(AccountDatabaseSnafu)?;
+    let cached = database.cached_account().context(AccountDatabaseSnafu)?;
     let stored =
         database
             .session()
@@ -462,12 +984,37 @@ async fn resume_account(
     let mut client = Client::connect_existing(credentials, &session, identity)
         .await
         .context(TelegramSnafu)?;
-    let bootstrap = client.bootstrap(100).await.context(TelegramSnafu)?;
+    let mut bootstrap = client.bootstrap(100).await.context(TelegramSnafu)?;
+    let cached = cached_bootstrap(account.display_name.clone(), cached);
+    bootstrap.drafts = cached.drafts;
+    bootstrap.histories = cached.histories;
+    let cursor = store_cursor(
+        client
+            .synchronization_cursor()
+            .await
+            .context(TelegramSnafu)?,
+    );
+    database
+        .commit_sync(bootstrap_sync_batch(&bootstrap, cursor.clone()))
+        .context(AccountDatabaseSnafu)?;
+    let store = database.store();
+    let live_capacity = NonZeroUsize::new(EFFECT_CAPACITY)
+        .expect("the constant MTProto request capacity is positive");
+    let (client, updates) = client.into_live(live_capacity);
     Ok((
-        Backend::Telegram {
+        Backend {
             client: Box::new(client),
             _database: database,
+            store: store.clone(),
             next_local_message_id: 0,
+            attachments: AttachmentStore::default(),
+        },
+        BackendEvents {
+            updates,
+            store,
+            cursor,
+            pending: None,
+            pending_event: None,
         },
         bootstrap,
     ))
@@ -478,7 +1025,7 @@ async fn authorize_new_account(
     config: &Config,
     layout: &StoreLayout,
     global: &GlobalDatabase,
-) -> Result<(Backend, Bootstrap)> {
+) -> Result<(Backend, BackendEvents, Bootstrap)> {
     let pending = AccountDatabase::begin_login(layout).context(AccountDatabaseSnafu)?;
     let (client, session) = if let Some(stored) = pending.session().context(AccountDatabaseSnafu)? {
         let session = telegram_session(&stored)?;
@@ -547,11 +1094,33 @@ async fn authorize_new_account(
         })
         .context(UpdateAccountRegistrySnafu)?;
     let bootstrap = client.bootstrap(100).await.context(TelegramSnafu)?;
+    let cursor = store_cursor(
+        client
+            .synchronization_cursor()
+            .await
+            .context(TelegramSnafu)?,
+    );
+    database
+        .commit_sync(bootstrap_sync_batch(&bootstrap, cursor.clone()))
+        .context(AccountDatabaseSnafu)?;
+    let store = database.store();
+    let live_capacity = NonZeroUsize::new(EFFECT_CAPACITY)
+        .expect("the constant MTProto request capacity is positive");
+    let (client, updates) = client.into_live(live_capacity);
     Ok((
-        Backend::Telegram {
+        Backend {
             client: Box::new(client),
             _database: database,
+            store: store.clone(),
             next_local_message_id: 0,
+            attachments: AttachmentStore::default(),
+        },
+        BackendEvents {
+            updates,
+            store,
+            cursor,
+            pending: None,
+            pending_event: None,
         },
         bootstrap,
     ))
@@ -629,6 +1198,14 @@ fn seconds_until(expires_at: i32, server_time_offset: i32) -> u64 {
         .map_or(0, |elapsed| elapsed.as_secs());
     let local_now = i64::try_from(local_now).unwrap_or(i64::MAX);
     seconds_until_at(expires_at, local_now, server_time_offset)
+}
+
+fn unix_timestamp() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |duration| {
+            i64::try_from(duration.as_secs()).unwrap_or(i64::MAX)
+        })
 }
 
 fn seconds_until_at(expires_at: i32, local_now: i64, server_time_offset: i32) -> u64 {
@@ -850,10 +1427,6 @@ fn parse_arguments(arguments: impl IntoIterator<Item = String>) -> Result<Argume
                 parsed.help = true;
                 continue;
             }
-            "--demo" => {
-                parsed.demo = true;
-                continue;
-            }
             "--config-dir" => &mut parsed.config,
             "--data-dir" => &mut parsed.data,
             "--cache-dir" => &mut parsed.cache,
@@ -902,7 +1475,6 @@ fn print_help() {
         "Intuigram terminal client\n\n\
          Usage: intuigram [OPTIONS]\n\n\
          Options:\n\
-           --demo                  Run without Telegram credentials or network access\n\
            --config-dir PATH       Override the platform config directory\n\
            --data-dir PATH         Override the platform data directory\n\
            --cache-dir PATH        Override the platform cache directory\n\
@@ -913,9 +1485,388 @@ fn print_help() {
     );
 }
 
-fn demo_data() -> Bootstrap {
+fn mime_type_for_path(path: &std::path::Path) -> String {
+    match path
+        .extension()
+        .and_then(std::ffi::OsStr::to_str)
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("gif") => "image/gif",
+        Some("jpeg" | "jpg") => "image/jpeg",
+        Some("png") => "image/png",
+        Some("webp") => "image/webp",
+        Some("mp4") => "video/mp4",
+        Some("mov") => "video/quicktime",
+        Some("mp3") => "audio/mpeg",
+        Some("ogg") => "audio/ogg",
+        Some("pdf") => "application/pdf",
+        Some("txt" | "md") => "text/plain",
+        _ => "application/octet-stream",
+    }
+    .to_owned()
+}
+
+fn store_cursor(cursor: TelegramCursor) -> StoreSyncCursor {
+    StoreSyncCursor {
+        scope: "account".to_owned(),
+        pts: cursor.pts.unwrap_or(0),
+        qts: cursor.qts.unwrap_or(0),
+        date: cursor.date.unwrap_or(0),
+        seq: cursor.seq.unwrap_or(0),
+    }
+}
+
+fn apply_cursor_delta(cursor: &mut StoreSyncCursor, delta: TelegramCursor) {
+    if let Some(pts) = delta.pts {
+        cursor.pts = pts;
+    }
+    if let Some(qts) = delta.qts {
+        cursor.qts = qts;
+    }
+    if let Some(date) = delta.date {
+        cursor.date = date;
+    }
+    if let Some(seq) = delta.seq {
+        cursor.seq = seq;
+    }
+}
+
+fn cached_bootstrap(account_name: String, cached: CachedAccount) -> Bootstrap {
+    let chats = cached
+        .chats
+        .into_iter()
+        .map(|chat| ChatView {
+            id: ChatId(chat.id),
+            title: chat.title,
+            preview: chat.preview,
+            unread: chat.unread,
+            pinned: chat.pinned,
+            kind: stored_chat_kind(&chat.kind),
+            folders: chat.folders,
+        })
+        .collect::<Vec<_>>();
+    let mut grouped = BTreeMap::<(i64, Option<i64>), Vec<MessageView>>::new();
+    for message in cached.messages {
+        grouped
+            .entry((message.chat_id, message.thread_root))
+            .or_default()
+            .push(cached_message(message));
+    }
+    let histories = grouped
+        .into_iter()
+        .map(|((chat, thread_root), messages)| HistoryView {
+            chat: ChatId(chat),
+            thread_root: thread_root.map(MessageId),
+            messages,
+        })
+        .collect::<Vec<_>>();
+    let messages = chats.first().map_or_else(Vec::new, |active| {
+        histories
+            .iter()
+            .find(|history| history.chat == active.id && history.thread_root.is_none())
+            .map_or_else(Vec::new, |history| history.messages.clone())
+    });
     Bootstrap {
-        account_name: "Intuigram Demo".to_owned(),
+        connection: intuigram_app::ConnectionState::Connecting,
+        account_name,
+        folders: cached
+            .folders
+            .into_iter()
+            .map(|folder| FolderView {
+                id: folder.id,
+                title: folder.title,
+                unread: folder.unread,
+            })
+            .collect(),
+        chats,
+        messages,
+        drafts: cached
+            .drafts
+            .into_iter()
+            .map(|draft| DraftView {
+                chat: ChatId(draft.chat_id),
+                thread_root: draft.thread_root.map(MessageId),
+                text: draft.text,
+                reply_to: draft.reply_to.map(MessageId),
+            })
+            .collect(),
+        histories,
+    }
+}
+
+fn stored_chat_kind(kind: &str) -> ChatKind {
+    match kind {
+        "saved_messages" => ChatKind::SavedMessages,
+        "private" => ChatKind::Private,
+        "bot" => ChatKind::Bot,
+        "basic_group" => ChatKind::BasicGroup,
+        "supergroup" => ChatKind::Supergroup,
+        "gigagroup" => ChatKind::Gigagroup,
+        "channel" => ChatKind::Channel,
+        _ => ChatKind::Inaccessible,
+    }
+}
+
+fn cached_message(message: StoredMessage) -> MessageView {
+    let metadata =
+        serde_json::from_str::<StoredMessageMetadata>(&message.metadata).unwrap_or_default();
+    let media = stored_media_kind(&message.content_kind).map(|kind| {
+        let stored = metadata.media.as_ref();
+        MediaCard {
+            kind,
+            title: stored.map_or_else(|| message.content_kind.clone(), |media| media.title.clone()),
+            description: stored.map_or_else(String::new, |media| media.description.clone()),
+            remote_id: stored.and_then(|media| media.remote_id.clone()),
+        }
+    });
+    MessageView {
+        id: MessageId(message.id),
+        sender: message.sender,
+        body: message.body,
+        timestamp: message.timestamp,
+        direction: if message.direction == "outgoing" {
+            MessageDirection::Outgoing
+        } else {
+            MessageDirection::Incoming
+        },
+        delivery: match message.delivery.as_str() {
+            "pending" => DeliveryState::Pending,
+            "read" => DeliveryState::Read,
+            "failed" => DeliveryState::Failed,
+            _ => DeliveryState::Sent,
+        },
+        reply_to: message.reply_to.map(MessageId),
+        details: MessageDetails {
+            entities: metadata.entities.into_iter().map(cached_entity).collect(),
+            forwarded_from: metadata.forwarded_from,
+            reactions: metadata
+                .reactions
+                .into_iter()
+                .map(|reaction| ReactionView {
+                    label: reaction.label,
+                    count: reaction.count,
+                    chosen: reaction.chosen,
+                })
+                .collect(),
+            edited: metadata.edited,
+            pinned: metadata.pinned,
+            views: metadata.views,
+            forwards: metadata.forwards,
+            replies: metadata.replies,
+            media,
+            service: metadata.service,
+            thread_root: message.thread_root.map(MessageId),
+        },
+    }
+}
+
+fn stored_media_kind(kind: &str) -> Option<MediaKind> {
+    Some(match kind {
+        "photo" => MediaKind::Photo,
+        "video" => MediaKind::Video,
+        "animation" => MediaKind::Animation,
+        "sticker" => MediaKind::Sticker,
+        "file" => MediaKind::File,
+        "audio" => MediaKind::Audio,
+        "voice" => MediaKind::Voice,
+        "videonote" => MediaKind::VideoNote,
+        "linkpreview" => MediaKind::LinkPreview,
+        "poll" => MediaKind::Poll,
+        "contact" => MediaKind::Contact,
+        "location" => MediaKind::Location,
+        "venue" => MediaKind::Venue,
+        "dice" => MediaKind::Dice,
+        "specialized" => MediaKind::Specialized,
+        "unsupported" => MediaKind::Unsupported,
+        "text" | "service" => return None,
+        _ => MediaKind::Unsupported,
+    })
+}
+
+fn cached_entity(entity: StoredEntity) -> TextEntity {
+    TextEntity {
+        offset: entity.offset,
+        length: entity.length,
+        kind: match entity.kind.as_str() {
+            "bold" => TextEntityKind::Bold,
+            "italic" => TextEntityKind::Italic,
+            "underline" => TextEntityKind::Underline,
+            "strike" => TextEntityKind::Strike,
+            "code" => TextEntityKind::Code,
+            "pre" => TextEntityKind::Pre {
+                language: entity.value,
+            },
+            "spoiler" => TextEntityKind::Spoiler,
+            "url" => TextEntityKind::Url,
+            "text_url" => TextEntityKind::TextUrl {
+                url: entity.value.unwrap_or_default(),
+            },
+            "custom_emoji" => TextEntityKind::CustomEmoji {
+                document_id: entity.document_id.unwrap_or_default(),
+            },
+            _ => TextEntityKind::Semantic,
+        },
+    }
+}
+
+fn bootstrap_sync_batch(bootstrap: &Bootstrap, cursor: StoreSyncCursor) -> SyncBatch {
+    let active_chat = bootstrap.chats.first().map(|chat| chat.id);
+    SyncBatch {
+        cursor,
+        folders: bootstrap
+            .folders
+            .iter()
+            .map(|folder| StoredFolder {
+                id: folder.id,
+                title: folder.title.clone(),
+                unread: folder.unread,
+            })
+            .collect(),
+        chats: bootstrap.chats.iter().map(stored_chat).collect(),
+        messages: active_chat.map_or_else(Vec::new, |chat| {
+            bootstrap
+                .messages
+                .iter()
+                .map(|message| stored_message(chat, message))
+                .collect()
+        }),
+    }
+}
+
+fn sync_batch_for_event(cursor: StoreSyncCursor, event: &LiveEvent) -> SyncBatch {
+    let messages = match &event.event {
+        AdapterEvent::MessageAdded { chat, message } => vec![stored_message(*chat, message)],
+        _ => Vec::new(),
+    };
+    SyncBatch {
+        cursor,
+        folders: Vec::new(),
+        chats: Vec::new(),
+        messages,
+    }
+}
+
+fn stored_chat(chat: &ChatView) -> StoredChat {
+    StoredChat {
+        id: chat.id.0,
+        kind: match chat.kind {
+            ChatKind::SavedMessages => "saved_messages",
+            ChatKind::Private => "private",
+            ChatKind::Bot => "bot",
+            ChatKind::BasicGroup => "basic_group",
+            ChatKind::Supergroup => "supergroup",
+            ChatKind::Gigagroup => "gigagroup",
+            ChatKind::Channel => "channel",
+            ChatKind::Inaccessible => "inaccessible",
+        }
+        .to_owned(),
+        title: chat.title.clone(),
+        preview: chat.preview.clone(),
+        unread: chat.unread,
+        pinned: chat.pinned,
+        folders: chat.folders.clone(),
+    }
+}
+
+fn stored_message(chat: ChatId, message: &MessageView) -> StoredMessage {
+    let content_kind = message.details.media.as_ref().map_or_else(
+        || {
+            if message.details.service.is_some() {
+                "service".to_owned()
+            } else {
+                "text".to_owned()
+            }
+        },
+        |media| format!("{:?}", media.kind).to_ascii_lowercase(),
+    );
+    let metadata = serde_json::to_string(&stored_message_metadata(message))
+        .expect("fixed Intuigram Message metadata contains only JSON-serializable values");
+    StoredMessage {
+        chat_id: chat.0,
+        id: message.id.0,
+        sender: message.sender.clone(),
+        body: message.body.clone(),
+        timestamp: message.timestamp.clone(),
+        direction: match message.direction {
+            MessageDirection::Incoming => "incoming",
+            MessageDirection::Outgoing => "outgoing",
+        }
+        .to_owned(),
+        delivery: match message.delivery {
+            DeliveryState::Pending => "pending",
+            DeliveryState::Sent => "sent",
+            DeliveryState::Read => "read",
+            DeliveryState::Failed => "failed",
+        }
+        .to_owned(),
+        reply_to: message.reply_to.map(|message| message.0),
+        thread_root: message.details.thread_root.map(|message| message.0),
+        content_kind,
+        metadata,
+    }
+}
+
+fn stored_message_metadata(message: &MessageView) -> StoredMessageMetadata {
+    StoredMessageMetadata {
+        edited: message.details.edited,
+        pinned: message.details.pinned,
+        forwarded_from: message.details.forwarded_from.clone(),
+        views: message.details.views,
+        forwards: message.details.forwards,
+        replies: message.details.replies,
+        service: message.details.service.clone(),
+        media: message
+            .details
+            .media
+            .as_ref()
+            .map(|media| StoredMediaMetadata {
+                title: media.title.clone(),
+                description: media.description.clone(),
+                remote_id: media.remote_id.clone(),
+            }),
+        reactions: message
+            .details
+            .reactions
+            .iter()
+            .map(|reaction| StoredReaction {
+                label: reaction.label.clone(),
+                count: reaction.count,
+                chosen: reaction.chosen,
+            })
+            .collect(),
+        entities: message.details.entities.iter().map(stored_entity).collect(),
+    }
+}
+
+fn stored_entity(entity: &TextEntity) -> StoredEntity {
+    let (kind, value, document_id) = match &entity.kind {
+        TextEntityKind::Bold => ("bold", None, None),
+        TextEntityKind::Italic => ("italic", None, None),
+        TextEntityKind::Underline => ("underline", None, None),
+        TextEntityKind::Strike => ("strike", None, None),
+        TextEntityKind::Code => ("code", None, None),
+        TextEntityKind::Pre { language } => ("pre", language.clone(), None),
+        TextEntityKind::Spoiler => ("spoiler", None, None),
+        TextEntityKind::Url => ("url", None, None),
+        TextEntityKind::TextUrl { url } => ("text_url", Some(url.clone()), None),
+        TextEntityKind::Semantic => ("semantic", None, None),
+        TextEntityKind::CustomEmoji { document_id } => ("custom_emoji", None, Some(*document_id)),
+    };
+    StoredEntity {
+        offset: entity.offset,
+        length: entity.length,
+        kind: kind.to_owned(),
+        value,
+        document_id,
+    }
+}
+
+#[cfg(test)]
+fn application_fixture() -> Bootstrap {
+    Bootstrap {
+        connection: intuigram_app::ConnectionState::Connected,
+        account_name: "Intuigram Test".to_owned(),
         folders: vec![
             FolderView {
                 id: 0,
@@ -940,6 +1891,8 @@ fn demo_data() -> Bootstrap {
                 preview: "Intuigram design notes".to_owned(),
                 unread: 0,
                 pinned: true,
+                kind: ChatKind::SavedMessages,
+                folders: vec![0],
             },
             ChatView {
                 id: ChatId(101),
@@ -947,6 +1900,8 @@ fn demo_data() -> Bootstrap {
                 preview: "The dense layout feels right.".to_owned(),
                 unread: 3,
                 pinned: true,
+                kind: ChatKind::Supergroup,
+                folders: vec![0, 1],
             },
             ChatView {
                 id: ChatId(102),
@@ -954,13 +1909,18 @@ fn demo_data() -> Bootstrap {
                 preview: "Ship the runnable slice!".to_owned(),
                 unread: 2,
                 pinned: false,
+                kind: ChatKind::Private,
+                folders: vec![0],
             },
         ],
-        messages: demo_messages(),
+        messages: fixture_messages(),
+        drafts: Vec::new(),
+        histories: Vec::new(),
     }
 }
 
-fn demo_messages() -> Vec<MessageView> {
+#[cfg(test)]
+fn fixture_messages() -> Vec<MessageView> {
     vec![
         MessageView {
             id: MessageId(1),
@@ -971,6 +1931,7 @@ fn demo_messages() -> Vec<MessageView> {
             direction: MessageDirection::Incoming,
             delivery: DeliveryState::Read,
             reply_to: None,
+            details: MessageDetails::default(),
         },
         MessageView {
             id: MessageId(2),
@@ -980,6 +1941,7 @@ fn demo_messages() -> Vec<MessageView> {
             direction: MessageDirection::Outgoing,
             delivery: DeliveryState::Read,
             reply_to: Some(MessageId(1)),
+            details: MessageDetails::default(),
         },
         MessageView {
             id: MessageId(3),
@@ -989,6 +1951,7 @@ fn demo_messages() -> Vec<MessageView> {
             direction: MessageDirection::Incoming,
             delivery: DeliveryState::Sent,
             reply_to: None,
+            details: MessageDetails::default(),
         },
     ]
 }
@@ -1003,19 +1966,85 @@ mod tests {
     use std::task::{Context, Poll};
 
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
-    use intuigram_app::{Action, AdapterEvent, Effect, Intent};
+    use intuigram_app::{
+        Action, AdapterEvent, ChatId, ChatKind, DeliveryState, Effect, Intent, MediaCard,
+        MediaKind, MessageDetails, MessageDirection, MessageId, MessageView, TextEntity,
+        TextEntityKind,
+    };
+    use intuigram_store::{CachedAccount, StoredChat, StoredDraft, StoredFolder};
     use intuigram_telegram::{LoginCodeDelivery, LoginCodeDeliveryMethod};
     use intuigram_tui::UiEvent;
 
     use super::{
-        ApplicationBackend, ApplicationEvents, ApplicationUi, EFFECT_CAPACITY, Error,
-        PRIMARY_DC_ENDPOINT, PendingEffect, Result, demo_data, enqueue_effect, error_lines,
-        login_code_delivery_message, login_code_delivery_method_name, parse_arguments,
-        run_application, seconds_until_at,
+        ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents, ApplicationUi,
+        EFFECT_CAPACITY, Error, PRIMARY_DC_ENDPOINT, PendingEffect, Result, application_fixture,
+        cached_bootstrap, enqueue_effect, error_lines, login_code_delivery_message,
+        login_code_delivery_method_name, parse_arguments, run_application, seconds_until_at,
+        stored_message,
     };
 
     struct PendingHistoryBackend {
         polls: Rc<Cell<usize>>,
+    }
+
+    #[test]
+    fn cached_account_restores_rich_thread_history_and_drafts() {
+        let message = MessageView {
+            id: MessageId(42),
+            sender: "Ada".to_owned(),
+            body: "cached caption".to_owned(),
+            timestamp: "12:00".to_owned(),
+            direction: MessageDirection::Incoming,
+            delivery: DeliveryState::Read,
+            reply_to: Some(MessageId(40)),
+            details: MessageDetails {
+                entities: vec![TextEntity {
+                    offset: 0,
+                    length: 6,
+                    kind: TextEntityKind::Bold,
+                }],
+                media: Some(MediaCard {
+                    kind: MediaKind::Photo,
+                    title: "Photo".to_owned(),
+                    description: "image".to_owned(),
+                    remote_id: Some("99".to_owned()),
+                }),
+                thread_root: Some(MessageId(41)),
+                ..MessageDetails::default()
+            },
+        };
+        let cached = CachedAccount {
+            cursors: Vec::new(),
+            folders: vec![StoredFolder {
+                id: 0,
+                title: "All".to_owned(),
+                unread: 1,
+            }],
+            chats: vec![StoredChat {
+                id: 7,
+                kind: "private".to_owned(),
+                title: "Ada".to_owned(),
+                preview: "cached caption".to_owned(),
+                unread: 1,
+                pinned: false,
+                folders: vec![0],
+            }],
+            messages: vec![stored_message(ChatId(7), &message)],
+            drafts: vec![StoredDraft {
+                chat_id: 7,
+                thread_root: Some(41),
+                text: "cached Draft".to_owned(),
+                reply_to: Some(42),
+                modified_at: 10,
+            }],
+        };
+
+        let bootstrap = cached_bootstrap("Ada".to_owned(), cached);
+
+        assert_eq!(bootstrap.chats[0].kind, ChatKind::Private);
+        assert_eq!(bootstrap.histories[0].thread_root, Some(MessageId(41)));
+        assert_eq!(bootstrap.histories[0].messages, vec![message]);
+        assert_eq!(bootstrap.drafts[0].text, "cached Draft");
     }
 
     impl ApplicationBackend for PendingHistoryBackend {
@@ -1085,6 +2114,14 @@ mod tests {
         }
     }
 
+    struct NoAdapterEvents;
+
+    impl ApplicationAdapterEvents for NoAdapterEvents {
+        fn poll_adapter_event(&mut self, _cx: &mut Context<'_>) -> Poll<Result<AdapterEvent>> {
+            Poll::Pending
+        }
+    }
+
     fn key(character: char) -> Event {
         Event::Key(KeyEvent::new(KeyCode::Char(character), KeyModifiers::NONE))
     }
@@ -1109,14 +2146,16 @@ mod tests {
         let backend = PendingHistoryBackend {
             polls: Rc::clone(&polls),
         };
+        let mut adapter_events = NoAdapterEvents;
         let runtime = compio::runtime::Runtime::new().expect("test runtime should initialize");
 
         runtime
             .block_on(run_application(
                 &mut terminal,
                 &mut events,
+                &mut adapter_events,
                 backend,
-                demo_data(),
+                application_fixture(),
             ))
             .expect("application should stop cleanly");
 
@@ -1166,9 +2205,8 @@ mod tests {
     }
 
     #[test]
-    fn command_line_paths_and_demo_are_parsed_as_overrides() {
+    fn command_line_paths_are_parsed_and_the_obsolete_demo_flag_is_rejected() {
         let parsed = parse_arguments([
-            "--demo".to_owned(),
             "--data-dir".to_owned(),
             "/tmp/intuigram-data".to_owned(),
             "--cache-dir".to_owned(),
@@ -1176,7 +2214,6 @@ mod tests {
         ])
         .expect("valid command line should parse");
 
-        assert!(parsed.demo);
         assert_eq!(
             parsed.data.expect("data override should exist"),
             PathBuf::from("/tmp/intuigram-data")
@@ -1185,6 +2222,7 @@ mod tests {
             parsed.cache.expect("cache override should exist"),
             PathBuf::from("/tmp/intuigram-cache")
         );
+        assert!(parse_arguments(["--demo".to_owned()]).is_err());
     }
 
     #[test]

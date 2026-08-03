@@ -17,7 +17,8 @@ use crossterm::terminal::{
 };
 use futures_util::{Stream, StreamExt};
 use intuigram_app::{
-    Action, ConnectionState, DeliveryState, Focus, Intent, MessageDirection, View,
+    Action, ConnectionState, DeliveryState, Focus, Intent, MessageDirection, MessageView,
+    TextEntityKind, View,
 };
 use qrcode::render::unicode::Dense1x2;
 use qrcode::types::Color as QrColor;
@@ -209,6 +210,12 @@ const BINDINGS: &[Binding] = &[
         true,
     ),
     binding(
+        KeyChord::control(Key::Char('v')),
+        "Paste",
+        Action::Paste,
+        true,
+    ),
+    binding(
         KeyChord::control(Key::Enter),
         "Send (enhanced terminal)",
         Action::Send,
@@ -224,6 +231,12 @@ const BINDINGS: &[Binding] = &[
         KeyChord::control(Key::Char('r')),
         "Reply",
         Action::Reply,
+        true,
+    ),
+    binding(
+        KeyChord::control(Key::Char('t')),
+        "Thread",
+        Action::OpenThread,
         true,
     ),
     binding(
@@ -897,7 +910,9 @@ fn render_active_chat(frame: &mut Frame<'_>, area: Rect, view: &View) {
                         Style::default().add_modifier(Modifier::BOLD),
                     ),
                     Span::styled(
-                        if chat.unread > 0 {
+                        if let Some(root) = view.active_thread {
+                            format!("  Thread {}", root.0)
+                        } else if chat.unread > 0 {
                             format!("  {} unread", chat.unread)
                         } else {
                             "  up to date".to_owned()
@@ -964,6 +979,12 @@ fn render_transcript(frame: &mut Frame<'_>, area: Rect, view: &View, focused: bo
             let reply = message
                 .reply_to
                 .map_or_else(String::new, |id| format!(" ↩{}", id.0));
+            let forwarded = message
+                .details
+                .forwarded_from
+                .as_ref()
+                .map_or_else(String::new, |source| format!(" · forwarded from {source}"));
+            let metadata = message_metadata(message);
             let header = Line::from(vec![
                 selection_rule(selected),
                 Span::styled(
@@ -971,21 +992,100 @@ fn render_transcript(frame: &mut Frame<'_>, area: Rect, view: &View, focused: bo
                     Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(reply, Style::default().fg(MUTED_TEXT)),
+                Span::styled(forwarded, Style::default().fg(MUTED_TEXT)),
                 Span::raw("  "),
                 Span::styled(
                     format!("{} {delivery}", message.timestamp),
                     Style::default().fg(MUTED_TEXT),
                 ),
             ]);
-            ListItem::new(vec![
-                header,
-                Line::from(vec![
+            let mut body = vec![selection_rule(selected)];
+            body.extend(render_rich_text(message));
+            body.push(Span::styled(metadata, Style::default().fg(MUTED_TEXT)));
+            let mut lines = vec![header, Line::from(body)];
+            if let Some(media) = &message.details.media {
+                lines.push(Line::from(vec![
                     selection_rule(selected),
-                    Span::raw(message.body.clone()),
-                ]),
-            ])
+                    Span::styled(
+                        format!("[{}]", media.title),
+                        Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!("  {}", media.description),
+                        Style::default().fg(MUTED_TEXT),
+                    ),
+                ]));
+            }
+            ListItem::new(lines)
         });
     frame.render_widget(List::new(items).style(surface_style(focused)), area);
+}
+
+fn message_metadata(message: &MessageView) -> String {
+    let mut parts = Vec::new();
+    if message.details.edited {
+        parts.push("edited".to_owned());
+    }
+    if message.details.pinned {
+        parts.push("pinned".to_owned());
+    }
+    if let Some(views) = message.details.views {
+        parts.push(format!("{views} views"));
+    }
+    if let Some(forwards) = message.details.forwards {
+        parts.push(format!("{forwards} forwards"));
+    }
+    if let Some(replies) = message.details.replies {
+        parts.push(format!("{replies} replies"));
+    }
+    parts.extend(
+        message
+            .details
+            .reactions
+            .iter()
+            .map(|reaction| format!("{} {}", reaction.label, reaction.count)),
+    );
+    if parts.is_empty() {
+        String::new()
+    } else {
+        format!("  · {}", parts.join(" · "))
+    }
+}
+
+fn render_rich_text(message: &MessageView) -> Vec<Span<'static>> {
+    if message.details.entities.is_empty() {
+        return vec![Span::raw(message.body.clone())];
+    }
+    let mut result = Vec::new();
+    let mut utf16_offset = 0;
+    for character in message.body.chars() {
+        let character_length = character.len_utf16();
+        let mut style = Style::default();
+        for entity in &message.details.entities {
+            let entity_end = entity.offset.saturating_add(entity.length);
+            if utf16_offset < entity_end && utf16_offset + character_length > entity.offset {
+                style = match &entity.kind {
+                    TextEntityKind::Bold => style.add_modifier(Modifier::BOLD),
+                    TextEntityKind::Italic => style.add_modifier(Modifier::ITALIC),
+                    TextEntityKind::Underline => style.add_modifier(Modifier::UNDERLINED),
+                    TextEntityKind::Strike => style.add_modifier(Modifier::CROSSED_OUT),
+                    TextEntityKind::Code | TextEntityKind::Pre { .. } => {
+                        style.fg(SECONDARY).bg(SURFACE_BACKGROUND)
+                    }
+                    TextEntityKind::Spoiler => style.fg(MUTED_TEXT),
+                    TextEntityKind::Url | TextEntityKind::TextUrl { .. } => {
+                        style.fg(PRIMARY).add_modifier(Modifier::UNDERLINED)
+                    }
+                    TextEntityKind::Semantic | TextEntityKind::CustomEmoji { .. } => {
+                        style.fg(PRIMARY)
+                    }
+                };
+            }
+        }
+        result.push(Span::styled(character.to_string(), style));
+        utf16_offset += character_length;
+    }
+    result
 }
 
 fn render_composer(frame: &mut Frame<'_>, area: Rect, view: &View) {
@@ -994,6 +1094,14 @@ fn render_composer(frame: &mut Frame<'_>, area: Rect, view: &View) {
         || "Draft".to_owned(),
         |message| format!("Reply to {}", message.0),
     );
+    let composer_label = if view.composer.attachments.is_empty() {
+        composer_label
+    } else {
+        format!(
+            "{composer_label} · {} attachment(s)",
+            view.composer.attachments.len()
+        )
+    };
     let draft_content = if view.composer.text.is_empty() {
         Span::styled("Type or paste a message…", Style::default().fg(MUTED_TEXT))
     } else {
@@ -1066,6 +1174,9 @@ fn render_status(frame: &mut Frame<'_>, area: Rect, view: &View) {
     }
     if view.has_newer_messages {
         status.push_str(" · new messages ↓");
+    }
+    if let Some(notice) = &view.notice {
+        write!(status, " · {notice}").expect("writing to a String cannot fail");
     }
     let style = if view.focus == Focus::Search {
         surface_style(true)
@@ -1164,8 +1275,9 @@ mod tests {
         KeyboardEnhancementFlags,
     };
     use intuigram_app::{
-        Action, ChatId, ChatView, ComposerView, ConnectionState, DeliveryState, Focus, FolderView,
-        MessageDirection, MessageId, MessageView, SearchView, View,
+        Action, ChatId, ChatKind, ChatView, ComposerView, ConnectionState, DeliveryState, Focus,
+        FolderView, MediaCard, MediaKind, MessageDetails, MessageDirection, MessageId, MessageView,
+        SearchView, View,
     };
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
@@ -1216,12 +1328,14 @@ mod tests {
             active_chat: None,
             messages: Vec::new(),
             active_message: None,
+            active_thread: None,
             transcript_anchor: None,
             focus: Focus::Chats,
             composer: ComposerView::default(),
             search: None::<SearchView>,
             has_newer_messages: false,
             help_open: false,
+            notice: None,
             actions,
         }
     }
@@ -1410,6 +1524,8 @@ mod tests {
                 preview: format!("Preview {index}"),
                 unread: 0,
                 pinned: false,
+                kind: ChatKind::Private,
+                folders: vec![0],
             })
             .collect();
         view.active_chat = Some(8);
@@ -1436,6 +1552,8 @@ mod tests {
             preview: String::new(),
             unread: 0,
             pinned: false,
+            kind: ChatKind::Private,
+            folders: vec![0],
         }];
         view.active_chat = Some(0);
         view.messages = (0..20)
@@ -1447,6 +1565,7 @@ mod tests {
                 direction: MessageDirection::Incoming,
                 delivery: DeliveryState::Read,
                 reply_to: None,
+                details: MessageDetails::default(),
             })
             .collect();
         view.active_message = Some(10);
@@ -1472,6 +1591,8 @@ mod tests {
             preview: String::new(),
             unread: 0,
             pinned: false,
+            kind: ChatKind::Private,
+            folders: vec![0],
         }];
         view.active_chat = Some(0);
         view.messages = (0..20)
@@ -1483,6 +1604,7 @@ mod tests {
                 direction: MessageDirection::Incoming,
                 delivery: DeliveryState::Read,
                 reply_to: None,
+                details: MessageDetails::default(),
             })
             .collect();
         view.transcript_anchor = Some(10);
@@ -1497,6 +1619,55 @@ mod tests {
 
         assert_eq!(buffer[(31, 6)].symbol(), " ");
         assert_eq!(buffer[(33, 7)].symbol(), "M");
+    }
+
+    #[test]
+    fn transcript_keeps_media_card_fallback_visible_beside_a_caption() {
+        let mut view = view(Vec::new());
+        view.chats = vec![ChatView {
+            id: ChatId(10),
+            title: "Intuigram".to_owned(),
+            preview: String::new(),
+            unread: 0,
+            pinned: false,
+            kind: ChatKind::Private,
+            folders: vec![0],
+        }];
+        view.active_chat = Some(0);
+        view.messages = vec![MessageView {
+            id: MessageId(1),
+            sender: "Lin".to_owned(),
+            body: "caption".to_owned(),
+            timestamp: "12:00".to_owned(),
+            direction: MessageDirection::Incoming,
+            delivery: DeliveryState::Read,
+            reply_to: None,
+            details: MessageDetails {
+                media: Some(MediaCard {
+                    kind: MediaKind::Unsupported,
+                    title: "Unsupported Content".to_owned(),
+                    description: "constructor retained".to_owned(),
+                    remote_id: None,
+                }),
+                ..MessageDetails::default()
+            },
+        }];
+
+        let backend = TestBackend::new(100, 24);
+        let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
+        terminal
+            .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
+            .expect("view should render");
+        let rendered = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+
+        assert!(rendered.contains("Unsupported Content"));
+        assert!(rendered.contains("constructor retained"));
     }
 
     #[test]
@@ -1522,6 +1693,8 @@ mod tests {
             preview: "A preview with stale trailing characters".to_owned(),
             unread: 0,
             pinned: false,
+            kind: ChatKind::Private,
+            folders: vec![0],
         }];
         view.active_chat = Some(0);
         let backend = TestBackend::new(100, 24);
@@ -1560,6 +1733,8 @@ mod tests {
             preview: "daily driver".to_owned(),
             unread: 1,
             pinned: true,
+            kind: ChatKind::Supergroup,
+            folders: vec![0],
         }];
         view.active_chat = Some(0);
         view.messages = vec![MessageView {
@@ -1570,6 +1745,7 @@ mod tests {
             direction: MessageDirection::Incoming,
             delivery: DeliveryState::Read,
             reply_to: Some(MessageId(0)),
+            details: MessageDetails::default(),
         }];
         view.active_message = Some(0);
         view.focus = Focus::Composer;
