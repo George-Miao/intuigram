@@ -475,6 +475,10 @@ pub struct Bootstrap {
 pub enum AdapterEvent {
     /// Initial synchronized data became available.
     Bootstrap(Bootstrap),
+
+    /// A disconnected Account reconnected with a fresh synchronized snapshot.
+    ConnectionRestored(Bootstrap),
+
     /// Telegram connectivity changed.
     ConnectionChanged(ConnectionState),
 
@@ -760,54 +764,11 @@ impl App {
     fn apply(&mut self, input: Input) -> Option<Effect> {
         match input {
             Input::Adapter(AdapterEvent::Bootstrap(bootstrap)) => {
-                self.view.connection = bootstrap.connection;
-                self.view.account_name = bootstrap.account_name;
-                self.view.folders = bootstrap.folders;
-                self.all_chats = bootstrap.chats;
-                self.drafts = bootstrap
-                    .drafts
-                    .into_iter()
-                    .map(|draft| {
-                        (
-                            HistoryKey {
-                                chat: draft.chat,
-                                thread: draft.thread_root,
-                            },
-                            ComposerView {
-                                text: draft.text,
-                                reply_to: draft.reply_to,
-                                attachments: Vec::new(),
-                            },
-                        )
-                    })
-                    .collect();
-                self.refresh_folder_chats(None);
-                self.view.active_chat = (!self.view.chats.is_empty()).then_some(0);
-                self.histories = bootstrap
-                    .histories
-                    .into_iter()
-                    .map(|history| {
-                        (
-                            HistoryKey {
-                                chat: history.chat,
-                                thread: history.thread_root,
-                            },
-                            history.messages,
-                        )
-                    })
-                    .collect();
-                self.transcript_anchors.clear();
-                if let Some(chat) = self.active_chat_id() {
-                    self.histories
-                        .insert(HistoryKey { chat, thread: None }, bootstrap.messages);
-                }
-                self.view.active_message = None;
-                self.view.active_thread = None;
-                self.view.transcript_anchor = None;
-                self.refresh_active_history();
-                self.restore_active_draft();
-                self.loading_history = None;
-                self.queued_history = None;
+                self.replace_bootstrap(bootstrap);
+                None
+            }
+            Input::Adapter(AdapterEvent::ConnectionRestored(bootstrap)) => {
+                self.merge_restored_connection(bootstrap);
                 None
             }
             Input::Adapter(AdapterEvent::ConnectionChanged(connection)) => {
@@ -993,6 +954,111 @@ impl App {
             }
             Intent::Action(action) => self.apply_action(action),
         }
+    }
+
+    fn replace_bootstrap(&mut self, bootstrap: Bootstrap) {
+        self.view.connection = bootstrap.connection;
+        self.view.account_name = bootstrap.account_name;
+        self.view.folders = bootstrap.folders;
+        self.all_chats = bootstrap.chats;
+        self.drafts = bootstrap
+            .drafts
+            .into_iter()
+            .map(|draft| {
+                (
+                    HistoryKey {
+                        chat: draft.chat,
+                        thread: draft.thread_root,
+                    },
+                    ComposerView {
+                        text: draft.text,
+                        reply_to: draft.reply_to,
+                        attachments: Vec::new(),
+                    },
+                )
+            })
+            .collect();
+        self.refresh_folder_chats(None);
+        self.view.active_chat = (!self.view.chats.is_empty()).then_some(0);
+        self.histories = bootstrap
+            .histories
+            .into_iter()
+            .map(|history| {
+                (
+                    HistoryKey {
+                        chat: history.chat,
+                        thread: history.thread_root,
+                    },
+                    history.messages,
+                )
+            })
+            .collect();
+        self.transcript_anchors.clear();
+        if let Some(chat) = self.active_chat_id() {
+            self.histories
+                .insert(HistoryKey { chat, thread: None }, bootstrap.messages);
+        }
+        self.view.active_message = None;
+        self.view.active_thread = None;
+        self.view.transcript_anchor = None;
+        self.refresh_active_history();
+        self.restore_active_draft();
+        self.loading_history = None;
+        self.queued_history = None;
+    }
+
+    fn merge_restored_connection(&mut self, bootstrap: Bootstrap) {
+        let active_chat = self.active_chat_id();
+        let active_folder = self
+            .view
+            .folders
+            .get(self.view.active_folder)
+            .map(|folder| folder.id);
+        let active_thread = self.view.active_thread;
+        let active_message = self.active_message_id();
+        let transcript_anchor = self.transcript_anchor_id();
+        let focus = self.view.focus;
+        let drafts = std::mem::take(&mut self.drafts);
+        let histories = std::mem::take(&mut self.histories);
+
+        self.replace_bootstrap(bootstrap);
+
+        self.drafts.extend(drafts);
+        for (key, messages) in histories {
+            let restored = self.histories.entry(key).or_default();
+            for message in messages.into_iter().filter(|message| {
+                matches!(
+                    message.delivery,
+                    DeliveryState::Pending | DeliveryState::Failed
+                )
+            }) {
+                restored.retain(|candidate| candidate.id != message.id);
+                restored.push(message);
+            }
+        }
+        if let Some(folder) = active_folder
+            && let Some(index) = self
+                .view
+                .folders
+                .iter()
+                .position(|candidate| candidate.id == folder)
+        {
+            self.view.active_folder = index;
+        }
+        self.refresh_folder_chats(active_chat);
+        self.view.active_chat = active_chat
+            .and_then(|chat| {
+                self.view
+                    .chats
+                    .iter()
+                    .position(|candidate| candidate.id == chat)
+            })
+            .or_else(|| (!self.view.chats.is_empty()).then_some(0));
+        self.view.active_thread = active_thread.filter(|_| self.active_chat_id() == active_chat);
+        self.view.focus = focus;
+        self.view.notice = None;
+        self.refresh_active_history_at(active_message, transcript_anchor);
+        self.restore_active_draft();
     }
 
     fn apply_action(&mut self, action: Action) -> Option<Effect> {
@@ -2097,5 +2163,38 @@ mod tests {
         assert_eq!(reconnecting.view.connection, ConnectionState::Connecting);
         assert!(!reconnecting.view.actions.contains(&Action::Reconnect));
         assert_eq!(reconnecting.effect, Some(Effect::Reconnect));
+    }
+
+    #[test]
+    fn restored_connection_preserves_pending_messages_and_interaction_state() {
+        let mut app = App::new();
+        apply(
+            &mut app,
+            Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
+        );
+        apply(&mut app, Input::Intent(Intent::Action(Action::MoveDown)));
+        apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
+        apply(
+            &mut app,
+            Input::Intent(Intent::Insert("queued while offline".to_owned())),
+        );
+        let pending = app.transition(Input::Intent(Intent::Action(Action::Send)));
+        let pending_id = pending
+            .view
+            .messages
+            .last()
+            .expect("optimistic Message should be visible")
+            .id;
+
+        let mut restored = hierarchy_bootstrap();
+        restored.connection = ConnectionState::Connected;
+        let update = app.transition(Input::Adapter(AdapterEvent::ConnectionRestored(restored)));
+
+        assert_eq!(update.view.connection, ConnectionState::Connected);
+        assert_eq!(update.view.focus, Focus::Composer);
+        assert_eq!(update.view.active_chat, Some(1));
+        assert!(update.view.messages.iter().any(|message| {
+            message.id == pending_id && message.delivery == DeliveryState::Pending
+        }));
     }
 }

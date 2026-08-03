@@ -695,7 +695,8 @@ where
                 let Ok((backend, mut adapter_events, bootstrap)) = *result else {
                     unreachable!("successful connection result was checked")
                 };
-                update = app.transition(Input::Adapter(AdapterEvent::Bootstrap(bootstrap)));
+                update =
+                    app.transition(Input::Adapter(AdapterEvent::ConnectionRestored(bootstrap)));
                 return run_application_state(
                     terminal,
                     events,
