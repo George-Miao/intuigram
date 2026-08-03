@@ -226,9 +226,11 @@ checksum = "e5cf9e29d3c2d2a37078198795631b61d2b5c9cab68191e31526fe342d742135"
 dependencies = [
  "compio-buf",
  "compio-driver",
+ "compio-fs",
  "compio-io",
  "compio-log",
  "compio-net",
+ "compio-process",
  "compio-runtime",
 ]
 
@@ -257,7 +259,9 @@ dependencies = [
  "crossbeam-queue",
  "flume",
  "futures-util",
+ "io-uring",
  "libc",
+ "linux-raw-sys",
  "mod_use",
  "once_cell",
  "pastey",
@@ -281,6 +285,25 @@ dependencies = [
  "crossbeam-queue",
  "loom",
  "slotmap",
+]
+
+[[package]]
+name = "compio-fs"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "934c384c7c1dca1d68540bd0ef16186a8e7f33fab330e54652b45ee80f051ee4"
+dependencies = [
+ "cfg_aliases",
+ "compio-buf",
+ "compio-driver",
+ "compio-io",
+ "compio-runtime",
+ "futures-util",
+ "libc",
+ "pin-project-lite",
+ "rustix",
+ "widestring",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -338,6 +361,20 @@ dependencies = [
  "socket2",
  "synchrony",
  "widestring",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "compio-process"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb7cc04a44627dab383be5fb327f5952c757091ecfea028b04af0e99e4caa9c6"
+dependencies = [
+ "compio-buf",
+ "compio-driver",
+ "compio-io",
+ "compio-runtime",
+ "futures-util",
  "windows-sys 0.61.2",
 ]
 
@@ -1245,12 +1282,17 @@ dependencies = [
  "compio",
  "crossterm",
  "dirs",
+ "futures-util",
  "intuigram-app",
  "intuigram-config",
+ "intuigram-media",
  "intuigram-store",
  "intuigram-telegram",
  "intuigram-tui",
+ "rich-clipboard",
  "rpassword",
+ "serde",
+ "serde_json",
  "snafu",
 ]
 
@@ -1264,6 +1306,16 @@ version = "0.1.0"
 dependencies = [
  "figment",
  "serde",
+ "snafu",
+ "tempfile",
+]
+
+[[package]]
+name = "intuigram-media"
+version = "0.1.0"
+dependencies = [
+ "compio",
+ "compio-io",
  "snafu",
  "tempfile",
 ]
@@ -1286,10 +1338,12 @@ dependencies = [
  "base64",
  "compio",
  "compio-mtproto",
+ "futures-util",
  "getrandom 0.3.4",
  "grammers-crypto",
  "grammers-tl-types",
  "intuigram-app",
+ "md5",
  "snafu",
  "time",
 ]
@@ -1305,6 +1359,17 @@ dependencies = [
  "qrcode",
  "ratatui",
  "snafu",
+]
+
+[[package]]
+name = "io-uring"
+version = "0.7.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9080b15e63775b9a2ac7dca720f7050a8b955e092ea0f6020a4a80f69998cdc0"
+dependencies = [
+ "bitflags 2.13.1",
+ "cfg-if",
+ "libc",
 ]
 
 [[package]]
@@ -1479,6 +1544,12 @@ checksum = "d1525a2a28c7f4fa0fc98bb91ae755d1e2d1505079e05539e35bc876b5d65ae9"
 dependencies = [
  "regex-automata",
 ]
+
+[[package]]
+name = "md5"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ebb8d8732c6a6df3d8f032a82911cfc747e00efb95cc46e8d0acd5b5b88570c"
 
 [[package]]
 name = "memchr"
@@ -2143,6 +2214,14 @@ name = "regex-syntax"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
+
+[[package]]
+name = "rich-clipboard"
+version = "0.1.0"
+dependencies = [
+ "compio",
+ "snafu",
+]
 
 [[package]]
 name = "rpassword"
