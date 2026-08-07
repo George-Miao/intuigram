@@ -12,6 +12,10 @@ api_hash = "replace-with-your-api-hash"
 # Maximum redownloadable media-cache size in bytes. The default is 2 GiB.
 cache_bytes = 2147483648
 
+[view]
+# "default" adds breathing room; "compact" preserves the original dense layout.
+mode = "default"
+
 # Intuigram normally uses platform-native data, cache, and Downloads directories.
 # Uncomment only the paths you want to override.
 # [paths]

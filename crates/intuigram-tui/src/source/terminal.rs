@@ -1,0 +1,210 @@
+/// Active alternate-screen terminal session.
+pub struct TerminalUi {
+    terminal: Terminal<CrosstermBackend<Stdout>>,
+    keymap: EffectiveKeymap,
+    view_mode: ViewMode,
+}
+
+impl TerminalUi {
+    /// Enters raw mode and the alternate screen.
+    pub fn enter() -> Result<Self> {
+        Self::enter_with_mode(ViewMode::Default)
+    }
+
+    /// Enters the terminal using the configured presentation density.
+    pub fn enter_with_mode(view_mode: ViewMode) -> Result<Self> {
+        Ok(Self {
+            terminal: enter_terminal()?,
+            keymap: EffectiveKeymap::defaults(),
+            view_mode,
+        })
+    }
+
+    /// Draws one immutable application view.
+    pub fn draw(&mut self, view: &View) -> Result<()> {
+        let keymap = &self.keymap;
+        let view_mode = self.view_mode;
+        self.terminal
+            .draw(|frame| render_with_mode(frame, view, keymap, view_mode))
+            .context(DrawSnafu)?;
+        Ok(())
+    }
+
+    /// Draws a blocking startup recovery decision without entering a second
+    /// terminal session.
+    pub fn draw_recovery(&mut self, view: &RecoveryView) -> Result<()> {
+        self.terminal
+            .draw(|frame| recovery::render(frame, view))
+            .context(DrawSnafu)?;
+        Ok(())
+    }
+
+    /// Resolves a raw terminal event against the latest application view.
+    #[must_use]
+    pub fn resolve_event(&self, view: &View, event: Event) -> Option<UiEvent> {
+        resolve_event(&self.keymap, view, event)
+    }
+}
+
+/// Resolves a raw terminal event through the production effective keymap.
+///
+/// This is the input boundary used by hermetic behavior tests. It intentionally
+/// accepts a real Crossterm event so tests cover the same context-sensitive
+/// resolution as the interactive terminal.
+#[must_use]
+pub fn resolve_test_event(view: &View, event: Event) -> Option<UiEvent> {
+    resolve_event(&EffectiveKeymap::defaults(), view, event)
+}
+
+/// Renders an immutable application view into Ratatui's in-memory backend.
+///
+/// The returned buffer is the exact cell grid produced by the production
+/// renderer at the requested terminal size.
+#[must_use]
+pub fn render_test_frame(view: &View, width: u16, height: u16) -> TestFrame {
+    render_test_frame_with_mode(view, width, height, ViewMode::Default)
+}
+
+/// Renders a test frame using an explicit presentation density.
+#[must_use]
+pub fn render_test_frame_with_mode(
+    view: &View,
+    width: u16,
+    height: u16,
+    view_mode: ViewMode,
+) -> TestFrame {
+    let backend = TestBackend::new(width, height);
+    let mut terminal =
+        Terminal::new(backend).expect("Ratatui's in-memory TestBackend cannot fail initialization");
+    let mut semantics = Vec::new();
+    terminal
+        .draw(|frame| {
+            render_with_semantics(
+                frame,
+                view,
+                &EffectiveKeymap::defaults(),
+                view_mode,
+                &mut semantics,
+            );
+        })
+        .expect("Ratatui's in-memory TestBackend cannot fail a draw");
+    TestFrame {
+        buffer: terminal.backend().buffer().clone(),
+        semantics,
+    }
+}
+
+/// Persistent Compio-driven terminal input source.
+#[derive(Debug)]
+pub struct TerminalEvents {
+    events: EventStream,
+}
+
+impl TerminalEvents {
+    /// Opens the controlling terminal event source on the active Compio
+    /// runtime thread.
+    pub fn new() -> Result<Self> {
+        Ok(Self {
+            events: EventStream::new().context(InitializeEventStreamSnafu)?,
+        })
+    }
+
+    /// Waits for one raw terminal event without binding it to a stale view.
+    pub async fn next_event(&mut self) -> Result<Event> {
+        self.events
+            .next()
+            .await
+            .context(EventStreamClosedSnafu)?
+            .context(StreamEventSnafu)
+    }
+
+    /// Polls the persistent source in-place so callers can multiplex it
+    /// without constructing and cancelling one-shot read futures.
+    pub fn poll_next_event(&mut self, cx: &mut Context<'_>) -> Poll<Result<Event>> {
+        match Pin::new(&mut self.events).poll_next(cx) {
+            Poll::Ready(Some(event)) => Poll::Ready(event.context(StreamEventSnafu)),
+            Poll::Ready(None) => Poll::Ready(EventStreamClosedSnafu.fail()),
+            Poll::Pending => Poll::Pending,
+        }
+    }
+}
+
+impl Drop for TerminalUi {
+    fn drop(&mut self) {
+        restore_terminal(&mut self.terminal);
+    }
+}
+
+pub(super) fn enter_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>> {
+    enable_raw_mode().context(EnableRawModeSnafu)?;
+    let mut stdout = io::stdout();
+    if let Err(source) = execute!(stdout, EnterAlternateScreen) {
+        let _ = disable_raw_mode();
+        return Err(Error::EnterScreen { source });
+    }
+    if let Err(source) = execute!(
+        stdout,
+        PushKeyboardEnhancementFlags(terminal_keyboard_flags())
+    ) {
+        let _ = execute!(stdout, LeaveAlternateScreen);
+        let _ = disable_raw_mode();
+        return Err(Error::EnableKeyboardReporting { source });
+    }
+    match Terminal::new(CrosstermBackend::new(stdout)) {
+        Ok(terminal) => Ok(terminal),
+        Err(source) => {
+            let mut stdout = io::stdout();
+            let _ = execute!(stdout, PopKeyboardEnhancementFlags, LeaveAlternateScreen);
+            let _ = disable_raw_mode();
+            Err(Error::InitializeTerminal { source })
+        }
+    }
+}
+
+pub(super) fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) {
+    let _ = disable_raw_mode();
+    let _ = execute!(
+        terminal.backend_mut(),
+        PopKeyboardEnhancementFlags,
+        LeaveAlternateScreen
+    );
+    let _ = terminal.show_cursor();
+}
+
+pub(crate) const fn terminal_keyboard_flags() -> KeyboardEnhancementFlags {
+    KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+        .union(KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES)
+}
+
+pub(crate) fn resolve_event(
+    keymap: &EffectiveKeymap,
+    view: &View,
+    event: Event,
+) -> Option<UiEvent> {
+    match event {
+        Event::Resize(..) => Some(UiEvent::Redraw),
+        Event::FocusGained | Event::FocusLost => Some(UiEvent::Redraw),
+        Event::Paste(text) => Some(UiEvent::Intent(Intent::Insert(text))),
+        Event::Key(key) if matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) => {
+            let chord = chord_from_crossterm(key.code, key.modifiers);
+            if let Some(chord) = chord
+                && let Some(action) = keymap.resolve(view, chord)
+            {
+                return Some(UiEvent::Intent(Intent::Action(action)));
+            }
+            match key.code {
+                CrosstermKey::Char(character)
+                    if !key
+                        .modifiers
+                        .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
+                {
+                    Some(UiEvent::Intent(Intent::Insert(character.to_string())))
+                }
+                CrosstermKey::Backspace => Some(UiEvent::Intent(Intent::Backspace)),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+use super::*;

@@ -1,4 +1,5 @@
 use std::num::NonZeroUsize;
+use std::time::Duration;
 
 use grammers_crypto::DequeBuffer;
 use grammers_mtproto::MsgId;
@@ -89,6 +90,16 @@ impl Error {
     #[must_use]
     pub const fn is_connection_failure(&self) -> bool {
         matches!(self, Self::Transport { .. } | Self::DriverStopped)
+    }
+
+    /// Returns Telegram's requested delay for an RPC rate limit.
+    #[must_use]
+    pub fn retry_after(&self) -> Option<Duration> {
+        let Self::Rpc { code: 420, message } = self else {
+            return None;
+        };
+        let seconds = message.rsplit_once('_')?.1.parse::<u64>().ok()?;
+        Some(Duration::from_secs(seconds))
     }
 }
 
@@ -359,5 +370,24 @@ mod tests {
         let result = encode_envelope(&mut mtp, &[1, 2, 3, 4]);
 
         assert!(matches!(result, Ok(EncodedEnvelope::Service(payload)) if !payload.is_empty()));
+    }
+
+    #[test]
+    fn consecutive_content_requests_receive_monotonic_message_ids() {
+        let mut mtp = Encrypted::build().finish([0x42; 256]);
+        let EncodedEnvelope::Request {
+            request_id: first, ..
+        } = encode_envelope(&mut mtp, &[1, 2, 3, 4]).expect("first request should encode")
+        else {
+            panic!("first content request should be emitted immediately")
+        };
+        let EncodedEnvelope::Request {
+            request_id: second, ..
+        } = encode_envelope(&mut mtp, &[5, 6, 7, 8]).expect("second request should encode")
+        else {
+            panic!("second content request should be emitted immediately")
+        };
+
+        assert!(second > first);
     }
 }

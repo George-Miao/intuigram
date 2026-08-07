@@ -31,10 +31,34 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 pub struct Config {
     /// Filesystem locations used by Intuigram.
     pub paths: Paths,
+
     /// Media cache policy.
     pub media: Media,
+
     /// Telegram application and login settings.
     pub telegram: Telegram,
+
+    /// Terminal presentation settings.
+    pub view: View,
+}
+
+/// Terminal presentation settings.
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+pub struct View {
+    /// Density used by Chat, Message, and Folder presentation.
+    pub mode: ViewMode,
+}
+
+/// Configurable terminal presentation density.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ViewMode {
+    /// Readable spacing with separation between list items.
+    #[default]
+    Default,
+
+    /// Original dense presentation.
+    Compact,
 }
 
 /// Telegram settings supplied by the user rather than embedded in Intuigram.
@@ -192,6 +216,9 @@ impl ConfigLoader {
                 cache_bytes: DEFAULT_MEDIA_CACHE_BYTES,
             },
             telegram: Telegram::default(),
+            view: View {
+                mode: ViewMode::Default,
+            },
         };
         let mut figment = Figment::from(Serialized::defaults(defaults))
             .merge(Toml::file(self.defaults.config.join("config.toml")))
@@ -225,7 +252,7 @@ mod tests {
 
     use tempfile::tempdir;
 
-    use super::{ConfigLoader, Overrides, PlatformDefaults};
+    use super::{ConfigLoader, Overrides, PlatformDefaults, ViewMode};
 
     fn defaults(root: &Path) -> PlatformDefaults {
         PlatformDefaults {
@@ -313,5 +340,29 @@ mod tests {
             .expect("Telegram API hash should exist");
         assert_eq!(hash.expose(), "super-secret-hash");
         assert_eq!(format!("{hash:?}"), "ApiHash([REDACTED])");
+    }
+
+    #[test]
+    fn spacious_view_is_default_and_compact_view_can_be_configured() {
+        let temporary = tempdir().expect("temporary directory should be created");
+        let platform = defaults(temporary.path());
+        fs::create_dir_all(&platform.config).expect("config directory should be created");
+
+        let default = ConfigLoader::new(platform.clone())
+            .read_environment(false)
+            .load()
+            .expect("default configuration should load");
+        assert_eq!(default.view.mode, ViewMode::Default);
+
+        fs::write(
+            platform.config.join("config.toml"),
+            "[view]\nmode = 'compact'\n",
+        )
+        .expect("TOML config should be written");
+        let compact = ConfigLoader::new(platform)
+            .read_environment(false)
+            .load()
+            .expect("compact view configuration should load");
+        assert_eq!(compact.view.mode, ViewMode::Compact);
     }
 }

@@ -5,8 +5,10 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-compio = { workspace = true, features = ["fs"] }
+compio = { workspace = true, features = ["fs", "process"] }
 compio-io.workspace = true
+image.workspace = true
+intuigram-app.workspace = true
 snafu.workspace = true
 
 [dev-dependencies]

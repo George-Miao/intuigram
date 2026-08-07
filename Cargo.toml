@@ -8,6 +8,17 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
+compio-mtproto = { path = "crates/compio-mtproto" }
+compio-term = { path = "crates/compio-term" }
+intuigram = { path = "crates/intuigram" }
+intuigram-app = { path = "crates/intuigram-app" }
+intuigram-config = { path = "crates/intuigram-config" }
+intuigram-media = { path = "crates/intuigram-media" }
+intuigram-store = { path = "crates/intuigram-store" }
+intuigram-telegram = { path = "crates/intuigram-telegram" }
+intuigram-tui = { path = "crates/intuigram-tui" }
+rich-clipboard = { path = "crates/rich-clipboard" }
+test-harness = { path = "crates/test-harness" }
 figment = "0.10.19"
 serde = "1"
 serde_json = "1"
@@ -28,10 +39,12 @@ grammers-crypto = "0.10"
 grammers-mtproto = "0.10"
 grammers-tl-types = "0.10"
 getrandom = "0.3"
+image = { version = "0.25.10", default-features = false, features = ["gif", "jpeg", "png", "webp"] }
 md5 = "0.8.1"
 base64 = "0.22.1"
 qrcode = "0.14.1"
 signal-hook = "0.3.18"
+url = "2.5.7"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

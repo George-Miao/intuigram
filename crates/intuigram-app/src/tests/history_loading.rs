@@ -1,0 +1,180 @@
+use super::*;
+
+#[test]
+fn background_refresh_does_not_replace_a_transcript_being_read() {
+    let mut fixture = hierarchy_bootstrap();
+    let cached = message(20, "stable cached history");
+    fixture.histories.push(HistoryView {
+        chat: ChatId(20),
+        thread_root: None,
+        messages: vec![cached.clone()],
+    });
+    let mut app = App::new();
+    let bootstrap = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    assert_eq!(bootstrap.effect, Some(load_chat(20)));
+    apply(&mut app, Input::Intent(Intent::Action(Action::MoveDown)));
+    apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
+    apply(
+        &mut app,
+        Input::Intent(Intent::Action(Action::TargetPreviousMessage)),
+    );
+
+    let refreshed = vec![cached.clone(), message(21, "loaded in the background")];
+    let loaded = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        chat: ChatId(20),
+        messages: refreshed.clone(),
+    }));
+
+    assert_eq!(loaded.view.messages, vec![cached]);
+    assert_eq!(loaded.view.active_message, Some(0));
+    assert!(loaded.view.has_newer_messages);
+    assert_jump_adopts_refresh(&mut app, refreshed);
+}
+
+#[test]
+fn rapid_navigation_does_not_drop_an_inactive_background_history() {
+    let mut fixture = hierarchy_bootstrap();
+    let mut third = fixture.chats[1].clone();
+    third.id = ChatId(30);
+    third.title = "Compio".to_owned();
+    let mut fourth = third.clone();
+    fourth.id = ChatId(40);
+    fourth.title = "Ratatui".to_owned();
+    fixture.chats.extend([third, fourth]);
+    let mut app = App::new();
+
+    let bootstrap = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    assert_eq!(bootstrap.effect, Some(load_chat(20)));
+    for _ in 0..3 {
+        apply(&mut app, Input::Intent(Intent::Action(Action::MoveDown)));
+    }
+    let latest = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        chat: ChatId(20),
+        messages: Vec::new(),
+    }));
+    assert_eq!(latest.effect, Some(load_chat(40)));
+
+    let resumed_background = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        chat: ChatId(40),
+        messages: Vec::new(),
+    }));
+    assert_eq!(resumed_background.effect, Some(load_chat(30)));
+}
+
+#[test]
+fn background_thread_refresh_does_not_replace_a_transcript_being_read() {
+    let mut fixture = bootstrap();
+    let root_messages = fixture.messages.clone();
+    let cached = message(30, "stable thread history");
+    fixture.histories.push(HistoryView {
+        chat: ChatId(10),
+        thread_root: Some(MessageId(3)),
+        messages: vec![cached.clone()],
+    });
+    let mut app = App::new();
+    apply(&mut app, Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::ChatLoaded {
+            chat: ChatId(10),
+            messages: root_messages,
+        }),
+    );
+    apply(&mut app, Input::Intent(Intent::Action(Action::JumpLatest)));
+    let opened = app.transition(Input::Intent(Intent::Action(Action::OpenThread)));
+    assert_eq!(
+        opened.effect,
+        Some(Effect::LoadThread {
+            chat: ChatId(10),
+            root: MessageId(3),
+        })
+    );
+    apply(
+        &mut app,
+        Input::Intent(Intent::Action(Action::TargetPreviousMessage)),
+    );
+
+    let refreshed = vec![cached.clone(), message(31, "loaded in the background")];
+    let loaded = app.transition(Input::Adapter(AdapterEvent::ThreadLoaded {
+        chat: ChatId(10),
+        root: MessageId(3),
+        messages: refreshed.clone(),
+    }));
+
+    assert_eq!(loaded.view.messages, vec![cached]);
+    assert_eq!(loaded.view.active_message, Some(0));
+    assert!(loaded.view.has_newer_messages);
+    assert_jump_adopts_refresh(&mut app, refreshed);
+}
+
+#[test]
+fn thread_read_is_emitted_after_remaining_background_history() {
+    let mut fixture = hierarchy_bootstrap();
+    let mut third = fixture.chats[1].clone();
+    third.id = ChatId(30);
+    third.title = "Compio".to_owned();
+    fixture.chats.push(third);
+    let mut app = App::new();
+    let bootstrap = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    assert_eq!(bootstrap.effect, Some(load_chat(20)));
+
+    apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
+    apply(&mut app, Input::Intent(Intent::Action(Action::JumpLatest)));
+    apply(&mut app, Input::Intent(Intent::Action(Action::OpenThread)));
+    let foreground = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        chat: ChatId(20),
+        messages: Vec::new(),
+    }));
+    assert_eq!(
+        foreground.effect,
+        Some(Effect::LoadThread {
+            chat: ChatId(10),
+            root: MessageId(3),
+        })
+    );
+
+    let warmup = app.transition(Input::Adapter(AdapterEvent::ThreadLoaded {
+        chat: ChatId(10),
+        root: MessageId(3),
+        messages: vec![message(31, "visible incoming thread message")],
+    }));
+    assert_eq!(warmup.effect, Some(load_chat(30)));
+
+    let read = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        chat: ChatId(30),
+        messages: Vec::new(),
+    }));
+    assert_eq!(
+        read.effect,
+        Some(Effect::ReadThread {
+            chat: ChatId(10),
+            root: MessageId(3),
+            max_id: MessageId(31),
+        })
+    );
+}
+
+fn message(id: i64, body: &str) -> MessageView {
+    MessageView {
+        id: MessageId(id),
+        sender: "Ferris".to_owned(),
+        body: body.to_owned(),
+        timestamp: "12:30".to_owned(),
+        direction: MessageDirection::Incoming,
+        delivery: DeliveryState::Read,
+        reply_to: None,
+        details: MessageDetails::default(),
+    }
+}
+
+fn load_chat(chat: i64) -> Effect {
+    Effect::LoadChat { chat: ChatId(chat) }
+}
+
+fn assert_jump_adopts_refresh(app: &mut App, refreshed: Vec<MessageView>) {
+    let jumped = app.transition(Input::Intent(Intent::Action(Action::JumpLatest)));
+    assert_eq!(jumped.view.messages, refreshed);
+    assert_eq!(jumped.view.active_message, Some(1));
+    assert!(!jumped.view.has_newer_messages);
+}

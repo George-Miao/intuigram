@@ -1,0 +1,107 @@
+pub(super) enum Connection {
+    Login(Box<EncryptedConnection>),
+    Live(InvocationHandle),
+}
+
+impl Connection {
+    pub(super) async fn invoke<R>(
+        &mut self,
+        request: &R,
+    ) -> std::result::Result<R::Return, InvocationError>
+    where
+        R: tl::RemoteCall + tl::Serializable,
+        R::Return: tl::Deserializable,
+    {
+        let mut flood_wait_retried = false;
+        loop {
+            let result = match self {
+                Self::Login(connection) => connection.invoke(request).await,
+                Self::Live(connection) => connection.invoke(request).await,
+            };
+            match result {
+                Err(error) => {
+                    let Some(delay) = flood_wait_delay(&error, flood_wait_retried) else {
+                        return Err(error);
+                    };
+                    flood_wait_retried = true;
+                    compio::time::sleep(delay).await;
+                }
+                Ok(value) => return Ok(value),
+            }
+        }
+    }
+
+    pub(super) fn take_updates(&mut self) -> Vec<Vec<u8>> {
+        match self {
+            Self::Login(connection) => connection.take_updates(),
+            Self::Live(_) => Vec::new(),
+        }
+    }
+}
+
+pub(crate) fn flood_wait_delay(error: &InvocationError, already_retried: bool) -> Option<Duration> {
+    if already_retried {
+        None
+    } else {
+        error.retry_after()
+    }
+}
+
+/// Telegram API client built on Intuigram's Compio `MTProto` sender.
+pub struct Client {
+    pub(super) connection: Connection,
+    pub(super) dc_id: i32,
+    pub(super) credentials: ApplicationCredentials,
+    pub(super) password: Option<tl::types::account::Password>,
+    pub(super) identity: Option<AuthorizedUser>,
+    pub(super) peers: PeerDirectory,
+    pub(super) names: HashMap<ChatId, String>,
+    pub(super) channel_pts: HashMap<ChatId, i32>,
+    pub(super) data_centers: HashMap<i32, SocketAddr>,
+}
+
+/// Passive normalized Telegram updates driven by one persistent MTProto
+/// connection.
+pub struct LiveUpdates {
+    pub(super) driver: Pin<Box<ConnectionDriver>>,
+    pub(super) updates: UpdateStream,
+    pub(super) names: HashMap<ChatId, String>,
+    pub(super) terminated: bool,
+}
+
+impl Stream for LiveUpdates {
+    type Item = Result<LiveEvent>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        if self.terminated {
+            return Poll::Ready(None);
+        }
+        match self.driver.as_mut().poll(cx) {
+            Poll::Ready(Err(source)) => {
+                self.terminated = true;
+                return Poll::Ready(Some(Err(Error::Invoke { source })));
+            }
+            Poll::Ready(Ok(())) => {
+                self.terminated = true;
+                return Poll::Ready(None);
+            }
+            Poll::Pending => {}
+        }
+        match Pin::new(&mut self.updates).poll_next(cx) {
+            Poll::Ready(Some(bytes)) => match normalize_live_update(&bytes, &mut self.names) {
+                Ok(batch) => Poll::Ready(Some(Ok(LiveEvent {
+                    events: batch.events,
+                    cursors: batch.cursors,
+                    peers: batch.peers,
+                }))),
+                Err(error) => Poll::Ready(Some(Err(error))),
+            },
+            Poll::Ready(None) => {
+                self.terminated = true;
+                Poll::Ready(None)
+            }
+            Poll::Pending => Poll::Pending,
+        }
+    }
+}
+use super::*;

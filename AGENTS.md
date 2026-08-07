@@ -8,6 +8,8 @@ Intuigram is a fluent, configurable Telegram terminal client intended to become 
 
 The current root Rust package and `src/` tree are a disposable proof of concept. Do not preserve their architecture, behavior, dependencies, or compatibility unless a current design document explicitly requires it. In particular, manual refresh, text-only scope, keyboard modes, and the existing high-level grammers integration are obsolete.
 
+Update `TODO.md` at the end of task to match the current state. Leave unchange if the task is not mentioned.
+
 ## Required reading
 
 Before architectural or product work, read:
@@ -32,6 +34,7 @@ The target is a virtual Cargo workspace. Every package belongs under `crates/`.
 - `crates/compio-mtproto`: reusable Compio-based MTProto connection, session, invocation, and update-stream library.
 - `crates/compio-term`: experimental reusable Compio-native terminal event readiness; keep its API explicitly unstable until the Windows backend and cross-platform behavior are resolved.
 - `crates/rich-clipboard`: reusable native clipboard-content library.
+- `crates/test-harness`: dev-only hermetic behavior runner with strict scripted adapters, isolated real storage, semantic locators, and failure traces.
 
 Use `intuigram-*` for Intuigram-specific crates. Give genuinely reusable crates independent names. Do not create a crate merely to group related types. A crate must hide meaningful behavior behind a small interface at a demonstrated seam.
 
@@ -39,11 +42,21 @@ Dependencies point toward `intuigram-app`; the `intuigram` executable composes a
 
 ## State and concurrency
 
-- One asynchronous `intuigram-app` task exclusively owns mutable application state.
-- TUI input and adapters communicate with it through bounded, typed channels.
+- The `intuigram` composition loop runs terminal input, rendering, synchronous
+  `intuigram-app` state reduction, Telegram, and nonblocking adapters on one
+  Compio runtime thread.
+- `intuigram-app` exclusively owns mutable application state and applies each
+  typed input synchronously, returning an immutable view and optional adapter
+  effect.
+- The composition loop polls persistent event sources and a bounded set of
+  owned effect futures in place. Do not cancel and recreate an in-flight Compio
+  operation merely because another source wakes, and do not add
+  `async_channel` between tasks on the same runtime thread.
 - Terminal input and rendering must remain responsive while adapter effects are pending. Never execute Telegram, database, media, clipboard, notification, or platform work synchronously in the terminal event loop.
 - The TUI renders immutable snapshots or deltas.
-- Long-running Telegram, database, media, clipboard, notification, and platform work stays outside the state owner and returns typed results.
+- Blocking SQLite work stays on dedicated database threads. Other long-running
+  adapter work remains asynchronous and returns typed results to the
+  composition loop.
 - Do not introduce cross-crate shared mutable state or mutex-protected application state.
 - Make backpressure, cancellation, ordering, and shutdown behavior explicit.
 
@@ -118,8 +131,11 @@ Enforce owner-only permissions for authorization and Account data. Never log aut
 - Do not use `unwrap` in production paths. Use `expect` only for a genuine invariant and explain that invariant in the message.
 - Use newtypes where raw integers or strings from different domains could be confused, especially Account, peer, Chat, Message, and request identifiers.
 - Keep public interfaces small. Accept dependencies rather than constructing hidden globals, and return observable results rather than producing untestable side effects.
+- Keep each handwritten source file below a soft limit of 200 lines and a hard limit of 400 lines. Crossing 200 lines should trigger a deliberate review for cohesive module seams; never cross 400 lines. Keep `main.rs` and `lib.rs` especially small: they should declare modules, re-export the intentional interface, and perform only top-level composition. Split by behavior and ownership, not arbitrary line ranges. Generated sources and embedded schema fixtures are exempt.
+- When a Rust module owns child modules, use the directory form with `xxx/mod.rs`; do not pair `xxx.rs` with an `xxx/` directory.
+- Never use `include!` to splice Rust source files together. Use ordinary `mod` declarations, explicit imports and re-exports, and real module privacy boundaries.
 - Document public items and non-obvious invariants. Do not add decorative section-divider comments.
-- When any field in a struct has an attribute, leave a blank line between every field in that struct. When any enum variant has an attribute, leave a blank line between every variant in that enum.
+- When any field in a struct has an attribute or comment, leave a blank line between every field in that struct. When any enum variant has an attribute, leave a blank line between every variant in that enum.
 - Avoid wildcard imports outside test modules and deliberate preludes.
 - Do not optimize speculative hot paths. Add measurements before performance-specific complexity.
 

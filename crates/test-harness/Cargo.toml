@@ -1,0 +1,22 @@
+[package]
+name = "test-harness"
+version = "0.0.0" # private crate
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+crossterm.workspace = true
+intuigram.workspace = true
+intuigram-app.workspace = true
+intuigram-media.workspace = true
+intuigram-store.workspace = true
+intuigram-telegram.workspace = true
+intuigram-tui.workspace = true
+ratatui.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+snafu.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true

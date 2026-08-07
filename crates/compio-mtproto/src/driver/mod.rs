@@ -1,3 +1,5 @@
+//! Persistent single-owner MTProto connection driver.
+
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use std::future::Future;
@@ -393,51 +395,4 @@ pub(crate) fn from_parts(
 }
 
 #[cfg(test)]
-fn test_parts(capacity: NonZeroUsize) -> (InvocationHandle, UpdateStream, Rc<Shared>) {
-    let shared = Shared::new(capacity);
-    (
-        InvocationHandle {
-            shared: Rc::clone(&shared),
-        },
-        UpdateStream {
-            shared: Rc::clone(&shared),
-        },
-        shared,
-    )
-}
-
-#[cfg(test)]
-mod tests {
-    use std::num::NonZeroUsize;
-
-    use futures_util::StreamExt;
-
-    use super::test_parts;
-
-    #[test]
-    fn invocation_queue_is_bounded_before_network_progress() {
-        let (handle, _updates, _shared) =
-            test_parts(NonZeroUsize::new(1).expect("fixture capacity is positive"));
-
-        let _first = handle
-            .invoke_raw(vec![1, 2, 3, 4])
-            .expect("first invocation should fit");
-        let error = handle
-            .invoke_raw(vec![5, 6, 7, 8])
-            .expect_err("second invocation should exceed capacity");
-
-        assert!(matches!(error, super::Error::QueueFull { capacity: 1 }));
-    }
-
-    #[test]
-    fn passive_updates_are_awaitable_without_an_rpc() {
-        let runtime = compio::runtime::Runtime::new().expect("test runtime should initialize");
-        runtime.block_on(async {
-            let (_handle, mut updates, shared) =
-                test_parts(NonZeroUsize::new(1).expect("fixture capacity is positive"));
-            shared.publish_update(vec![0x42, 0x24]);
-
-            assert_eq!(updates.next().await, Some(vec![0x42, 0x24]));
-        });
-    }
-}
+mod tests;

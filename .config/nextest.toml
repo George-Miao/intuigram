@@ -1,0 +1,4 @@
+[profile.default]
+retries = 0
+slow-timeout = { period = "10s", terminate-after = 2 }
+leak-timeout = "500ms"

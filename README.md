@@ -60,6 +60,9 @@ Create an application at `my.telegram.org`, copy
 api_id = 123456
 api_hash = "your-api-hash"
 # phone_number = "+12025550123" # optional phone-login fallback
+
+[view]
+mode = "default" # use "compact" for the original dense layout
 ```
 
 Environment variables are also accepted:

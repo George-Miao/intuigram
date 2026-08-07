@@ -6,12 +6,12 @@ license.workspace = true
 
 [dependencies]
 base64.workspace = true
-compio-mtproto = { path = "../compio-mtproto" }
+compio-mtproto.workspace = true
 compio = { version = "0.19.1", default-features = false, features = ["time"] }
 futures-util.workspace = true
 grammers-crypto.workspace = true
 grammers-tl-types.workspace = true
-intuigram-app = { path = "../intuigram-app" }
+intuigram-app.workspace = true
 md5.workspace = true
 snafu.workspace = true
 time = { workspace = true, features = ["local-offset"] }
