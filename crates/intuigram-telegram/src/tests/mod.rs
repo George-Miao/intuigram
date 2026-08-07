@@ -18,17 +18,20 @@ use crate::source::{
 };
 
 #[test]
-fn flood_wait_is_retried_once_after_the_server_delay() {
+fn every_flood_wait_is_retried_after_the_server_delay() {
     let error = InvocationError::Rpc {
         code: 420,
         message: "FLOOD_WAIT_17".to_owned(),
     };
 
     assert_eq!(
-        flood_wait_delay(&error, false),
+        flood_wait_delay(&error),
         Some(std::time::Duration::from_secs(17))
     );
-    assert_eq!(flood_wait_delay(&error, true), None);
+    assert_eq!(
+        flood_wait_delay(&error),
+        Some(std::time::Duration::from_secs(17))
+    );
 }
 
 #[test]

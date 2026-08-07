@@ -12,7 +12,6 @@ impl Connection {
         R: tl::RemoteCall + tl::Serializable,
         R::Return: tl::Deserializable,
     {
-        let mut flood_wait_retried = false;
         loop {
             let result = match self {
                 Self::Login(connection) => connection.invoke(request).await,
@@ -20,10 +19,9 @@ impl Connection {
             };
             match result {
                 Err(error) => {
-                    let Some(delay) = flood_wait_delay(&error, flood_wait_retried) else {
+                    let Some(delay) = flood_wait_delay(&error) else {
                         return Err(error);
                     };
-                    flood_wait_retried = true;
                     compio::time::sleep(delay).await;
                 }
                 Ok(value) => return Ok(value),
@@ -39,12 +37,8 @@ impl Connection {
     }
 }
 
-pub(crate) fn flood_wait_delay(error: &InvocationError, already_retried: bool) -> Option<Duration> {
-    if already_retried {
-        None
-    } else {
-        error.retry_after()
-    }
+pub(crate) fn flood_wait_delay(error: &InvocationError) -> Option<Duration> {
+    error.retry_after()
 }
 
 /// Telegram API client built on Intuigram's Compio `MTProto` sender.
