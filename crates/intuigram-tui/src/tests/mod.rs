@@ -2,9 +2,10 @@ use crossterm::event::{
     Event, KeyCode as CrosstermKey, KeyEvent, KeyEventKind, KeyModifiers, KeyboardEnhancementFlags,
 };
 use intuigram_app::{
-    Action, ChatId, ChatKind, ChatView, ComposerView, ConnectionState, DeliveryState, Focus,
-    FolderView, MediaCard, MediaKind, MessageDetails, MessageDirection, MessageId, MessageView,
-    PollOptionView, PollView, ReactionView, SearchView, TextEntity, TextEntityKind, View,
+    Action, ChatId, ChatKind, ChatLoadingState, ChatView, ComposerView, ConnectionState,
+    DeliveryState, Focus, FolderView, MediaCard, MediaKind, MessageDetails, MessageDirection,
+    MessageId, MessageView, PollOptionView, PollView, ReactionView, SearchView, TextEntity,
+    TextEntityKind, View,
 };
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
@@ -55,6 +56,7 @@ fn view(actions: Vec<Action>) -> View {
         chats: Vec::new(),
         active_chat: None,
         messages: Vec::new(),
+        chat_loading: ChatLoadingState::Idle,
         pinned_messages: Vec::new(),
         active_message: None,
         active_thread: None,
@@ -75,6 +77,7 @@ fn view(actions: Vec<Action>) -> View {
         media_previews: Vec::new(),
         poll_composer: false,
         notice: None,
+        animation_frame: 0,
         actions,
     }
 }
@@ -293,6 +296,7 @@ fn terminal_events_resolve_against_the_current_view() {
     );
 }
 mod density;
+mod effort;
 mod multiline;
 mod rendering;
 mod semantics;

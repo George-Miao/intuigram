@@ -1,4 +1,3 @@
-use std::fmt::Write as _;
 use std::io::{self, Stdout};
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -15,8 +14,8 @@ use crossterm::terminal::{
 };
 use futures_util::{Stream, StreamExt};
 use intuigram_app::{
-    Action, ComposerMovement, ConnectionState, DeliveryState, Focus, Intent, MessageDirection,
-    MessageView, TextEntityKind, View,
+    Action, ChatLoadingState, ComposerMovement, ConnectionState, DeliveryState, Focus, Intent,
+    MessageDirection, MessageView, TextEntityKind, View,
 };
 use qrcode::render::unicode::Dense1x2;
 use qrcode::types::Color as QrColor;
@@ -33,6 +32,7 @@ use snafu::{OptionExt, ResultExt, Snafu};
 use crate::recovery::{self, RecoveryView};
 
 mod composer_wrap;
+mod effort;
 mod events;
 mod key_chord;
 pub(crate) mod qr_render;
@@ -46,6 +46,7 @@ mod render_transcript;
 pub(crate) mod terminal;
 mod view_mode;
 
+use effort::effort_spans;
 pub use events::*;
 use qr_render::{chord_from_crossterm, qr_login_symbols, render_qr_login};
 pub use qr_session::*;

@@ -70,6 +70,7 @@ impl App {
         self.history_loads.queued = None;
         self.history_loads.refreshed_chats.clear();
         self.history_loads.thread_read_pending = false;
+        self.view.chat_loading = ChatLoadingState::Idle;
         let active = self.active_chat_id();
         self.history_loads.background_cursor = active
             .and_then(|active| {
@@ -86,6 +87,13 @@ impl App {
     }
 
     fn start_history_load(&mut self, key: HistoryKey) -> Option<Effect> {
+        if self.active_history_key() == Some(key) {
+            self.view.chat_loading = if self.view.messages.is_empty() {
+                ChatLoadingState::Fresh
+            } else {
+                ChatLoadingState::Updating
+            };
+        }
         match self.history_loads.active {
             None => {
                 self.history_loads.active = Some(key);
@@ -118,6 +126,9 @@ impl App {
         }
         if self.history_loads.active != Some(key) {
             return None;
+        }
+        if self.active_history_key() == Some(key) {
+            self.view.chat_loading = ChatLoadingState::Idle;
         }
         self.history_loads.active = None;
         let foreground = self

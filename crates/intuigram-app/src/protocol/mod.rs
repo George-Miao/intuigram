@@ -98,6 +98,9 @@ pub enum Intent {
     Backspace,
     /// Move the insertion cursor without changing the Draft.
     MoveComposerCursor(ComposerMovement),
+
+    /// Advance one renderer animation frame while pending work remains.
+    Animate,
 }
 
 /// Initial synchronized data supplied by an adapter.

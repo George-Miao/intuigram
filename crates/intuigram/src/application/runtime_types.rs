@@ -10,6 +10,7 @@ pub(super) enum ApplicationWake<B> {
     Terminal(intuigram_tui::Result<crossterm::event::Event>),
     Adapter(Result<AdapterBatch>),
     Backend(BackendCompletion<B>),
+    Animation,
 }
 
 pub(super) struct DisconnectedApplication<B> {

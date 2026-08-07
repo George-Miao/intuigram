@@ -241,6 +241,9 @@ pub struct View {
     /// Loaded messages for the active Chat.
     pub messages: Vec<MessageView>,
 
+    /// Foreground loading state for the history presented in the Transcript.
+    pub chat_loading: ChatLoadingState,
+
     /// Pinned Messages in the Active Chat, independently of the visible history
     /// window.
     pub pinned_messages: Vec<MessageView>,
@@ -302,8 +305,24 @@ pub struct View {
     /// Latest nonfatal adapter notice.
     pub notice: Option<String>,
 
+    /// Monotonic wrapping frame used by renderer-owned effort animations.
+    pub animation_frame: u8,
+
     /// Actions valid in the current context.
     pub actions: Vec<Action>,
+}
+
+impl View {
+    /// Reports whether the renderer needs another animation frame.
+    #[must_use]
+    pub fn has_pending_effort(&self) -> bool {
+        self.connection == ConnectionState::Connecting
+            || self.chat_loading != ChatLoadingState::Idle
+            || self
+                .messages
+                .iter()
+                .any(|message| message.delivery == DeliveryState::Pending)
+    }
 }
 
 /// One state transition observed by the composition root.

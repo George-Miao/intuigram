@@ -17,7 +17,7 @@ use intuigram::{
 use intuigram_app::{
     AdapterEvent, App, AttachmentId, AttachmentKind, AttachmentView, Bootstrap, ChatId, ChatKind,
     ChatView, ConnectionState, DeliveryState, DownloadId, DownloadView, DraftView, Effect,
-    FolderView, HistoryView, InlineImage, Input, MediaCard, MediaKind, MediaPreviewView,
+    FolderView, HistoryView, InlineImage, Input, Intent, MediaCard, MediaKind, MediaPreviewView,
     MessageDetails, MessageDirection, MessageId, MessageView, PollOptionView, PollView, TextEntity,
     Update,
 };

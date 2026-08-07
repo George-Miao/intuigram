@@ -35,6 +35,19 @@ pub enum ConnectionState {
     ReconnectCooldown,
 }
 
+/// Loading state for the history currently presented in the Transcript.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ChatLoadingState {
+    /// No foreground history work is pending.
+    Idle,
+
+    /// The Transcript is empty while its first history window loads.
+    Fresh,
+
+    /// Cached Messages remain visible while Telegram refreshes them.
+    Updating,
+}
+
 /// Current interaction target within the TUI hierarchy.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Focus {

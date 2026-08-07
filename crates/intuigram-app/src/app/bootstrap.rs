@@ -9,6 +9,7 @@ impl App {
                 chats: Vec::new(),
                 active_chat: None,
                 messages: Vec::new(),
+                chat_loading: ChatLoadingState::Idle,
                 pinned_messages: Vec::new(),
                 active_message: None,
                 active_thread: None,
@@ -29,6 +30,7 @@ impl App {
                 media_previews: Vec::new(),
                 poll_composer: false,
                 notice: None,
+                animation_frame: 0,
                 actions: Vec::new(),
             },
             all_chats: Vec::new(),
@@ -68,6 +70,12 @@ impl App {
             }
             Intent::MoveComposerCursor(movement) => {
                 self.move_composer_cursor(movement);
+                None
+            }
+            Intent::Animate => {
+                if self.view.has_pending_effort() {
+                    self.view.animation_frame = self.view.animation_frame.wrapping_add(1);
+                }
                 None
             }
             Intent::Action(action) => self.apply_action(action),

@@ -57,12 +57,6 @@ fn message_lines(
         MessageDirection::Incoming => "←",
         MessageDirection::Outgoing => "→",
     };
-    let delivery = match message.delivery {
-        DeliveryState::Pending => "…",
-        DeliveryState::Sent => "✓",
-        DeliveryState::Read => "✓✓",
-        DeliveryState::Failed => "!",
-    };
     let reply = message
         .reply_to
         .map_or_else(String::new, |id| format!(" ↩{}", id.0));
@@ -71,7 +65,7 @@ fn message_lines(
         .forwarded_from
         .as_ref()
         .map_or_else(String::new, |source| format!(" · forwarded from {source}"));
-    let header = Line::from(vec![
+    let mut header = vec![
         selection_rule(selected),
         Span::styled(
             format!("{direction} {}", message.sender),
@@ -80,11 +74,18 @@ fn message_lines(
         Span::styled(reply, Style::default().fg(MUTED_TEXT)),
         Span::styled(forwarded, Style::default().fg(MUTED_TEXT)),
         Span::raw("  "),
-        Span::styled(
-            format!("{} {delivery}", message.timestamp),
-            Style::default().fg(MUTED_TEXT),
-        ),
-    ]);
+        Span::styled(message.timestamp.clone(), Style::default().fg(MUTED_TEXT)),
+        Span::raw(" "),
+    ];
+    match message.delivery {
+        DeliveryState::Pending => {
+            header.extend(effort_spans("sending…", view.animation_frame));
+        }
+        DeliveryState::Sent => header.push(Span::styled("✓", Style::default().fg(MUTED_TEXT))),
+        DeliveryState::Read => header.push(Span::styled("✓✓", Style::default().fg(MUTED_TEXT))),
+        DeliveryState::Failed => header.push(Span::styled("!", Style::default().fg(MUTED_TEXT))),
+    }
+    let header = Line::from(header);
     let mut body_lines = render_rich_text_lines(message);
     body_lines
         .last_mut()

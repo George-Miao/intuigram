@@ -1,7 +1,7 @@
 use super::{
-    Action, AdapterEvent, App, Bootstrap, ChatId, ChatKind, ChatView, ConnectionState,
-    DeliveryState, Effect, Focus, FolderView, HistoryView, Input, Intent, MessageDetails,
-    MessageDirection, MessageId, MessageView, SearchScope,
+    Action, AdapterEvent, App, Bootstrap, ChatId, ChatKind, ChatLoadingState, ChatView,
+    ConnectionState, DeliveryState, Effect, Focus, FolderView, HistoryView, Input, Intent,
+    MessageDetails, MessageDirection, MessageId, MessageView, SearchScope,
 };
 
 fn bootstrap() -> Bootstrap {

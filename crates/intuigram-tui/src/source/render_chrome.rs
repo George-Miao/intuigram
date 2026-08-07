@@ -105,21 +105,46 @@ pub(super) fn render_actions(
 }
 
 pub(super) fn render_status(frame: &mut Frame<'_>, area: Rect, view: &View, mode: ViewMode) {
-    let connection = match view.connection {
-        ConnectionState::Connected => "connected",
-        ConnectionState::Connecting => "connecting",
-        ConnectionState::ReconnectCooldown => "reconnect cooldown",
-    };
-    let mut status = format!("{} · {:?} · {connection}", view.account_name, view.focus);
+    let mut spans = vec![Span::styled(
+        format!("{} · {:?} · ", view.account_name, view.focus),
+        Style::default().fg(MUTED_TEXT),
+    )];
+    match view.connection {
+        ConnectionState::Connected => spans.push(Span::raw("connected")),
+        ConnectionState::Connecting => {
+            spans.extend(effort_spans("connecting", view.animation_frame));
+        }
+        ConnectionState::ReconnectCooldown => spans.push(Span::raw("reconnect cooldown")),
+    }
+    if view
+        .messages
+        .iter()
+        .any(|message| message.delivery == DeliveryState::Pending)
+    {
+        spans.push(Span::raw(" · "));
+        spans.extend(effort_spans(
+            "sending",
+            view.animation_frame.wrapping_add(3),
+        ));
+    }
+    if view.chat_loading != ChatLoadingState::Idle {
+        spans.push(Span::raw(" · "));
+        spans.extend(effort_spans(
+            "synchronizing",
+            view.animation_frame.wrapping_add(6),
+        ));
+    }
     if let Some(search) = &view.search {
-        write!(status, " · {:?} search: {}", search.scope, search.query)
-            .expect("writing to a String cannot fail");
+        spans.push(Span::raw(format!(
+            " · {:?} search: {}",
+            search.scope, search.query
+        )));
     }
     if view.has_newer_messages {
-        status.push_str(" · new messages ↓");
+        spans.push(Span::raw(" · new messages ↓"));
     }
     if let Some(notice) = &view.notice {
-        write!(status, " · {notice}").expect("writing to a String cannot fail");
+        spans.push(Span::raw(format!(" · {notice}")));
     }
     let style = if view.focus == Focus::Search {
         surface_style(true)
@@ -128,7 +153,7 @@ pub(super) fn render_status(frame: &mut Frame<'_>, area: Rect, view: &View, mode
     };
     frame.render_widget(Paragraph::new("").style(style), area);
     frame.render_widget(
-        Paragraph::new(status).style(style),
+        Paragraph::new(Line::from(spans)).style(style),
         mode.horizontally_padded(area),
     );
 }

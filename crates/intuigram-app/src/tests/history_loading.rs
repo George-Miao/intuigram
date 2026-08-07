@@ -1,6 +1,37 @@
 use super::*;
 
 #[test]
+fn active_history_reports_fresh_and_incremental_effort_until_completion() {
+    let mut fresh_app = App::new();
+    let bootstrap = fresh_app.transition(Input::Adapter(AdapterEvent::Bootstrap(
+        hierarchy_bootstrap(),
+    )));
+    assert_eq!(bootstrap.view.chat_loading, ChatLoadingState::Idle);
+    let selected = fresh_app.transition(Input::Intent(Intent::Action(Action::MoveDown)));
+    assert_eq!(selected.view.chat_loading, ChatLoadingState::Fresh);
+    let loaded = fresh_app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        chat: ChatId(20),
+        messages: vec![message(20, "fresh")],
+        pinned_messages: Vec::new(),
+    }));
+    assert_eq!(loaded.view.chat_loading, ChatLoadingState::Idle);
+
+    let mut cached_fixture = hierarchy_bootstrap();
+    cached_fixture.histories.push(HistoryView {
+        chat: ChatId(20),
+        thread_root: None,
+        messages: vec![message(19, "cached")],
+    });
+    let mut cached_app = App::new();
+    apply(
+        &mut cached_app,
+        Input::Adapter(AdapterEvent::Bootstrap(cached_fixture)),
+    );
+    let selected = cached_app.transition(Input::Intent(Intent::Action(Action::MoveDown)));
+    assert_eq!(selected.view.chat_loading, ChatLoadingState::Updating);
+}
+
+#[test]
 fn background_refresh_does_not_replace_a_transcript_being_read() {
     let mut fixture = hierarchy_bootstrap();
     let cached = message(20, "stable cached history");

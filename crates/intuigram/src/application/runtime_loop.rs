@@ -53,6 +53,7 @@ where
     } = state;
     let mut backend = Some(backend);
     let mut active_effect: Option<PendingEffect<B>> = None;
+    let mut animation_timer: Option<Pin<Box<dyn Future<Output = ()>>>> = None;
     let mut disconnected = false;
 
     loop {
@@ -83,6 +84,14 @@ where
             active_effect = Some(start_effect(available, effect, peers.clone()));
         }
 
+        if update.view.has_pending_effort() {
+            if animation_timer.is_none() {
+                animation_timer = Some(Box::pin(compio::time::sleep(Duration::from_millis(90))));
+            }
+        } else {
+            animation_timer = None;
+        }
+
         let wake = poll_fn(|cx| {
             if !disconnected && let Poll::Ready(event) = adapter_events.poll_adapter_event(cx) {
                 return Poll::Ready(ApplicationWake::Adapter(event));
@@ -94,6 +103,11 @@ where
                 && let Poll::Ready(completion) = effect.as_mut().poll(cx)
             {
                 return Poll::Ready(ApplicationWake::Backend(completion));
+            }
+            if let Some(timer) = &mut animation_timer
+                && let Poll::Ready(()) = timer.as_mut().poll(cx)
+            {
+                return Poll::Ready(ApplicationWake::Animation);
             }
             Poll::Pending
         })
@@ -157,6 +171,10 @@ where
                             app.transition(Input::Adapter(AdapterEvent::ConnectionFailed(reason)));
                     }
                 }
+            }
+            ApplicationWake::Animation => {
+                animation_timer = None;
+                update = app.transition(Input::Intent(Intent::Animate));
             }
         }
     }
