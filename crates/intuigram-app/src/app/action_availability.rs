@@ -12,6 +12,10 @@ impl App {
             self.view.actions = vec![Action::Quit, Action::ConfirmSaveAs, Action::Cancel];
             return;
         }
+        if self.view.attachment_path.is_some() {
+            self.view.actions = vec![Action::Quit, Action::ConfirmAttachment, Action::Cancel];
+            return;
+        }
         if self.view.folder_picker.is_some() {
             self.view.actions = vec![
                 Action::Quit,
@@ -144,6 +148,7 @@ impl App {
                         Action::Send,
                         Action::Newline,
                         Action::Paste,
+                        Action::Attach,
                         Action::CreatePoll,
                         Action::Cancel,
                         Action::Search,

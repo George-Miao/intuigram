@@ -62,8 +62,8 @@ use render_composer::{composer_height, render_composer};
 use render_headers::{render_active_chat_header, render_chat_list_header};
 use render_layout::render_with_semantics;
 use render_overlays::{
-    render_delete_confirmation, render_forward_picker, render_link_confirmation, render_poll_vote,
-    render_reaction_picker, render_save_as,
+    render_attachment_path, render_delete_confirmation, render_forward_picker,
+    render_link_confirmation, render_poll_vote, render_reaction_picker, render_save_as,
 };
 use render_transcript::render_transcript;
 pub use terminal::*;
@@ -263,7 +263,7 @@ const BINDINGS: &[Binding] = &[
     binding(
         KeyChord::control(Key::Char('o')),
         "Attach",
-        Action::Paste,
+        Action::Attach,
         true,
     ),
     binding(
@@ -271,6 +271,12 @@ const BINDINGS: &[Binding] = &[
         "Paste",
         Action::Paste,
         false,
+    ),
+    binding(
+        KeyChord::plain(Key::Enter),
+        "Add Attachment",
+        Action::ConfirmAttachment,
+        true,
     ),
     binding(
         KeyChord::control(Key::Char('p')),

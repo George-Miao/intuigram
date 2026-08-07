@@ -52,6 +52,45 @@ impl Backend {
                     Err(error) => AdapterEvent::OperationFailed(error.to_string()),
                 }))
             }
+            Effect::SelectAttachment {
+                chat,
+                thread_root,
+                path,
+            } => {
+                let path = PathBuf::from(path);
+                let metadata = compio::fs::metadata(&path)
+                    .await
+                    .context(ReadAttachmentSnafu { path: path.clone() });
+                Ok(Some(match metadata {
+                    Ok(metadata) if metadata.is_file() => {
+                        let mime_type = mime_type_for_path(&path);
+                        let kind = if mime_type.starts_with("image/") {
+                            AttachmentKind::Photo
+                        } else if mime_type.starts_with("video/") {
+                            AttachmentKind::Video
+                        } else {
+                            AttachmentKind::File
+                        };
+                        let name = path.file_name().map_or_else(
+                            || "attachment".to_owned(),
+                            |name| name.to_string_lossy().into_owned(),
+                        );
+                        let id = self
+                            .attachments
+                            .register(AttachmentPayload::File { path, kind });
+                        AdapterEvent::ClipboardReady {
+                            chat,
+                            thread_root,
+                            text: None,
+                            attachments: vec![AttachmentView { id, kind, name }],
+                        }
+                    }
+                    Ok(_) => AdapterEvent::OperationFailed(
+                        "Attachment path must identify a regular file".to_owned(),
+                    ),
+                    Err(error) => AdapterEvent::OperationFailed(error.to_string()),
+                }))
+            }
             Effect::SaveDraft {
                 chat,
                 thread_root,

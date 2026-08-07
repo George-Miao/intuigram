@@ -67,6 +67,7 @@ fn view(actions: Vec<Action>) -> View {
         composer: ComposerView::default(),
         search: None::<SearchView>,
         save_as: None,
+        attachment_path: None,
         has_newer_messages: false,
         help_open: false,
         folder_picker: None,
@@ -126,7 +127,12 @@ fn displayed_action_bar_and_help_bindings_are_the_bindings_input_resolves() {
         Some(Action::JumpLatest)
     );
 
-    let composer = view(vec![Action::Send, Action::Newline, Action::Paste]);
+    let composer = view(vec![
+        Action::Send,
+        Action::Newline,
+        Action::Attach,
+        Action::Paste,
+    ]);
     assert_eq!(
         keymap.resolve(&composer, KeyChord::control(Key::Char('s'))),
         Some(Action::Send)
@@ -144,12 +150,12 @@ fn displayed_action_bar_and_help_bindings_are_the_bindings_input_resolves() {
     );
     assert_eq!(
         keymap.resolve(&composer, KeyChord::control(Key::Char('o'))),
-        Some(Action::Paste)
+        Some(Action::Attach)
     );
     assert_eq!(
         keymap
             .action_bar(&composer)
-            .find(|binding| binding.action == Action::Paste)
+            .find(|binding| binding.action == Action::Attach)
             .map(|binding| (binding.key, binding.label)),
         Some((KeyChord::control(Key::Char('o')), "Attach"))
     );

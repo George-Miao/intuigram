@@ -69,6 +69,17 @@ pub enum Effect {
         /// Thread Composer, when applicable.
         thread_root: Option<MessageId>,
     },
+    /// Validate and retain one exact local attachment path.
+    SelectAttachment {
+        /// Chat whose Composer owns the attachment.
+        chat: ChatId,
+
+        /// Thread Composer, when applicable.
+        thread_root: Option<MessageId>,
+
+        /// Exact user-entered platform path.
+        path: String,
+    },
     /// Persist a changed Draft before any saved indication is emitted.
     SaveDraft {
         /// Owning Chat.
@@ -289,6 +300,9 @@ pub struct View {
 
     /// Exact download destination editor, when open.
     pub save_as: Option<SaveAsView>,
+
+    /// Exact local attachment path editor, when open.
+    pub attachment_path: Option<AttachmentPathView>,
 
     /// Whether unseen messages arrived while reading older history.
     pub has_newer_messages: bool,

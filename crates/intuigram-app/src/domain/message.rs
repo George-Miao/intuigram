@@ -135,6 +135,13 @@ pub struct SaveAsView {
     pub destination: String,
 }
 
+/// Exact local attachment path currently being edited.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AttachmentPathView {
+    /// User-entered platform path.
+    pub path: String,
+}
+
 /// Durable Draft restored before an Account is presented.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DraftView {

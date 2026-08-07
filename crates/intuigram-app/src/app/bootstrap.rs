@@ -19,6 +19,7 @@ impl App {
                 composer: ComposerView::default(),
                 search: None,
                 save_as: None,
+                attachment_path: None,
                 has_newer_messages: false,
                 help_open: false,
                 folder_picker: None,
@@ -54,7 +55,10 @@ impl App {
     pub(super) fn apply_intent(&mut self, intent: Intent) -> Option<Effect> {
         match intent {
             Intent::Insert(text) => {
-                if let Some(save_as) = &mut self.view.save_as {
+                if let Some(attachment) = &mut self.view.attachment_path {
+                    attachment.path.push_str(&text);
+                    return None;
+                } else if let Some(save_as) = &mut self.view.save_as {
                     save_as.destination.push_str(&text);
                     return None;
                 } else if let Some(search) = &mut self.view.search {
@@ -66,7 +70,10 @@ impl App {
                 self.draft_effect()
             }
             Intent::Backspace => {
-                if let Some(save_as) = &mut self.view.save_as {
+                if let Some(attachment) = &mut self.view.attachment_path {
+                    attachment.path.pop();
+                    return None;
+                } else if let Some(save_as) = &mut self.view.save_as {
                     save_as.destination.pop();
                     return None;
                 } else if let Some(search) = &mut self.view.search {

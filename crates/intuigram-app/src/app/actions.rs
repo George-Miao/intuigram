@@ -3,6 +3,16 @@ impl App {
         if self.view.save_as.is_some() && action != Action::Quit {
             return self.apply_save_as_action(action);
         }
+        if self.view.attachment_path.is_some() && action != Action::Quit {
+            return match action {
+                Action::ConfirmAttachment => self.confirm_attachment(),
+                Action::Cancel | Action::Attach => {
+                    self.view.attachment_path = None;
+                    None
+                }
+                _ => None,
+            };
+        }
         if self.view.reaction_picker.is_some() && action != Action::Quit {
             return self.apply_reaction_picker(action);
         }
@@ -120,6 +130,13 @@ impl App {
                 chat: key.chat,
                 thread_root: key.thread,
             }),
+            Action::Attach => {
+                self.view.attachment_path = Some(AttachmentPathView {
+                    path: String::new(),
+                });
+                None
+            }
+            Action::ConfirmAttachment => self.confirm_attachment(),
             Action::CreatePoll => {
                 self.begin_poll();
                 None
@@ -194,6 +211,20 @@ impl App {
                 self.draft_effect()
             }
         }
+    }
+
+    fn confirm_attachment(&mut self) -> Option<Effect> {
+        let path = self.view.attachment_path.take()?.path;
+        let key = self.active_history_key()?;
+        if path.trim().is_empty() {
+            self.view.notice = Some("Attachment path must not be empty".to_owned());
+            return None;
+        }
+        Some(Effect::SelectAttachment {
+            chat: key.chat,
+            thread_root: key.thread,
+            path,
+        })
     }
 
     pub(super) fn open_folder_picker(&mut self) {

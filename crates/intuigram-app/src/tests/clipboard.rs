@@ -67,3 +67,31 @@ fn clipboard_failure_is_visible_without_changing_the_draft() {
         Some("Clipboard has no supported content")
     );
 }
+
+#[test]
+fn attachment_shortcut_collects_an_exact_path_as_a_typed_effect() {
+    let mut app = App::new();
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::Bootstrap(bootstrap())),
+    );
+    apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
+
+    let opened = app.transition(Input::Intent(Intent::Action(Action::Attach)));
+    assert!(opened.view.attachment_path.is_some());
+    apply(
+        &mut app,
+        Input::Intent(Intent::Insert("/tmp/photo.png".to_owned())),
+    );
+    let confirmed = app.transition(Input::Intent(Intent::Action(Action::ConfirmAttachment)));
+
+    assert_eq!(confirmed.view.attachment_path, None);
+    assert!(matches!(
+        confirmed.effect,
+        Some(Effect::SelectAttachment {
+            chat: ChatId(10),
+            thread_root: None,
+            ref path,
+        }) if path == "/tmp/photo.png"
+    ));
+}

@@ -27,6 +27,10 @@ pub enum Action {
     Newline,
     /// Query the native clipboard for text, images, or files.
     Paste,
+    /// Open the built-in attachment path editor.
+    Attach,
+    /// Add the exact path entered in the attachment editor.
+    ConfirmAttachment,
     /// Replace the Composer with a structured poll editor.
     CreatePoll,
     /// Send the question and options from the poll editor.
