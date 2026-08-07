@@ -78,6 +78,45 @@ impl App {
         Some(Effect::DownloadMedia {
             chat,
             message: message.id,
+            destination: None,
+        })
+    }
+
+    pub(super) fn open_save_as(&mut self) {
+        let Some(name) = self
+            .view
+            .active_message
+            .and_then(|index| self.view.messages.get(index))
+            .and_then(|message| message.details.media.as_ref())
+            .and_then(|media| media.remote_id.as_ref().map(|_| media.title.clone()))
+        else {
+            return;
+        };
+        self.view.save_as = Some(SaveAsView { destination: name });
+    }
+
+    pub(super) fn apply_save_as_action(&mut self, action: Action) -> Option<Effect> {
+        match action {
+            Action::ConfirmSaveAs => self.confirm_save_as(),
+            Action::Cancel | Action::SaveAs => {
+                self.view.save_as = None;
+                None
+            }
+            _ => None,
+        }
+    }
+
+    pub(super) fn confirm_save_as(&mut self) -> Option<Effect> {
+        let destination = self.view.save_as.take()?.destination;
+        if destination.is_empty() {
+            return None;
+        }
+        let chat = self.active_chat_id()?;
+        let message = self.active_message_id()?;
+        Some(Effect::DownloadMedia {
+            chat,
+            message,
+            destination: Some(destination),
         })
     }
 

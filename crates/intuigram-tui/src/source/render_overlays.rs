@@ -155,3 +155,33 @@ pub(super) fn render_overlay(frame: &mut Frame<'_>, area: Rect, lines: Vec<Line<
     );
 }
 use super::*;
+
+pub(super) fn render_save_as(frame: &mut Frame<'_>, area: Rect, view: &View) {
+    let Some(save_as) = &view.save_as else {
+        return;
+    };
+    let popup = centered_rect(68, 28, area);
+    let lines = vec![
+        Line::from(Span::styled(
+            "Save media as",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from(""),
+        Line::from(vec![
+            interaction_rule(true),
+            Span::raw(save_as.destination.clone()),
+        ]),
+        Line::from(""),
+        Line::from(Span::styled(
+            "An existing file will not be replaced.",
+            Style::default().fg(MUTED_TEXT),
+        )),
+    ];
+    render_overlay(frame, popup, lines);
+    let cursor_x = popup
+        .x
+        .saturating_add(2)
+        .saturating_add(u16::try_from(save_as.destination.chars().count()).unwrap_or(u16::MAX))
+        .min(popup.right().saturating_sub(1));
+    frame.set_cursor_position((cursor_x, popup.y.saturating_add(2)));
+}

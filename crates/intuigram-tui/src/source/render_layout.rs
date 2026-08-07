@@ -39,6 +39,8 @@ pub(super) fn render_with_semantics(
     render_status(frame, rows[3], view, mode);
     if view.help_open {
         render_help(frame, area, view, keymap);
+    } else if view.save_as.is_some() {
+        render_save_as(frame, area, view);
     } else if view.link_confirmation.is_some() {
         render_link_confirmation(frame, area, view);
     } else if view.reaction_picker.is_some() {

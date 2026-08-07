@@ -66,6 +66,7 @@ fn view(actions: Vec<Action>) -> View {
         focus: Focus::Chats,
         composer: ComposerView::default(),
         search: None::<SearchView>,
+        save_as: None,
         has_newer_messages: false,
         help_open: false,
         folder_picker: None,
@@ -170,6 +171,7 @@ fn link_and_download_keys_are_visible_only_when_contextually_available() {
     let current = view(vec![
         Action::OpenLink,
         Action::DownloadMedia,
+        Action::SaveAs,
         Action::OpenDownload,
     ]);
     let keymap = EffectiveKeymap::defaults();
@@ -183,10 +185,14 @@ fn link_and_download_keys_are_visible_only_when_contextually_available() {
         Some(Action::DownloadMedia)
     );
     assert_eq!(
+        keymap.resolve(&current, KeyChord::alt(Key::Char('d'))),
+        Some(Action::SaveAs)
+    );
+    assert_eq!(
         keymap.resolve(&current, KeyChord::control(Key::Char('o'))),
         Some(Action::OpenDownload)
     );
-    assert_eq!(keymap.action_bar(&current).count(), 3);
+    assert_eq!(keymap.action_bar(&current).count(), 4);
 }
 
 #[test]

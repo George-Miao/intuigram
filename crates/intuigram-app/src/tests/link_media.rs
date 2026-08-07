@@ -142,6 +142,7 @@ fn downloaded_media_is_opened_or_revealed_by_opaque_handle() {
         Some(Effect::DownloadMedia {
             chat: crate::ChatId(10),
             message: MessageId(3),
+            destination: None,
         })
     );
 
@@ -165,6 +166,43 @@ fn downloaded_media_is_opened_or_revealed_by_opaque_handle() {
         Some(Effect::OpenDownload {
             download: DownloadId(7),
             reveal: true,
+        })
+    );
+}
+
+#[test]
+fn save_as_collects_an_exact_destination_before_downloading() {
+    let mut fixture = bootstrap();
+    fixture.messages[2].details.media = Some(MediaCard {
+        kind: MediaKind::File,
+        title: "report.txt".to_owned(),
+        description: "text/plain".to_owned(),
+        details: Vec::new(),
+        poll: None,
+        remote_id: Some("42".to_owned()),
+    });
+    let mut app = crate::App::new();
+    apply(&mut app, Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    for action in [Action::Open, Action::JumpLatest, Action::SaveAs] {
+        apply(&mut app, Input::Intent(Intent::Action(action)));
+    }
+    for _ in 0.."report.txt".len() {
+        apply(&mut app, Input::Intent(Intent::Backspace));
+    }
+    apply(
+        &mut app,
+        Input::Intent(Intent::Insert("/chosen/report.txt".to_owned())),
+    );
+
+    let saved = app.transition(Input::Intent(Intent::Action(Action::ConfirmSaveAs)));
+
+    assert_eq!(saved.view.save_as, None);
+    assert_eq!(
+        saved.effect,
+        Some(Effect::DownloadMedia {
+            chat: ChatId(10),
+            message: MessageId(3),
+            destination: Some("/chosen/report.txt".to_owned()),
         })
     );
 }

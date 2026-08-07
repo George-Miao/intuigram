@@ -55,15 +55,15 @@ pub use events::*;
 use qr_render::{chord_from_crossterm, qr_login_symbols, render_qr_login};
 pub use qr_session::*;
 use render_chrome::{
-    anchored_window, centered_rect, render_actions, render_folder_picker, render_folders,
-    render_help, render_status, selection_rule, surface_style,
+    anchored_window, centered_rect, interaction_rule, render_actions, render_folder_picker,
+    render_folders, render_help, render_status, selection_rule, surface_style,
 };
 use render_composer::{composer_height, render_composer};
 use render_headers::{render_active_chat_header, render_chat_list_header};
 use render_layout::render_with_semantics;
 use render_overlays::{
     render_delete_confirmation, render_forward_picker, render_link_confirmation, render_poll_vote,
-    render_reaction_picker,
+    render_reaction_picker, render_save_as,
 };
 use render_transcript::render_transcript;
 pub use terminal::*;
@@ -214,6 +214,18 @@ const BINDINGS: &[Binding] = &[
         KeyChord::control(Key::Char('d')),
         "Download",
         Action::DownloadMedia,
+        true,
+    ),
+    binding(
+        KeyChord::alt(Key::Char('d')),
+        "Save As",
+        Action::SaveAs,
+        true,
+    ),
+    binding(
+        KeyChord::plain(Key::Enter),
+        "Save Here",
+        Action::ConfirmSaveAs,
         true,
     ),
     binding(

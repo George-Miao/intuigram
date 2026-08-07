@@ -206,6 +206,10 @@ pub enum Effect {
 
         /// Message containing the downloadable media.
         message: MessageId,
+
+        /// Exact user-selected path, or `None` for the configured Downloads
+        /// directory.
+        destination: Option<String>,
     },
     /// Fetch and decode an image for inline presentation without saving it to
     /// Downloads.
@@ -279,6 +283,9 @@ pub struct View {
 
     /// Active search, when open.
     pub search: Option<SearchView>,
+
+    /// Exact download destination editor, when open.
+    pub save_as: Option<SaveAsView>,
 
     /// Whether unseen messages arrived while reading older history.
     pub has_newer_messages: bool,

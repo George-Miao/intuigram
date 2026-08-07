@@ -61,6 +61,10 @@ pub enum Action {
     ConfirmOpenLink,
     /// Download the Active Message's media to the default destination.
     DownloadMedia,
+    /// Choose an exact destination for the Active Message's media.
+    SaveAs,
+    /// Download media to the entered exact destination.
+    ConfirmSaveAs,
     /// Open a safe download or reveal launchable content in its folder.
     OpenDownload,
     /// Save the Message currently open for editing.

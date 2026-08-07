@@ -26,6 +26,9 @@ pub enum Error {
         source: std::io::Error,
     },
 
+    #[snafu(display("download destination already exists: {}", path.display()))]
+    DestinationExists { path: PathBuf },
+
     #[snafu(display("could not find a collision-safe filename for {name}"))]
     NamesExhausted { name: String },
 }
@@ -78,6 +81,44 @@ impl DownloadDirectory {
             return Ok(candidate);
         }
         NamesExhaustedSnafu { name: safe_name }.fail()
+    }
+
+    pub async fn save_to(
+        &self,
+        destination: impl Into<PathBuf>,
+        bytes: Vec<u8>,
+    ) -> Result<PathBuf> {
+        let destination = destination.into();
+        let parent = destination.parent().unwrap_or_else(|| Path::new("."));
+        create_dir_all(parent).await.context(CreateDirectorySnafu {
+            path: parent.to_path_buf(),
+        })?;
+        let opened = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&destination)
+            .await;
+        let mut file = match opened {
+            Ok(file) => file,
+            Err(source) if source.kind() == std::io::ErrorKind::AlreadyExists => {
+                return DestinationExistsSnafu { path: destination }.fail();
+            }
+            Err(source) => {
+                return Err(Error::ReserveFile {
+                    path: destination,
+                    source,
+                });
+            }
+        };
+        let (written, _) = file.write_all_at(bytes, 0).await.into_parts();
+        if let Err(source) = written {
+            let _ = remove_file(&destination).await;
+            return Err(Error::WriteFile {
+                path: destination,
+                source,
+            });
+        }
+        Ok(destination)
     }
 }
 
@@ -144,6 +185,31 @@ mod tests {
         assert_eq!(
             fs::read(temporary.path().join("report.txt")).expect("fixture should remain"),
             b"existing"
+        );
+    }
+
+    #[test]
+    fn exact_destinations_are_created_without_overwriting() {
+        let temporary = tempdir().expect("temporary directory should be created");
+        let destination = temporary.path().join("chosen").join("report.txt");
+        let runtime = compio::runtime::Runtime::new().expect("runtime should initialize");
+        let saved = runtime
+            .block_on(
+                DownloadDirectory::new(temporary.path()).save_to(&destination, b"first".to_vec()),
+            )
+            .expect("chosen destination should be saved");
+        let collision = runtime.block_on(
+            DownloadDirectory::new(temporary.path()).save_to(&destination, b"second".to_vec()),
+        );
+
+        assert_eq!(saved, destination);
+        assert!(matches!(
+            collision,
+            Err(super::Error::DestinationExists { .. })
+        ));
+        assert_eq!(
+            fs::read(&destination).expect("chosen destination should remain readable"),
+            b"first"
         );
     }
 }

@@ -25,6 +25,7 @@ impl Backend {
         &mut self,
         chat: ChatId,
         message: MessageId,
+        destination: Option<String>,
     ) -> Result<DownloadView> {
         let media = self
             .client
@@ -41,11 +42,11 @@ impl Backend {
         .await
         .resume_unwind()
         .expect("an awaited blocking media-preview task cannot be cancelled");
-        let path = self
-            .downloads
-            .save(&name, bytes)
-            .await
-            .context(SaveDownloadSnafu)?;
+        let path = match destination {
+            Some(destination) => self.downloads.save_to(destination, bytes).await,
+            None => self.downloads.save(&name, bytes).await,
+        }
+        .context(SaveDownloadSnafu)?;
         let reveal_only = intuigram_media::open_disposition(&path, Some(&mime_type))
             == intuigram_media::OpenDisposition::RevealWithLaunchWarning;
         let id = self.downloaded.register(path.clone());

@@ -128,6 +128,13 @@ pub struct SearchView {
     pub query: String,
 }
 
+/// Exact download destination currently being edited.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SaveAsView {
+    /// User-entered platform path. Existing files are never replaced.
+    pub destination: String,
+}
+
 /// Durable Draft restored before an Account is presented.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DraftView {

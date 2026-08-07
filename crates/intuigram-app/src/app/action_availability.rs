@@ -8,6 +8,10 @@ impl App {
             self.view.actions = vec![Action::Quit, Action::Help, Action::Cancel];
             return;
         }
+        if self.view.save_as.is_some() {
+            self.view.actions = vec![Action::Quit, Action::ConfirmSaveAs, Action::Cancel];
+            return;
+        }
         if self.view.folder_picker.is_some() {
             self.view.actions = vec![
                 Action::Quit,
@@ -112,6 +116,7 @@ impl App {
                         .is_some_and(|media| media.remote_id.is_some())
                     {
                         actions.push(Action::DownloadMedia);
+                        actions.push(Action::SaveAs);
                     }
                     if message
                         .details

@@ -18,6 +18,7 @@ use super::trace::Trace;
 
 mod assertions;
 mod builder;
+mod downloads;
 mod effects;
 mod input;
 mod telegram_control;

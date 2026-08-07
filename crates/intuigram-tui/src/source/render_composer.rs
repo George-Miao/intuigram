@@ -150,6 +150,7 @@ fn content_width(area_width: u16, label: &str) -> usize {
 
 fn overlay_open(view: &View) -> bool {
     view.help_open
+        || view.save_as.is_some()
         || view.link_confirmation.is_some()
         || view.reaction_picker.is_some()
         || view.poll_vote.is_some()

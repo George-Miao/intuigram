@@ -353,15 +353,19 @@ impl Backend {
                     Err(_) => AdapterEvent::MediaPreviewFailed { chat, message },
                 }))
             }
-            Effect::DownloadMedia { chat, message } => {
-                Ok(Some(match self.download_media(chat, message).await {
+            Effect::DownloadMedia {
+                chat,
+                message,
+                destination,
+            } => Ok(Some(
+                match self.download_media(chat, message, destination).await {
                     Ok(download) => AdapterEvent::DownloadReady { chat, download },
                     Err(Error::Telegram { source }) if source.is_connection_failure() => {
                         return Err(Error::Telegram { source });
                     }
                     Err(error) => AdapterEvent::OperationFailed(error.to_string()),
-                }))
-            }
+                },
+            )),
             Effect::OpenDownload { download, reveal } => {
                 let path = self.downloaded.paths.get(&download).cloned().ok_or(
                     Error::DownloadUnavailable {

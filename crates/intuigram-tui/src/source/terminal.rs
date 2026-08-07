@@ -306,6 +306,7 @@ fn activation_target(node: &SemanticNode) -> Option<ActivationTarget> {
 
 fn overlay_open_for_pointer(view: &View) -> bool {
     view.help_open
+        || view.save_as.is_some()
         || view.folder_picker.is_some()
         || view.delete_confirmation.is_some()
         || view.forward_picker.is_some()

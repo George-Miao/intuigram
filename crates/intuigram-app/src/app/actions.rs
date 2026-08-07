@@ -1,5 +1,8 @@
 impl App {
     pub(super) fn apply_action(&mut self, action: Action) -> Option<Effect> {
+        if self.view.save_as.is_some() && action != Action::Quit {
+            return self.apply_save_as_action(action);
+        }
         if self.view.reaction_picker.is_some() && action != Action::Quit {
             return self.apply_reaction_picker(action);
         }
@@ -100,6 +103,11 @@ impl App {
             Action::OpenLink => self.open_active_link(),
             Action::ConfirmOpenLink => None,
             Action::DownloadMedia => self.download_active_media(),
+            Action::SaveAs => {
+                self.open_save_as();
+                None
+            }
+            Action::ConfirmSaveAs => self.confirm_save_as(),
             Action::OpenDownload => self.open_download(),
             Action::SaveEdit => self.save_edit(),
             Action::OpenThread => self.open_thread(),

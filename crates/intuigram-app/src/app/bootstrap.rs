@@ -18,6 +18,7 @@ impl App {
                 focus: Focus::Chats,
                 composer: ComposerView::default(),
                 search: None,
+                save_as: None,
                 has_newer_messages: false,
                 help_open: false,
                 folder_picker: None,
@@ -53,7 +54,10 @@ impl App {
     pub(super) fn apply_intent(&mut self, intent: Intent) -> Option<Effect> {
         match intent {
             Intent::Insert(text) => {
-                if let Some(search) = &mut self.view.search {
+                if let Some(save_as) = &mut self.view.save_as {
+                    save_as.destination.push_str(&text);
+                    return None;
+                } else if let Some(search) = &mut self.view.search {
                     search.query.push_str(&text);
                 } else if self.view.active_chat.is_some() && self.view.focus != Focus::Chats {
                     self.focus_composer_at_anchor();
@@ -62,7 +66,10 @@ impl App {
                 self.draft_effect()
             }
             Intent::Backspace => {
-                if let Some(search) = &mut self.view.search {
+                if let Some(save_as) = &mut self.view.save_as {
+                    save_as.destination.pop();
+                    return None;
+                } else if let Some(search) = &mut self.view.search {
                     search.query.pop();
                 } else if self.view.focus == Focus::Composer {
                     self.backspace_composer();
