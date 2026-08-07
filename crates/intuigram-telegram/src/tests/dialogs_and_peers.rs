@@ -81,9 +81,9 @@ fn dialog_filters_include_custom_and_shared_folders_in_server_order() {
         ]
     );
     assert_eq!(details.len(), 2);
-    assert_eq!(details[0].id, 2);
+    assert_eq!(details[0].id, FolderId(2));
     assert!(details[0].rules.is_some());
-    assert_eq!(details[1].id, 3);
+    assert_eq!(details[1].id, FolderId(3));
     assert!(details[1].rules.is_none());
 }
 

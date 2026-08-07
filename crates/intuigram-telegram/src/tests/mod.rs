@@ -4,7 +4,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use compio_mtproto::InvocationError;
 use grammers_tl_types::{self as tl, Serializable as _};
 use intuigram_app::{
-    AdapterEvent, ChatId, ChatKind, ChatView, MediaKind, MessageDirection, MessageId,
+    AdapterEvent, ChatId, ChatKind, ChatView, FolderId, MediaKind, MessageDirection, MessageId,
 };
 
 use crate::UpdateScope;
