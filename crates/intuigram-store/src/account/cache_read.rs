@@ -15,6 +15,19 @@ pub(super) fn load_cache(connection: &Connection) -> Result<CachedAccount> {
     let messages = load_messages(connection)?;
     let pinned_messages = load_pinned_messages(connection)?;
     let drafts = load_drafts(connection)?;
+    let selection = connection
+        .query_row(
+            "SELECT folder_id, chat_id FROM ui_selection WHERE singleton = 1",
+            [],
+            |row| {
+                Ok(StoredSelection {
+                    folder_id: row.get(0)?,
+                    chat_id: row.get(1)?,
+                })
+            },
+        )
+        .optional()
+        .context(LoadCacheSnafu)?;
     Ok(CachedAccount {
         cursors,
         folders,
@@ -22,6 +35,7 @@ pub(super) fn load_cache(connection: &Connection) -> Result<CachedAccount> {
         messages,
         pinned_messages,
         drafts,
+        selection,
     })
 }
 

@@ -7,7 +7,8 @@ mod recovery;
 
 pub use account::{
     AccountDatabase, AccountStore, CachedAccount, DatabaseRequest, Error, Result, SessionMaterial,
-    StoredChat, StoredDraft, StoredFolder, StoredMessage, StoredMutation, SyncBatch, SyncCursor,
+    StoredChat, StoredDraft, StoredFolder, StoredMessage, StoredMutation, StoredSelection,
+    SyncBatch, SyncCursor,
 };
 pub use global::{AccountRecord, Error as GlobalError, GlobalDatabase, Result as GlobalResult};
 pub use layout::{AccountId, StoreLayout};

@@ -357,6 +357,7 @@ mod actions;
 mod bootstrap;
 mod composer;
 mod editing;
+mod folder_navigation;
 mod history_navigation;
 mod history_reconciliation;
 mod link_media;

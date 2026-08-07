@@ -1,13 +1,14 @@
 use super::{
     Action, AdapterEvent, App, Bootstrap, ChatId, ChatKind, ChatLoadingState, ChatView,
     ConnectionState, DeliveryState, Effect, Focus, FolderView, HistoryView, Input, Intent,
-    MessageDetails, MessageDirection, MessageId, MessageView, SearchScope,
+    MessageDetails, MessageDirection, MessageId, MessageView, SearchScope, SelectionView,
 };
 
 fn bootstrap() -> Bootstrap {
     Bootstrap {
         connection: ConnectionState::Connected,
         account_name: "Ada".to_owned(),
+        restored_selection: None,
         folders: vec![FolderView {
             id: 0,
             title: "All".to_owned(),
@@ -124,6 +125,39 @@ fn switching_folder_rebuilds_the_chat_list_from_normalized_membership() {
 }
 
 #[test]
+fn bootstrap_restores_a_valid_folder_and_chat_selection() {
+    let mut fixture = hierarchy_bootstrap();
+    fixture.restored_selection = Some(SelectionView {
+        folder: 1,
+        chat: Some(ChatId(20)),
+    });
+    let mut app = App::new();
+
+    apply(&mut app, Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+
+    assert_eq!(app.view().active_folder, 1);
+    assert_eq!(app.view().chats.len(), 1);
+    assert_eq!(app.view().chats[0].id, ChatId(20));
+    assert_eq!(app.view().active_chat, Some(0));
+}
+
+#[test]
+fn bootstrap_clears_a_stale_selection_and_returns_to_the_default_folder() {
+    let mut fixture = hierarchy_bootstrap();
+    fixture.restored_selection = Some(SelectionView {
+        folder: 1,
+        chat: Some(ChatId(999)),
+    });
+    let mut app = App::new();
+
+    apply(&mut app, Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+
+    assert_eq!(app.view().active_folder, 0);
+    assert_eq!(app.view().active_chat, None);
+    assert!(app.view().messages.is_empty());
+}
+
+#[test]
 fn removing_the_active_chat_from_a_folder_rebinds_its_message_history() {
     let mut fixture = hierarchy_bootstrap();
     fixture.chats[0].folders.push(1);
@@ -131,7 +165,10 @@ fn removing_the_active_chat_from_a_folder_rebinds_its_message_history() {
     let background = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
     assert_eq!(
         background.effect,
-        Some(Effect::LoadChat { chat: ChatId(20) })
+        Some(Effect::LoadChat {
+            chat: ChatId(20),
+            selection: None,
+        })
     );
     apply(&mut app, Input::Intent(Intent::Action(Action::NextFolder)));
 

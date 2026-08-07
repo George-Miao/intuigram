@@ -20,14 +20,11 @@ impl Backend {
                     Err(error) => AdapterEvent::OperationFailed(error.to_string()),
                 },
             )),
-            Effect::LoadChat { chat } => match self.load_chat(chat).await {
-                Ok((messages, pinned_messages)) => Ok(Some(AdapterEvent::ChatLoaded {
-                    chat,
-                    messages,
-                    pinned_messages,
-                })),
-                Err(error) => history_failure_event(chat, None, error),
-            },
+            Effect::LoadChat { chat, selection } => self.load_selected_chat(chat, selection).await,
+            Effect::SaveSelection { folder, chat } => {
+                self.save_selection(folder, chat).await?;
+                Ok(None)
+            }
             Effect::LoadThread { chat, root } => match self.load_thread(chat, root).await {
                 Ok(messages) => Ok(Some(AdapterEvent::ThreadLoaded {
                     chat,

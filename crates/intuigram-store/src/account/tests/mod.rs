@@ -6,7 +6,7 @@ use tempfile::tempdir;
 
 use super::{
     AccountDatabase, SessionMaterial, StoredChat, StoredDraft, StoredFolder, StoredMessage,
-    SyncBatch, SyncCursor,
+    StoredSelection, SyncBatch, SyncCursor,
 };
 use crate::{AccountId, StoreLayout};
 
@@ -256,6 +256,43 @@ fn replacing_a_draft_keeps_the_current_value_durable() {
             .expect("Draft cache should load")
             .drafts,
         vec![replacement]
+    );
+}
+
+#[test]
+fn replacing_the_ui_selection_keeps_the_current_value_durable() {
+    let temporary = tempdir().expect("temporary directory should be created");
+    let layout = StoreLayout::new(temporary.path().join("intuigram"));
+    let account = AccountId::new(7).expect("fixture account ID should be valid");
+    let database =
+        AccountDatabase::begin_login(&layout).expect("pending login database should open");
+    database
+        .save_selection(StoredSelection {
+            folder_id: 0,
+            chat_id: Some(7),
+        })
+        .expect("initial selection should persist");
+    let replacement = StoredSelection {
+        folder_id: -1,
+        chat_id: Some(9),
+    };
+
+    database
+        .save_selection(replacement)
+        .expect("replacement selection should persist");
+    let database = database
+        .finish_login(&layout, account)
+        .expect("selection database should be promoted");
+    drop(database);
+    let reopened =
+        AccountDatabase::open(&layout, account).expect("selection database should reopen");
+
+    assert_eq!(
+        reopened
+            .cached_account()
+            .expect("selection cache should load")
+            .selection,
+        Some(replacement)
     );
 }
 

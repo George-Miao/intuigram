@@ -39,14 +39,8 @@ impl App {
             Action::Reconnect => None,
             Action::MoveUp => self.move_chat(false),
             Action::MoveDown => self.move_chat(true),
-            Action::PreviousFolder => {
-                self.move_folder(false);
-                None
-            }
-            Action::NextFolder => {
-                self.move_folder(true);
-                None
-            }
+            Action::PreviousFolder => self.move_folder(false),
+            Action::NextFolder => self.move_folder(true),
             Action::ManageFolders => {
                 self.open_folder_picker();
                 None

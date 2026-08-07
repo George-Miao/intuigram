@@ -134,6 +134,15 @@ impl AccountDatabase {
         response.recv().map_err(|_| Error::WorkerUnavailable)?
     }
 
+    /// Persists the selected Folder and Chat before shutdown.
+    pub fn save_selection(&self, selection: StoredSelection) -> Result<()> {
+        let (reply, response) = mpsc::sync_channel(1);
+        self.commands
+            .send(Command::SaveSelection { selection, reply })
+            .map_err(|_| Error::WorkerUnavailable)?;
+        response.recv().map_err(|_| Error::WorkerUnavailable)?
+    }
+
     fn spawn(path: PathBuf, create: bool) -> Result<Self> {
         prepare_data_directory(&path)?;
         let (commands, requests) = mpsc::sync_channel(32);

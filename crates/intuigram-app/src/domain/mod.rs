@@ -81,6 +81,16 @@ pub struct FolderView {
     pub unread: u32,
 }
 
+/// Last durable navigation target for one Account.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SelectionView {
+    /// Telegram Folder ID selected in the Chat list.
+    pub folder: i32,
+
+    /// Selected Chat, or `None` when no Chat is selected.
+    pub chat: Option<ChatId>,
+}
+
 /// Telegram cloud Chat category normalized away from TL constructors.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ChatKind {

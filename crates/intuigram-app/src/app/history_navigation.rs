@@ -40,7 +40,7 @@ impl App {
         self.queue_active_media_previews();
         self.active_chat_id()
             .and_then(|chat| self.request_chat_load(chat))
-            .or_else(|| self.request_next_media_preview())
+            .or_else(|| Some(self.selection_effect()))
     }
 
     pub(super) fn request_chat_load(&mut self, chat: ChatId) -> Option<Effect> {
@@ -102,7 +102,11 @@ impl App {
                         chat: key.chat,
                         root,
                     },
-                    None => Effect::LoadChat { chat: key.chat },
+                    None => Effect::LoadChat {
+                        chat: key.chat,
+                        selection: (self.active_history_key() == Some(key))
+                            .then(|| self.selection_view()),
+                    },
                 })
             }
             Some(loading) if loading == key => {
@@ -169,51 +173,6 @@ impl App {
 
     fn history_was_refreshed(&self, key: HistoryKey) -> bool {
         key.thread.is_none() && self.history_loads.refreshed_chats.contains(&key.chat)
-    }
-
-    pub(super) fn move_folder(&mut self, forward: bool) {
-        if self.view.focus == Focus::Chats {
-            let active_chat = self.active_chat_id();
-            self.save_active_draft();
-            self.save_transcript_anchor();
-            self.view.active_folder = move_index(
-                Some(self.view.active_folder),
-                self.view.folders.len(),
-                forward,
-            )
-            .unwrap_or(0);
-            self.refresh_folder_chats(active_chat);
-            self.restore_active_draft();
-            self.view.active_thread = None;
-            let transcript_anchor = self
-                .active_history_key()
-                .and_then(|key| self.transcript_anchors.get(&key).copied());
-            self.view.active_message = None;
-            self.view.transcript_anchor = None;
-            self.refresh_active_history_at(None, transcript_anchor);
-        }
-    }
-
-    pub(super) fn refresh_folder_chats(&mut self, preferred: Option<ChatId>) {
-        let folder = self
-            .view
-            .folders
-            .get(self.view.active_folder)
-            .map_or(0, |folder| folder.id);
-        self.view.chats = self
-            .all_chats
-            .iter()
-            .filter(|chat| chat.folders.contains(&folder))
-            .cloned()
-            .collect();
-        self.view.active_chat = preferred
-            .and_then(|chat| {
-                self.view
-                    .chats
-                    .iter()
-                    .position(|candidate| candidate.id == chat)
-            })
-            .or_else(|| (!self.view.chats.is_empty()).then_some(0));
     }
 
     pub(super) fn target_previous_message(&mut self) {

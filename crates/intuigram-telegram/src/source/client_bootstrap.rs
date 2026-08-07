@@ -85,6 +85,7 @@ impl Client {
         Ok(Bootstrap {
             connection: intuigram_app::ConnectionState::Connected,
             account_name,
+            restored_selection: None,
             folders,
             chats: chat_views,
             messages: initial_messages,

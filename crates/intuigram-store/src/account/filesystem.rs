@@ -93,11 +93,17 @@ pub(super) fn run_worker(
             Command::SaveDraft { draft, reply } => {
                 let _ = reply.send(save_draft(&connection, draft));
             }
+            Command::SaveSelection { selection, reply } => {
+                let _ = reply.send(save_selection(&connection, selection));
+            }
             Command::CommitSyncAsync { batch, reply } => {
                 reply.finish(commit_sync(&connection, *batch));
             }
             Command::SaveDraftAsync { draft, reply } => {
                 reply.finish(save_draft(&connection, draft));
+            }
+            Command::SaveSelectionAsync { selection, reply } => {
+                reply.finish(save_selection(&connection, selection));
             }
             Command::SaveMessagesAsync { messages, reply } => {
                 reply.finish(save_messages(&connection, messages));

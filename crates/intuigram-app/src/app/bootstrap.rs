@@ -84,6 +84,7 @@ impl App {
     }
 
     pub(super) fn replace_bootstrap(&mut self, bootstrap: Bootstrap) {
+        let restored_selection = bootstrap.restored_selection;
         self.view.connection = bootstrap.connection;
         self.view.account_name = bootstrap.account_name;
         self.view.folders = bootstrap.folders;
@@ -107,8 +108,39 @@ impl App {
                 )
             })
             .collect();
+        let default_folder = self
+            .view
+            .folders
+            .iter()
+            .position(|folder| folder.id == 0)
+            .unwrap_or(0);
+        let restored_folder = restored_selection.and_then(|selection| {
+            self.view
+                .folders
+                .iter()
+                .position(|folder| folder.id == selection.folder)
+        });
+        self.view.active_folder = restored_folder.unwrap_or(default_folder);
         self.refresh_folder_chats(None);
-        self.view.active_chat = (!self.view.chats.is_empty()).then_some(0);
+        self.view.active_chat = match restored_selection {
+            None => (!self.view.chats.is_empty()).then_some(0),
+            Some(selection) if restored_folder.is_some() => match selection.chat {
+                None => None,
+                Some(chat) => self
+                    .view
+                    .chats
+                    .iter()
+                    .position(|candidate| candidate.id == chat),
+            },
+            Some(_) => None,
+        };
+        if restored_selection.is_some_and(|selection| {
+            restored_folder.is_some() && selection.chat.is_some() && self.view.active_chat.is_none()
+        }) {
+            self.view.active_folder = default_folder;
+            self.refresh_folder_chats(None);
+            self.view.active_chat = None;
+        }
         self.histories = bootstrap
             .histories
             .into_iter()

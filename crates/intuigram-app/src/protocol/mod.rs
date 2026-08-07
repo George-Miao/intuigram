@@ -111,6 +111,10 @@ pub struct Bootstrap {
 
     /// Active Account display name.
     pub account_name: String,
+
+    /// Last durable Folder and Chat selection, when one has been saved.
+    pub restored_selection: Option<SelectionView>,
+
     /// Synchronized Telegram Folders.
     pub folders: Vec<FolderView>,
     /// Chats in the active Folder.

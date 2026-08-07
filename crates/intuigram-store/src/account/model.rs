@@ -248,6 +248,16 @@ pub struct StoredDraft {
     pub modified_at: i64,
 }
 
+/// Last durable navigation target for one Account.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StoredSelection {
+    /// Telegram Folder ID selected in the Chat list.
+    pub folder_id: i32,
+
+    /// Selected Chat, or `None` when no Chat is selected.
+    pub chat_id: Option<i64>,
+}
+
 /// Immediately renderable durable Account cache.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CachedAccount {
@@ -268,5 +278,8 @@ pub struct CachedAccount {
 
     /// Current durable Drafts.
     pub drafts: Vec<StoredDraft>,
+
+    /// Last selected Folder and Chat, when the application saved one.
+    pub selection: Option<StoredSelection>,
 }
 use super::*;

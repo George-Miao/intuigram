@@ -27,6 +27,17 @@ pub enum Effect {
     LoadChat {
         /// Chat selected by the user.
         chat: ChatId,
+
+        /// Navigation state to persist with this foreground request.
+        selection: Option<SelectionView>,
+    },
+    /// Persist navigation when no Chat load is needed.
+    SaveSelection {
+        /// Selected Telegram Folder ID.
+        folder: i32,
+
+        /// Selected Chat, or `None` when the Folder has no active Chat.
+        chat: Option<ChatId>,
     },
     /// Load an ordinary Message Thread or Channel comments.
     LoadThread {

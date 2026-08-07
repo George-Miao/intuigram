@@ -24,12 +24,20 @@ pub(super) enum Command {
         draft: StoredDraft,
         reply: SyncSender<Result<()>>,
     },
+    SaveSelection {
+        selection: StoredSelection,
+        reply: SyncSender<Result<()>>,
+    },
     CommitSyncAsync {
         batch: Box<SyncBatch>,
         reply: AsyncReply<()>,
     },
     SaveDraftAsync {
         draft: StoredDraft,
+        reply: AsyncReply<()>,
+    },
+    SaveSelectionAsync {
+        selection: StoredSelection,
         reply: AsyncReply<()>,
     },
     SaveMessagesAsync {
@@ -132,6 +140,16 @@ impl AccountStore {
         let (reply, request) = async_response();
         self.commands
             .try_send(Command::SaveDraftAsync { draft, reply })
+            .map_err(map_try_send_error)?;
+        Ok(request)
+    }
+
+    /// Enqueues the Account's current navigation target without blocking the
+    /// runtime.
+    pub fn save_selection(&self, selection: StoredSelection) -> Result<DatabaseRequest<()>> {
+        let (reply, request) = async_response();
+        self.commands
+            .try_send(Command::SaveSelectionAsync { selection, reply })
             .map_err(map_try_send_error)?;
         Ok(request)
     }

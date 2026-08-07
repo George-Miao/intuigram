@@ -42,7 +42,7 @@ fn background_refresh_does_not_replace_a_transcript_being_read() {
     });
     let mut app = App::new();
     let bootstrap = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
-    assert_eq!(bootstrap.effect, Some(load_chat(20)));
+    assert_eq!(bootstrap.effect, Some(load_chat(20, None)));
     apply(&mut app, Input::Intent(Intent::Action(Action::MoveDown)));
     apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
     apply(
@@ -76,7 +76,7 @@ fn rapid_navigation_does_not_drop_an_inactive_background_history() {
     let mut app = App::new();
 
     let bootstrap = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
-    assert_eq!(bootstrap.effect, Some(load_chat(20)));
+    assert_eq!(bootstrap.effect, Some(load_chat(20, None)));
     for _ in 0..3 {
         apply(&mut app, Input::Intent(Intent::Action(Action::MoveDown)));
     }
@@ -85,14 +85,14 @@ fn rapid_navigation_does_not_drop_an_inactive_background_history() {
         messages: Vec::new(),
         pinned_messages: Vec::new(),
     }));
-    assert_eq!(latest.effect, Some(load_chat(40)));
+    assert_eq!(latest.effect, Some(load_chat(40, Some(40))));
 
     let resumed_background = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
         chat: ChatId(40),
         messages: Vec::new(),
         pinned_messages: Vec::new(),
     }));
-    assert_eq!(resumed_background.effect, Some(load_chat(30)));
+    assert_eq!(resumed_background.effect, Some(load_chat(30, None)));
 }
 
 #[test]
@@ -152,7 +152,7 @@ fn thread_read_is_emitted_after_remaining_background_history() {
     fixture.chats.push(third);
     let mut app = App::new();
     let bootstrap = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
-    assert_eq!(bootstrap.effect, Some(load_chat(20)));
+    assert_eq!(bootstrap.effect, Some(load_chat(20, None)));
 
     apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
     apply(&mut app, Input::Intent(Intent::Action(Action::JumpLatest)));
@@ -175,7 +175,7 @@ fn thread_read_is_emitted_after_remaining_background_history() {
         root: MessageId(3),
         messages: vec![message(31, "visible incoming thread message")],
     }));
-    assert_eq!(warmup.effect, Some(load_chat(30)));
+    assert_eq!(warmup.effect, Some(load_chat(30, None)));
 
     let read = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
         chat: ChatId(30),
@@ -205,8 +205,14 @@ fn message(id: i64, body: &str) -> MessageView {
     }
 }
 
-fn load_chat(chat: i64) -> Effect {
-    Effect::LoadChat { chat: ChatId(chat) }
+fn load_chat(chat: i64, selected_chat: Option<i64>) -> Effect {
+    Effect::LoadChat {
+        chat: ChatId(chat),
+        selection: selected_chat.map(|chat| SelectionView {
+            folder: 0,
+            chat: Some(ChatId(chat)),
+        }),
+    }
 }
 
 fn assert_jump_adopts_refresh(app: &mut App, refreshed: Vec<MessageView>) {

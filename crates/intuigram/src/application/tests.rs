@@ -8,9 +8,10 @@ use std::task::{Context, Poll};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use intuigram_app::{
     Action, AdapterEvent, ChatId, ChatKind, DeliveryState, Effect, Intent, MediaCard, MediaKind,
-    MessageDetails, MessageDirection, MessageId, MessageView, TextEntity, TextEntityKind,
+    MessageDetails, MessageDirection, MessageId, MessageView, SelectionView, TextEntity,
+    TextEntityKind,
 };
-use intuigram_store::{CachedAccount, StoredChat, StoredDraft, StoredFolder};
+use intuigram_store::{CachedAccount, StoredChat, StoredDraft, StoredFolder, StoredSelection};
 use intuigram_telegram::{LoginCodeDelivery, LoginCodeDeliveryMethod};
 use intuigram_tui::UiEvent;
 
@@ -87,6 +88,10 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
             reply_to: Some(42),
             modified_at: 10,
         }],
+        selection: Some(StoredSelection {
+            folder_id: 0,
+            chat_id: Some(7),
+        }),
     };
 
     let bootstrap = cached_bootstrap("Ada".to_owned(), cached);
@@ -96,6 +101,13 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
     assert_eq!(bootstrap.histories[0].messages, vec![message]);
     assert_eq!(bootstrap.pinned_messages[0].messages, vec![old_pin]);
     assert_eq!(bootstrap.drafts[0].text, "cached Draft");
+    assert_eq!(
+        bootstrap.restored_selection,
+        Some(SelectionView {
+            folder: 0,
+            chat: Some(ChatId(7)),
+        })
+    );
 }
 
 impl ApplicationBackend for PendingHistoryBackend {
@@ -104,7 +116,7 @@ impl ApplicationBackend for PendingHistoryBackend {
         effect: AdapterEffect,
         _peers: intuigram_telegram::PeerDirectory,
     ) -> Result<BackendOutput> {
-        let Effect::LoadChat { chat } = effect.effect else {
+        let Effect::LoadChat { chat, .. } = effect.effect else {
             return Ok(BackendOutput::event(None));
         };
         std::future::poll_fn(|cx| {
@@ -202,7 +214,7 @@ impl ApplicationBackend for PeerAwareBackend {
         effect: AdapterEffect,
         peers: intuigram_telegram::PeerDirectory,
     ) -> Result<BackendOutput> {
-        let Effect::LoadChat { chat } = effect.effect else {
+        let Effect::LoadChat { chat, .. } = effect.effect else {
             return Ok(BackendOutput::event(None));
         };
         self.resolved.set(chat == self.chat && peers.contains(chat));

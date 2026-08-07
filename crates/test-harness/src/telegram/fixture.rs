@@ -32,6 +32,7 @@ impl AccountFixture {
         Bootstrap {
             connection: ConnectionState::Connected,
             account_name: self.name,
+            restored_selection: None,
             folders: vec![
                 FolderView {
                     id: 0,

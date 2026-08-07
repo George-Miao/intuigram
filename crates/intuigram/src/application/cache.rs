@@ -1,4 +1,17 @@
 pub(super) fn cached_bootstrap(account_name: String, cached: CachedAccount) -> Bootstrap {
+    let restored_selection = cached.selection.map(|selection| SelectionView {
+        folder: selection.folder_id,
+        chat: selection.chat_id.map(ChatId),
+    });
+    let folders = cached
+        .folders
+        .into_iter()
+        .map(|folder| FolderView {
+            id: folder.id,
+            title: folder.title,
+            unread: folder.unread,
+        })
+        .collect::<Vec<_>>();
     let chats = cached
         .chats
         .into_iter()
@@ -44,24 +57,28 @@ pub(super) fn cached_bootstrap(account_name: String, cached: CachedAccount) -> B
             messages,
         })
         .collect();
-    let messages = chats.first().map_or_else(Vec::new, |active| {
+    let active_chat = match restored_selection {
+        None => chats.first().map(|chat| chat.id),
+        Some(selection) if folders.iter().any(|folder| folder.id == selection.folder) => {
+            selection.chat.filter(|chat| {
+                chats.iter().any(|candidate| {
+                    candidate.id == *chat && candidate.folders.contains(&selection.folder)
+                })
+            })
+        }
+        Some(_) => None,
+    };
+    let messages = active_chat.map_or_else(Vec::new, |active| {
         histories
             .iter()
-            .find(|history| history.chat == active.id && history.thread_root.is_none())
+            .find(|history| history.chat == active && history.thread_root.is_none())
             .map_or_else(Vec::new, |history| history.messages.clone())
     });
     Bootstrap {
         connection: intuigram_app::ConnectionState::Connecting,
         account_name,
-        folders: cached
-            .folders
-            .into_iter()
-            .map(|folder| FolderView {
-                id: folder.id,
-                title: folder.title,
-                unread: folder.unread,
-            })
-            .collect(),
+        restored_selection,
+        folders,
         chats,
         messages,
         pinned_messages,

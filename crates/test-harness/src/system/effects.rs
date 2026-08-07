@@ -4,7 +4,7 @@ use intuigram::encode_stored_message;
 use intuigram_app::{
     AdapterEvent, ConnectionState, DownloadId, DownloadView, Effect, MediaKind, MediaPreviewView,
 };
-use intuigram_store::StoredDraft;
+use intuigram_store::{StoredDraft, StoredSelection};
 use intuigram_telegram::{LiveEvent, UpdateCursor, UpdateScope};
 use snafu::ResultExt;
 
@@ -30,7 +30,15 @@ impl TestSystem {
                 self.application.revision(),
             );
             match effect {
-                Effect::LoadChat { chat } => {
+                Effect::LoadChat { chat, selection } => {
+                    if let Some(selection) = selection {
+                        self.database
+                            .save_selection(StoredSelection {
+                                folder_id: selection.folder,
+                                chat_id: selection.chat.map(|chat| chat.0),
+                            })
+                            .context(StoreSnafu)?;
+                    }
                     let result = self
                         .telegram
                         .load_history(chat)
@@ -68,6 +76,14 @@ impl TestSystem {
                             reason,
                         },
                     });
+                }
+                Effect::SaveSelection { folder, chat } => {
+                    self.database
+                        .save_selection(StoredSelection {
+                            folder_id: folder,
+                            chat_id: chat.map(|chat| chat.0),
+                        })
+                        .context(StoreSnafu)?;
                 }
                 Effect::LoadThread { chat, root } => {
                     let messages = self

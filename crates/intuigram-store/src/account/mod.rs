@@ -20,6 +20,7 @@ mod filesystem;
 mod message_write;
 mod migration;
 mod model;
+mod selection;
 mod session;
 mod sync_write;
 mod worker;
@@ -34,8 +35,9 @@ pub(crate) use migration::open_and_migrate;
 use migration::read_account_id;
 pub use model::{
     CachedAccount, SessionMaterial, StoredChat, StoredDraft, StoredFolder, StoredMessage,
-    StoredMutation, SyncBatch, SyncCursor,
+    StoredMutation, StoredSelection, SyncBatch, SyncCursor,
 };
+use selection::save_selection;
 use session::read_session;
 use sync_write::{apply_sync_mutation, commit_sync};
 use worker::Command;
@@ -283,6 +285,13 @@ pub enum Error {
     /// Normalized history or local delivery state could not be persisted.
     #[snafu(display("failed to persist normalized Message records"))]
     SaveMessages {
+        /// Underlying database failure.
+        source: rusqlite::Error,
+    },
+
+    /// The last selected Folder and Chat could not be persisted.
+    #[snafu(display("failed to persist the active Folder and Chat"))]
+    SaveSelection {
         /// Underlying database failure.
         source: rusqlite::Error,
     },

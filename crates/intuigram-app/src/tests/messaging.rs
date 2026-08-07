@@ -124,7 +124,10 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
     )));
     assert_eq!(
         background.effect,
-        Some(Effect::LoadChat { chat: ChatId(20) })
+        Some(Effect::LoadChat {
+            chat: ChatId(20),
+            selection: None,
+        })
     );
     apply(
         &mut app,
@@ -136,7 +139,16 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
     );
     let opened = app.transition(Input::Intent(Intent::Action(Action::Open)));
     assert_eq!(opened.view.focus, Focus::Composer);
-    assert_eq!(opened.effect, Some(Effect::LoadChat { chat: ChatId(10) }));
+    assert_eq!(
+        opened.effect,
+        Some(Effect::LoadChat {
+            chat: ChatId(10),
+            selection: Some(SelectionView {
+                folder: 0,
+                chat: Some(ChatId(10)),
+            }),
+        })
+    );
     apply(
         &mut app,
         Input::Adapter(AdapterEvent::ChatLoaded {
@@ -154,12 +166,24 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
     assert_eq!(second.view.active_chat, Some(1));
     assert!(second.view.messages.is_empty());
     assert!(second.view.composer.text.is_empty());
-    assert_eq!(second.effect, None);
+    assert_eq!(
+        second.effect,
+        Some(Effect::SaveSelection {
+            folder: 0,
+            chat: Some(ChatId(20)),
+        })
+    );
     let first = app.transition(Input::Intent(Intent::Action(Action::MoveUp)));
     assert_eq!(first.view.active_chat, Some(0));
     assert_eq!(first.view.messages, hierarchy_bootstrap().messages);
     assert_eq!(first.view.composer.text, "first draft");
-    assert_eq!(first.effect, None);
+    assert_eq!(
+        first.effect,
+        Some(Effect::SaveSelection {
+            folder: 0,
+            chat: Some(ChatId(10)),
+        })
+    );
 }
 
 #[test]
@@ -171,12 +195,21 @@ fn revisiting_a_loaded_chat_renders_cached_history_while_refreshing() {
     )));
     assert_eq!(
         background.effect,
-        Some(Effect::LoadChat { chat: ChatId(20) })
+        Some(Effect::LoadChat {
+            chat: ChatId(20),
+            selection: None,
+        })
     );
 
     let second = app.transition(Input::Intent(Intent::Action(Action::MoveDown)));
     assert!(second.view.messages.is_empty());
-    assert_eq!(second.effect, None);
+    assert_eq!(
+        second.effect,
+        Some(Effect::SaveSelection {
+            folder: 0,
+            chat: Some(ChatId(20)),
+        })
+    );
 
     let second_history = vec![MessageView {
         id: MessageId(20),
@@ -197,7 +230,16 @@ fn revisiting_a_loaded_chat_renders_cached_history_while_refreshing() {
 
     let first = app.transition(Input::Intent(Intent::Action(Action::MoveUp)));
     assert_eq!(first.view.messages, initial);
-    assert_eq!(first.effect, Some(Effect::LoadChat { chat: ChatId(10) }));
+    assert_eq!(
+        first.effect,
+        Some(Effect::LoadChat {
+            chat: ChatId(10),
+            selection: Some(SelectionView {
+                folder: 0,
+                chat: Some(ChatId(10)),
+            }),
+        })
+    );
 
     let mut refreshed = hierarchy_bootstrap().messages;
     refreshed.push(MessageView {
@@ -240,13 +282,22 @@ fn bootstrap_cached_history_renders_before_a_background_refresh() {
     let background = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
     assert_eq!(
         background.effect,
-        Some(Effect::LoadChat { chat: ChatId(20) })
+        Some(Effect::LoadChat {
+            chat: ChatId(20),
+            selection: None,
+        })
     );
 
     let switched = app.transition(Input::Intent(Intent::Action(Action::MoveDown)));
 
     assert_eq!(switched.view.messages, vec![cached]);
-    assert_eq!(switched.effect, None);
+    assert_eq!(
+        switched.effect,
+        Some(Effect::SaveSelection {
+            folder: 0,
+            chat: Some(ChatId(20)),
+        })
+    );
 }
 
 #[test]

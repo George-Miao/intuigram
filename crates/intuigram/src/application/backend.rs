@@ -95,6 +95,17 @@ impl Backend {
             .context(AccountDatabaseSnafu)
     }
 
+    pub(super) async fn save_selection(&mut self, folder: i32, chat: Option<ChatId>) -> Result<()> {
+        self.store
+            .save_selection(intuigram_store::StoredSelection {
+                folder_id: folder,
+                chat_id: chat.map(|chat| chat.0),
+            })
+            .context(AccountDatabaseSnafu)?
+            .await
+            .context(AccountDatabaseSnafu)
+    }
+
     pub(super) async fn load_chat(
         &mut self,
         chat: ChatId,
@@ -125,6 +136,25 @@ impl Backend {
             .await
             .context(AccountDatabaseSnafu)?;
         Ok((messages, pinned_messages))
+    }
+
+    pub(super) async fn load_selected_chat(
+        &mut self,
+        chat: ChatId,
+        selection: Option<SelectionView>,
+    ) -> Result<Option<AdapterEvent>> {
+        if let Some(selection) = selection {
+            self.save_selection(selection.folder, selection.chat)
+                .await?;
+        }
+        match self.load_chat(chat).await {
+            Ok((messages, pinned_messages)) => Ok(Some(AdapterEvent::ChatLoaded {
+                chat,
+                messages,
+                pinned_messages,
+            })),
+            Err(error) => history_failure_event(chat, None, error),
+        }
     }
 
     pub(super) async fn load_thread(
