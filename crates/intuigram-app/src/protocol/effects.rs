@@ -1,5 +1,10 @@
 /// Ordered inputs to the state owner.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "adapter batches enter the synchronous reducer once; boxing every input would add \
+              allocation to all terminal actions"
+)]
 pub enum Input {
     /// An action from the active user interface.
     Intent(Intent),
@@ -10,6 +15,14 @@ pub enum Input {
 /// Side effects requested from adapters.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Effect {
+    /// Alert the user about an incoming Message outside the visibly read Chat.
+    Notify {
+        /// Stable Account-scoped replacement identity.
+        identity: String,
+
+        /// Chat receiving the incoming Message.
+        chat: ChatId,
+    },
     /// Start a connection attempt immediately.
     Reconnect,
     /// Add or remove the Active Chat from one Telegram Folder.
@@ -30,6 +43,9 @@ pub enum Effect {
 
         /// Navigation state to persist with this foreground request.
         selection: Option<SelectionView>,
+
+        /// Complete Account-local Transcript positions to persist atomically.
+        transcript_anchors: Vec<TranscriptAnchorView>,
     },
     /// Persist navigation when no Chat load is needed.
     SaveSelection {
@@ -41,6 +57,9 @@ pub enum Effect {
 
         /// Message anchoring the Transcript viewport.
         message: Option<MessageId>,
+
+        /// Complete Account-local Transcript positions to persist atomically.
+        transcript_anchors: Vec<TranscriptAnchorView>,
     },
     /// Load an ordinary Message Thread or Channel comments.
     LoadThread {
@@ -254,6 +273,9 @@ pub struct View {
 
     /// Active Account display name.
     pub account_name: String,
+
+    /// Stable Account-scoped notification replacement identity.
+    pub notification_identity: String,
 
     /// Synchronized Telegram Folders.
     pub folders: Vec<FolderView>,

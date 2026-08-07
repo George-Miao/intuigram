@@ -36,7 +36,7 @@ pub(crate) use migration::open_and_migrate;
 use migration::read_account_id;
 pub use model::{
     CachedAccount, SessionMaterial, StoredChat, StoredDraft, StoredFolder, StoredMessage,
-    StoredMutation, StoredSelection, SyncBatch, SyncCursor,
+    StoredMutation, StoredSelection, StoredTranscriptAnchor, SyncBatch, SyncCursor,
 };
 pub use security::{
     AccountCipher, Error as SecurityError, Result as SecurityResult, enable_local_lock,

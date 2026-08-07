@@ -57,7 +57,32 @@ impl App {
             folder: selection.folder,
             chat: selection.chat,
             message: selection.message,
+            transcript_anchors: self.transcript_anchor_views(),
         }
+    }
+
+    pub(super) fn transcript_anchor_views(&self) -> Vec<TranscriptAnchorView> {
+        let active_key = self.active_history_key();
+        let active_message = self.selection_view().message;
+        let mut anchors = self
+            .transcript_anchors
+            .iter()
+            .filter(|(key, _)| Some(**key) != active_key || active_message.is_none())
+            .map(|(key, message)| TranscriptAnchorView {
+                chat: key.chat,
+                thread: key.thread,
+                message: *message,
+            })
+            .collect::<Vec<_>>();
+        if let (Some(key), Some(message)) = (active_key, active_message) {
+            anchors.push(TranscriptAnchorView {
+                chat: key.chat,
+                thread: key.thread,
+                message,
+            });
+        }
+        anchors.sort_unstable_by_key(|anchor| (anchor.chat, anchor.thread.unwrap_or(MessageId(0))));
+        anchors
     }
 
     pub(super) fn refresh_folder_chats(&mut self, preferred: Option<ChatId>) {

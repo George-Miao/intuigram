@@ -32,7 +32,9 @@ impl AccountFixture {
         Bootstrap {
             connection: ConnectionState::Connected,
             account_name: self.name,
+            notification_identity: "telegram:test".to_owned(),
             restored_selection: None,
+            transcript_anchors: Vec::new(),
             folders: vec![
                 FolderView {
                     id: 0,

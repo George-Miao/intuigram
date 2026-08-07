@@ -385,16 +385,29 @@ fn replacing_the_ui_selection_keeps_the_current_value_durable() {
             folder_id: 0,
             chat_id: Some(7),
             anchor_message_id: Some(6),
+            transcript_anchors: Vec::new(),
         })
         .expect("initial selection should persist");
     let replacement = StoredSelection {
         folder_id: -1,
         chat_id: Some(9),
         anchor_message_id: Some(8),
+        transcript_anchors: vec![
+            super::StoredTranscriptAnchor {
+                chat_id: 9,
+                thread_root: None,
+                message_id: 8,
+            },
+            super::StoredTranscriptAnchor {
+                chat_id: 10,
+                thread_root: Some(3),
+                message_id: 4,
+            },
+        ],
     };
 
     database
-        .save_selection(replacement)
+        .save_selection(replacement.clone())
         .expect("replacement selection should persist");
     let database = database
         .finish_login(&layout, account)

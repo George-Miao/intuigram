@@ -1,7 +1,23 @@
+use compio::runtime::ResumeUnwind;
+
+use super::*;
+
 impl Backend {
     pub(super) async fn execute(&mut self, effect: AdapterEffect) -> Result<Option<AdapterEvent>> {
         let AdapterEffect { effect, random_id } = effect;
         match effect {
+            Effect::Notify { .. } => {
+                compio::runtime::spawn_blocking(|| -> io::Result<()> {
+                    let mut stderr = io::stderr().lock();
+                    stderr.write_all(b"\x07")?;
+                    stderr.flush()
+                })
+                .await
+                .resume_unwind()
+                .expect("an awaited terminal-bell task cannot be cancelled")
+                .context(NotificationSnafu)?;
+                Ok(None)
+            }
             Effect::Quit | Effect::Reconnect => Ok(None),
             Effect::SetChatFolder {
                 chat,
@@ -20,13 +36,22 @@ impl Backend {
                     Err(error) => AdapterEvent::OperationFailed(error.to_string()),
                 },
             )),
-            Effect::LoadChat { chat, selection } => self.load_selected_chat(chat, selection).await,
+            Effect::LoadChat {
+                chat,
+                selection,
+                transcript_anchors,
+            } => {
+                self.load_selected_chat(chat, selection, transcript_anchors)
+                    .await
+            }
             Effect::SaveSelection {
                 folder,
                 chat,
                 message,
+                transcript_anchors,
             } => {
-                self.save_selection(folder, chat, message).await?;
+                self.save_selection(folder, chat, message, transcript_anchors)
+                    .await?;
                 Ok(None)
             }
             Effect::LoadThread { chat, root } => match self.load_thread(chat, root).await {
@@ -437,4 +462,3 @@ impl Backend {
         }
     }
 }
-use super::*;

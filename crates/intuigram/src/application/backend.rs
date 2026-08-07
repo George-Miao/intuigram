@@ -100,12 +100,21 @@ impl Backend {
         folder: i32,
         chat: Option<ChatId>,
         message: Option<MessageId>,
+        transcript_anchors: Vec<TranscriptAnchorView>,
     ) -> Result<()> {
         self.store
             .save_selection(intuigram_store::StoredSelection {
                 folder_id: folder,
                 chat_id: chat.map(|chat| chat.0),
                 anchor_message_id: message.map(|message| message.0),
+                transcript_anchors: transcript_anchors
+                    .into_iter()
+                    .map(|anchor| intuigram_store::StoredTranscriptAnchor {
+                        chat_id: anchor.chat.0,
+                        thread_root: anchor.thread.map(|message| message.0),
+                        message_id: anchor.message.0,
+                    })
+                    .collect(),
             })
             .context(AccountDatabaseSnafu)?
             .await
@@ -148,10 +157,16 @@ impl Backend {
         &mut self,
         chat: ChatId,
         selection: Option<SelectionView>,
+        transcript_anchors: Vec<TranscriptAnchorView>,
     ) -> Result<Option<AdapterEvent>> {
         if let Some(selection) = selection {
-            self.save_selection(selection.folder, selection.chat, selection.message)
-                .await?;
+            self.save_selection(
+                selection.folder,
+                selection.chat,
+                selection.message,
+                transcript_anchors,
+            )
+            .await?;
         }
         match self.load_chat(chat).await {
             Ok((messages, pinned_messages)) => Ok(Some(AdapterEvent::ChatLoaded {

@@ -85,7 +85,12 @@ impl Client {
         Ok(Bootstrap {
             connection: intuigram_app::ConnectionState::Connected,
             account_name,
+            notification_identity: self.identity.as_ref().map_or_else(
+                || "telegram:pending".to_owned(),
+                |identity| format!("telegram:{}", identity.id),
+            ),
             restored_selection: None,
+            transcript_anchors: Vec::new(),
             folders,
             chats: chat_views,
             messages: initial_messages,

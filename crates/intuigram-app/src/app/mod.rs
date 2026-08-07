@@ -139,12 +139,18 @@ impl App {
                     self.refresh_active_history_at(active_message, transcript_anchor);
                     self.view.has_newer_messages = !was_latest;
                 }
-                (incoming
+                let read_effect = (incoming
                     && visibly_read
                     && message_thread.is_some()
                     && self.view.active_thread == message_thread)
                     .then(|| self.active_thread_read_effect())
-                    .flatten()
+                    .flatten();
+                read_effect.or_else(|| {
+                    (incoming && !visibly_read).then(|| Effect::Notify {
+                        identity: self.view.notification_identity.clone(),
+                        chat,
+                    })
+                })
             }
             Input::Adapter(AdapterEvent::MessageUpdated { chat, message }) => {
                 self.replace_message(chat, *message);

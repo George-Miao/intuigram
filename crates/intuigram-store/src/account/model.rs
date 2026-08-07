@@ -249,7 +249,7 @@ pub struct StoredDraft {
 }
 
 /// Last durable navigation target for one Account.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StoredSelection {
     /// Telegram Folder ID selected in the Chat list.
     pub folder_id: i32,
@@ -259,6 +259,22 @@ pub struct StoredSelection {
 
     /// Message anchoring the restored Transcript viewport.
     pub anchor_message_id: Option<i64>,
+
+    /// Per-Chat and per-Thread Transcript positions retained for this Account.
+    pub transcript_anchors: Vec<StoredTranscriptAnchor>,
+}
+
+/// One durable Transcript position within an Account.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StoredTranscriptAnchor {
+    /// Owning Chat.
+    pub chat_id: i64,
+
+    /// Thread root, or `None` for root Chat history.
+    pub thread_root: Option<i64>,
+
+    /// Message anchoring the restored viewport.
+    pub message_id: i64,
 }
 
 /// Immediately renderable durable Account cache.

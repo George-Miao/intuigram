@@ -106,6 +106,7 @@ impl App {
                         chat: key.chat,
                         selection: (self.active_history_key() == Some(key))
                             .then(|| self.selection_view()),
+                        transcript_anchors: self.transcript_anchor_views(),
                     },
                 })
             }

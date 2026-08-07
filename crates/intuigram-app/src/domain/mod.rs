@@ -94,6 +94,19 @@ pub struct SelectionView {
     pub message: Option<MessageId>,
 }
 
+/// One Account-local Transcript position safe to persist through adapters.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct TranscriptAnchorView {
+    /// Owning Chat.
+    pub chat: ChatId,
+
+    /// Thread root, or `None` for root Chat history.
+    pub thread: Option<MessageId>,
+
+    /// Message anchoring the viewport.
+    pub message: MessageId,
+}
+
 /// Semantic target selected by a pointing device.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ActivationTarget {

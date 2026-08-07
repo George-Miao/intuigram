@@ -1,115 +1,25 @@
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
-use std::io;
-use std::path::PathBuf;
 use std::rc::Rc;
 use std::task::{Context, Poll};
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
-use intuigram_app::{
-    Action, AdapterEvent, ChatId, ChatKind, DeliveryState, Effect, Intent, MediaCard, MediaKind,
-    MessageDetails, MessageDirection, MessageId, MessageView, SelectionView, TextEntity,
-    TextEntityKind,
-};
-use intuigram_store::{CachedAccount, StoredChat, StoredDraft, StoredFolder, StoredSelection};
-use intuigram_telegram::{LoginCodeDelivery, LoginCodeDeliveryMethod};
+use intuigram_app::{Action, AdapterEvent, ChatId, Effect, Intent, MessageId};
 use intuigram_tui::UiEvent;
 
 use super::runtime_adapters::{AdapterBatch, BackendOutput};
 use super::{
     AdapterEffect, ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents,
     ApplicationExit, ApplicationState, ApplicationUi, AttachmentPayload, AttachmentStore,
-    EFFECT_CAPACITY, Error, PRIMARY_DC_ENDPOINT, PendingEffect, Result, application_fixture,
-    cached_bootstrap, connection_failure_reason, encode_stored_message, enqueue_effect,
-    error_lines, login_code_delivery_message, login_code_delivery_method_name, parse_arguments,
-    run_application, run_application_state, seconds_until_at,
+    EFFECT_CAPACITY, Error, PendingEffect, Result, application_fixture, enqueue_effect,
+    run_application, run_application_state,
 };
+
+mod cached;
+mod misc;
 
 struct PendingHistoryBackend {
     polls: Rc<Cell<usize>>,
-}
-
-#[test]
-fn cached_account_restores_rich_thread_history_and_drafts() {
-    let message = MessageView {
-        id: MessageId(42),
-        sender: "Ada".to_owned(),
-        body: "cached caption".to_owned(),
-        timestamp: "12:00".to_owned(),
-        direction: MessageDirection::Incoming,
-        delivery: DeliveryState::Read,
-        reply_to: Some(MessageId(40)),
-        details: MessageDetails {
-            entities: vec![TextEntity {
-                offset: 0,
-                length: 6,
-                kind: TextEntityKind::Bold,
-            }],
-            media: Some(MediaCard {
-                kind: MediaKind::Photo,
-                title: "Photo".to_owned(),
-                description: "image".to_owned(),
-                details: Vec::new(),
-                poll: None,
-                remote_id: Some("99".to_owned()),
-            }),
-            thread_root: Some(MessageId(41)),
-            ..MessageDetails::default()
-        },
-    };
-    let mut old_pin = message.clone();
-    old_pin.id = MessageId(5);
-    old_pin.details.thread_root = None;
-    old_pin.details.pinned = true;
-    let cached = CachedAccount {
-        cursors: Vec::new(),
-        folders: vec![StoredFolder {
-            id: 0,
-            title: "All".to_owned(),
-            unread: 1,
-        }],
-        chats: vec![StoredChat {
-            id: 7,
-            kind: "private".to_owned(),
-            title: "Ada".to_owned(),
-            preview: "cached caption".to_owned(),
-            status: "online".to_owned(),
-            unread: 1,
-            pinned: false,
-            can_pin_messages: true,
-            folders: vec![0],
-        }],
-        messages: vec![encode_stored_message(ChatId(7), &message)],
-        pinned_messages: vec![encode_stored_message(ChatId(7), &old_pin)],
-        drafts: vec![StoredDraft {
-            chat_id: 7,
-            thread_root: Some(41),
-            text: "cached Draft".to_owned(),
-            reply_to: Some(42),
-            modified_at: 10,
-        }],
-        selection: Some(StoredSelection {
-            folder_id: 0,
-            chat_id: Some(7),
-            anchor_message_id: Some(42),
-        }),
-    };
-
-    let bootstrap = cached_bootstrap("Ada".to_owned(), cached);
-
-    assert_eq!(bootstrap.chats[0].kind, ChatKind::Private);
-    assert_eq!(bootstrap.histories[0].thread_root, Some(MessageId(41)));
-    assert_eq!(bootstrap.histories[0].messages, vec![message]);
-    assert_eq!(bootstrap.pinned_messages[0].messages, vec![old_pin]);
-    assert_eq!(bootstrap.drafts[0].text, "cached Draft");
-    assert_eq!(
-        bootstrap.restored_selection,
-        Some(SelectionView {
-            folder: 0,
-            chat: Some(ChatId(7)),
-            message: Some(MessageId(42)),
-        })
-    );
 }
 
 impl ApplicationBackend for PendingHistoryBackend {
@@ -448,78 +358,4 @@ fn reconnect_handoff_preserves_attachment_payloads_and_ids() {
 
     assert!(connected.payloads.contains_key(&first));
     assert!(second.0 > first.0);
-}
-
-#[test]
-fn bootstrap_uses_the_production_dc_2_endpoint() {
-    assert_eq!(PRIMARY_DC_ENDPOINT.to_string(), "149.154.167.41:443");
-}
-
-#[test]
-fn qr_expiry_uses_the_telegram_server_time_offset() {
-    assert_eq!(seconds_until_at(1_030, 1_000, 10), 20);
-    assert_eq!(seconds_until_at(1_030, 1_000, 40), 0);
-}
-
-#[test]
-fn telegram_app_login_codes_name_the_actual_destination() {
-    assert_eq!(
-        login_code_delivery_message(&LoginCodeDelivery::TelegramApp { length: 5 }),
-        "Telegram sent a 5-digit code to the Telegram app on another logged-in device."
-    );
-}
-
-#[test]
-fn login_code_fallback_names_sms_delivery() {
-    assert_eq!(
-        login_code_delivery_method_name(LoginCodeDeliveryMethod::Sms),
-        "SMS delivery"
-    );
-}
-
-#[test]
-fn command_line_paths_are_parsed_and_the_obsolete_demo_flag_is_rejected() {
-    let parsed = parse_arguments([
-        "--data-dir".to_owned(),
-        "/tmp/intuigram-data".to_owned(),
-        "--cache-dir".to_owned(),
-        "/tmp/intuigram-cache".to_owned(),
-    ])
-    .expect("valid command line should parse");
-
-    assert_eq!(
-        parsed.data.expect("data override should exist"),
-        PathBuf::from("/tmp/intuigram-data")
-    );
-    assert_eq!(
-        parsed.cache.expect("cache override should exist"),
-        PathBuf::from("/tmp/intuigram-cache")
-    );
-    assert!(parse_arguments(["--demo".to_owned()]).is_err());
-}
-
-#[test]
-fn errors_are_rendered_one_line_per_source_layer() {
-    let error = Error::Runtime {
-        source: io::Error::other("driver setup\nfailed"),
-    };
-
-    assert_eq!(
-        error_lines(&error),
-        [
-            "failed to initialize the Compio runtime",
-            "driver setup failed"
-        ]
-    );
-}
-
-#[test]
-fn synchronization_gap_enters_the_reconnect_path() {
-    let error = Error::CommitTelegramUpdate {
-        source: intuigram::SyncError::UpdateGap {
-            scope: "channel:-1000000000005".to_owned(),
-        },
-    };
-
-    assert!(connection_failure_reason(&error).is_some());
 }

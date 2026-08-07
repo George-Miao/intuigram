@@ -1,9 +1,28 @@
-pub(super) fn cached_bootstrap(account_name: String, cached: CachedAccount) -> Bootstrap {
-    let restored_selection = cached.selection.map(|selection| SelectionView {
+pub(super) fn cached_bootstrap(
+    account_name: String,
+    notification_identity: String,
+    cached: CachedAccount,
+) -> Bootstrap {
+    let restored_selection = cached.selection.as_ref().map(|selection| SelectionView {
         folder: selection.folder_id,
         chat: selection.chat_id.map(ChatId),
         message: selection.anchor_message_id.map(MessageId),
     });
+    let transcript_anchors = cached
+        .selection
+        .as_ref()
+        .map(|selection| {
+            selection
+                .transcript_anchors
+                .iter()
+                .map(|anchor| TranscriptAnchorView {
+                    chat: ChatId(anchor.chat_id),
+                    thread: anchor.thread_root.map(MessageId),
+                    message: MessageId(anchor.message_id),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     let folders = cached
         .folders
         .into_iter()
@@ -78,7 +97,9 @@ pub(super) fn cached_bootstrap(account_name: String, cached: CachedAccount) -> B
     Bootstrap {
         connection: intuigram_app::ConnectionState::Connecting,
         account_name,
+        notification_identity,
         restored_selection,
+        transcript_anchors,
         folders,
         chats,
         messages,

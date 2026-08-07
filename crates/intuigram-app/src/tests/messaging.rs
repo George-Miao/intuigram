@@ -127,6 +127,7 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
         Some(Effect::LoadChat {
             chat: ChatId(20),
             selection: None,
+            transcript_anchors: Vec::new(),
         })
     );
     apply(
@@ -148,6 +149,7 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
                 chat: Some(ChatId(10)),
                 message: None,
             }),
+            transcript_anchors: Vec::new(),
         })
     );
     apply(
@@ -173,6 +175,7 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
             folder: 0,
             chat: Some(ChatId(20)),
             message: None,
+            transcript_anchors: Vec::new(),
         })
     );
     let first = app.transition(Input::Intent(Intent::Action(Action::MoveUp)));
@@ -185,6 +188,7 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
             folder: 0,
             chat: Some(ChatId(10)),
             message: None,
+            transcript_anchors: Vec::new(),
         })
     );
 }
@@ -201,6 +205,7 @@ fn revisiting_a_loaded_chat_renders_cached_history_while_refreshing() {
         Some(Effect::LoadChat {
             chat: ChatId(20),
             selection: None,
+            transcript_anchors: Vec::new(),
         })
     );
 
@@ -212,6 +217,7 @@ fn revisiting_a_loaded_chat_renders_cached_history_while_refreshing() {
             folder: 0,
             chat: Some(ChatId(20)),
             message: None,
+            transcript_anchors: Vec::new(),
         })
     );
 
@@ -243,6 +249,7 @@ fn revisiting_a_loaded_chat_renders_cached_history_while_refreshing() {
                 chat: Some(ChatId(10)),
                 message: None,
             }),
+            transcript_anchors: Vec::new(),
         })
     );
 
@@ -290,6 +297,7 @@ fn bootstrap_cached_history_renders_before_a_background_refresh() {
         Some(Effect::LoadChat {
             chat: ChatId(20),
             selection: None,
+            transcript_anchors: Vec::new(),
         })
     );
 
@@ -302,6 +310,7 @@ fn bootstrap_cached_history_renders_before_a_background_refresh() {
             folder: 0,
             chat: Some(ChatId(20)),
             message: None,
+            transcript_anchors: Vec::new(),
         })
     );
 }

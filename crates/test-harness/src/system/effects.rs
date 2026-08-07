@@ -28,13 +28,26 @@ impl TestSystem {
                 self.application.revision(),
             );
             match effect {
-                Effect::LoadChat { chat, selection } => {
+                Effect::Notify { .. } => {}
+                Effect::LoadChat {
+                    chat,
+                    selection,
+                    transcript_anchors,
+                } => {
                     if let Some(selection) = selection {
                         self.database
                             .save_selection(StoredSelection {
                                 folder_id: selection.folder,
                                 chat_id: selection.chat.map(|chat| chat.0),
                                 anchor_message_id: selection.message.map(|message| message.0),
+                                transcript_anchors: transcript_anchors
+                                    .into_iter()
+                                    .map(|anchor| intuigram_store::StoredTranscriptAnchor {
+                                        chat_id: anchor.chat.0,
+                                        thread_root: anchor.thread.map(|message| message.0),
+                                        message_id: anchor.message.0,
+                                    })
+                                    .collect(),
                             })
                             .context(StoreSnafu)?;
                     }
@@ -80,12 +93,21 @@ impl TestSystem {
                     folder,
                     chat,
                     message,
+                    transcript_anchors,
                 } => {
                     self.database
                         .save_selection(StoredSelection {
                             folder_id: folder,
                             chat_id: chat.map(|chat| chat.0),
                             anchor_message_id: message.map(|message| message.0),
+                            transcript_anchors: transcript_anchors
+                                .into_iter()
+                                .map(|anchor| intuigram_store::StoredTranscriptAnchor {
+                                    chat_id: anchor.chat.0,
+                                    thread_root: anchor.thread.map(|message| message.0),
+                                    message_id: anchor.message.0,
+                                })
+                                .collect(),
                         })
                         .context(StoreSnafu)?;
                 }

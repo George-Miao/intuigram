@@ -2,13 +2,16 @@ use super::{
     Action, ActivationTarget, AdapterEvent, App, Bootstrap, ChatId, ChatKind, ChatLoadingState,
     ChatView, ConnectionState, DeliveryState, Effect, Focus, FolderView, HistoryView, Input,
     Intent, MessageDetails, MessageDirection, MessageId, MessageView, SearchScope, SelectionView,
+    TranscriptAnchorView,
 };
 
 fn bootstrap() -> Bootstrap {
     Bootstrap {
         connection: ConnectionState::Connected,
         account_name: "Ada".to_owned(),
+        notification_identity: "telegram:10".to_owned(),
         restored_selection: None,
+        transcript_anchors: Vec::new(),
         folders: vec![FolderView {
             id: 0,
             title: "All".to_owned(),
@@ -158,6 +161,75 @@ fn bootstrap_restores_the_per_account_transcript_anchor() {
 }
 
 #[test]
+fn bootstrap_restores_independent_transcript_anchors_when_switching_chats() {
+    let mut fixture = hierarchy_bootstrap();
+    fixture.histories.push(HistoryView {
+        chat: ChatId(20),
+        thread_root: None,
+        messages: vec![MessageView {
+            id: MessageId(20),
+            sender: "Ferris".to_owned(),
+            body: "older position".to_owned(),
+            timestamp: "12:30".to_owned(),
+            direction: MessageDirection::Incoming,
+            delivery: DeliveryState::Read,
+            reply_to: None,
+            details: MessageDetails::default(),
+        }],
+    });
+    fixture.transcript_anchors = vec![
+        TranscriptAnchorView {
+            chat: ChatId(10),
+            thread: None,
+            message: MessageId(2),
+        },
+        TranscriptAnchorView {
+            chat: ChatId(20),
+            thread: None,
+            message: MessageId(20),
+        },
+    ];
+    let mut app = App::new();
+    apply(&mut app, Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+
+    apply(&mut app, Input::Intent(Intent::Action(Action::MoveDown)));
+
+    assert_eq!(app.view().active_chat, Some(1));
+    assert_eq!(app.view().transcript_anchor, Some(0));
+}
+
+#[test]
+fn incoming_message_outside_the_visible_chat_uses_the_account_notification_identity() {
+    let mut app = App::new();
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::Bootstrap(bootstrap())),
+    );
+
+    let update = app.transition(Input::Adapter(AdapterEvent::MessageAdded {
+        chat: ChatId(10),
+        message: Box::new(MessageView {
+            id: MessageId(4),
+            sender: "Lin".to_owned(),
+            body: "notification body stays out of the effect".to_owned(),
+            timestamp: "12:31".to_owned(),
+            direction: MessageDirection::Incoming,
+            delivery: DeliveryState::Sent,
+            reply_to: None,
+            details: MessageDetails::default(),
+        }),
+    }));
+
+    assert_eq!(
+        update.effect,
+        Some(Effect::Notify {
+            identity: "telegram:10".to_owned(),
+            chat: ChatId(10),
+        })
+    );
+}
+
+#[test]
 fn bootstrap_clears_a_stale_selection_and_returns_to_the_default_folder() {
     let mut fixture = hierarchy_bootstrap();
     fixture.restored_selection = Some(SelectionView {
@@ -185,6 +257,7 @@ fn removing_the_active_chat_from_a_folder_rebinds_its_message_history() {
         Some(Effect::LoadChat {
             chat: ChatId(20),
             selection: None,
+            transcript_anchors: Vec::new(),
         })
     );
     apply(&mut app, Input::Intent(Intent::Action(Action::NextFolder)));

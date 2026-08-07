@@ -31,7 +31,11 @@ pub(super) async fn resume_account(
             .await
             .context(TelegramSnafu)?;
     let mut bootstrap = client.bootstrap(100).await.context(TelegramSnafu)?;
-    let cached = cached_bootstrap(account.display_name.clone(), cached);
+    let cached = cached_bootstrap(
+        account.display_name.clone(),
+        account.notification_identity.clone(),
+        cached,
+    );
     bootstrap.drafts = cached.drafts;
     bootstrap.histories = cached.histories;
     let current_cursors = client
@@ -170,6 +174,7 @@ pub(super) async fn authorize_new_account(
             id: account_id,
             display_name: user.display_name.clone(),
             active: true,
+            notification_identity: format!("telegram:{}", account_id.get()),
         })
         .context(UpdateAccountRegistrySnafu)?;
     let bootstrap = client.bootstrap(100).await.context(TelegramSnafu)?;

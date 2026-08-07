@@ -4,6 +4,7 @@ impl App {
             view: View {
                 connection: ConnectionState::Connecting,
                 account_name: "Intuigram".to_owned(),
+                notification_identity: "telegram:unknown".to_owned(),
                 folders: Vec::new(),
                 active_folder: 0,
                 chats: Vec::new(),
@@ -100,8 +101,10 @@ impl App {
 
     pub(super) fn replace_bootstrap(&mut self, bootstrap: Bootstrap) {
         let restored_selection = bootstrap.restored_selection;
+        let restored_anchors = bootstrap.transcript_anchors;
         self.view.connection = bootstrap.connection;
         self.view.account_name = bootstrap.account_name;
+        self.view.notification_identity = bootstrap.notification_identity;
         self.view.folders = bootstrap.folders;
         self.all_chats = bootstrap.chats;
         self.drafts = bootstrap
@@ -188,7 +191,21 @@ impl App {
             self.pinned_histories
                 .insert(projection.chat, projection.messages);
         }
-        self.transcript_anchors.clear();
+        self.transcript_anchors = restored_anchors
+            .into_iter()
+            .filter_map(|anchor| {
+                let key = HistoryKey {
+                    chat: anchor.chat,
+                    thread: anchor.thread,
+                };
+                self.histories
+                    .get(&key)
+                    .is_some_and(|history| {
+                        history.iter().any(|message| message.id == anchor.message)
+                    })
+                    .then_some((key, anchor.message))
+            })
+            .collect();
         if let Some(chat) = self.active_chat_id() {
             self.histories
                 .insert(HistoryKey { chat, thread: None }, bootstrap.messages);

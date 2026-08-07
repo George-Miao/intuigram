@@ -19,7 +19,7 @@ use intuigram_app::{
     ChatView, ConnectionState, DeliveryState, DownloadId, DownloadView, DraftView, Effect,
     FolderView, HistoryView, InlineImage, Input, Intent, MediaCard, MediaKind, MediaPreviewView,
     MessageDetails, MessageDirection, MessageId, MessageView, PollOptionView, PollView,
-    SelectionView, TextEntity, Update,
+    SelectionView, TextEntity, TranscriptAnchorView, Update,
 };
 use intuigram_config::{
     Config, ConfigLoader, Overrides, PlatformDefaults, ViewMode as ConfigViewMode,
@@ -399,6 +399,9 @@ enum Error {
 
     #[snafu(display("native Clipboard Paste failed"))]
     Clipboard { source: rich_clipboard::Error },
+
+    #[snafu(display("notification fallback failed"))]
+    Notification { source: io::Error },
 
     #[snafu(display("failed to read attachment {}", path.display()))]
     ReadAttachment { path: PathBuf, source: io::Error },

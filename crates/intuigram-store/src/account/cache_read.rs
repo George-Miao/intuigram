@@ -15,6 +15,7 @@ pub(super) fn load_cache(connection: &Connection) -> Result<CachedAccount> {
     let messages = load_messages(connection)?;
     let pinned_messages = load_pinned_messages(connection)?;
     let drafts = load_drafts(connection)?;
+    let transcript_anchors = load_transcript_anchors(connection).context(LoadCacheSnafu)?;
     let selection = connection
         .query_row(
             "SELECT folder_id, chat_id, anchor_message_id FROM ui_selection WHERE singleton = 1",
@@ -24,6 +25,7 @@ pub(super) fn load_cache(connection: &Connection) -> Result<CachedAccount> {
                     folder_id: row.get(0)?,
                     chat_id: row.get(1)?,
                     anchor_message_id: row.get(2)?,
+                    transcript_anchors: transcript_anchors.clone(),
                 })
             },
         )
@@ -38,6 +40,25 @@ pub(super) fn load_cache(connection: &Connection) -> Result<CachedAccount> {
         drafts,
         selection,
     })
+}
+
+fn load_transcript_anchors(
+    connection: &Connection,
+) -> rusqlite::Result<Vec<StoredTranscriptAnchor>> {
+    let mut statement = connection.prepare(
+        "SELECT chat_id, thread_root_message_id, anchor_message_id FROM transcript_anchors ORDER \
+         BY chat_id, thread_root_message_id",
+    )?;
+    statement
+        .query_map([], |row| {
+            let thread_root = row.get::<_, i64>(1)?;
+            Ok(StoredTranscriptAnchor {
+                chat_id: row.get(0)?,
+                thread_root: (thread_root != 0).then_some(thread_root),
+                message_id: row.get(2)?,
+            })
+        })?
+        .collect()
 }
 
 pub(super) fn load_cursors(connection: &Connection) -> Result<Vec<SyncCursor>> {

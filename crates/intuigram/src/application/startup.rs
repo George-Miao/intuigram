@@ -128,7 +128,7 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
             credentials,
             layout,
             account.clone(),
-            cached_bootstrap(account.display_name, cached),
+            cached_bootstrap(account.display_name, account.notification_identity, cached),
             AdapterStorage {
                 downloads: config.paths.downloads,
                 cache_root: config.paths.cache,

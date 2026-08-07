@@ -52,6 +52,7 @@ fn view(actions: Vec<Action>) -> View {
     View {
         connection: ConnectionState::Connected,
         account_name: "Test".to_owned(),
+        notification_identity: "telegram:test".to_owned(),
         folders: Vec::new(),
         active_folder: 0,
         chats: Vec::new(),

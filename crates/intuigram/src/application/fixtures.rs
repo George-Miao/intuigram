@@ -3,7 +3,9 @@ pub(super) fn application_fixture() -> Bootstrap {
     Bootstrap {
         connection: intuigram_app::ConnectionState::Connected,
         account_name: "Intuigram Test".to_owned(),
+        notification_identity: "telegram:test".to_owned(),
         restored_selection: None,
+        transcript_anchors: Vec::new(),
         folders: vec![
             FolderView {
                 id: 0,

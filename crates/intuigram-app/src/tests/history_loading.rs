@@ -1,4 +1,5 @@
 use super::*;
+use crate::TranscriptAnchorView;
 
 #[test]
 fn active_history_reports_fresh_and_incremental_effort_until_completion() {
@@ -175,7 +176,18 @@ fn thread_read_is_emitted_after_remaining_background_history() {
         root: MessageId(3),
         messages: vec![message(31, "visible incoming thread message")],
     }));
-    assert_eq!(warmup.effect, Some(load_chat(30, None)));
+    assert_eq!(
+        warmup.effect,
+        Some(Effect::LoadChat {
+            chat: ChatId(30),
+            selection: None,
+            transcript_anchors: vec![TranscriptAnchorView {
+                chat: ChatId(10),
+                thread: None,
+                message: MessageId(3),
+            }],
+        })
+    );
 
     let read = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
         chat: ChatId(30),
@@ -213,6 +225,7 @@ fn load_chat(chat: i64, selected_chat: Option<i64>) -> Effect {
             chat: Some(ChatId(chat)),
             message: None,
         }),
+        transcript_anchors: Vec::new(),
     }
 }
 

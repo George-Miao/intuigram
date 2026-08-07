@@ -1,7 +1,10 @@
 use super::*;
 
 pub(super) fn save_selection(connection: &Connection, selection: StoredSelection) -> Result<()> {
-    connection
+    let transaction = connection
+        .unchecked_transaction()
+        .context(SaveSelectionSnafu)?;
+    transaction
         .execute(
             "INSERT OR REPLACE INTO ui_selection (singleton, folder_id, chat_id, \
              anchor_message_id) VALUES (1, ?1, ?2, ?3)",
@@ -11,6 +14,22 @@ pub(super) fn save_selection(connection: &Connection, selection: StoredSelection
                 selection.anchor_message_id
             ],
         )
-        .map(|_| ())
-        .context(SaveSelectionSnafu)
+        .context(SaveSelectionSnafu)?;
+    transaction
+        .execute("DELETE FROM transcript_anchors", [])
+        .context(SaveSelectionSnafu)?;
+    for anchor in selection.transcript_anchors {
+        transaction
+            .execute(
+                "INSERT INTO transcript_anchors(chat_id, thread_root_message_id, \
+                 anchor_message_id) VALUES (?1, ?2, ?3)",
+                params![
+                    anchor.chat_id,
+                    anchor.thread_root.unwrap_or_default(),
+                    anchor.message_id
+                ],
+            )
+            .context(SaveSelectionSnafu)?;
+    }
+    transaction.commit().context(SaveSelectionSnafu)
 }

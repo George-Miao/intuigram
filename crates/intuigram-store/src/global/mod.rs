@@ -37,6 +37,8 @@ pub struct AccountRecord {
     pub display_name: String,
     /// Whether Intuigram should open this Account at startup.
     pub active: bool,
+    /// Stable identity used to replace notifications from this Account.
+    pub notification_identity: String,
 }
 
 enum Command {
@@ -317,10 +319,17 @@ fn register_account(connection: &mut Connection, account: &AccountRecord) -> Res
     }
     transaction
         .execute(
-            "INSERT INTO accounts (telegram_user_id, display_name, active, last_used_at) VALUES \
-             (?1, ?2, ?3, unixepoch()) ON CONFLICT(telegram_user_id) DO UPDATE SET display_name = \
-             excluded.display_name, active = excluded.active, last_used_at = excluded.last_used_at",
-            params![account.id.get(), account.display_name, account.active],
+            "INSERT INTO accounts (telegram_user_id, display_name, active, last_used_at, \
+             notification_identity) VALUES (?1, ?2, ?3, unixepoch(), ?4) ON \
+             CONFLICT(telegram_user_id) DO UPDATE SET display_name = excluded.display_name, \
+             active = excluded.active, last_used_at = excluded.last_used_at, \
+             notification_identity = excluded.notification_identity",
+            params![
+                account.id.get(),
+                account.display_name,
+                account.active,
+                account.notification_identity
+            ],
         )
         .context(RegisterAccountSnafu {
             account: account.id,
@@ -333,8 +342,8 @@ fn register_account(connection: &mut Connection, account: &AccountRecord) -> Res
 fn list_accounts(connection: &Connection) -> Result<Vec<AccountRecord>> {
     let mut statement = connection
         .prepare(
-            "SELECT telegram_user_id, display_name, active FROM accounts ORDER BY active DESC, \
-             last_used_at DESC, telegram_user_id",
+            "SELECT telegram_user_id, display_name, active, notification_identity FROM accounts \
+             ORDER BY active DESC, last_used_at DESC, telegram_user_id",
         )
         .context(ListAccountsSnafu)?;
     let rows = statement
@@ -343,16 +352,19 @@ fn list_accounts(connection: &Connection) -> Result<Vec<AccountRecord>> {
                 row.get::<_, i64>(0)?,
                 row.get::<_, String>(1)?,
                 row.get::<_, bool>(2)?,
+                row.get::<_, String>(3)?,
             ))
         })
         .context(ListAccountsSnafu)?;
     rows.map(|row| {
-        let (raw_id, display_name, active) = row.context(ListAccountsSnafu)?;
+        let (raw_id, display_name, active, notification_identity) =
+            row.context(ListAccountsSnafu)?;
         let id = AccountId::new(raw_id).ok_or(Error::InvalidAccountId { value: raw_id })?;
         Ok(AccountRecord {
             id,
             display_name,
             active,
+            notification_identity,
         })
     })
     .collect()
@@ -381,6 +393,7 @@ mod tests {
                 id: first,
                 display_name: "First".to_owned(),
                 active: true,
+                notification_identity: "telegram:11".to_owned(),
             })
             .expect("first Account should register");
         database
@@ -388,6 +401,7 @@ mod tests {
                 id: second,
                 display_name: "Second".to_owned(),
                 active: true,
+                notification_identity: "telegram:22".to_owned(),
             })
             .expect("second Account should register");
         drop(database);
@@ -396,6 +410,7 @@ mod tests {
         let accounts = reopened.accounts().expect("Accounts should load");
         assert_eq!(accounts.len(), 2);
         assert_eq!(accounts[0].id, second);
+        assert_eq!(accounts[0].notification_identity, "telegram:22");
         assert!(accounts[0].active);
         assert!(!accounts[1].active);
     }
@@ -413,6 +428,7 @@ mod tests {
                     id,
                     display_name: id.get().to_string(),
                     active: id == first,
+                    notification_identity: format!("telegram:{}", id.get()),
                 })
                 .expect("account should register");
         }
