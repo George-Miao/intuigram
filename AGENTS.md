@@ -75,6 +75,8 @@ Dependencies point toward `intuigram-app`; the `intuigram` executable composes a
 
 Use `rusqlite` and Refinery behind `intuigram-store`. Run blocking SQLite work on a dedicated database thread rather than an asynchronous executor thread.
 
+Do not write SQL manually unless it is absolutely necessary. Prefer existing typed persistence interfaces, migrations, and centralized query abstractions. When handwritten SQL is unavoidable, keep it isolated inside `intuigram-store`, explain why the existing abstractions cannot express the operation, and cover it with focused storage tests.
+
 Use the platform config, data, cache, and download directories. The logical layout is:
 
 ```text
