@@ -44,8 +44,10 @@ impl ScheduledDeliveryView {
 pub struct ScheduledMessageView {
     /// Server-owned identity.
     pub id: ScheduledMessageId,
+
     /// Planned delivery trigger.
     pub delivery: ScheduledDeliveryView,
+
     /// Text or stable media fallback.
     pub summary: String,
 }
@@ -55,14 +57,19 @@ pub struct ScheduledMessageView {
 pub struct ScheduledManagerView {
     /// Chat whose server-owned history is displayed.
     pub chat: super::ChatId,
+
     /// Scheduled history, separate from the Transcript.
     pub messages: Vec<ScheduledMessageView>,
+
     /// Active Scheduled Message row.
     pub selected: usize,
+
     /// Nested editor, when creating or changing a message.
     pub editor: Option<ScheduledEditorView>,
+
     /// Destructive or immediate-send confirmation.
     pub confirmation: Option<ScheduledConfirmationView>,
+
     /// Whether Telegram work is pending.
     pub pending: bool,
 }
@@ -72,10 +79,13 @@ pub struct ScheduledManagerView {
 pub struct ScheduledEditorView {
     /// Operation represented by the form.
     pub operation: ScheduledEditorOperation,
+
     /// Scheduled text for create/edit operations.
     pub text: String,
+
     /// `online` or RFC 3339 timestamp with an explicit offset.
     pub delivery: String,
+
     /// Active editable row.
     pub selected: usize,
 }
@@ -96,6 +106,7 @@ pub enum ScheduledEditorOperation {
 pub struct ScheduledConfirmationView {
     /// Target Scheduled Message.
     pub message: ScheduledMessageId,
+
     /// Whether this confirms immediate delivery rather than deletion.
     pub send_now: bool,
 }
@@ -107,6 +118,7 @@ pub enum ScheduledRequest {
     Create {
         /// Delivery trigger.
         delivery: ScheduledDeliveryView,
+
         /// Plain Message text.
         text: String,
     },
@@ -114,6 +126,7 @@ pub enum ScheduledRequest {
     Edit {
         /// Server-owned identity.
         message: ScheduledMessageId,
+
         /// Replacement text.
         text: String,
     },
@@ -121,6 +134,7 @@ pub enum ScheduledRequest {
     Reschedule {
         /// Server-owned identity.
         message: ScheduledMessageId,
+
         /// Replacement trigger.
         delivery: ScheduledDeliveryView,
     },

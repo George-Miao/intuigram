@@ -383,6 +383,7 @@ fn modified_clicks_remain_available_to_the_terminal() {
         None
     );
 }
+mod accounts;
 mod avatars;
 mod density;
 mod effort;
