@@ -66,15 +66,11 @@ impl App {
                 self.view.notice = Some(reason);
                 None
             }
-            Input::Adapter(AdapterEvent::FolderMembershipChanged {
-                chat,
-                folder,
-                included,
-            }) => {
-                let effect = self.apply_folder_membership(chat, folder, included);
-                self.view.notice = None;
-                effect
-            }
+            Input::Adapter(
+                event @ (AdapterEvent::FolderMembershipChanged { .. }
+                | AdapterEvent::FolderOperationCompleted { .. }
+                | AdapterEvent::FolderOperationFailed(_)),
+            ) => self.apply_folder_adapter_event(event),
             Input::Adapter(AdapterEvent::OperationFailed(reason)) => {
                 self.view.notice = Some(reason);
                 None
@@ -367,7 +363,9 @@ mod chat_reconciliation;
 mod click_activation;
 mod composer;
 mod editing;
+mod folder_management;
 mod folder_navigation;
+mod folder_reconciliation;
 mod history_navigation;
 mod history_reconciliation;
 mod link_media;

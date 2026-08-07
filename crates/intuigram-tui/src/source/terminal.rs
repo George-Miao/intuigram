@@ -309,6 +309,7 @@ fn overlay_open_for_pointer(view: &View) -> bool {
         || view.attachment_path.is_some()
         || view.save_as.is_some()
         || view.folder_picker.is_some()
+        || view.folder_manager.is_some()
         || view.account_picker.is_some()
         || view.account_confirmation.is_some()
         || view.delete_confirmation.is_some()

@@ -11,6 +11,7 @@ fn bootstrap() -> Bootstrap {
         account_name: "Ada".to_owned(),
         notification_identity: "telegram:10".to_owned(),
         accounts: Vec::new(),
+        folder_details: Vec::new(),
         restored_selection: None,
         transcript_anchors: Vec::new(),
         folders: vec![FolderView {

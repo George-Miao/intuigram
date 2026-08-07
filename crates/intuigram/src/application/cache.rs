@@ -99,6 +99,7 @@ pub(super) fn cached_bootstrap(
         account_name,
         notification_identity,
         accounts: Vec::new(),
+        folder_details: Vec::new(),
         restored_selection,
         transcript_anchors,
         folders,

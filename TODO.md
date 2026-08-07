@@ -9,7 +9,6 @@
 
 ## TODO
 
-- [ ] **p-core:** Add Folder lifecycle management inside the TUI and `intuigram-app`: create, rename, reorder, share, delete, and edit inclusion/exclusion rules, with Telegram results reconciled into the visible Folder strip.
 - [ ] **p-core:** Add rich-media sending inside the Composer flow: browse Telegram GIF/sticker libraries, send files as the chosen media kind, record voice/video where supported, and send contacts, while representing progress and failure through typed state-owner events.
 - [ ] **p-core:** Add Scheduled Message management inside an Active Chat: create for a UTC-offset time or when online, list, edit, reschedule, delete, and send now, while keeping scheduled history distinct from ordinary Message History.
 

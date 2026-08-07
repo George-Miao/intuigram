@@ -18,9 +18,9 @@ use grammers_crypto::two_factor_auth::{calculate_2fa, check_p_and_g};
 use grammers_tl_types as tl;
 use grammers_tl_types::{Deserializable as _, Identifiable as _};
 use intuigram_app::{
-    AdapterEvent, Bootstrap, ChatId, ChatKind, ChatView, DeliveryState, FolderView, MediaCard,
-    MediaKind, MessageDetails, MessageDirection, MessageId, MessageView, PollOptionView, PollView,
-    ReactionView, TextEntity, TextEntityKind,
+    AdapterEvent, Bootstrap, ChatId, ChatKind, ChatView, DeliveryState, FolderDetailsView,
+    FolderRulesView, FolderView, MediaCard, MediaKind, MessageDetails, MessageDirection, MessageId,
+    MessageView, PollOptionView, PollView, ReactionView, TextEntity, TextEntityKind,
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 
@@ -72,7 +72,7 @@ pub use dialog_normalization::normalize_serialized_peer_kind;
 use dialog_normalization::take_login_token_update;
 pub(crate) use dialog_normalization::{
     chat_traits, cloud_chat_can_pin, dialog_filter_id, dialog_folder_membership,
-    normalize_dialog_folders, set_dialog_filter_membership,
+    normalize_dialog_folder_details, normalize_dialog_folders, set_dialog_filter_membership,
 };
 use dialog_status::{cloud_chat_status, user_status};
 use entity_conversion::serialize_entities;

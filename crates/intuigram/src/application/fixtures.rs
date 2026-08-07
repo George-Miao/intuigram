@@ -5,6 +5,7 @@ pub(super) fn application_fixture() -> Bootstrap {
         account_name: "Intuigram Test".to_owned(),
         notification_identity: "telegram:test".to_owned(),
         accounts: Vec::new(),
+        folder_details: Vec::new(),
         restored_selection: None,
         transcript_anchors: Vec::new(),
         folders: vec![

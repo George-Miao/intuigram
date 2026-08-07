@@ -28,6 +28,9 @@ impl TestSystem {
                 self.application.revision(),
             );
             match effect {
+                Effect::FolderOperation { operation } => {
+                    self.handle_folder_operation(operation);
+                }
                 Effect::AccountLifecycle { request } => {
                     self.account_lifecycle.push(request);
                 }

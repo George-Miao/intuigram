@@ -20,6 +20,7 @@ mod assertions;
 mod builder;
 mod downloads;
 mod effects;
+mod folder_effects;
 mod input;
 mod telegram_control;
 

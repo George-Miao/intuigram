@@ -6,6 +6,9 @@ impl Backend {
     pub(super) async fn execute(&mut self, effect: AdapterEffect) -> Result<Option<AdapterEvent>> {
         let AdapterEffect { effect, random_id } = effect;
         match effect {
+            Effect::FolderOperation { operation } => {
+                self.execute_folder_operation(operation).await.map(Some)
+            }
             Effect::AccountLifecycle { request } => {
                 if matches!(request, AccountLifecycle::Logout(_)) {
                     return Ok(Some(match self.client.log_out().await {

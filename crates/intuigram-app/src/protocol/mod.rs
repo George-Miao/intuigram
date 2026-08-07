@@ -21,6 +21,9 @@ pub struct Bootstrap {
 
     /// Synchronized Telegram Folders.
     pub folders: Vec<FolderView>,
+
+    /// Editable metadata for synchronized custom Folders.
+    pub folder_details: Vec<FolderDetailsView>,
     /// Chats in the active Folder.
     pub chats: Vec<ChatView>,
     /// Messages for the initially active Chat.
@@ -62,6 +65,18 @@ pub enum AdapterEvent {
         /// Whether the Chat now belongs to the Folder.
         included: bool,
     },
+
+    /// A Folder lifecycle request was accepted and normalized.
+    FolderOperationCompleted {
+        /// Accepted operation.
+        result: FolderOperationResult,
+
+        /// Best-effort fresh server projection after a mutating operation.
+        reconciliation: Option<Box<FolderReconciliation>>,
+    },
+
+    /// A Folder lifecycle request failed without invalidating connectivity.
+    FolderOperationFailed(String),
 
     /// A nonfatal Telegram operation failed.
     OperationFailed(String),
@@ -291,7 +306,9 @@ use crate::domain::*;
 mod effects;
 mod input;
 mod intents;
+mod view;
 
 pub use effects::*;
 pub use input::*;
 pub use intents::*;
+pub use view::*;

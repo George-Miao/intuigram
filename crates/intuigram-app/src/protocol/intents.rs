@@ -17,6 +17,26 @@ pub enum Action {
     NextFolder,
     /// Open Folder membership for the Active Chat.
     ManageFolders,
+    /// Open custom Folder lifecycle management.
+    ManageFolderLifecycle,
+    /// Start creating a custom Folder.
+    CreateFolder,
+    /// Edit the selected custom Folder.
+    EditFolder,
+    /// Save the active Folder editor.
+    SaveFolder,
+    /// Move the selected custom Folder earlier.
+    ReorderFolderUp,
+    /// Move the selected custom Folder later.
+    ReorderFolderDown,
+    /// Export a share link for the selected Folder.
+    ShareFolder,
+    /// Ask to delete the selected custom Folder.
+    DeleteFolder,
+    /// Confirm deletion of the selected custom Folder.
+    ConfirmDeleteFolder,
+    /// Toggle the selected Folder rule.
+    ToggleFolderRule,
     /// Open the Account picker from Chat-list navigation.
     ManageAccounts,
     /// Confirm the selected Account or Add Account entry.

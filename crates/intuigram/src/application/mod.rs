@@ -17,9 +17,10 @@ use intuigram::{
 use intuigram_app::{
     AccountKey, AccountLifecycle, AccountView, AdapterEvent, App, AttachmentId, AttachmentKind,
     AttachmentView, Bootstrap, ChatId, ChatKind, ChatView, ConnectionState, DeliveryState,
-    DownloadId, DownloadView, DraftView, Effect, FolderView, HistoryView, InlineImage, Input,
-    Intent, MediaCard, MediaKind, MediaPreviewView, MessageDetails, MessageDirection, MessageId,
-    MessageView, PollOptionView, PollView, SelectionView, TextEntity, TranscriptAnchorView, Update,
+    DownloadId, DownloadView, DraftView, Effect, FolderOperation, FolderOperationResult,
+    FolderView, HistoryView, InlineImage, Input, Intent, MediaCard, MediaKind, MediaPreviewView,
+    MessageDetails, MessageDirection, MessageId, MessageView, PollOptionView, PollView,
+    SelectionView, TextEntity, TranscriptAnchorView, Update,
 };
 use intuigram_config::{
     Config, ConfigLoader, Overrides, PlatformDefaults, ViewMode as ConfigViewMode,
@@ -42,6 +43,7 @@ mod authorization;
 mod backend;
 mod backend_download;
 mod backend_effects;
+mod backend_folders;
 mod backend_message_actions;
 mod backend_pins;
 mod cache;

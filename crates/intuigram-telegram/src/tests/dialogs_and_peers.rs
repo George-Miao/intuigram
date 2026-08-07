@@ -65,6 +65,7 @@ fn dialog_filters_include_custom_and_shared_folders_in_server_order() {
             folders: vec![-1, 3],
         },
     ];
+    let details = normalize_dialog_folder_details(&filters);
     let folders = normalize_dialog_folders(filters, &chats);
 
     assert_eq!(
@@ -79,6 +80,11 @@ fn dialog_filters_include_custom_and_shared_folders_in_server_order() {
             (-1, "Archive", 2),
         ]
     );
+    assert_eq!(details.len(), 2);
+    assert_eq!(details[0].id, 2);
+    assert!(details[0].rules.is_some());
+    assert_eq!(details[1].id, 3);
+    assert!(details[1].rules.is_none());
 }
 
 #[test]

@@ -7,6 +7,7 @@ impl App {
                 notification_identity: "telegram:unknown".to_owned(),
                 accounts: Vec::new(),
                 folders: Vec::new(),
+                folder_details: Vec::new(),
                 active_folder: 0,
                 chats: Vec::new(),
                 active_chat: None,
@@ -26,6 +27,7 @@ impl App {
                 has_newer_messages: false,
                 help_open: false,
                 folder_picker: None,
+                folder_manager: None,
                 account_picker: None,
                 account_confirmation: None,
                 delete_confirmation: None,
@@ -60,7 +62,16 @@ impl App {
     pub(super) fn apply_intent(&mut self, intent: Intent) -> Option<Effect> {
         match intent {
             Intent::Insert(text) => {
-                if let Some(attachment) = &mut self.view.attachment_path {
+                if let Some(editor) = self
+                    .view
+                    .folder_manager
+                    .as_mut()
+                    .and_then(|manager| manager.editor.as_mut())
+                    .filter(|editor| editor.selected == 0)
+                {
+                    editor.title.push_str(&text);
+                    return None;
+                } else if let Some(attachment) = &mut self.view.attachment_path {
                     attachment.path.push_str(&text);
                     return None;
                 } else if let Some(save_as) = &mut self.view.save_as {
@@ -75,7 +86,16 @@ impl App {
                 self.draft_effect()
             }
             Intent::Backspace => {
-                if let Some(attachment) = &mut self.view.attachment_path {
+                if let Some(editor) = self
+                    .view
+                    .folder_manager
+                    .as_mut()
+                    .and_then(|manager| manager.editor.as_mut())
+                    .filter(|editor| editor.selected == 0)
+                {
+                    editor.title.pop();
+                    return None;
+                } else if let Some(attachment) = &mut self.view.attachment_path {
                     attachment.path.pop();
                     return None;
                 } else if let Some(save_as) = &mut self.view.save_as {
@@ -111,6 +131,7 @@ impl App {
         self.view.notification_identity = bootstrap.notification_identity;
         self.view.accounts = bootstrap.accounts;
         self.view.folders = bootstrap.folders;
+        self.view.folder_details = bootstrap.folder_details;
         self.all_chats = bootstrap.chats;
         self.drafts = bootstrap
             .drafts
@@ -219,6 +240,7 @@ impl App {
         self.view.active_message = None;
         self.view.selected_messages.clear();
         self.view.delete_confirmation = None;
+        self.view.folder_manager = None;
         self.view.account_picker = None;
         self.view.account_confirmation = None;
         self.view.forward_picker = None;

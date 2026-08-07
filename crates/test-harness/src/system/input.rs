@@ -33,6 +33,13 @@ pub mod key {
     pub const ACCOUNTS: TestKey = TestKey::Accounts;
     pub const ALT_LOGOUT: TestKey = TestKey::AltLogout;
     pub const ALT_REMOVE_LOCAL: TestKey = TestKey::AltRemoveLocal;
+    pub const FOLDER_SETTINGS: TestKey = TestKey::FolderSettings;
+    pub const NEW_FOLDER: TestKey = TestKey::NewFolder;
+    pub const EDIT_FOLDER: TestKey = TestKey::EditFolder;
+    pub const SHARE_FOLDER: TestKey = TestKey::ShareFolder;
+    pub const DELETE_FOLDER: TestKey = TestKey::DeleteFolder;
+    pub const SHIFT_UP: TestKey = TestKey::ShiftUp;
+    pub const SHIFT_DOWN: TestKey = TestKey::ShiftDown;
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -65,6 +72,13 @@ pub enum TestKey {
     Accounts,
     AltLogout,
     AltRemoveLocal,
+    FolderSettings,
+    NewFolder,
+    EditFolder,
+    ShareFolder,
+    DeleteFolder,
+    ShiftUp,
+    ShiftDown,
 }
 
 impl TestKey {
@@ -98,6 +112,13 @@ impl TestKey {
             Self::Accounts => (KeyCode::Char('a'), KeyModifiers::NONE),
             Self::AltLogout => (KeyCode::Char('l'), KeyModifiers::ALT),
             Self::AltRemoveLocal => (KeyCode::Char('d'), KeyModifiers::ALT),
+            Self::FolderSettings => (KeyCode::Char('f'), KeyModifiers::NONE),
+            Self::NewFolder => (KeyCode::Char('n'), KeyModifiers::NONE),
+            Self::EditFolder => (KeyCode::Char('e'), KeyModifiers::NONE),
+            Self::ShareFolder => (KeyCode::Char('s'), KeyModifiers::NONE),
+            Self::DeleteFolder => (KeyCode::Char('d'), KeyModifiers::NONE),
+            Self::ShiftUp => (KeyCode::Up, KeyModifiers::SHIFT),
+            Self::ShiftDown => (KeyCode::Down, KeyModifiers::SHIFT),
         };
         Event::Key(KeyEvent::new_with_kind(
             code,

@@ -37,7 +37,9 @@ pub(super) fn render_with_semantics(
     render_folders(frame, rows[1], view, mode, semantics);
     render_actions(frame, rows[2], view, keymap, mode, semantics);
     render_status(frame, rows[3], view, mode);
-    if view.account_confirmation.is_some() {
+    if view.folder_manager.is_some() {
+        render_folder_manager(frame, area, view);
+    } else if view.account_confirmation.is_some() {
         render_account_confirmation(frame, area, view);
     } else if view.account_picker.is_some() {
         render_account_picker(frame, area, view);

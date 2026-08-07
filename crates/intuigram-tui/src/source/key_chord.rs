@@ -144,6 +144,7 @@ impl EffectiveKeymap {
         BINDINGS
             .iter()
             .chain(render_accounts::ACCOUNT_BINDINGS)
+            .chain(render_folder_manager::FOLDER_BINDINGS)
             .filter(|binding| {
                 view.actions.contains(&binding.action) && binding_matches_context(view, binding)
             })

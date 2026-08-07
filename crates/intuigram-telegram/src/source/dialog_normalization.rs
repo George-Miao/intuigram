@@ -88,6 +88,36 @@ pub(crate) fn normalize_dialog_folders(
     folders
 }
 
+pub(crate) fn normalize_dialog_folder_details(
+    filters: &[tl::enums::DialogFilter],
+) -> Vec<FolderDetailsView> {
+    filters
+        .iter()
+        .filter_map(|filter| match filter {
+            tl::enums::DialogFilter::Default => None,
+            tl::enums::DialogFilter::Filter(filter) => Some(FolderDetailsView {
+                id: filter.id,
+                rules: Some(FolderRulesView {
+                    contacts: filter.contacts,
+                    non_contacts: filter.non_contacts,
+                    groups: filter.groups,
+                    broadcasts: filter.broadcasts,
+                    bots: filter.bots,
+                    exclude_muted: filter.exclude_muted,
+                    exclude_read: filter.exclude_read,
+                    exclude_archived: filter.exclude_archived,
+                }),
+                shareable: true,
+            }),
+            tl::enums::DialogFilter::Chatlist(filter) => Some(FolderDetailsView {
+                id: filter.id,
+                rules: None,
+                shareable: true,
+            }),
+        })
+        .collect()
+}
+
 pub(crate) fn folder_unread(chats: &[ChatView], folder: i32) -> u32 {
     chats
         .iter()

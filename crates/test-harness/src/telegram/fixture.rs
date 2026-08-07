@@ -1,6 +1,7 @@
 use intuigram_app::{
     AccountKey, AccountView, Bootstrap, ChatId, ChatKind, ChatView, ConnectionState, DeliveryState,
-    DraftView, FolderView, MessageDetails, MessageDirection, MessageId, MessageView,
+    DraftView, FolderDetailsView, FolderRulesView, FolderView, MessageDetails, MessageDirection,
+    MessageId, MessageView,
 };
 
 #[derive(Clone, Debug)]
@@ -8,6 +9,8 @@ pub struct AccountFixture {
     name: String,
     id: AccountKey,
     accounts: Vec<AccountView>,
+    folders: Vec<FolderView>,
+    folder_details: Vec<FolderDetailsView>,
     chats: Vec<ChatView>,
     drafts: Vec<DraftView>,
 }
@@ -26,6 +29,29 @@ impl AccountFixture {
             id: AccountKey(id),
             display_name: name.into(),
             active: false,
+        });
+        self
+    }
+
+    #[must_use]
+    pub fn with_folder(mut self, id: i32, title: impl Into<String>) -> Self {
+        let archive = self
+            .folders
+            .iter()
+            .position(|folder| folder.id == -1)
+            .unwrap_or(self.folders.len());
+        self.folders.insert(
+            archive,
+            FolderView {
+                id,
+                title: title.into(),
+                unread: 0,
+            },
+        );
+        self.folder_details.push(FolderDetailsView {
+            id,
+            rules: Some(FolderRulesView::default()),
+            shareable: true,
         });
         self
     }
@@ -53,20 +79,10 @@ impl AccountFixture {
             account_name: self.name,
             notification_identity: "telegram:test".to_owned(),
             accounts: self.accounts,
+            folder_details: self.folder_details,
             restored_selection: None,
             transcript_anchors: Vec::new(),
-            folders: vec![
-                FolderView {
-                    id: 0,
-                    title: "All".to_owned(),
-                    unread: 0,
-                },
-                FolderView {
-                    id: -1,
-                    title: "Archive".to_owned(),
-                    unread: 0,
-                },
-            ],
+            folders: self.folders,
             chats: self.chats,
             messages: Vec::new(),
             pinned_messages: Vec::new(),
@@ -87,6 +103,19 @@ pub fn account(name: impl Into<String>) -> AccountFixture {
             display_name: name,
             active: true,
         }],
+        folders: vec![
+            FolderView {
+                id: 0,
+                title: "All".to_owned(),
+                unread: 0,
+            },
+            FolderView {
+                id: -1,
+                title: "Archive".to_owned(),
+                unread: 0,
+            },
+        ],
+        folder_details: Vec::new(),
         chats: Vec::new(),
         drafts: Vec::new(),
     }

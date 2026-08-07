@@ -16,6 +16,48 @@ impl App {
             self.view.actions = vec![Action::Quit, Action::ConfirmAttachment, Action::Cancel];
             return;
         }
+        if let Some(manager) = &self.view.folder_manager {
+            self.view.actions = if manager.pending {
+                vec![Action::Quit]
+            } else if manager.delete_confirmation.is_some() {
+                vec![Action::Quit, Action::ConfirmDeleteFolder, Action::Cancel]
+            } else if let Some(editor) = &manager.editor {
+                let mut actions = vec![
+                    Action::Quit,
+                    Action::MoveUp,
+                    Action::MoveDown,
+                    Action::Cancel,
+                ];
+                if !editor.title.trim().is_empty() {
+                    actions.push(Action::SaveFolder);
+                }
+                if editor.rules.is_some() && editor.selected > 0 {
+                    actions.push(Action::ToggleFolderRule);
+                }
+                actions
+            } else {
+                let mut actions = vec![
+                    Action::Quit,
+                    Action::MoveUp,
+                    Action::MoveDown,
+                    Action::CreateFolder,
+                    Action::Cancel,
+                ];
+                if let Some(details) = self.view.folder_details.get(manager.selected) {
+                    actions.extend([
+                        Action::EditFolder,
+                        Action::ReorderFolderUp,
+                        Action::ReorderFolderDown,
+                        Action::DeleteFolder,
+                    ]);
+                    if details.shareable {
+                        actions.push(Action::ShareFolder);
+                    }
+                }
+                actions
+            };
+            return;
+        }
         if self.view.account_confirmation.is_some() {
             self.view.actions = vec![
                 Action::Quit,
@@ -107,6 +149,9 @@ impl App {
                     Action::NavigatePinned,
                     Action::Search,
                 ]);
+                if self.view.connection == ConnectionState::Connected {
+                    actions.push(Action::ManageFolderLifecycle);
+                }
             }
             Focus::Transcript => {
                 actions.extend([

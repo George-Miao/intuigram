@@ -12,9 +12,9 @@ use crate::source::{
     Error, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginErrorAction, chat_traits,
     contains_login_token_update, direct_data_centers, ensure_production_environment,
     flood_wait_delay, login_error_action, normalize_code_delivery, normalize_code_delivery_method,
-    normalize_dialog_folders, normalize_live_update, normalize_serialized_media,
-    normalize_serialized_peer_kind, qr_login_uri, rpc_migration_dc, service_event_description,
-    set_dialog_filter_membership,
+    normalize_dialog_folder_details, normalize_dialog_folders, normalize_live_update,
+    normalize_serialized_media, normalize_serialized_peer_kind, qr_login_uri, rpc_migration_dc,
+    service_event_description, set_dialog_filter_membership,
 };
 
 #[test]

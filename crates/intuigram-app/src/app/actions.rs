@@ -1,5 +1,8 @@
 impl App {
     pub(super) fn apply_action(&mut self, action: Action) -> Option<Effect> {
+        if self.view.folder_manager.is_some() && action != Action::Quit {
+            return self.apply_folder_manager_action(action);
+        }
         if self.view.account_confirmation.is_some() && action != Action::Quit {
             return self.apply_account_confirmation(action);
         }
@@ -64,6 +67,19 @@ impl App {
                 self.open_folder_picker();
                 None
             }
+            Action::ManageFolderLifecycle => {
+                self.open_folder_manager();
+                None
+            }
+            Action::CreateFolder
+            | Action::EditFolder
+            | Action::SaveFolder
+            | Action::ReorderFolderUp
+            | Action::ReorderFolderDown
+            | Action::ShareFolder
+            | Action::DeleteFolder
+            | Action::ConfirmDeleteFolder
+            | Action::ToggleFolderRule => None,
             Action::ManageAccounts => {
                 self.open_account_picker();
                 None

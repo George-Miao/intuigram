@@ -81,6 +81,7 @@ impl Client {
             .identity
             .as_ref()
             .map_or_else(|| "Telegram".to_owned(), |user| user.display_name.clone());
+        let folder_details = normalize_dialog_folder_details(&dialog_filters.filters);
         let folders = normalize_dialog_folders(dialog_filters.filters, &chat_views);
         Ok(Bootstrap {
             connection: intuigram_app::ConnectionState::Connected,
@@ -93,6 +94,7 @@ impl Client {
             restored_selection: None,
             transcript_anchors: Vec::new(),
             folders,
+            folder_details,
             chats: chat_views,
             messages: initial_messages,
             pinned_messages: Vec::new(),

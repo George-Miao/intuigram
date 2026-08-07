@@ -43,6 +43,7 @@ mod qr_session;
 mod render_accounts;
 mod render_chrome;
 mod render_composer;
+mod render_folder_manager;
 mod render_headers;
 pub(crate) mod render_layout;
 mod render_overlays;
@@ -62,6 +63,7 @@ use render_chrome::{
     render_folders, render_help, render_status, selection_rule, surface_style,
 };
 use render_composer::{composer_height, render_composer};
+use render_folder_manager::render_folder_manager;
 use render_headers::{render_active_chat_header, render_chat_list_header};
 use render_layout::render_with_semantics;
 use render_overlays::{

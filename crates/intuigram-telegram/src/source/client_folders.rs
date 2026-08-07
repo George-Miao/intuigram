@@ -67,6 +67,27 @@ impl Client {
         self.update_folder(folder_id, Some(filter)).await
     }
 
+    /// Atomically replaces a Folder title and, when supported, ordinary rules.
+    pub async fn update_folder_settings(
+        &mut self,
+        folder_id: i32,
+        title: String,
+        rules: Option<FolderRules>,
+    ) -> Result<()> {
+        let mut filter = self.folder(folder_id).await?;
+        match &mut filter {
+            tl::enums::DialogFilter::Default => {
+                return FolderUnavailableSnafu { folder_id }.fail();
+            }
+            tl::enums::DialogFilter::Filter(filter) => filter.title = plain_title(title),
+            tl::enums::DialogFilter::Chatlist(filter) => filter.title = plain_title(title),
+        }
+        if let Some(rules) = rules {
+            apply_rules(&mut filter, rules)?;
+        }
+        self.update_folder(folder_id, Some(filter)).await
+    }
+
     /// Replaces an ordinary custom Folder's category and exclusion rules.
     pub async fn set_folder_rules(&mut self, folder_id: i32, rules: FolderRules) -> Result<()> {
         let mut filter = self.folder(folder_id).await?;
@@ -160,6 +181,21 @@ impl Client {
             return FolderUpdateRejectedSnafu.fail();
         }
         Ok(())
+    }
+}
+
+impl From<FolderRulesView> for FolderRules {
+    fn from(rules: FolderRulesView) -> Self {
+        Self {
+            contacts: rules.contacts,
+            non_contacts: rules.non_contacts,
+            groups: rules.groups,
+            broadcasts: rules.broadcasts,
+            bots: rules.bots,
+            exclude_muted: rules.exclude_muted,
+            exclude_read: rules.exclude_read,
+            exclude_archived: rules.exclude_archived,
+        }
     }
 }
 
