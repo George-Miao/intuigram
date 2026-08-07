@@ -65,6 +65,53 @@ fn everforest_light_palette_is_used_for_the_terminal_surface() {
 }
 
 #[test]
+fn active_folder_is_bold_and_underlined_without_a_selection_rule() {
+    let mut view = view(Vec::new());
+    view.folders = vec![
+        FolderView {
+            id: 0,
+            title: "All".to_owned(),
+            unread: 0,
+        },
+        FolderView {
+            id: -1,
+            title: "Archive".to_owned(),
+            unread: 0,
+        },
+    ];
+    let backend = TestBackend::new(100, 24);
+    let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
+    terminal
+        .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
+        .expect("view should render");
+    let buffer = terminal.backend().buffer();
+    let folder_row = 20;
+    let all_x = (0..20)
+        .find(|x| buffer[(*x, folder_row)].symbol() == "A")
+        .expect("All Folder should render");
+    let archive_x = (all_x + 1..30)
+        .find(|x| buffer[(*x, folder_row)].symbol() == "A")
+        .expect("Archive Folder should render");
+
+    assert!((0..archive_x).all(|x| buffer[(x, folder_row)].symbol() != "│"));
+    assert!(
+        buffer[(all_x, folder_row)]
+            .modifier
+            .contains(Modifier::BOLD)
+    );
+    assert!(
+        buffer[(all_x, folder_row)]
+            .modifier
+            .contains(Modifier::UNDERLINED)
+    );
+    assert!(
+        !buffer[(archive_x, folder_row)]
+            .modifier
+            .contains(Modifier::UNDERLINED)
+    );
+}
+
+#[test]
 fn redrawing_shorter_chat_text_clears_the_previous_frame() {
     let mut view = view(Vec::new());
     view.chats = vec![ChatView {

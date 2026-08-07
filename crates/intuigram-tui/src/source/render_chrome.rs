@@ -129,7 +129,7 @@ pub(super) fn render_folders(
     let spans = view.folders.iter().enumerate().flat_map(|(index, folder)| {
         let active = index == view.active_folder;
         let style = if active {
-            Style::default().add_modifier(Modifier::BOLD)
+            Style::default().add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
         } else {
             Style::default().fg(MUTED_TEXT)
         };
@@ -139,7 +139,7 @@ pub(super) fn render_folders(
             String::new()
         };
         [
-            selection_rule(active),
+            Span::raw("  "),
             Span::styled(format!("{}{unread}", folder.title), style),
             Span::raw(" "),
         ]

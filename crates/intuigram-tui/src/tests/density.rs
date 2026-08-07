@@ -47,8 +47,8 @@ fn compact_view_preserves_the_original_dense_layout() {
         .expect("compact view should render");
     let buffer = terminal.backend().buffer();
 
-    assert_eq!(buffer[(4, 2)].symbol(), "F");
-    assert_eq!(buffer[(4, 4)].symbol(), "S");
+    assert_eq!(buffer[(2, 2)].symbol(), "F");
+    assert_eq!(buffer[(2, 4)].symbol(), "S");
     assert_eq!(buffer[(33, 3)].symbol(), "f");
     assert_eq!(buffer[(33, 5)].symbol(), "s");
     assert_eq!(buffer[(2, 21)].symbol(), "A");

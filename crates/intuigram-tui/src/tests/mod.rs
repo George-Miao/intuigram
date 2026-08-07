@@ -8,7 +8,7 @@ use intuigram_app::{
 };
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
-use ratatui::style::Color;
+use ratatui::style::{Color, Modifier};
 
 use super::{
     EffectiveKeymap, Key, KeyChord, SemanticRole, UiEvent, ViewMode, chord_from_crossterm,
