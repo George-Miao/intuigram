@@ -1,6 +1,7 @@
 use super::*;
 
 const DOWNLOAD_PART_BYTES: i32 = 512 * 1024;
+const MAX_INLINE_PREVIEW_BYTES: usize = 8 * 1024 * 1024;
 
 struct DownloadLocation {
     location: tl::enums::InputFileLocation,
@@ -18,7 +19,26 @@ impl Client {
         message: MessageId,
     ) -> Result<DownloadedMedia> {
         let media = self.message_media(chat, message).await?;
-        let download = download_location(media, message)?;
+        let download = download_location(media, message, None)?
+            .expect("unbounded media selection always returns a location");
+        self.download_location(download).await
+    }
+
+    /// Fetches bounded bytes suitable for an automatic inline preview.
+    pub async fn download_media_preview(
+        &mut self,
+        chat: ChatId,
+        message: MessageId,
+    ) -> Result<Option<DownloadedMedia>> {
+        let media = self.message_media(chat, message).await?;
+        let Some(download) = download_location(media, message, Some(MAX_INLINE_PREVIEW_BYTES))?
+        else {
+            return Ok(None);
+        };
+        self.download_location(download).await.map(Some)
+    }
+
+    async fn download_location(&mut self, download: DownloadLocation) -> Result<DownloadedMedia> {
         if download.dc_id != self.dc_id {
             return self.download_from_data_center(download).await;
         }
@@ -150,7 +170,8 @@ impl Client {
 fn download_location(
     media: tl::enums::MessageMedia,
     message: MessageId,
-) -> Result<DownloadLocation> {
+    maximum_bytes: Option<usize>,
+) -> Result<Option<DownloadLocation>> {
     match media {
         tl::enums::MessageMedia::Document(media) => {
             let Some(tl::enums::Document::Document(document)) = media.document else {
@@ -169,19 +190,35 @@ fn download_location(
                     _ => None,
                 })
                 .unwrap_or_else(|| format!("file-{}", document.id));
-            Ok(DownloadLocation {
+            let full_size = valid_size(document.size)?;
+            let thumbnail = maximum_bytes.and_then(|maximum| {
+                document
+                    .thumbs
+                    .as_deref()
+                    .and_then(|sizes| largest_photo_size(sizes, maximum))
+            });
+            let (thumb_size, size, mime_type) = match (maximum_bytes, thumbnail) {
+                (_, Some((thumb_size, size))) => (
+                    thumb_size,
+                    valid_size(i64::from(size))?,
+                    "image/jpeg".to_owned(),
+                ),
+                (Some(maximum), None) if full_size > maximum => return Ok(None),
+                _ => (String::new(), full_size, document.mime_type),
+            };
+            Ok(Some(DownloadLocation {
                 location: tl::types::InputDocumentFileLocation {
                     id: document.id,
                     access_hash: document.access_hash,
                     file_reference: document.file_reference,
-                    thumb_size: String::new(),
+                    thumb_size,
                 }
                 .into(),
                 dc_id: document.dc_id,
                 name,
-                mime_type: document.mime_type,
-                size: valid_size(document.size)?,
-            })
+                mime_type,
+                size,
+            }))
         }
         tl::enums::MessageMedia::Photo(media) => {
             let Some(tl::enums::Photo::Photo(photo)) = media.photo else {
@@ -190,11 +227,13 @@ fn download_location(
                 }
                 .fail();
             };
-            let (thumb_size, size) =
-                largest_photo_size(&photo.sizes).context(DownloadMediaUnavailableSnafu {
+            let maximum = maximum_bytes.unwrap_or(usize::MAX);
+            let (thumb_size, size) = largest_photo_size(&photo.sizes, maximum).context(
+                DownloadMediaUnavailableSnafu {
                     message_id: message.0,
-                })?;
-            Ok(DownloadLocation {
+                },
+            )?;
+            Ok(Some(DownloadLocation {
                 location: tl::types::InputPhotoFileLocation {
                     id: photo.id,
                     access_hash: photo.access_hash,
@@ -206,7 +245,7 @@ fn download_location(
                 name: format!("photo-{}.jpg", photo.id),
                 mime_type: "image/jpeg".to_owned(),
                 size: valid_size(i64::from(size))?,
-            })
+            }))
         }
         _ => DownloadMediaUnavailableSnafu {
             message_id: message.0,
@@ -215,7 +254,10 @@ fn download_location(
     }
 }
 
-fn largest_photo_size(sizes: &[tl::enums::PhotoSize]) -> Option<(String, i32)> {
+fn largest_photo_size(
+    sizes: &[tl::enums::PhotoSize],
+    maximum_bytes: usize,
+) -> Option<(String, i32)> {
     sizes
         .iter()
         .filter_map(|size| match size {
@@ -225,9 +267,44 @@ fn largest_photo_size(sizes: &[tl::enums::PhotoSize]) -> Option<(String, i32)> {
             }
             _ => None,
         })
+        .filter(|(_, bytes)| usize::try_from(*bytes).is_ok_and(|bytes| bytes <= maximum_bytes))
         .max_by_key(|(_, bytes)| *bytes)
 }
 
 fn valid_size(size: i64) -> Result<usize> {
     usize::try_from(size).map_err(|_| Error::InvalidDownloadSize { size })
+}
+
+#[cfg(test)]
+mod tests {
+    use grammers_tl_types as tl;
+
+    use super::largest_photo_size;
+
+    #[test]
+    fn preview_selection_uses_the_largest_thumbnail_within_the_limit() {
+        let sizes = [photo_size("m", 512_000), photo_size("x", 12_000_000)];
+
+        assert_eq!(
+            largest_photo_size(&sizes, 8 * 1024 * 1024),
+            Some(("m".to_owned(), 512_000))
+        );
+    }
+
+    #[test]
+    fn preview_selection_rejects_oversized_and_invalid_sizes() {
+        let sizes = [photo_size("bad", -1), photo_size("x", 12_000_000)];
+
+        assert_eq!(largest_photo_size(&sizes, 8 * 1024 * 1024), None);
+    }
+
+    fn photo_size(kind: &str, size: i32) -> tl::enums::PhotoSize {
+        tl::types::PhotoSize {
+            r#type: kind.to_owned(),
+            w: 1,
+            h: 1,
+            size,
+        }
+        .into()
+    }
 }

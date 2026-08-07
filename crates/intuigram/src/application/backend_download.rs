@@ -25,9 +25,12 @@ impl Backend {
         }
         let media = self
             .client
-            .download_media(chat, message)
+            .download_media_preview(chat, message)
             .await
             .context(TelegramSnafu)?;
+        let Some(media) = media else {
+            return Ok(None);
+        };
         let cache = self.media_cache.clone();
         compio::runtime::spawn_blocking(move || {
             let preview = intuigram_media::decode_preview(&media.bytes).ok();
@@ -38,7 +41,6 @@ impl Backend {
                     &encode_cached_preview(preview),
                 )?;
             }
-            cache.put(intuigram_media::CacheKind::Media, &key, &media.bytes)?;
             Ok::<_, intuigram_media::CacheError>(preview)
         })
         .await
