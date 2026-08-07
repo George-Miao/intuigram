@@ -249,4 +249,19 @@ fn bootstrap_cached_history_renders_before_a_background_refresh() {
     assert_eq!(switched.effect, None);
 }
 
+#[test]
+fn edit_previous_is_a_noop_when_history_has_no_eligible_outgoing_message() {
+    let mut app = App::new();
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::Bootstrap(bootstrap())),
+    );
+    apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
+
+    let update = app.transition(Input::Intent(Intent::Action(Action::EditPrevious)));
+
+    assert_eq!(update.view.focus, Focus::Composer);
+    assert_eq!(update.view.composer, crate::ComposerView::default());
+}
+
 use super::*;

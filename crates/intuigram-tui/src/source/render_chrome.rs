@@ -63,20 +63,26 @@ pub(super) fn render_composer(
         frame.set_cursor_position(composer_cursor(
             area,
             &view.composer.text,
+            view.composer.cursor,
             composer_label_width,
         ));
     }
 }
 
-fn composer_cursor(area: Rect, text: &str, context_width: u16) -> (u16, u16) {
+fn composer_cursor(area: Rect, text: &str, cursor: usize, context_width: u16) -> (u16, u16) {
     let content_x = area
         .x
         .saturating_add(5)
         .saturating_add(context_width)
         .min(area.right().saturating_sub(1));
     let content_width = area.right().saturating_sub(content_x).max(1);
-    let explicit_lines = text.matches('\n').count() as u16;
-    let last_line_width = Line::from(text.rsplit('\n').next().unwrap_or_default()).width();
+    let mut cursor = cursor.min(text.len());
+    while !text.is_char_boundary(cursor) {
+        cursor = cursor.saturating_sub(1);
+    }
+    let before_cursor = &text[..cursor];
+    let explicit_lines = before_cursor.matches('\n').count() as u16;
+    let last_line_width = Line::from(before_cursor.rsplit('\n').next().unwrap_or_default()).width();
     let last_line_width = u16::try_from(last_line_width).unwrap_or(u16::MAX);
     let wrapped_lines = last_line_width / content_width;
     let x = content_x

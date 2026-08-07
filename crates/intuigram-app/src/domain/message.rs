@@ -65,6 +65,8 @@ pub struct MessageView {
 pub struct ComposerView {
     /// Draft text.
     pub text: String,
+    /// UTF-8 byte offset of the insertion cursor within `text`.
+    pub cursor: usize,
     /// Message targeted by a reply.
     pub reply_to: Option<MessageId>,
 
@@ -73,6 +75,19 @@ pub struct ComposerView {
 
     /// Native clipboard or file attachment candidates.
     pub attachments: Vec<AttachmentView>,
+}
+
+/// Direction of ordinary Composer cursor movement.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ComposerMovement {
+    /// Move one character toward the start of the Draft.
+    Left,
+    /// Move one character toward the end of the Draft.
+    Right,
+    /// Move to the nearest column on the previous visual source line.
+    Up,
+    /// Move to the nearest column on the next visual source line.
+    Down,
 }
 
 /// Composer attachment category.

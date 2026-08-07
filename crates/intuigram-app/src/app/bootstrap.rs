@@ -52,7 +52,7 @@ impl App {
                     search.query.push_str(&text);
                 } else if self.view.active_chat.is_some() && self.view.focus != Focus::Chats {
                     self.focus_composer_at_anchor();
-                    self.view.composer.text.push_str(&text);
+                    self.insert_composer_text(&text);
                 }
                 self.draft_effect()
             }
@@ -60,9 +60,13 @@ impl App {
                 if let Some(search) = &mut self.view.search {
                     search.query.pop();
                 } else if self.view.focus == Focus::Composer {
-                    self.view.composer.text.pop();
+                    self.backspace_composer();
                 }
                 self.draft_effect()
+            }
+            Intent::MoveComposerCursor(movement) => {
+                self.move_composer_cursor(movement);
+                None
             }
             Intent::Action(action) => self.apply_action(action),
         }
@@ -83,6 +87,7 @@ impl App {
                         thread: draft.thread_root,
                     },
                     ComposerView {
+                        cursor: draft.text.len(),
                         text: draft.text,
                         reply_to: draft.reply_to,
                         editing: None,

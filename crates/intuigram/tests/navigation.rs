@@ -1,5 +1,7 @@
 use intuigram_app::{AdapterEvent, ChatId};
-use test_harness::{Result, TelegramScenario, TestSystem, account, chat, incoming, key};
+use test_harness::{
+    Result, TelegramScenario, TestSystem, account, chat, incoming, key, sent_message,
+};
 
 #[test]
 fn opening_a_chat_loads_history_and_focuses_the_composer() -> Result<()> {
@@ -131,5 +133,78 @@ fn default_keys_follow_the_chat_composer_message_hierarchy() -> Result<()> {
     app.press(key::ESCAPE)?;
     app.screen().composer().expect_focused()?;
     app.screen().composer().expect_text("draft")?;
+    app.expect_no_unhandled_work()
+}
+
+#[test]
+fn empty_composer_up_edits_the_newest_eligible_outgoing_message() -> Result<()> {
+    let mut app = TestSystem::builder()
+        .name("navigation-edit-previous-message")
+        .terminal(100, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(
+                    10,
+                    [
+                        sent_message(40, "editable message"),
+                        incoming(41, "Lin", "newer incoming message"),
+                    ],
+                ),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.press(key::UP)?;
+
+    app.screen().composer().expect_focused()?;
+    app.screen().composer().expect_text("editable message")?;
+    app.screen()
+        .action(intuigram_app::Action::SaveEdit)
+        .expect_available()?;
+    app.expect_no_unhandled_work()
+}
+
+#[test]
+fn empty_composer_up_does_nothing_without_an_editable_message() -> Result<()> {
+    let mut app = TestSystem::builder()
+        .name("navigation-no-previous-message")
+        .terminal(100, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, [incoming(41, "Lin", "incoming only")]),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.press(key::UP)?;
+
+    app.screen().composer().expect_focused()?;
+    app.screen().composer().expect_text("")?;
+    app.expect_no_unhandled_work()
+}
+
+#[test]
+fn nonempty_composer_up_moves_the_insertion_cursor() -> Result<()> {
+    let mut app = TestSystem::builder()
+        .name("navigation-composer-cursor-up")
+        .terminal(100, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, []),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.type_text("first")?;
+    app.press(key::SHIFT_ENTER)?;
+    app.type_text("second")?;
+    app.press(key::UP)?;
+    app.type_text("X")?;
+
+    app.screen().composer().expect_focused()?;
+    app.screen().composer().expect_text("firstX\nsecond")?;
     app.expect_no_unhandled_work()
 }

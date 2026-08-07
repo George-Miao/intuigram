@@ -1,4 +1,14 @@
 impl App {
+    pub(super) fn begin_previous_edit(&mut self) {
+        let Some(index) = self.view.messages.iter().rposition(|message| {
+            message.direction == MessageDirection::Outgoing && message.id.0 > 0
+        }) else {
+            return;
+        };
+        self.view.active_message = Some(index);
+        self.begin_edit();
+    }
+
     pub(super) fn open_reaction_picker(&mut self) {
         if self.active_message_id().is_some() {
             self.view.reaction_picker = Some(ReactionPickerView {
@@ -151,6 +161,7 @@ impl App {
         self.view.transcript_anchor = self.view.active_message;
         self.view.active_message = None;
         self.view.composer = ComposerView {
+            cursor: message.body.len(),
             text: message.body,
             editing: Some(message.id),
             ..ComposerView::default()
@@ -202,6 +213,7 @@ impl App {
         self.view.transcript_anchor = self.history_position(message);
         self.view.active_message = None;
         self.view.composer = ComposerView {
+            cursor: text.len(),
             text,
             editing: Some(message),
             ..ComposerView::default()

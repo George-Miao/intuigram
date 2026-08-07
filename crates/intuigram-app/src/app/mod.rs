@@ -232,7 +232,7 @@ impl App {
                 };
                 if self.active_history_key() == Some(key) {
                     if let Some(text) = text {
-                        self.view.composer.text.push_str(&text);
+                        self.insert_composer_text(&text);
                     }
                     self.view.composer.attachments.extend(attachments);
                     self.view.focus = Focus::Composer;
@@ -241,6 +241,7 @@ impl App {
                     let draft = self.drafts.entry(key).or_default();
                     if let Some(text) = text {
                         draft.text.push_str(&text);
+                        draft.cursor = draft.text.len();
                     }
                     draft.attachments.extend(attachments);
                     Some(Effect::SaveDraft {
@@ -274,9 +275,13 @@ impl App {
                     .pending_drafts
                     .remove(&local_id)
                     .map(|pending| pending.composer)
-                    .unwrap_or(ComposerView {
-                        text: text.clone(),
-                        ..ComposerView::default()
+                    .unwrap_or_else(|| {
+                        let mut composer = ComposerView {
+                            text: text.clone(),
+                            ..ComposerView::default()
+                        };
+                        composer.cursor = composer.text.len();
+                        composer
                     });
                 let (draft_text, draft_reply_to) = {
                     let draft = self.drafts.entry(key).or_default();
@@ -318,6 +323,7 @@ impl App {
                     .map_or(text, |pending| pending.text);
                 if self.active_history_key() == Some(key) && self.view.composer.text.is_empty() {
                     self.saved_poll_draft = Some(self.view.composer.clone());
+                    self.view.composer.cursor = text.len();
                     self.view.composer.text = text;
                     self.view.poll_composer = true;
                 }
@@ -343,6 +349,7 @@ use crate::protocol::*;
 mod action_availability;
 mod actions;
 mod bootstrap;
+mod composer;
 mod editing;
 mod history_navigation;
 mod history_reconciliation;

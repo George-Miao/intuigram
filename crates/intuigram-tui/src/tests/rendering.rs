@@ -254,6 +254,7 @@ fn composer_focus_renders_the_terminal_cursor_after_the_draft() {
     current.active_chat = Some(0);
     current.focus = Focus::Composer;
     current.composer.text = "hi".to_owned();
+    current.composer.cursor = current.composer.text.len();
 
     let backend = TestBackend::new(100, 24);
     let mut terminal = Terminal::new(backend).expect("test terminal should initialize");

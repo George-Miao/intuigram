@@ -35,6 +35,8 @@ pub enum Action {
     Reply,
     /// Edit the Active outgoing Message.
     Edit,
+    /// Edit the newest eligible outgoing Message from an empty Composer.
+    EditPrevious,
     /// Ask for confirmation before deleting the Active Message.
     Delete,
     /// Confirm the pending Message deletion.
@@ -94,6 +96,8 @@ pub enum Intent {
     Insert(String),
     /// Remove the final character from the active text field.
     Backspace,
+    /// Move the insertion cursor without changing the Draft.
+    MoveComposerCursor(ComposerMovement),
 }
 
 /// Initial synchronized data supplied by an adapter.

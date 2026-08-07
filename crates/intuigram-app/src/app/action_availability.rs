@@ -144,6 +144,13 @@ impl App {
                         Action::Search,
                         Action::TargetPreviousMessage,
                     ]);
+                    if self.view.composer.text.is_empty()
+                        && self.view.messages.iter().any(|message| {
+                            message.direction == MessageDirection::Outgoing && message.id.0 > 0
+                        })
+                    {
+                        actions.push(Action::EditPrevious);
+                    }
                 }
             }
             Focus::Search => actions.push(Action::Cancel),

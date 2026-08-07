@@ -15,8 +15,8 @@ use crossterm::terminal::{
 };
 use futures_util::{Stream, StreamExt};
 use intuigram_app::{
-    Action, ConnectionState, DeliveryState, Focus, Intent, MessageDirection, MessageView,
-    TextEntityKind, View,
+    Action, ComposerMovement, ConnectionState, DeliveryState, Focus, Intent, MessageDirection,
+    MessageView, TextEntityKind, View,
 };
 use qrcode::render::unicode::Dense1x2;
 use qrcode::types::Color as QrColor;
@@ -275,6 +275,12 @@ const BINDINGS: &[Binding] = &[
         true,
     ),
     binding(KeyChord::alt(Key::Char('e')), "Edit", Action::Edit, true),
+    binding(
+        KeyChord::plain(Key::Up),
+        "Edit Previous",
+        Action::EditPrevious,
+        true,
+    ),
     binding(
         KeyChord::alt(Key::Char('d')),
         "Delete",

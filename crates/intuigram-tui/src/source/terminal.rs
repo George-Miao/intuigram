@@ -201,6 +201,34 @@ pub(crate) fn resolve_event(
                     Some(UiEvent::Intent(Intent::Insert(character.to_string())))
                 }
                 CrosstermKey::Backspace => Some(UiEvent::Intent(Intent::Backspace)),
+                CrosstermKey::Left
+                    if view.focus == Focus::Composer && key.modifiers == KeyModifiers::NONE =>
+                {
+                    Some(UiEvent::Intent(Intent::MoveComposerCursor(
+                        ComposerMovement::Left,
+                    )))
+                }
+                CrosstermKey::Right
+                    if view.focus == Focus::Composer && key.modifiers == KeyModifiers::NONE =>
+                {
+                    Some(UiEvent::Intent(Intent::MoveComposerCursor(
+                        ComposerMovement::Right,
+                    )))
+                }
+                CrosstermKey::Up
+                    if view.focus == Focus::Composer && key.modifiers == KeyModifiers::NONE =>
+                {
+                    Some(UiEvent::Intent(Intent::MoveComposerCursor(
+                        ComposerMovement::Up,
+                    )))
+                }
+                CrosstermKey::Down
+                    if view.focus == Focus::Composer && key.modifiers == KeyModifiers::NONE =>
+                {
+                    Some(UiEvent::Intent(Intent::MoveComposerCursor(
+                        ComposerMovement::Down,
+                    )))
+                }
                 _ => None,
             }
         }

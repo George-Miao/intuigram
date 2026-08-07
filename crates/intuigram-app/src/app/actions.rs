@@ -79,6 +79,10 @@ impl App {
                 self.begin_edit();
                 None
             }
+            Action::EditPrevious => {
+                self.begin_previous_edit();
+                None
+            }
             Action::Delete => {
                 self.view.delete_confirmation = self.active_message_id();
                 None
@@ -183,7 +187,7 @@ impl App {
             Action::Send => self.send_message(),
             Action::Newline => {
                 if self.view.focus == Focus::Composer {
-                    self.view.composer.text.push('\n');
+                    self.insert_composer_text("\n");
                 }
                 self.draft_effect()
             }

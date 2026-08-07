@@ -198,9 +198,12 @@ fn hierarchy_modifiers_resolve_only_in_their_effective_context() {
 
     let mut composer = view(vec![Action::TargetPreviousMessage, Action::Cancel]);
     composer.focus = Focus::Composer;
+    assert_eq!(keymap.resolve(&composer, KeyChord::plain(Key::Up)), None);
+    let mut empty_editor = view(vec![Action::EditPrevious]);
+    empty_editor.focus = Focus::Composer;
     assert_eq!(
-        keymap.resolve(&composer, KeyChord::plain(Key::Up)),
-        Some(Action::TargetPreviousMessage)
+        keymap.resolve(&empty_editor, KeyChord::plain(Key::Up)),
+        Some(Action::EditPrevious)
     );
     assert_eq!(keymap.resolve(&composer, KeyChord::alt(Key::Up)), None);
     composer.composer.text = "draft".to_owned();
