@@ -41,6 +41,7 @@ pub(super) fn render_transcript(
                     mode,
                     unread: unread == Some(index),
                     width: area.width,
+                    available_height: area.height,
                     grouped_with_previous: mode == ViewMode::Default
                         && previous.is_some_and(|previous| messages_group(previous, message)),
                     grouped_with_next: mode == ViewMode::Default

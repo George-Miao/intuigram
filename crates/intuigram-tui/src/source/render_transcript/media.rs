@@ -20,6 +20,7 @@ pub(super) struct MediaRenderContext {
     pub(super) focused: bool,
     pub(super) album: AlbumPosition,
     pub(super) animation_frame: u8,
+    pub(super) max_height: u16,
 }
 
 impl AlbumPosition {
@@ -55,15 +56,19 @@ pub(super) fn render_media(
         focused,
         album,
         animation_frame,
+        max_height,
     } = context;
     let mut lines = Vec::new();
     if let Some(preview) = preview {
-        lines.extend(render_inline_image(preview, selected, forwarded, focused));
+        lines.extend(render_inline_image(
+            preview, selected, forwarded, focused, max_height,
+        ));
     } else if loading {
         lines.extend(render_image_placeholder(
             selected,
             forwarded,
             animation_frame,
+            max_height,
         ));
     } else {
         let mut card = content_prefix(selected, forwarded);
@@ -124,13 +129,14 @@ fn render_inline_image(
     selected: bool,
     forwarded: bool,
     focused: bool,
+    max_height: u16,
 ) -> Vec<Line<'static>> {
     let background = if focused {
         (230, 226, 204)
     } else {
         (244, 240, 217)
     };
-    (0..INLINE_IMAGE_HEIGHT)
+    (0..INLINE_IMAGE_HEIGHT.min(max_height))
         .map(|line| {
             let upper_y = line.saturating_mul(2);
             let mut spans = Vec::with_capacity(usize::from(INLINE_IMAGE_WIDTH).saturating_add(1));
@@ -164,9 +170,11 @@ fn render_image_placeholder(
     selected: bool,
     forwarded: bool,
     animation_frame: u8,
+    max_height: u16,
 ) -> Vec<Line<'static>> {
     let highlight = u16::from(animation_frame) % INLINE_IMAGE_WIDTH;
-    (0..INLINE_IMAGE_HEIGHT)
+    let height = INLINE_IMAGE_HEIGHT.min(max_height);
+    (0..height)
         .map(|row| {
             let mut spans = Vec::with_capacity(usize::from(INLINE_IMAGE_WIDTH).saturating_add(1));
             spans.extend(content_prefix(selected, forwarded));
@@ -177,7 +185,7 @@ fn render_image_placeholder(
                     Style::default().fg(if highlighted { PRIMARY } else { MUTED_TEXT }),
                 )
             }));
-            if row == INLINE_IMAGE_HEIGHT / 2 {
+            if row == height / 2 {
                 spans.push(Span::styled(
                     "  loading image",
                     Style::default().fg(MUTED_TEXT),

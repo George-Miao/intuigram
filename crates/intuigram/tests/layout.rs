@@ -32,9 +32,12 @@ fn default_view_separates_chats_and_messages_and_uses_a_three_line_folder_bar() 
 
     assert_eq!(telegram.saturating_sub(rust), 3);
     assert_eq!(second.saturating_sub(first), 1);
-    assert!(rows[19].trim().is_empty());
-    assert!(rows[20].contains("All"));
-    assert!(rows[21].trim().is_empty());
+    let folder = rows
+        .iter()
+        .position(|row| row.contains("All"))
+        .expect("folder strip should render");
+    assert!(rows[folder - 1].trim().is_empty());
+    assert!(rows[folder + 1].trim().is_empty());
     app.expect_no_unhandled_work()
 }
 
@@ -85,9 +88,21 @@ fn chat_list_and_transcript_have_one_cell_internal_padding() -> Result<()> {
     assert_eq!(row_segment(&rows, title_row, 0, 7), " │ [RU]");
     assert!(row_segment(&rows, 4, 31, 100).trim().is_empty());
     assert_eq!(row_segment(&rows, message_row, 31, 35), "   h");
-    assert!(rows[20].starts_with(' '));
-    assert!(rows[22].starts_with(' '));
-    assert!(rows[23].starts_with(' '));
+    let folder = rows
+        .iter()
+        .position(|row| row.contains("All"))
+        .expect("folder strip should render");
+    let action = rows
+        .iter()
+        .position(|row| row.contains("Send"))
+        .expect("action bar should render");
+    let status = rows
+        .iter()
+        .position(|row| row.contains("connected"))
+        .expect("status bar should render");
+    assert!(rows[folder].starts_with(' '));
+    assert!(rows[action].starts_with(' '));
+    assert!(rows[status].starts_with(' '));
     app.expect_no_unhandled_work()
 }
 

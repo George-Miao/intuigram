@@ -7,6 +7,7 @@ pub(super) struct MessageLayout {
     pub(super) mode: ViewMode,
     pub(super) unread: bool,
     pub(super) width: u16,
+    pub(super) available_height: u16,
     pub(super) grouped_with_previous: bool,
     pub(super) grouped_with_next: bool,
     pub(super) date_boundary: bool,
@@ -123,6 +124,7 @@ fn append_content(
                     focused: layout.focused,
                     album: album_position(view, index, message.details.album_id),
                     animation_frame: view.animation_frame,
+                    max_height: layout.available_height.saturating_sub(3).max(1),
                 },
             )
         });
