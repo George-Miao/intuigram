@@ -91,6 +91,22 @@ pub struct SelectionView {
     pub chat: Option<ChatId>,
 }
 
+/// Semantic target selected by a pointing device.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ActivationTarget {
+    /// Switch to a Telegram Folder and return interaction to the Chat list.
+    Folder(i32),
+
+    /// Select a Chat while retaining Chat-list interaction.
+    Chat(ChatId),
+
+    /// Select a Message and descend to Transcript interaction.
+    Message(MessageId),
+
+    /// Focus the active Chat's Composer.
+    Composer,
+}
+
 /// Telegram cloud Chat category normalized away from TL constructors.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ChatKind {

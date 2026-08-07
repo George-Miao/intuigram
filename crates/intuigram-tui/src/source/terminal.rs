@@ -3,6 +3,7 @@ pub struct TerminalUi {
     terminal: Terminal<CrosstermBackend<Stdout>>,
     keymap: EffectiveKeymap,
     view_mode: ViewMode,
+    semantics: Vec<SemanticNode>,
 }
 
 impl TerminalUi {
@@ -17,6 +18,7 @@ impl TerminalUi {
             terminal: enter_terminal()?,
             keymap: EffectiveKeymap::defaults(),
             view_mode,
+            semantics: Vec::new(),
         })
     }
 
@@ -24,15 +26,20 @@ impl TerminalUi {
     pub fn draw(&mut self, view: &View) -> Result<()> {
         let keymap = &self.keymap;
         let view_mode = self.view_mode;
+        let mut semantics = Vec::new();
         self.terminal
-            .draw(|frame| render_with_mode(frame, view, keymap, view_mode))
+            .draw(|frame| {
+                render_with_semantics(frame, view, keymap, view_mode, &mut semantics);
+            })
             .context(DrawSnafu)?;
+        self.semantics = semantics;
         Ok(())
     }
 
     /// Draws a blocking startup recovery decision without entering a second
     /// terminal session.
     pub fn draw_recovery(&mut self, view: &RecoveryView) -> Result<()> {
+        self.semantics.clear();
         self.terminal
             .draw(|frame| recovery::render(frame, view))
             .context(DrawSnafu)?;
@@ -42,7 +49,7 @@ impl TerminalUi {
     /// Resolves a raw terminal event against the latest application view.
     #[must_use]
     pub fn resolve_event(&self, view: &View, event: Event) -> Option<UiEvent> {
-        resolve_event(&self.keymap, view, event)
+        resolve_event_with_semantics(&self.keymap, view, event, &self.semantics)
     }
 }
 
@@ -54,6 +61,13 @@ impl TerminalUi {
 #[must_use]
 pub fn resolve_test_event(view: &View, event: Event) -> Option<UiEvent> {
     resolve_event(&EffectiveKeymap::defaults(), view, event)
+}
+
+/// Resolves a raw event against the semantic regions from a matching test
+/// frame.
+#[must_use]
+pub fn resolve_test_frame_event(view: &View, frame: &TestFrame, event: Event) -> Option<UiEvent> {
+    resolve_event_with_semantics(&EffectiveKeymap::defaults(), view, event, &frame.semantics)
 }
 
 /// Renders an immutable application view into Ratatui's in-memory backend.
@@ -150,11 +164,21 @@ pub(super) fn enter_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>> {
         let _ = disable_raw_mode();
         return Err(Error::EnableKeyboardReporting { source });
     }
+    if let Err(source) = execute!(stdout, EnableMouseCapture) {
+        let _ = execute!(stdout, PopKeyboardEnhancementFlags, LeaveAlternateScreen);
+        let _ = disable_raw_mode();
+        return Err(Error::EnableMouseReporting { source });
+    }
     match Terminal::new(CrosstermBackend::new(stdout)) {
         Ok(terminal) => Ok(terminal),
         Err(source) => {
             let mut stdout = io::stdout();
-            let _ = execute!(stdout, PopKeyboardEnhancementFlags, LeaveAlternateScreen);
+            let _ = execute!(
+                stdout,
+                DisableMouseCapture,
+                PopKeyboardEnhancementFlags,
+                LeaveAlternateScreen
+            );
             let _ = disable_raw_mode();
             Err(Error::InitializeTerminal { source })
         }
@@ -165,6 +189,7 @@ pub(super) fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>
     let _ = disable_raw_mode();
     let _ = execute!(
         terminal.backend_mut(),
+        DisableMouseCapture,
         PopKeyboardEnhancementFlags,
         LeaveAlternateScreen
     );
@@ -181,10 +206,32 @@ pub(crate) fn resolve_event(
     view: &View,
     event: Event,
 ) -> Option<UiEvent> {
+    resolve_event_with_semantics(keymap, view, event, &[])
+}
+
+fn resolve_event_with_semantics(
+    keymap: &EffectiveKeymap,
+    view: &View,
+    event: Event,
+    semantics: &[SemanticNode],
+) -> Option<UiEvent> {
     match event {
         Event::Resize(..) => Some(UiEvent::Redraw),
         Event::FocusGained | Event::FocusLost => Some(UiEvent::Redraw),
         Event::Paste(text) => Some(UiEvent::Intent(Intent::Insert(text))),
+        Event::Mouse(mouse)
+            if mouse.kind == MouseEventKind::Down(MouseButton::Left)
+                && mouse.modifiers == KeyModifiers::NONE
+                && !overlay_open_for_pointer(view) =>
+        {
+            semantics
+                .iter()
+                .rev()
+                .find(|node| contains(node.bounds, mouse.column, mouse.row))
+                .and_then(activation_target)
+                .map(Intent::Activate)
+                .map(UiEvent::Intent)
+        }
         Event::Key(key) if matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) => {
             let chord = chord_from_crossterm(key.code, key.modifiers);
             if let Some(chord) = chord
@@ -234,5 +281,36 @@ pub(crate) fn resolve_event(
         }
         _ => None,
     }
+}
+
+fn contains(bounds: Rect, column: u16, row: u16) -> bool {
+    column >= bounds.x && column < bounds.right() && row >= bounds.y && row < bounds.bottom()
+}
+
+fn activation_target(node: &SemanticNode) -> Option<ActivationTarget> {
+    match node.role {
+        SemanticRole::Folder => node
+            .domain_id
+            .and_then(|folder| i32::try_from(folder).ok())
+            .map(ActivationTarget::Folder),
+        SemanticRole::Chat => node
+            .domain_id
+            .map(|chat| ActivationTarget::Chat(ChatId(chat))),
+        SemanticRole::Message => node
+            .domain_id
+            .map(|message| ActivationTarget::Message(MessageId(message))),
+        SemanticRole::Composer => Some(ActivationTarget::Composer),
+        SemanticRole::MediaCard | SemanticRole::Action => None,
+    }
+}
+
+fn overlay_open_for_pointer(view: &View) -> bool {
+    view.help_open
+        || view.folder_picker.is_some()
+        || view.delete_confirmation.is_some()
+        || view.forward_picker.is_some()
+        || view.reaction_picker.is_some()
+        || view.poll_vote.is_some()
+        || view.link_confirmation.is_some()
 }
 use super::*;

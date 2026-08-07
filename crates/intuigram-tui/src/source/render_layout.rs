@@ -3,6 +3,7 @@ pub(crate) fn render(frame: &mut Frame<'_>, view: &View, keymap: &EffectiveKeyma
     render_with_mode(frame, view, keymap, ViewMode::Default);
 }
 
+#[cfg(test)]
 pub(crate) fn render_with_mode(
     frame: &mut Frame<'_>,
     view: &View,

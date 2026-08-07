@@ -99,6 +99,9 @@ pub enum Intent {
     /// Move the insertion cursor without changing the Draft.
     MoveComposerCursor(ComposerMovement),
 
+    /// Activate a semantic region selected by pointer input.
+    Activate(ActivationTarget),
+
     /// Advance one renderer animation frame while pending work remains.
     Animate,
 }

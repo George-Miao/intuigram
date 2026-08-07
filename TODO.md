@@ -12,7 +12,6 @@
 - [ ] **p-core:** Retain synchronized Chat metadata and Message text until the user explicitly clears Account data or logs out. Keep media and thumbnails in a size-bounded LRU Media Cache with a configurable 2 GiB default; expose usage and precise clear-media/clear-account actions without silently deleting Message text.
 - [ ] **p-core:** Add polished onboarding, packaging, migration, and support for public distribution, including a deliberate Telegram application-credential policy.
 - [ ] **p-core:** Add responsive TUI layouts for narrow, normal, and wide terminals, including stacked hierarchy navigation and preservation of the Active Chat, Active Message, Message Selection, anchored history, Draft, and interaction target across resize.
-- [ ] **p-core:** Add click support for activating Chats and Messages, switching Folders, and focusing the Composer without replacing the keyboard hierarchy or terminal-native text selection.
 - [ ] **p-core:** Implement the Windows console-input backend for `compio-term` behind its existing `EventStream(sys::EventStream)` boundary, including key, mouse, focus, paste, and resize events without timer polling or a helper thread.
 - [ ] **p-core:** Add `Save As` and destination selection for media and file downloads; never overwrite an existing path silently.
 - [ ] **p-core:** Add an optional Local Lock that encrypts both the Account cache and Telegram authorization material, unlocked through an OS keyring or passphrase.

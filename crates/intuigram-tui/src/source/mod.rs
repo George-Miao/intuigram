@@ -5,7 +5,8 @@ use std::time::Duration;
 
 use compio_term::EventStream;
 use crossterm::event::{
-    self, Event, KeyCode as CrosstermKey, KeyEventKind, KeyModifiers, KeyboardEnhancementFlags,
+    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode as CrosstermKey, KeyEventKind,
+    KeyModifiers, KeyboardEnhancementFlags, MouseButton, MouseEventKind,
     PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
 use crossterm::execute;
@@ -14,8 +15,9 @@ use crossterm::terminal::{
 };
 use futures_util::{Stream, StreamExt};
 use intuigram_app::{
-    Action, ChatKind, ChatLoadingState, ComposerMovement, ConnectionState, DeliveryState, Focus,
-    Intent, MessageDirection, MessageView, TextEntityKind, View,
+    Action, ActivationTarget, ChatId, ChatKind, ChatLoadingState, ComposerMovement,
+    ConnectionState, DeliveryState, Focus, Intent, MessageDirection, MessageId, MessageView,
+    TextEntityKind, View,
 };
 use qrcode::render::unicode::Dense1x2;
 use qrcode::types::Color as QrColor;
@@ -58,7 +60,7 @@ use render_chrome::{
 };
 use render_composer::{composer_height, render_composer};
 use render_headers::{render_active_chat_header, render_chat_list_header};
-use render_layout::{render_with_mode, render_with_semantics};
+use render_layout::render_with_semantics;
 use render_overlays::{
     render_delete_confirmation, render_forward_picker, render_link_confirmation, render_poll_vote,
     render_reaction_picker,

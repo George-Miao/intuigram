@@ -355,6 +355,7 @@ use crate::protocol::*;
 mod action_availability;
 mod actions;
 mod bootstrap;
+mod click_activation;
 mod composer;
 mod editing;
 mod folder_navigation;

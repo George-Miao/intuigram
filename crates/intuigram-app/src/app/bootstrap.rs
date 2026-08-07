@@ -73,6 +73,7 @@ impl App {
                 self.move_composer_cursor(movement);
                 None
             }
+            Intent::Activate(target) => self.activate(target),
             Intent::Animate => {
                 if self.view.has_pending_effort() {
                     self.view.animation_frame = self.view.animation_frame.wrapping_add(1);

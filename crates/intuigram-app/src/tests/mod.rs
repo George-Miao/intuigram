@@ -1,7 +1,7 @@
 use super::{
-    Action, AdapterEvent, App, Bootstrap, ChatId, ChatKind, ChatLoadingState, ChatView,
-    ConnectionState, DeliveryState, Effect, Focus, FolderView, HistoryView, Input, Intent,
-    MessageDetails, MessageDirection, MessageId, MessageView, SearchScope, SelectionView,
+    Action, ActivationTarget, AdapterEvent, App, Bootstrap, ChatId, ChatKind, ChatLoadingState,
+    ChatView, ConnectionState, DeliveryState, Effect, Focus, FolderView, HistoryView, Input,
+    Intent, MessageDetails, MessageDirection, MessageId, MessageView, SearchScope, SelectionView,
 };
 
 fn bootstrap() -> Bootstrap {
@@ -287,6 +287,7 @@ fn search_scope_and_reply_send_follow_current_context() {
     );
     assert_eq!(sent.view.focus, Focus::Composer);
 }
+mod click_activation;
 mod clipboard;
 mod history_loading;
 mod link_media;

@@ -95,6 +95,13 @@ pub enum Error {
         source: io::Error,
     },
 
+    /// Mouse event reporting could not be enabled.
+    #[snafu(display("failed to enable terminal mouse reporting"))]
+    EnableMouseReporting {
+        /// Underlying terminal failure.
+        source: io::Error,
+    },
+
     /// The terminal could not be initialized.
     #[snafu(display("failed to initialize terminal renderer"))]
     InitializeTerminal {

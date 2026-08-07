@@ -5,19 +5,23 @@ impl App {
         if self.view.focus != Focus::Chats || self.view.folders.is_empty() {
             return None;
         }
-        let active_chat = self.active_chat_id();
-        self.save_active_draft();
-        self.save_transcript_anchor();
-        let previous = self.view.active_folder;
-        self.view.active_folder = move_index(
+        let next = move_index(
             Some(self.view.active_folder),
             self.view.folders.len(),
             forward,
         )
         .unwrap_or(0);
-        if previous == self.view.active_folder {
+        self.select_folder(next)
+    }
+
+    pub(super) fn select_folder(&mut self, index: usize) -> Option<Effect> {
+        if index >= self.view.folders.len() || index == self.view.active_folder {
             return None;
         }
+        let active_chat = self.active_chat_id();
+        self.save_active_draft();
+        self.save_transcript_anchor();
+        self.view.active_folder = index;
         self.refresh_folder_chats(active_chat);
         self.restore_active_draft();
         self.view.active_thread = None;
