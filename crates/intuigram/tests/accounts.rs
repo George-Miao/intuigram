@@ -53,7 +53,7 @@ fn logout_and_remove_locally_have_distinct_explicit_confirmations() -> Result<()
         app.screen()
             .rows()
             .iter()
-            .any(|row| row.contains("Log out Ada?"))
+            .any(|row| row.contains("Log out Ada (10)?"))
     );
     app.press(key::ENTER)?;
     app.expect_account_lifecycle(AccountLifecycle::Logout(AccountKey(10)))?;
@@ -62,7 +62,10 @@ fn logout_and_remove_locally_have_distinct_explicit_confirmations() -> Result<()
     app.press(key::DOWN)?;
     app.press(key::ALT_REMOVE_LOCAL)?;
     let rows = app.screen().rows();
-    assert!(rows.iter().any(|row| row.contains("Remove Grace locally?")));
+    assert!(
+        rows.iter()
+            .any(|row| row.contains("Remove Grace (20) locally?"))
+    );
     assert!(
         rows.iter()
             .any(|row| row.contains("Telegram authorization remains active"))

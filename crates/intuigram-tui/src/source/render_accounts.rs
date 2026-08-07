@@ -50,7 +50,11 @@ pub(super) fn render_account_picker(frame: &mut Frame<'_>, area: Rect, view: &Vi
             selection_rule(index == selected),
             Span::raw(account.display_name.clone()),
             Span::styled(
-                if account.active { "  current" } else { "" },
+                format!(
+                    "  {}{}",
+                    account.id.0,
+                    if account.active { "  current" } else { "" }
+                ),
                 Style::default().fg(MUTED_TEXT),
             ),
         ])
@@ -67,18 +71,22 @@ pub(super) fn render_account_confirmation(frame: &mut Frame<'_>, area: Rect, vie
     let Some(confirmation) = view.account_confirmation else {
         return;
     };
-    let account = view
+    let (account, account_id) = view
         .accounts
         .iter()
         .find(|account| account.id == confirmation.account)
-        .map_or("Account", |account| account.display_name.as_str());
-    let (title, warning) = match confirmation.kind {
+        .map_or(("Account", confirmation.account.0), |account| {
+            (account.display_name.as_str(), account.id.0)
+        });
+    let (title, warning, consequence) = match confirmation.kind {
         AccountConfirmationKind::Logout => (
-            format!("Log out {account}?"),
-            "Telegram authorization will be revoked before local data is removed.",
+            format!("Log out {account} ({account_id})?"),
+            "This revokes Telegram authorization.",
+            "Deletes: local session, Local Records, and Media Cache.",
         ),
         AccountConfirmationKind::RemoveLocal => (
-            format!("Remove {account} locally?"),
+            format!("Remove {account} ({account_id}) locally?"),
+            "Deletes: local session, Local Records, and Media Cache.",
             "Telegram authorization remains active on Telegram's servers.",
         ),
     };
@@ -93,6 +101,7 @@ pub(super) fn render_account_confirmation(frame: &mut Frame<'_>, area: Rect, vie
             )),
             Line::from(""),
             Line::from(Span::styled(warning, Style::default().fg(MUTED_TEXT))),
+            Line::from(Span::styled(consequence, Style::default().fg(MUTED_TEXT))),
         ],
     );
 }
