@@ -19,8 +19,8 @@ use grammers_tl_types as tl;
 use grammers_tl_types::{Deserializable as _, Identifiable as _};
 use intuigram_app::{
     AdapterEvent, Bootstrap, ChatId, ChatKind, ChatView, DeliveryState, FolderDetailsView,
-    FolderRulesView, FolderView, MediaCard, MediaKind, MessageDetails, MessageDirection, MessageId,
-    MessageView, PollOptionView, PollView, ReactionView, TextEntity, TextEntityKind,
+    FolderId, FolderRulesView, FolderView, MediaCard, MediaKind, MessageDetails, MessageDirection,
+    MessageId, MessageView, PollOptionView, PollView, ReactionView, TextEntity, TextEntityKind,
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 

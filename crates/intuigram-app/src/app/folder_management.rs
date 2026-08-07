@@ -72,7 +72,7 @@ impl App {
                     .view
                     .folders
                     .iter()
-                    .find(|folder| folder.id == details.id)?
+                    .find(|folder| folder.id == details.id.0)?
                     .title
                     .clone();
                 if let Some(manager) = &mut self.view.folder_manager {

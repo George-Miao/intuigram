@@ -11,6 +11,8 @@ pub enum Effect {
         /// Complete typed operation.
         operation: FolderOperation,
     },
+    /// Refresh the authoritative Folder and Chat-membership projection.
+    RefreshFolders,
     /// Load recent or saved Telegram media for Composer selection.
     BrowseRichMedia {
         /// Telegram-owned library.
@@ -18,39 +20,85 @@ pub enum Effect {
     },
     /// Send a previously browsed Telegram media item.
     SendLibraryMedia {
+        /// Destination Chat.
         chat: ChatId,
+
+        /// Opaque adapter-owned library item.
         item: RichMediaItemId,
+
+        /// Optimistic local Message identity.
         local_id: MessageId,
+
+        /// Direct reply target.
         reply_to: Option<MessageId>,
+
+        /// Active Thread root.
         thread_root: Option<MessageId>,
     },
     /// Read and upload one exact local path with explicit media semantics.
     SendRichMediaFile {
+        /// Destination Chat.
         chat: ChatId,
+
+        /// Exact local path without shell expansion.
         path: String,
+
+        /// Explicit Telegram upload presentation.
         kind: RichMediaUploadKind,
+
+        /// Optimistic local Message identity.
         local_id: MessageId,
+
+        /// Direct reply target.
         reply_to: Option<MessageId>,
+
+        /// Active Thread root.
         thread_root: Option<MessageId>,
     },
     /// Capture and send a voice or circular video note.
     RecordRichMedia {
+        /// Destination Chat.
         chat: ChatId,
+
+        /// Voice or circular-video capture kind.
         kind: RichMediaUploadKind,
+
+        /// Capture duration in seconds.
         seconds: u32,
+
+        /// Platform capture device understood by ffmpeg.
         device: String,
+
+        /// Optimistic local Message identity.
         local_id: MessageId,
+
+        /// Direct reply target.
         reply_to: Option<MessageId>,
+
+        /// Active Thread root.
         thread_root: Option<MessageId>,
     },
     /// Send a Telegram contact card from Composer fields.
     SendContact {
+        /// Destination Chat.
         chat: ChatId,
+
+        /// Telegram-compatible telephone number.
         phone: String,
+
+        /// Contact first name.
         first_name: String,
+
+        /// Optional contact last name.
         last_name: String,
+
+        /// Optimistic local Message identity.
         local_id: MessageId,
+
+        /// Direct reply target.
         reply_to: Option<MessageId>,
+
+        /// Active Thread root.
         thread_root: Option<MessageId>,
     },
     /// Load server-owned Scheduled Message history independently of Transcript

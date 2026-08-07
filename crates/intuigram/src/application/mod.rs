@@ -17,7 +17,7 @@ use intuigram::{
 use intuigram_app::{
     AccountKey, AccountLifecycle, AccountView, AdapterEvent, App, AttachmentId, AttachmentKind,
     AttachmentView, Bootstrap, ChatId, ChatKind, ChatView, ConnectionState, DeliveryState,
-    DownloadId, DownloadView, DraftView, Effect, FolderOperation, FolderOperationResult,
+    DownloadId, DownloadView, DraftView, Effect, FolderId, FolderOperation, FolderOperationResult,
     FolderView, HistoryView, InlineImage, Input, Intent, MediaCard, MediaKind, MediaPreviewView,
     MessageDetails, MessageDirection, MessageId, MessageView, PollOptionView, PollView,
     RichMediaItemId, RichMediaItemView, RichMediaLibraryKind, RichMediaUploadKind,

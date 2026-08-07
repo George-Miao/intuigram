@@ -1,4 +1,6 @@
-use intuigram_app::{AdapterEvent, FolderOperation, FolderOperationResult};
+use intuigram_app::{
+    AdapterEvent, FolderId, FolderOperation, FolderOperationResult, FolderReconciliation,
+};
 
 use super::TestSystem;
 
@@ -11,11 +13,15 @@ impl TestSystem {
                     .view()
                     .folder_details
                     .iter()
-                    .map(|details| details.id)
+                    .map(|details| details.id.0)
                     .max()
                     .unwrap_or(1)
                     .saturating_add(1);
-                FolderOperationResult::Created { id, title, rules }
+                FolderOperationResult::Created {
+                    id: FolderId(id),
+                    title,
+                    rules,
+                }
             }
             FolderOperation::Update { id, title, rules } => {
                 FolderOperationResult::Updated { id, title, rules }
@@ -25,7 +31,7 @@ impl TestSystem {
             }
             FolderOperation::Share { id } => FolderOperationResult::Shared {
                 id,
-                url: format!("https://t.me/addlist/folder-{id}"),
+                url: format!("https://t.me/addlist/folder-{}", id.0),
             },
             FolderOperation::Delete { id } => FolderOperationResult::Deleted { id },
         };
@@ -34,5 +40,17 @@ impl TestSystem {
                 result,
                 reconciliation: None,
             });
+    }
+
+    pub(super) fn handle_folder_refresh(&mut self) {
+        let view = self.application.view();
+        self.application
+            .handle_adapter(AdapterEvent::FolderReconciled(Box::new(
+                FolderReconciliation {
+                    folders: view.folders.clone(),
+                    details: view.folder_details.clone(),
+                    chats: view.chats.clone(),
+                },
+            )));
     }
 }

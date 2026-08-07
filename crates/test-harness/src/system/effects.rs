@@ -35,6 +35,7 @@ impl TestSystem {
                 Effect::FolderOperation { operation } => {
                     self.handle_folder_operation(operation);
                 }
+                Effect::RefreshFolders => self.handle_folder_refresh(),
                 Effect::AccountLifecycle { request } => {
                     self.account_lifecycle.push(request);
                 }

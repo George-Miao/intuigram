@@ -75,6 +75,12 @@ pub enum AdapterEvent {
         reconciliation: Option<Box<FolderReconciliation>>,
     },
 
+    /// A requested authoritative Folder projection became available.
+    FolderReconciled(Box<FolderReconciliation>),
+
+    /// A Folder refresh failed without invalidating the accepted mutation.
+    FolderReconciliationFailed(String),
+
     /// A Folder lifecycle request failed without invalidating connectivity.
     FolderOperationFailed(String),
 

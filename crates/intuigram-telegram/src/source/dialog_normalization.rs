@@ -96,7 +96,7 @@ pub(crate) fn normalize_dialog_folder_details(
         .filter_map(|filter| match filter {
             tl::enums::DialogFilter::Default => None,
             tl::enums::DialogFilter::Filter(filter) => Some(FolderDetailsView {
-                id: filter.id,
+                id: FolderId(filter.id),
                 rules: Some(FolderRulesView {
                     contacts: filter.contacts,
                     non_contacts: filter.non_contacts,
@@ -110,7 +110,7 @@ pub(crate) fn normalize_dialog_folder_details(
                 shareable: true,
             }),
             tl::enums::DialogFilter::Chatlist(filter) => Some(FolderDetailsView {
-                id: filter.id,
+                id: FolderId(filter.id),
                 rules: None,
                 shareable: true,
             }),

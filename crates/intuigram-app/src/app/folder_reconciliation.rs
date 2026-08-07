@@ -17,10 +17,23 @@ impl App {
                 reconciliation,
             } => {
                 self.view.notice = None;
+                let needs_refresh = reconciliation.is_none()
+                    && !matches!(result, FolderOperationResult::Shared { .. });
                 if let Some(reconciliation) = reconciliation {
                     self.apply_folder_reconciliation(*reconciliation);
                 }
                 self.apply_folder_operation(result);
+                needs_refresh.then_some(Effect::RefreshFolders)
+            }
+            AdapterEvent::FolderReconciled(reconciliation) => {
+                self.apply_folder_reconciliation(*reconciliation);
+                self.view.notice = None;
+                None
+            }
+            AdapterEvent::FolderReconciliationFailed(reason) => {
+                self.view.notice = Some(format!(
+                    "Folder change was accepted, but refreshing its memberships failed: {reason}"
+                ));
                 None
             }
             AdapterEvent::FolderOperationFailed(reason) => {
@@ -40,7 +53,7 @@ impl App {
         }
         match result {
             FolderOperationResult::Created { id, title, rules } => {
-                if !self.view.folders.iter().any(|folder| folder.id == id) {
+                if !self.view.folders.iter().any(|folder| folder.id == id.0) {
                     let insert = self
                         .view
                         .folders
@@ -50,7 +63,7 @@ impl App {
                     self.view.folders.insert(
                         insert,
                         FolderView {
-                            id,
+                            id: id.0,
                             title,
                             unread: 0,
                         },
@@ -74,7 +87,12 @@ impl App {
                 }
             }
             FolderOperationResult::Updated { id, title, rules } => {
-                if let Some(folder) = self.view.folders.iter_mut().find(|folder| folder.id == id) {
+                if let Some(folder) = self
+                    .view
+                    .folders
+                    .iter_mut()
+                    .find(|folder| folder.id == id.0)
+                {
                     folder.title = title;
                 }
                 if let Some(details) = self
@@ -124,7 +142,7 @@ impl App {
         self.refresh_folder_chats(preferred_chat);
     }
 
-    fn reorder_folder_projection(&mut self, id: i32, position: usize) {
+    fn reorder_folder_projection(&mut self, id: FolderId, position: usize) {
         let active = self
             .view
             .folders
@@ -149,7 +167,7 @@ impl App {
                 self.view
                     .folders
                     .iter()
-                    .find(|folder| folder.id == details.id)
+                    .find(|folder| folder.id == details.id.0)
                     .cloned()
             })
             .collect::<Vec<_>>();
@@ -175,18 +193,18 @@ impl App {
         }
     }
 
-    fn remove_folder_projection(&mut self, id: i32) {
+    fn remove_folder_projection(&mut self, id: FolderId) {
         let active_id = self
             .view
             .folders
             .get(self.view.active_folder)
             .map(|folder| folder.id);
-        self.view.folders.retain(|folder| folder.id != id);
+        self.view.folders.retain(|folder| folder.id != id.0);
         self.view.folder_details.retain(|details| details.id != id);
         for chat in &mut self.all_chats {
-            chat.folders.retain(|folder| *folder != id);
+            chat.folders.retain(|folder| *folder != id.0);
         }
-        if active_id == Some(id) {
+        if active_id == Some(id.0) {
             self.view.active_folder = self
                 .view
                 .folders

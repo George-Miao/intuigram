@@ -49,7 +49,7 @@ impl AccountFixture {
             },
         );
         self.folder_details.push(FolderDetailsView {
-            id,
+            id: intuigram_app::FolderId(id),
             rules: Some(FolderRulesView::default()),
             shareable: true,
         });

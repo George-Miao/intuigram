@@ -189,6 +189,55 @@ fn folder_picker_adds_and_removes_the_active_chat() {
 }
 
 #[test]
+fn folder_mutation_without_inline_bootstrap_requests_fresh_reconciliation() {
+    let mut fixture = hierarchy_bootstrap();
+    fixture.folder_details.push(crate::FolderDetailsView {
+        id: crate::FolderId(1),
+        rules: Some(crate::FolderRulesView::default()),
+        shareable: true,
+    });
+    fixture.chats[0].folders = vec![0];
+    let mut app = App::new();
+    apply(&mut app, Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+
+    let completed = app.transition(Input::Adapter(AdapterEvent::FolderOperationCompleted {
+        result: crate::FolderOperationResult::Updated {
+            id: crate::FolderId(1),
+            title: "Focused".to_owned(),
+            rules: Some(crate::FolderRulesView::default()),
+        },
+        reconciliation: None,
+    }));
+    assert_eq!(completed.effect, Some(Effect::RefreshFolders));
+
+    let mut fresh_chat = hierarchy_bootstrap().chats[0].clone();
+    fresh_chat.folders.push(1);
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::FolderReconciled(Box::new(
+            crate::FolderReconciliation {
+                folders: vec![
+                    hierarchy_bootstrap().folders[0].clone(),
+                    crate::FolderView {
+                        id: 1,
+                        title: "Focused".to_owned(),
+                        unread: 0,
+                    },
+                ],
+                details: vec![crate::FolderDetailsView {
+                    id: crate::FolderId(1),
+                    rules: Some(crate::FolderRulesView::default()),
+                    shareable: true,
+                }],
+                chats: vec![fresh_chat],
+            },
+        ))),
+    );
+    apply(&mut app, Input::Intent(Intent::Action(Action::NextFolder)));
+    assert!(app.view().chats.iter().any(|chat| chat.id == ChatId(10)));
+}
+
+#[test]
 fn live_reconciliation_applies_edits_deletions_reads_and_archive_moves() {
     let mut app = App::new();
     apply(

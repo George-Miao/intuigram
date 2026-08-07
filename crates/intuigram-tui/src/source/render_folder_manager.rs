@@ -74,7 +74,7 @@ pub(super) fn render_folder_manager(frame: &mut Frame<'_>, area: Rect, view: &Vi
         let title = view
             .folders
             .iter()
-            .find(|candidate| candidate.id == folder)
+            .find(|candidate| candidate.id == folder.0)
             .map_or("Folder", |candidate| candidate.title.as_str());
         render_overlays::render_overlay(
             frame,
@@ -119,7 +119,7 @@ pub(super) fn render_folder_manager(frame: &mut Frame<'_>, area: Rect, view: &Vi
                     let title = view
                         .folders
                         .iter()
-                        .find(|folder| folder.id == details.id)
+                        .find(|folder| folder.id == details.id.0)
                         .map_or("Folder", |folder| folder.title.as_str());
                     Line::from(vec![
                         selection_rule(manager.selected == index),

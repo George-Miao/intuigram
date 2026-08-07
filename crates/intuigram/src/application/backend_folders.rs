@@ -1,6 +1,20 @@
 use super::*;
 
 impl Backend {
+    pub(super) async fn refresh_folders(&mut self) -> Result<AdapterEvent> {
+        match self.client.bootstrap(100).await {
+            Ok(bootstrap) => Ok(AdapterEvent::FolderReconciled(Box::new(
+                intuigram_app::FolderReconciliation {
+                    folders: bootstrap.folders,
+                    details: bootstrap.folder_details,
+                    chats: bootstrap.chats,
+                },
+            ))),
+            Err(source) if source.is_connection_failure() => Err(Error::Telegram { source }),
+            Err(error) => Ok(AdapterEvent::FolderReconciliationFailed(error.to_string())),
+        }
+    }
+
     pub(super) async fn execute_folder_operation(
         &mut self,
         operation: FolderOperation,
@@ -10,25 +24,29 @@ impl Backend {
                 .client
                 .create_folder(title.clone(), rules.into())
                 .await
-                .map(|id| FolderOperationResult::Created { id, title, rules }),
+                .map(|id| FolderOperationResult::Created {
+                    id: FolderId(id),
+                    title,
+                    rules,
+                }),
             FolderOperation::Update { id, title, rules } => self
                 .client
-                .update_folder_settings(id, title.clone(), rules.map(Into::into))
+                .update_folder_settings(id.0, title.clone(), rules.map(Into::into))
                 .await
                 .map(|()| FolderOperationResult::Updated { id, title, rules }),
             FolderOperation::Reorder { id, position } => self
                 .client
-                .reorder_folder(id, position)
+                .reorder_folder(id.0, position)
                 .await
                 .map(|()| FolderOperationResult::Reordered { id, position }),
             FolderOperation::Share { id } => self
                 .client
-                .share_folder(id)
+                .share_folder(id.0)
                 .await
                 .map(|url| FolderOperationResult::Shared { id, url }),
             FolderOperation::Delete { id } => self
                 .client
-                .delete_folder(id)
+                .delete_folder(id.0)
                 .await
                 .map(|()| FolderOperationResult::Deleted { id }),
         };

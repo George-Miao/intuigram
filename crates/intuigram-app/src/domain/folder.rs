@@ -1,15 +1,34 @@
 use super::{ChatView, FolderView};
 
+/// Stable Telegram identity for one custom Folder lifecycle operation.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct FolderId(pub i32);
+
 /// Telegram category and exclusion rules for an ordinary custom Folder.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct FolderRulesView {
+    /// Include contacts.
     pub contacts: bool,
+
+    /// Include users outside the Account's contacts.
     pub non_contacts: bool,
+
+    /// Include Basic Groups and Supergroups.
     pub groups: bool,
+
+    /// Include broadcast Channels.
     pub broadcasts: bool,
+
+    /// Include bot Private Chats.
     pub bots: bool,
+
+    /// Exclude muted Chats.
     pub exclude_muted: bool,
+
+    /// Exclude Chats with no unread Messages.
     pub exclude_read: bool,
+
+    /// Exclude archived Chats.
     pub exclude_archived: bool,
 }
 
@@ -33,17 +52,28 @@ impl FolderRulesView {
 /// Editable metadata for one custom Folder.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct FolderDetailsView {
-    pub id: i32,
+    /// Telegram custom Folder identity.
+    pub id: FolderId,
+
+    /// Editable rules, absent for shared Chat-list Folders.
     pub rules: Option<FolderRulesView>,
+
+    /// Whether Telegram permits sharing this Folder.
     pub shareable: bool,
 }
 
 /// Folder create or edit form owned by the application state.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FolderEditorView {
-    pub id: Option<i32>,
+    /// Existing Folder identity, or `None` while creating.
+    pub id: Option<FolderId>,
+
+    /// User-facing Folder title.
     pub title: String,
+
+    /// Editable category and exclusion rules.
     pub rules: Option<FolderRulesView>,
+
     /// Title row followed by eight rule rows.
     pub selected: usize,
 }
@@ -51,9 +81,16 @@ pub struct FolderEditorView {
 /// Folder lifecycle overlay state.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FolderManagerView {
+    /// Active Folder row.
     pub selected: usize,
+
+    /// Nested create or edit form.
     pub editor: Option<FolderEditorView>,
-    pub delete_confirmation: Option<i32>,
+
+    /// Folder awaiting explicit deletion confirmation.
+    pub delete_confirmation: Option<FolderId>,
+
+    /// Whether a Telegram mutation is pending.
     pub pending: bool,
 }
 
@@ -61,23 +98,40 @@ pub struct FolderManagerView {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FolderOperation {
     Create {
+        /// New Folder title.
         title: String,
+
+        /// New Folder rules.
         rules: FolderRulesView,
     },
+    /// Replace an existing Folder's title and rules.
     Update {
-        id: i32,
+        /// Target Folder.
+        id: FolderId,
+
+        /// Replacement title.
         title: String,
+
+        /// Replacement rules, absent for shared Folders.
         rules: Option<FolderRulesView>,
     },
+    /// Move a Folder in Telegram's custom Folder order.
     Reorder {
-        id: i32,
+        /// Target Folder.
+        id: FolderId,
+
+        /// Zero-based custom Folder position.
         position: usize,
     },
+    /// Export a shareable Folder link.
     Share {
-        id: i32,
+        /// Target Folder.
+        id: FolderId,
     },
+    /// Delete a Folder without deleting its Chats or Messages.
     Delete {
-        id: i32,
+        /// Target Folder.
+        id: FolderId,
     },
 }
 
@@ -85,32 +139,58 @@ pub enum FolderOperation {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FolderOperationResult {
     Created {
-        id: i32,
+        /// Telegram-assigned Folder identity.
+        id: FolderId,
+
+        /// Accepted title.
         title: String,
+
+        /// Accepted rules.
         rules: FolderRulesView,
     },
+    /// Existing Folder settings were accepted.
     Updated {
-        id: i32,
+        /// Target Folder.
+        id: FolderId,
+
+        /// Accepted title.
         title: String,
+
+        /// Accepted rules.
         rules: Option<FolderRulesView>,
     },
+    /// Folder order was accepted.
     Reordered {
-        id: i32,
+        /// Target Folder.
+        id: FolderId,
+
+        /// Accepted zero-based position.
         position: usize,
     },
+    /// Telegram exported a Folder invitation.
     Shared {
-        id: i32,
+        /// Target Folder.
+        id: FolderId,
+
+        /// Telegram share URL.
         url: String,
     },
+    /// Telegram deleted the Folder definition.
     Deleted {
-        id: i32,
+        /// Deleted Folder.
+        id: FolderId,
     },
 }
 
 /// Fresh Telegram Folder projection fetched after a successful mutation.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FolderReconciliation {
+    /// Fresh Folder strip.
     pub folders: Vec<FolderView>,
+
+    /// Fresh editable Folder metadata.
     pub details: Vec<FolderDetailsView>,
+
+    /// Fresh Chat memberships used to update projections.
     pub chats: Vec<ChatView>,
 }

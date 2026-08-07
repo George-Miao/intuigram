@@ -19,6 +19,7 @@ impl Backend {
             Effect::FolderOperation { operation } => {
                 self.execute_folder_operation(operation).await.map(Some)
             }
+            Effect::RefreshFolders => self.refresh_folders().await.map(Some),
             Effect::AccountLifecycle { request } => {
                 if matches!(request, AccountLifecycle::Logout(_)) {
                     return Ok(Some(match self.client.log_out().await {
