@@ -21,6 +21,12 @@ pub mod key {
     pub const PINNED: TestKey = TestKey::Pinned;
     pub const CTRL_POLL: TestKey = TestKey::ControlPoll;
     pub const CTRL_MEDIA: TestKey = TestKey::ControlMedia;
+    pub const CTRL_SCHEDULED: TestKey = TestKey::ControlScheduled;
+    pub const RESCHEDULE: TestKey = TestKey::Reschedule;
+    pub const NEW_SCHEDULED: TestKey = TestKey::NewFolder;
+    pub const EDIT_SCHEDULED: TestKey = TestKey::EditFolder;
+    pub const DELETE_SCHEDULED: TestKey = TestKey::DeleteFolder;
+    pub const SEND_NOW: TestKey = TestKey::ShareFolder;
     pub const VOTE: TestKey = TestKey::Vote;
     pub const SPACE: TestKey = TestKey::Space;
     pub const SHIFT_ENTER: TestKey = TestKey::ShiftEnter;
@@ -61,6 +67,8 @@ pub enum TestKey {
     Pinned,
     ControlPoll,
     ControlMedia,
+    ControlScheduled,
+    Reschedule,
     Vote,
     Space,
     ShiftEnter,
@@ -102,6 +110,8 @@ impl TestKey {
             Self::Pinned => (KeyCode::Char('p'), KeyModifiers::NONE),
             Self::ControlPoll => (KeyCode::Char('p'), KeyModifiers::CONTROL),
             Self::ControlMedia => (KeyCode::Char('m'), KeyModifiers::CONTROL),
+            Self::ControlScheduled => (KeyCode::Char('g'), KeyModifiers::CONTROL),
+            Self::Reschedule => (KeyCode::Char('r'), KeyModifiers::NONE),
             Self::Vote => (KeyCode::Char('v'), KeyModifiers::NONE),
             Self::Space => (KeyCode::Char(' '), KeyModifiers::NONE),
             Self::ShiftEnter => (KeyCode::Enter, KeyModifiers::SHIFT),

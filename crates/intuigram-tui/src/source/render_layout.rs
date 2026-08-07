@@ -39,6 +39,8 @@ pub(super) fn render_with_semantics(
     render_status(frame, rows[3], view, mode);
     if view.folder_manager.is_some() {
         render_folder_manager(frame, area, view);
+    } else if view.scheduled.is_some() {
+        render_scheduled(frame, area, view);
     } else if view.rich_media.is_some() {
         render_rich_media(frame, area, view);
     } else if view.account_confirmation.is_some() {

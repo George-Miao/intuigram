@@ -97,6 +97,32 @@ pub enum AdapterEvent {
         reason: String,
     },
 
+    /// Server-owned Scheduled Message history loaded for one Chat.
+    ScheduledMessagesReady {
+        /// Owning Chat.
+        chat: ChatId,
+        /// Complete current server projection.
+        messages: Vec<ScheduledMessageView>,
+    },
+
+    /// A Scheduled Message mutation completed and returned a fresh projection.
+    ScheduledOperationCompleted {
+        /// Owning Chat.
+        chat: ChatId,
+        /// Complete current server projection.
+        messages: Vec<ScheduledMessageView>,
+        /// User-facing completion summary.
+        notice: String,
+    },
+
+    /// Scheduled Message work failed without changing ordinary Message History.
+    ScheduledOperationFailed {
+        /// Owning Chat.
+        chat: ChatId,
+        /// Failure safe for display.
+        reason: String,
+    },
+
     /// A nonfatal Telegram operation failed.
     OperationFailed(String),
 

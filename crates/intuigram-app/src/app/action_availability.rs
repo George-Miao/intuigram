@@ -16,6 +16,56 @@ impl App {
             self.view.actions = vec![Action::Quit, Action::ConfirmAttachment, Action::Cancel];
             return;
         }
+        if let Some(manager) = &self.view.scheduled {
+            if manager.pending {
+                self.view.actions = vec![Action::Quit];
+                return;
+            }
+            if manager.confirmation.is_some() {
+                self.view.actions = vec![Action::Quit, Action::ConfirmScheduled, Action::Cancel];
+                return;
+            }
+            if let Some(editor) = &manager.editor {
+                let mut actions = vec![
+                    Action::Quit,
+                    Action::MoveUp,
+                    Action::MoveDown,
+                    Action::Cancel,
+                ];
+                let valid = match editor.operation {
+                    ScheduledEditorOperation::Create => {
+                        !editor.text.trim().is_empty()
+                            && ScheduledDeliveryView::parse(&editor.delivery).is_some()
+                    }
+                    ScheduledEditorOperation::Edit(_) => !editor.text.trim().is_empty(),
+                    ScheduledEditorOperation::Reschedule(_) => {
+                        ScheduledDeliveryView::parse(&editor.delivery).is_some()
+                    }
+                };
+                if valid {
+                    actions.push(Action::SaveScheduled);
+                }
+                self.view.actions = actions;
+                return;
+            }
+            let mut actions = vec![
+                Action::Quit,
+                Action::MoveUp,
+                Action::MoveDown,
+                Action::NewScheduled,
+                Action::Cancel,
+            ];
+            if !manager.messages.is_empty() {
+                actions.extend([
+                    Action::EditScheduled,
+                    Action::RescheduleScheduled,
+                    Action::DeleteScheduled,
+                    Action::SendScheduledNow,
+                ]);
+            }
+            self.view.actions = actions;
+            return;
+        }
         if let Some(composer) = &self.view.rich_media {
             if composer.pending {
                 self.view.actions = vec![Action::Quit];
@@ -194,6 +244,7 @@ impl App {
                     Action::TargetNextMessage,
                     Action::Compose,
                     Action::Reply,
+                    Action::OpenScheduled,
                     Action::OpenThread,
                     Action::Search,
                     Action::JumpEarliest,
@@ -260,6 +311,7 @@ impl App {
                         Action::Paste,
                         Action::Attach,
                         Action::OpenRichMedia,
+                        Action::OpenScheduled,
                         Action::CreatePoll,
                         Action::Cancel,
                         Action::Search,

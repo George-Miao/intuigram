@@ -5,6 +5,7 @@ mod links;
 mod media;
 mod message;
 mod rich_media;
+mod scheduled;
 
 pub use account::*;
 pub use folder::*;
@@ -13,6 +14,7 @@ pub(crate) use links::active_link;
 pub use media::*;
 pub use message::*;
 pub use rich_media::*;
+pub use scheduled::*;
 
 /// Stable identifier for a Telegram chat.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]

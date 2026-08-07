@@ -306,6 +306,7 @@ fn activation_target(node: &SemanticNode) -> Option<ActivationTarget> {
 
 fn overlay_open_for_pointer(view: &View) -> bool {
     view.help_open
+        || view.scheduled.is_some()
         || view.rich_media.is_some()
         || view.attachment_path.is_some()
         || view.save_as.is_some()

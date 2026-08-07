@@ -80,6 +80,14 @@ impl App {
                 self.apply_rich_media_event(event);
                 None
             }
+            Input::Adapter(
+                event @ (AdapterEvent::ScheduledMessagesReady { .. }
+                | AdapterEvent::ScheduledOperationCompleted { .. }
+                | AdapterEvent::ScheduledOperationFailed { .. }),
+            ) => {
+                self.apply_scheduled_event(event);
+                None
+            }
             Input::Adapter(AdapterEvent::OperationFailed(reason)) => {
                 self.view.notice = Some(reason);
                 None
@@ -385,6 +393,7 @@ mod pinned;
 mod poll_composer;
 mod poll_vote;
 mod rich_media;
+mod scheduled;
 mod state;
 mod unread;
 

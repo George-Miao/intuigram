@@ -146,6 +146,7 @@ impl EffectiveKeymap {
             .chain(render_accounts::ACCOUNT_BINDINGS)
             .chain(render_folder_manager::FOLDER_BINDINGS)
             .chain(render_rich_media::RICH_MEDIA_BINDINGS)
+            .chain(render_scheduled::SCHEDULED_BINDINGS)
             .filter(|binding| {
                 view.actions.contains(&binding.action) && binding_matches_context(view, binding)
             })

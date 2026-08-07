@@ -9,8 +9,6 @@
 
 ## TODO
 
-- [ ] **p-core:** Add Scheduled Message management inside an Active Chat: create for a UTC-offset time or when online, list, edit, reschedule, delete, and send now, while keeping scheduled history distinct from ordinary Message History.
-
 - [ ] **p-high:** Support mouse scrolling in the Transcript, Composer cursor positioning, and visible-action invocation after click selection is stable. Preserve access to terminal-native text selection.
 - [ ] **p-high:** Add first-class forum Topics. Opening a forum Chat shows its Topic list; each Topic keeps independent unread state, Draft, pin state, and position; General remains visible; and Channel replies open in Details or the narrow-screen navigation stack.
 - [ ] **p-high:** Add topic-enabled bot Private Chats.

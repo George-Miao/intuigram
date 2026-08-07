@@ -20,8 +20,9 @@ use intuigram_app::{
     DownloadId, DownloadView, DraftView, Effect, FolderOperation, FolderOperationResult,
     FolderView, HistoryView, InlineImage, Input, Intent, MediaCard, MediaKind, MediaPreviewView,
     MessageDetails, MessageDirection, MessageId, MessageView, PollOptionView, PollView,
-    RichMediaItemId, RichMediaItemView, RichMediaLibraryKind, RichMediaUploadKind, SelectionView,
-    TextEntity, TranscriptAnchorView, Update,
+    RichMediaItemId, RichMediaItemView, RichMediaLibraryKind, RichMediaUploadKind,
+    ScheduledDeliveryView, ScheduledMessageId, ScheduledMessageView, ScheduledRequest,
+    SelectionView, TextEntity, TranscriptAnchorView, Update,
 };
 use intuigram_config::{
     Config, ConfigLoader, Overrides, PlatformDefaults, ViewMode as ConfigViewMode,
@@ -48,6 +49,7 @@ mod backend_folders;
 mod backend_message_actions;
 mod backend_pins;
 mod backend_rich_media;
+mod backend_scheduled;
 mod cache;
 mod cached_session;
 mod configuration;

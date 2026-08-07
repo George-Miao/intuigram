@@ -69,6 +69,22 @@ pub enum Action {
     ChooseRichMedia,
     /// Cycle the upload kind in the local-file editor.
     CycleRichMediaKind,
+    /// Open server-owned Scheduled Message history for the Active Chat.
+    OpenScheduled,
+    /// Begin a new Scheduled Message.
+    NewScheduled,
+    /// Edit the selected Scheduled Message text.
+    EditScheduled,
+    /// Change the selected Scheduled Message delivery trigger.
+    RescheduleScheduled,
+    /// Request deletion of the selected Scheduled Message.
+    DeleteScheduled,
+    /// Request immediate delivery of the selected Scheduled Message.
+    SendScheduledNow,
+    /// Save the active Scheduled Message form.
+    SaveScheduled,
+    /// Confirm a Scheduled Message delete or immediate-send operation.
+    ConfirmScheduled,
     /// Replace the Composer with a structured poll editor.
     CreatePoll,
     /// Send the question and options from the poll editor.

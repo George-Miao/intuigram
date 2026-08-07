@@ -70,6 +70,7 @@ impl AdapterEffect {
                 | Effect::SendRichMediaFile { .. }
                 | Effect::RecordRichMedia { .. }
                 | Effect::SendContact { .. }
+                | Effect::ScheduledOperation { .. }
         ) {
             let mut bytes = [0_u8; 8];
             getrandom::fill(&mut bytes).context(OperationIdSnafu)?;

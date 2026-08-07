@@ -3,6 +3,7 @@
 use intuigram::encode_stored_message;
 use intuigram_app::{
     AdapterEvent, ConnectionState, Effect, MediaPreviewView, RichMediaItemId, RichMediaItemView,
+    ScheduledMessageId, ScheduledMessageView, ScheduledRequest,
 };
 use intuigram_store::{StoredDraft, StoredSelection};
 use intuigram_telegram::{LiveEvent, UpdateCursor, UpdateScope};
@@ -30,6 +31,80 @@ impl TestSystem {
                 self.application.revision(),
             );
             match effect {
+                Effect::LoadScheduledMessages { chat } => {
+                    self.application
+                        .handle_adapter(AdapterEvent::ScheduledMessagesReady {
+                            chat,
+                            messages: self
+                                .scheduled_messages
+                                .get(&chat)
+                                .cloned()
+                                .unwrap_or_default(),
+                        });
+                }
+                Effect::ScheduledOperation { chat, request } => {
+                    let notice = match request {
+                        ScheduledRequest::Create { delivery, text } => {
+                            self.next_scheduled_id = self.next_scheduled_id.saturating_add(1);
+                            self.scheduled_messages.entry(chat).or_default().push(
+                                ScheduledMessageView {
+                                    id: ScheduledMessageId(self.next_scheduled_id),
+                                    delivery,
+                                    summary: text,
+                                },
+                            );
+                            "Scheduled Message created"
+                        }
+                        ScheduledRequest::Edit { message, text } => {
+                            if let Some(found) = self
+                                .scheduled_messages
+                                .entry(chat)
+                                .or_default()
+                                .iter_mut()
+                                .find(|candidate| candidate.id == message)
+                            {
+                                found.summary = text;
+                            }
+                            "Scheduled Message edited"
+                        }
+                        ScheduledRequest::Reschedule { message, delivery } => {
+                            if let Some(found) = self
+                                .scheduled_messages
+                                .entry(chat)
+                                .or_default()
+                                .iter_mut()
+                                .find(|candidate| candidate.id == message)
+                            {
+                                found.delivery = delivery;
+                            }
+                            "Scheduled Message rescheduled"
+                        }
+                        ScheduledRequest::Delete { message } => {
+                            self.scheduled_messages
+                                .entry(chat)
+                                .or_default()
+                                .retain(|candidate| candidate.id != message);
+                            "Scheduled Message deleted"
+                        }
+                        ScheduledRequest::SendNow { message } => {
+                            self.scheduled_messages
+                                .entry(chat)
+                                .or_default()
+                                .retain(|candidate| candidate.id != message);
+                            "Scheduled Message sent"
+                        }
+                    };
+                    self.application
+                        .handle_adapter(AdapterEvent::ScheduledOperationCompleted {
+                            chat,
+                            messages: self
+                                .scheduled_messages
+                                .get(&chat)
+                                .cloned()
+                                .unwrap_or_default(),
+                            notice: notice.to_owned(),
+                        });
+                }
                 Effect::BrowseRichMedia { kind } => {
                     self.application
                         .handle_adapter(AdapterEvent::RichMediaLibraryReady {

@@ -43,6 +43,7 @@ fn view(actions: Vec<Action>) -> View {
         save_as: None,
         attachment_path: None,
         rich_media: None,
+        scheduled: None,
         has_newer_messages: false,
         help_open: false,
         folder_picker: None,

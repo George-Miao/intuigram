@@ -53,6 +53,19 @@ pub enum Effect {
         reply_to: Option<MessageId>,
         thread_root: Option<MessageId>,
     },
+    /// Load server-owned Scheduled Message history independently of Transcript
+    /// history.
+    LoadScheduledMessages {
+        /// Owning Chat.
+        chat: ChatId,
+    },
+    /// Apply one typed Scheduled Message mutation.
+    ScheduledOperation {
+        /// Owning Chat.
+        chat: ChatId,
+        /// Complete mutation.
+        request: ScheduledRequest,
+    },
     /// Alert the user about an incoming Message outside the visibly read Chat.
     Notify {
         /// Stable Account-scoped replacement identity.

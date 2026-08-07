@@ -49,6 +49,7 @@ mod render_headers;
 pub(crate) mod render_layout;
 mod render_overlays;
 mod render_rich_media;
+mod render_scheduled;
 mod render_transcript;
 pub(crate) mod terminal;
 mod view_mode;
@@ -74,6 +75,7 @@ use render_overlays::{
     render_link_confirmation, render_poll_vote, render_reaction_picker, render_save_as,
 };
 use render_rich_media::render_rich_media;
+use render_scheduled::render_scheduled;
 use render_transcript::render_transcript;
 pub use terminal::*;
 use terminal::{enter_terminal, restore_terminal};

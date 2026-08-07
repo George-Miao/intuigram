@@ -13,6 +13,9 @@ impl Backend {
             | Effect::SendContact { .. }) => {
                 self.execute_rich_media(effect, random_id).await.map(Some)
             }
+            effect @ (Effect::LoadScheduledMessages { .. } | Effect::ScheduledOperation { .. }) => {
+                self.execute_scheduled(effect, random_id).await.map(Some)
+            }
             Effect::FolderOperation { operation } => {
                 self.execute_folder_operation(operation).await.map(Some)
             }

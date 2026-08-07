@@ -1,12 +1,13 @@
 //! Hermetic application composition and synchronous test driver.
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use intuigram::{Application, UpdateCommitter};
-use intuigram_app::{AccountLifecycle, DownloadId};
+use intuigram_app::{AccountLifecycle, ChatId, DownloadId, ScheduledMessageView};
 use intuigram_store::AccountDatabase;
 use intuigram_tui::{render_test_frame, resolve_test_event};
 use tempfile::TempDir;
@@ -41,6 +42,8 @@ pub struct TestSystem {
     opened_links: Vec<String>,
     opened_downloads: Vec<(DownloadId, bool)>,
     account_lifecycle: Vec<AccountLifecycle>,
+    scheduled_messages: HashMap<ChatId, Vec<ScheduledMessageView>>,
+    next_scheduled_id: i32,
     terminal: (u16, u16),
     trace: Rc<RefCell<Trace>>,
     state: Rc<RefCell<RenderedState>>,

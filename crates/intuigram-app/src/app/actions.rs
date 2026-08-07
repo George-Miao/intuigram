@@ -1,5 +1,8 @@
 impl App {
     pub(super) fn apply_action(&mut self, action: Action) -> Option<Effect> {
+        if self.view.scheduled.is_some() && action != Action::Quit {
+            return self.apply_scheduled_action(action);
+        }
         if self.view.rich_media.is_some() && action != Action::Quit {
             return self.apply_rich_media_action(action);
         }
@@ -79,6 +82,14 @@ impl App {
                 None
             }
             Action::ChooseRichMedia | Action::CycleRichMediaKind => None,
+            Action::OpenScheduled => self.open_scheduled(),
+            Action::NewScheduled
+            | Action::EditScheduled
+            | Action::RescheduleScheduled
+            | Action::DeleteScheduled
+            | Action::SendScheduledNow
+            | Action::SaveScheduled
+            | Action::ConfirmScheduled => None,
             Action::CreateFolder
             | Action::EditFolder
             | Action::SaveFolder
