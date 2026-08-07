@@ -79,8 +79,8 @@ pub(crate) use login_normalization::{
 pub use media_normalization::normalize_serialized_media;
 pub(crate) use media_normalization::service_event_description;
 use media_normalization::{
-    format_timestamp, media_card_fallback, nonnegative_u32, normalize_forward, normalize_media,
-    normalize_reactions, user_display_name,
+    format_date, format_timestamp, media_card_fallback, nonnegative_u32, normalize_forward,
+    normalize_media, normalize_reactions, user_display_name,
 };
 use message_normalization::{
     mark_channel_id, marked_peer_id, message_body, message_chat_id, message_parts,

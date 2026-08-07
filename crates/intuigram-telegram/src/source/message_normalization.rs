@@ -81,6 +81,7 @@ pub(super) fn normalize_message(
                 delivery: DeliveryState::Sent,
                 reply_to,
                 details: MessageDetails {
+                    date_label: format_date(message.date),
                     entities: normalize_entities(message.entities.as_deref()),
                     forwarded_from: normalize_forward(message.fwd_from.as_ref(), names),
                     reactions: normalize_reactions(message.reactions.as_ref()),
@@ -120,6 +121,7 @@ pub(super) fn normalize_message(
                 delivery: DeliveryState::Sent,
                 reply_to: message.reply_to.as_ref().and_then(reply_message_id),
                 details: MessageDetails {
+                    date_label: format_date(message.date),
                     service: Some(description),
                     ..MessageDetails::default()
                 },

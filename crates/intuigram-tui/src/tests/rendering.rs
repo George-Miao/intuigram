@@ -191,8 +191,8 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
 
     assert_eq!(buffer[(1, 4)].symbol(), "│");
     assert_eq!(buffer[(32, 5)].symbol(), "│");
-    assert_eq!(buffer[(40, 5)].symbol(), "↩");
-    assert_eq!(buffer[(40, 5)].fg, Color::Rgb(130, 145, 129));
+    assert_eq!(buffer[(34, 6)].symbol(), "│");
+    assert_eq!(buffer[(34, 6)].fg, Color::Rgb(58, 148, 197));
     assert_eq!(buffer[(32, 17)].symbol(), "│");
     assert_eq!(buffer[(34, 17)].symbol(), "D");
     assert_eq!(buffer[(5, 5)].bg, Color::Rgb(244, 240, 217));

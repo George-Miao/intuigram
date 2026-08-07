@@ -150,6 +150,7 @@ fn passive_short_message_is_normalized_at_the_serialized_tl_boundary() {
     assert_eq!(message.sender, "Ada");
     assert_eq!(message.body, "hello");
     assert_eq!(message.direction, MessageDirection::Incoming);
+    assert!(!message.details.date_label.is_empty());
 }
 
 #[test]

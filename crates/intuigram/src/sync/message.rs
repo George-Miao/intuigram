@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Default, Deserialize, Serialize)]
 #[serde(default)]
 struct StoredMessageMetadata {
+    date_label: String,
     edited: bool,
     pinned: bool,
     forwarded_from: Option<String>,
@@ -145,6 +146,7 @@ pub fn decode_stored_message(message: StoredMessage) -> MessageView {
         },
         reply_to: message.reply_to.map(MessageId),
         details: MessageDetails {
+            date_label: metadata.date_label,
             entities: metadata.entities.into_iter().map(cached_entity).collect(),
             forwarded_from: metadata.forwarded_from,
             reactions: metadata
@@ -171,6 +173,7 @@ pub fn decode_stored_message(message: StoredMessage) -> MessageView {
 
 fn stored_message_metadata(message: &MessageView) -> StoredMessageMetadata {
     StoredMessageMetadata {
+        date_label: message.details.date_label.clone(),
         edited: message.details.edited,
         pinned: message.details.pinned,
         forwarded_from: message.details.forwarded_from.clone(),

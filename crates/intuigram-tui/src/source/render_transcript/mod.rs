@@ -1,11 +1,11 @@
 use super::*;
 
 mod media;
+mod message;
 mod rich_text;
 mod window;
 
-use media::{MediaRenderContext, render_media};
-use rich_text::{message_metadata, render_rich_text_lines};
+use message::{MessageLayout, content_prefix, message_lines, messages_group};
 use window::{transcript_window, unread_boundary_index};
 
 pub(super) fn render_transcript(
@@ -28,14 +28,28 @@ pub(super) fn render_transcript(
         .iter()
         .enumerate()
         .map(|(index, message)| {
+            let previous = index
+                .checked_sub(1)
+                .and_then(|previous| view.messages.get(previous));
+            let next = view.messages.get(index + 1);
             message_lines(
                 view,
                 index,
                 message,
-                focused,
-                mode,
-                unread == Some(index),
-                area.width,
+                MessageLayout {
+                    focused,
+                    mode,
+                    unread: unread == Some(index),
+                    width: area.width,
+                    grouped_with_previous: mode == ViewMode::Default
+                        && previous.is_some_and(|previous| messages_group(previous, message)),
+                    grouped_with_next: mode == ViewMode::Default
+                        && next.is_some_and(|next| messages_group(message, next)),
+                    date_boundary: !message.details.date_label.is_empty()
+                        && previous.is_none_or(|previous| {
+                            previous.details.date_label != message.details.date_label
+                        }),
+                },
             )
         })
         .collect::<Vec<_>>();
@@ -71,151 +85,6 @@ fn render_fresh_loading(frame: &mut Frame<'_>, area: Rect, view: &View, focused:
             .style(surface_style(focused)),
         centered,
     );
-}
-
-fn message_lines(
-    view: &View,
-    index: usize,
-    message: &MessageView,
-    focused: bool,
-    mode: ViewMode,
-    unread: bool,
-    width: u16,
-) -> Vec<Line<'static>> {
-    let selected = view.active_message == Some(index);
-    let direction = match message.direction {
-        MessageDirection::Incoming => "←",
-        MessageDirection::Outgoing => "→",
-    };
-    let reply = message
-        .reply_to
-        .map_or_else(String::new, |id| format!(" ↩{}", id.0));
-    let header = vec![
-        selection_rule(selected),
-        Span::styled(
-            format!("{direction} {}", message.sender),
-            Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(reply, Style::default().fg(MUTED_TEXT)),
-    ];
-    let header = Line::from(header);
-    let body_lines = render_rich_text_lines(message);
-    let mut lines = Vec::new();
-    if unread {
-        lines.push(Line::from(vec![
-            Span::raw("  "),
-            Span::styled(
-                "Unread messages",
-                Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
-            ),
-        ]));
-    }
-    lines.push(header);
-    if let Some(source) = &message.details.forwarded_from {
-        let mut provenance = content_prefix(selected, true);
-        provenance.push(Span::styled(
-            format!("Forwarded from {source}"),
-            Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
-        ));
-        lines.push(Line::from(provenance));
-    }
-    let forwarded = message.details.forwarded_from.is_some();
-    let preview = media_preview(view, message.id);
-    let loading = media_preview_is_loading(view, message.id);
-    let inline_media = message.details.media.is_some() && (preview.is_some() || loading);
-    let media_lines = message
-        .details
-        .media
-        .as_ref()
-        .map_or_else(Vec::new, |media| {
-            render_media(
-                media,
-                preview,
-                loading,
-                MediaRenderContext {
-                    selected,
-                    forwarded,
-                    focused,
-                    album: album_position(view, index, message.details.album_id),
-                    animation_frame: view.animation_frame,
-                },
-            )
-        });
-    let body_lines = body_lines.into_iter().map(|body| {
-        Line::from(
-            content_prefix(selected, forwarded)
-                .into_iter()
-                .chain(body)
-                .collect::<Vec<_>>(),
-        )
-    });
-    if inline_media {
-        lines.extend(media_lines);
-        lines.extend(body_lines);
-    } else {
-        lines.extend(body_lines);
-        lines.extend(media_lines);
-    }
-    append_message_metadata(
-        &mut lines,
-        message,
-        view.animation_frame,
-        width,
-        selected,
-        forwarded,
-    );
-    if mode == ViewMode::Default {
-        lines.push(Line::from(""));
-    }
-    lines
-}
-
-fn append_message_metadata(
-    lines: &mut Vec<Line<'static>>,
-    message: &MessageView,
-    animation_frame: u8,
-    width: u16,
-    selected: bool,
-    forwarded: bool,
-) {
-    let metadata = message_metadata(message, animation_frame);
-    let metadata_width = Line::from(metadata.clone()).width();
-    let line = lines
-        .last_mut()
-        .expect("Every Message has a sender header and content line");
-    let line_width = line.width();
-    let width = usize::from(width);
-    if line_width.saturating_add(metadata_width).saturating_add(2) <= width {
-        line.push_span(Span::raw(
-            " ".repeat(
-                width
-                    .saturating_sub(line_width)
-                    .saturating_sub(metadata_width),
-            ),
-        ));
-        line.extend(metadata);
-        return;
-    }
-
-    let mut spans = content_prefix(selected, forwarded);
-    let prefix_width = Line::from(spans.clone()).width();
-    spans.push(Span::raw(
-        " ".repeat(
-            width
-                .saturating_sub(prefix_width)
-                .saturating_sub(metadata_width),
-        ),
-    ));
-    spans.extend(metadata);
-    lines.push(Line::from(spans));
-}
-
-fn content_prefix(selected: bool, forwarded: bool) -> Vec<Span<'static>> {
-    let mut spans = vec![selection_rule(selected)];
-    if forwarded {
-        spans.push(Span::styled("│ ", Style::default().fg(PRIMARY)));
-    }
-    spans
 }
 
 fn render_semantics(

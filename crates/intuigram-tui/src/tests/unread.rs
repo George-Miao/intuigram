@@ -49,7 +49,7 @@ fn unread_divider_is_rendered_immediately_before_the_boundary_message() {
         .position(|row| row.contains("first unread"))
         .expect("boundary Message should render");
 
-    assert_eq!(divider + 2, unread);
+    assert_eq!(divider + 1, unread);
 }
 
 use super::*;

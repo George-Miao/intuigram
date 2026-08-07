@@ -1,6 +1,9 @@
 /// Rich and status metadata kept alongside a dense Message row.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MessageDetails {
+    /// Local calendar date used for Transcript day boundaries.
+    pub date_label: String,
+
     /// Telegram rich-text entities.
     pub entities: Vec<TextEntity>,
 

@@ -132,12 +132,22 @@ pub(super) fn nonnegative_u32(value: Option<i32>) -> Option<u32> {
 }
 
 pub(super) fn format_timestamp(timestamp: i32) -> String {
+    local_datetime(timestamp).map_or_else(
+        || "--:--".to_owned(),
+        |local| format!("{:02}:{:02}", local.hour(), local.minute()),
+    )
+}
+
+pub(super) fn format_date(timestamp: i32) -> String {
+    local_datetime(timestamp).map_or_else(String::new, |local| local.date().to_string())
+}
+
+fn local_datetime(timestamp: i32) -> Option<time::OffsetDateTime> {
     let Ok(utc) = time::OffsetDateTime::from_unix_timestamp(i64::from(timestamp)) else {
-        return "--:--".to_owned();
+        return None;
     };
     let offset = time::UtcOffset::local_offset_at(utc).unwrap_or(time::UtcOffset::UTC);
-    let local = utc.to_offset(offset);
-    format!("{:02}:{:02}", local.hour(), local.minute())
+    Some(utc.to_offset(offset))
 }
 
 pub(super) fn user_display_name(user: &tl::types::User) -> String {

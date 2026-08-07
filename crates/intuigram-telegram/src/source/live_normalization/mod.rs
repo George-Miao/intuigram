@@ -68,6 +68,7 @@ fn short_user_message(
             delivery: DeliveryState::Sent,
             reply_to: message.reply_to.as_ref().and_then(reply_message_id),
             details: MessageDetails {
+                date_label: format_date(message.date),
                 entities: normalize_entities(message.entities.as_deref()),
                 ..MessageDetails::default()
             },
@@ -92,6 +93,7 @@ fn short_chat_message(
             delivery: DeliveryState::Sent,
             reply_to: message.reply_to.as_ref().and_then(reply_message_id),
             details: MessageDetails {
+                date_label: format_date(message.date),
                 entities: normalize_entities(message.entities.as_deref()),
                 ..MessageDetails::default()
             },

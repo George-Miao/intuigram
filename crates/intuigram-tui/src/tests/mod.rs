@@ -305,4 +305,5 @@ mod metadata;
 mod multiline;
 mod rendering;
 mod semantics;
+mod transcript_refinement;
 mod unread;
