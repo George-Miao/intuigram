@@ -1,26 +1,16 @@
 //! Synchronous execution of application effects against scripted adapters.
 
 use intuigram::encode_stored_message;
-use intuigram_app::{
-    AdapterEvent, ConnectionState, Effect, MediaPreviewView, RichMediaItemId, RichMediaItemView,
-    ScheduledMessageId, ScheduledMessageView, ScheduledRequest,
-};
+use intuigram_app::{AdapterEvent, ConnectionState, Effect, MediaPreviewView};
 use intuigram_store::{StoredDraft, StoredSelection};
 use intuigram_telegram::{LiveEvent, UpdateCursor, UpdateScope};
 use snafu::ResultExt;
 
 use super::TestSystem;
+use super::downloads::ONE_PIXEL_PNG;
 use super::telegram_control::block_on;
 use crate::error::{Error, Result, StoreSnafu};
 use crate::telegram::{HistoryResult, ObservedSend, ScenarioMismatch};
-
-pub(super) const ONE_PIXEL_PNG: &[u8] = &[
-    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
-    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x04, 0x00, 0x00, 0x00, 0xb5, 0x1c, 0x0c,
-    0x02, 0x00, 0x00, 0x00, 0x0b, 0x49, 0x44, 0x41, 0x54, 0x78, 0xda, 0x63, 0x64, 0xf8, 0x0f, 0x00,
-    0x01, 0x05, 0x01, 0x01, 0x27, 0x18, 0xe3, 0x66, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44,
-    0xae, 0x42, 0x60, 0x82,
-];
 
 impl TestSystem {
     pub(super) fn drain_effects(&mut self) -> Result<()> {
@@ -31,96 +21,11 @@ impl TestSystem {
                 self.application.revision(),
             );
             match effect {
-                Effect::LoadScheduledMessages { chat } => {
-                    self.application
-                        .handle_adapter(AdapterEvent::ScheduledMessagesReady {
-                            chat,
-                            messages: self
-                                .scheduled_messages
-                                .get(&chat)
-                                .cloned()
-                                .unwrap_or_default(),
-                        });
-                }
+                Effect::LoadScheduledMessages { chat } => self.handle_scheduled_load(chat),
                 Effect::ScheduledOperation { chat, request } => {
-                    let notice = match request {
-                        ScheduledRequest::Create { delivery, text } => {
-                            self.next_scheduled_id = self.next_scheduled_id.saturating_add(1);
-                            self.scheduled_messages.entry(chat).or_default().push(
-                                ScheduledMessageView {
-                                    id: ScheduledMessageId(self.next_scheduled_id),
-                                    delivery,
-                                    summary: text,
-                                },
-                            );
-                            "Scheduled Message created"
-                        }
-                        ScheduledRequest::Edit { message, text } => {
-                            if let Some(found) = self
-                                .scheduled_messages
-                                .entry(chat)
-                                .or_default()
-                                .iter_mut()
-                                .find(|candidate| candidate.id == message)
-                            {
-                                found.summary = text;
-                            }
-                            "Scheduled Message edited"
-                        }
-                        ScheduledRequest::Reschedule { message, delivery } => {
-                            if let Some(found) = self
-                                .scheduled_messages
-                                .entry(chat)
-                                .or_default()
-                                .iter_mut()
-                                .find(|candidate| candidate.id == message)
-                            {
-                                found.delivery = delivery;
-                            }
-                            "Scheduled Message rescheduled"
-                        }
-                        ScheduledRequest::Delete { message } => {
-                            self.scheduled_messages
-                                .entry(chat)
-                                .or_default()
-                                .retain(|candidate| candidate.id != message);
-                            "Scheduled Message deleted"
-                        }
-                        ScheduledRequest::SendNow { message } => {
-                            self.scheduled_messages
-                                .entry(chat)
-                                .or_default()
-                                .retain(|candidate| candidate.id != message);
-                            "Scheduled Message sent"
-                        }
-                    };
-                    self.application
-                        .handle_adapter(AdapterEvent::ScheduledOperationCompleted {
-                            chat,
-                            messages: self
-                                .scheduled_messages
-                                .get(&chat)
-                                .cloned()
-                                .unwrap_or_default(),
-                            notice: notice.to_owned(),
-                        });
+                    self.handle_scheduled_operation(chat, request);
                 }
-                Effect::BrowseRichMedia { kind } => {
-                    self.application
-                        .handle_adapter(AdapterEvent::RichMediaLibraryReady {
-                            kind,
-                            items: vec![
-                                RichMediaItemView {
-                                    id: RichMediaItemId(1),
-                                    label: "wave".to_owned(),
-                                },
-                                RichMediaItemView {
-                                    id: RichMediaItemId(2),
-                                    label: "party".to_owned(),
-                                },
-                            ],
-                        });
-                }
+                Effect::BrowseRichMedia { kind } => self.handle_rich_media_browse(kind),
                 Effect::SendLibraryMedia { chat, local_id, .. }
                 | Effect::SendRichMediaFile { chat, local_id, .. }
                 | Effect::RecordRichMedia { chat, local_id, .. }

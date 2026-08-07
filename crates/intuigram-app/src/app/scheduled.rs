@@ -119,7 +119,7 @@ impl App {
         true
     }
 
-    pub(super) fn apply_scheduled_event(&mut self, event: AdapterEvent) {
+    pub(super) fn apply_scheduled_event(&mut self, event: AdapterEvent) -> Option<Effect> {
         let (chat, messages, notice) = match event {
             AdapterEvent::ScheduledMessagesReady { chat, messages } => (chat, messages, None),
             AdapterEvent::ScheduledOperationCompleted {
@@ -134,9 +134,9 @@ impl App {
                     manager.pending = false;
                 }
                 self.view.notice = Some(reason);
-                return;
+                return None;
             }
-            _ => return,
+            _ => return None,
         };
         if let Some(manager) = &mut self.view.scheduled
             && manager.chat == chat
@@ -150,6 +150,7 @@ impl App {
             manager.pending = false;
             self.view.notice = notice;
         }
+        None
     }
 
     fn selected_scheduled(&self) -> Option<&ScheduledMessageView> {

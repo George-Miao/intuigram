@@ -84,10 +84,7 @@ impl App {
                 event @ (AdapterEvent::ScheduledMessagesReady { .. }
                 | AdapterEvent::ScheduledOperationCompleted { .. }
                 | AdapterEvent::ScheduledOperationFailed { .. }),
-            ) => {
-                self.apply_scheduled_event(event);
-                None
-            }
+            ) => self.apply_scheduled_event(event),
             Input::Adapter(AdapterEvent::OperationFailed(reason)) => {
                 self.view.notice = Some(reason);
                 None

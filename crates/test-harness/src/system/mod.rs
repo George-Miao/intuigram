@@ -23,6 +23,8 @@ mod downloads;
 mod effects;
 mod folder_effects;
 mod input;
+mod rich_media_effects;
+mod scheduled_effects;
 mod telegram_control;
 
 pub use builder::TestSystemBuilder;
