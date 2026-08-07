@@ -58,7 +58,6 @@ impl App {
             pending_drafts: HashMap::new(),
             saved_poll_draft: None,
             pending_polls: HashMap::new(),
-            acknowledged_rich_media: HashMap::new(),
         }
     }
 

@@ -97,6 +97,7 @@ pub struct FolderManagerView {
 /// Folder operation requested from Telegram.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FolderOperation {
+    /// Create a custom Folder from a title and category rules.
     Create {
         /// New Folder title.
         title: String,
@@ -138,6 +139,7 @@ pub enum FolderOperation {
 /// Successful Telegram Folder mutation normalized for reconciliation.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FolderOperationResult {
+    /// Telegram created a custom Folder and assigned its identity.
     Created {
         /// Telegram-assigned Folder identity.
         id: FolderId,

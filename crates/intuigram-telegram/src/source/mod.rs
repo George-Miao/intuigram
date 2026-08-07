@@ -54,6 +54,7 @@ mod media_normalization;
 mod message_normalization;
 mod message_operations;
 mod peer_directory;
+mod sent_message;
 mod session_types;
 
 use authorization::{normalize_authorization, password_parameters};
@@ -94,6 +95,7 @@ use message_normalization::{
     normalize_entities, normalize_message, reply_message_id, text_with_entities,
 };
 pub use peer_directory::{PeerAddress, PeerDirectory};
+use sent_message::sent_message_id;
 pub use session_types::{
     CodeRequest, CodeSignIn, LiveEvent, QrLogin, QrLoginMigration, Session, UpdateCursor,
     UpdateScope,

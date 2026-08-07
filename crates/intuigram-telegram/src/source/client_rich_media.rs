@@ -140,7 +140,7 @@ impl Client {
         reply_to: Option<MessageId>,
         thread_root: Option<MessageId>,
         random_id: i64,
-    ) -> Result<()> {
+    ) -> Result<MessageId> {
         if entry.kind == MediaLibraryKind::CustomEmoji {
             let text = if entry.label.is_empty() {
                 "🙂".to_owned()
@@ -186,7 +186,7 @@ impl Client {
     }
 
     /// Sends a Telegram contact card.
-    pub async fn send_contact(&mut self, request: ContactCardSend) -> Result<()> {
+    pub async fn send_contact(&mut self, request: ContactCardSend) -> Result<MessageId> {
         let ContactCardSend {
             chat,
             phone_number,
@@ -216,8 +216,9 @@ impl Client {
         reply_to: Option<MessageId>,
         thread_root: Option<MessageId>,
         random_id: i64,
-    ) -> Result<()> {
-        self.connection
+    ) -> Result<MessageId> {
+        let updates = self
+            .connection
             .invoke(&tl::functions::messages::SendMedia {
                 silent: false,
                 background: false,
@@ -243,7 +244,7 @@ impl Client {
             })
             .await
             .context(InvokeSnafu)?;
-        Ok(())
+        sent_message_id(updates, random_id)
     }
 }
 

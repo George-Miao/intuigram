@@ -205,7 +205,7 @@ impl Backend {
         self.finish_rich_media(request.record, result).await
     }
 
-    async fn upload_rich_media(&mut self, request: &FileSend) -> Result<()> {
+    async fn upload_rich_media(&mut self, request: &FileSend) -> Result<MessageId> {
         let path = PathBuf::from(&request.path);
         let bytes = compio::fs::read(&path)
             .await
@@ -239,12 +239,12 @@ impl Backend {
     async fn finish_rich_media(
         &mut self,
         record: RichMediaRecord,
-        result: Result<()>,
+        result: Result<MessageId>,
     ) -> Result<AdapterEvent> {
         if let Err(Error::Telegram { source }) = &result
             && source.is_connection_failure()
         {
-            return result.map(|()| unreachable!());
+            return result.map(|_| unreachable!());
         }
         self.persist_rich_media(
             &record,
@@ -256,9 +256,10 @@ impl Backend {
         )
         .await?;
         Ok(match result {
-            Ok(()) => AdapterEvent::RichMediaAcknowledged {
+            Ok(server_id) => AdapterEvent::RichMediaAcknowledged {
                 chat: record.chat,
                 local_id: record.local_id,
+                server_id,
             },
             Err(error) => AdapterEvent::RichMediaFailed {
                 chat: record.chat,

@@ -105,14 +105,12 @@ impl App {
                 }
                 self.view.notice = Some(reason);
             }
-            AdapterEvent::RichMediaAcknowledged { chat, local_id } => {
-                self.update_delivery(chat, local_id, DeliveryState::Sent);
-                if let Some(history) = self.histories.iter().find_map(|(key, messages)| {
-                    (key.chat == chat && messages.iter().any(|message| message.id == local_id))
-                        .then_some(*key)
-                }) {
-                    self.acknowledged_rich_media.insert(local_id, history);
-                }
+            AdapterEvent::RichMediaAcknowledged {
+                chat,
+                local_id,
+                server_id,
+            } => {
+                self.acknowledge_message(chat, local_id, server_id);
                 self.view.notice = None;
             }
             AdapterEvent::RichMediaFailed {

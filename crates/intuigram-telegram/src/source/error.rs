@@ -123,6 +123,10 @@ pub enum Error {
         message_id: i64,
     },
 
+    /// A successful send response omitted its random-ID correlation.
+    #[snafu(display("Telegram send response omitted the server Message identity"))]
+    SentMessageIdentityUnavailable,
+
     /// A rich-text entity could not fit Telegram's signed 32-bit offsets.
     #[snafu(display("rich-text entity range {offset}..+{length} is outside Telegram's domain"))]
     InvalidEntityRange {

@@ -29,9 +29,9 @@ impl TestSystem {
                 Effect::SendLibraryMedia { chat, local_id, .. }
                 | Effect::SendRichMediaFile { chat, local_id, .. }
                 | Effect::RecordRichMedia { chat, local_id, .. }
-                | Effect::SendContact { chat, local_id, .. } => self
-                    .application
-                    .handle_adapter(AdapterEvent::RichMediaAcknowledged { chat, local_id }),
+                | Effect::SendContact { chat, local_id, .. } => {
+                    self.handle_rich_media_ack(chat, local_id);
+                }
                 Effect::FolderOperation { operation } => {
                     self.handle_folder_operation(operation);
                 }

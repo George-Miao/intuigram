@@ -57,6 +57,7 @@ pub struct RichMediaItemId(pub u64);
 pub struct RichMediaItemView {
     /// Adapter-owned identifier valid for the current session.
     pub id: RichMediaItemId,
+
     /// Safe human-readable media description.
     pub label: String,
 }
@@ -66,8 +67,10 @@ pub struct RichMediaItemView {
 pub struct RichMediaComposerView {
     /// Current nested rich-media operation.
     pub mode: RichMediaComposerMode,
+
     /// Active row within that operation.
     pub selected: usize,
+
     /// Whether the adapter is loading selectable media.
     pub pending: bool,
 }
@@ -81,6 +84,7 @@ pub enum RichMediaComposerMode {
     Library {
         /// Library being browsed.
         kind: RichMediaLibraryKind,
+
         /// Current normalized results.
         items: Vec<RichMediaItemView>,
     },
@@ -88,6 +92,7 @@ pub enum RichMediaComposerMode {
     File {
         /// Exact platform path without shell expansion.
         path: String,
+
         /// Telegram media presentation.
         kind: RichMediaUploadKind,
     },
@@ -95,8 +100,10 @@ pub enum RichMediaComposerMode {
     Recording {
         /// Supported recording output kind.
         kind: RichMediaUploadKind,
+
         /// User-entered duration in seconds.
         seconds: String,
+
         /// Platform capture device understood by ffmpeg.
         device: String,
     },
@@ -104,8 +111,10 @@ pub enum RichMediaComposerMode {
     Contact {
         /// Telegram-compatible telephone number.
         phone: String,
+
         /// Required contact first name.
         first_name: String,
+
         /// Optional contact last name.
         last_name: String,
     },

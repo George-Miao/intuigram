@@ -24,8 +24,10 @@ pub struct Bootstrap {
 
     /// Editable metadata for synchronized custom Folders.
     pub folder_details: Vec<FolderDetailsView>,
+
     /// Chats in the active Folder.
     pub chats: Vec<ChatView>,
+
     /// Messages for the initially active Chat.
     pub messages: Vec<MessageView>,
 
@@ -94,7 +96,16 @@ pub enum AdapterEvent {
     RichMediaLibraryFailed(String),
 
     /// One rich-media send was accepted by Telegram.
-    RichMediaAcknowledged { chat: ChatId, local_id: MessageId },
+    RichMediaAcknowledged {
+        /// Destination Chat.
+        chat: ChatId,
+
+        /// Optimistic local identity being replaced.
+        local_id: MessageId,
+
+        /// Telegram-correlated server identity from the send response.
+        server_id: MessageId,
+    },
 
     /// One rich-media send failed and remains visible in the Transcript.
     RichMediaFailed {

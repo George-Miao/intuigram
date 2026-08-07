@@ -53,7 +53,7 @@ pub struct UploadSend {
 
 impl Client {
     /// Sends a rich text Message, optionally as a reply.
-    pub async fn send_text(&mut self, request: TextSend) -> Result<()> {
+    pub async fn send_text(&mut self, request: TextSend) -> Result<MessageId> {
         let TextSend {
             chat,
             text,
@@ -93,7 +93,8 @@ impl Client {
             })
             .transpose()?;
         let entities = serialize_entities(entities)?;
-        self.connection
+        let updates = self
+            .connection
             .invoke(&tl::functions::messages::SendMessage {
                 no_webpage: !link_preview,
                 silent: false,
@@ -120,11 +121,11 @@ impl Client {
             })
             .await
             .context(InvokeSnafu)?;
-        Ok(())
+        sent_message_id(updates, random_id)
     }
 
     /// Uploads and sends one photo or generic document.
-    pub async fn send_upload(&mut self, request: UploadSend) -> Result<()> {
+    pub async fn send_upload(&mut self, request: UploadSend) -> Result<MessageId> {
         let UploadSend {
             chat,
             upload,
@@ -188,7 +189,8 @@ impl Client {
         };
         let media = uploaded_media(upload, input_file);
         let entities = serialize_entities(entities)?;
-        self.connection
+        let updates = self
+            .connection
             .invoke(&tl::functions::messages::SendMedia {
                 silent: false,
                 background: false,
@@ -214,7 +216,7 @@ impl Client {
             })
             .await
             .context(InvokeSnafu)?;
-        Ok(())
+        sent_message_id(updates, ids.message)
     }
 
     /// Returns a direct IPv4 endpoint advertised by Telegram for a data center.

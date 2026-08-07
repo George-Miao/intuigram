@@ -14,7 +14,6 @@ pub struct App {
     pending_drafts: HashMap<MessageId, PendingDraft>,
     saved_poll_draft: Option<ComposerView>,
     pending_polls: HashMap<MessageId, PendingPoll>,
-    acknowledged_rich_media: HashMap<MessageId, HistoryKey>,
 }
 
 impl App {

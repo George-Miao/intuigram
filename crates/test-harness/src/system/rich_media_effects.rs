@@ -1,4 +1,6 @@
-use intuigram_app::{AdapterEvent, RichMediaItemId, RichMediaItemView, RichMediaLibraryKind};
+use intuigram_app::{
+    AdapterEvent, ChatId, MessageId, RichMediaItemId, RichMediaItemView, RichMediaLibraryKind,
+};
 
 use super::TestSystem;
 
@@ -17,6 +19,15 @@ impl TestSystem {
                         label: "party".to_owned(),
                     },
                 ],
+            });
+    }
+
+    pub(super) fn handle_rich_media_ack(&mut self, chat: ChatId, local_id: MessageId) {
+        self.application
+            .handle_adapter(AdapterEvent::RichMediaAcknowledged {
+                chat,
+                local_id,
+                server_id: MessageId(1_000 - local_id.0),
             });
     }
 }

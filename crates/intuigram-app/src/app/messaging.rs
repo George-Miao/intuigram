@@ -157,6 +157,27 @@ impl App {
         }
     }
 
+    pub(super) fn acknowledge_message(
+        &mut self,
+        chat: ChatId,
+        local_id: MessageId,
+        server_id: MessageId,
+    ) {
+        for message in self
+            .histories
+            .iter_mut()
+            .filter(|(key, _)| key.chat == chat)
+            .flat_map(|(_, history)| history)
+            .filter(|message| message.id == local_id)
+        {
+            message.id = server_id;
+            message.delivery = DeliveryState::Sent;
+        }
+        if self.active_chat_id() == Some(chat) {
+            self.refresh_active_history();
+        }
+    }
+
     pub(super) fn reconcile_pending_message(
         &mut self,
         chat: ChatId,
@@ -164,27 +185,6 @@ impl App {
     ) -> bool {
         if message.direction != MessageDirection::Outgoing || message.id.0 <= 0 {
             return false;
-        }
-        let server_history = HistoryKey {
-            chat,
-            thread: message.details.thread_root,
-        };
-        let rich_media = self
-            .acknowledged_rich_media
-            .iter()
-            .filter(|(_, history)| **history == server_history)
-            .max_by_key(|(local_id, _)| local_id.0)
-            .map(|(local_id, _)| *local_id);
-        if let Some(local_id) = rich_media {
-            self.acknowledged_rich_media.remove(&local_id);
-            if let Some(pending) = self
-                .histories
-                .get_mut(&server_history)
-                .and_then(|history| history.iter_mut().find(|item| item.id == local_id))
-            {
-                pending.clone_from(message);
-                return true;
-            }
         }
         let mut reconciled = false;
         for history in self
@@ -194,9 +194,10 @@ impl App {
             .map(|(_, history)| history)
         {
             if let Some(pending) = history.iter_mut().rev().find(|candidate| {
-                candidate.id.0 < 0
-                    && candidate.direction == MessageDirection::Outgoing
-                    && candidate.body == message.body
+                candidate.id == message.id
+                    || (candidate.id.0 < 0
+                        && candidate.direction == MessageDirection::Outgoing
+                        && candidate.body == message.body)
             }) {
                 pending.clone_from(message);
                 reconciled = true;

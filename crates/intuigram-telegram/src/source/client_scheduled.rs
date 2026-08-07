@@ -60,6 +60,7 @@ impl Client {
             schedule_date: Some(delivery.telegram_date()),
         })
         .await
+        .map(|_| ())
     }
 
     /// Lists the Scheduled Messages Telegram currently owns for one Chat.
