@@ -4,9 +4,9 @@ mod media;
 mod rich_text;
 mod window;
 
-use media::{MediaRenderContext, media_line_count, render_media};
+use media::{MediaRenderContext, render_media};
 use rich_text::{message_metadata, render_rich_text_lines};
-use window::{message_height, transcript_window, unread_boundary_index};
+use window::{transcript_window, unread_boundary_index};
 
 pub(super) fn render_transcript(
     frame: &mut Frame<'_>,
@@ -23,28 +23,37 @@ pub(super) fn render_transcript(
         return;
     }
     let unread = unread_boundary_index(view);
-    let range = transcript_window(
-        view,
-        view.active_message.or(view.transcript_anchor),
-        area.height,
-        mode,
-        unread,
-    );
-    render_semantics(area, view, focused, range.clone(), mode, unread, semantics);
-    let items = view.messages[range.clone()]
+    let rendered_messages = view
+        .messages
         .iter()
         .enumerate()
-        .map(|(offset, message)| {
-            let index = range.start + offset;
-            ListItem::new(message_lines(
+        .map(|(index, message)| {
+            message_lines(
                 view,
                 index,
                 message,
                 focused,
                 mode,
                 unread == Some(index),
-            ))
-        });
+                area.width,
+            )
+        })
+        .collect::<Vec<_>>();
+    let heights = rendered_messages
+        .iter()
+        .map(|lines| u16::try_from(lines.len()).unwrap_or(u16::MAX))
+        .collect::<Vec<_>>();
+    let range = transcript_window(
+        &heights,
+        view.active_message.or(view.transcript_anchor),
+        area.height,
+    );
+    render_semantics(area, view, focused, range.clone(), &heights, semantics);
+    let items = rendered_messages
+        .into_iter()
+        .skip(range.start)
+        .take(range.len())
+        .map(ListItem::new);
     frame.render_widget(List::new(items).style(surface_style(focused)), area);
 }
 
@@ -71,6 +80,7 @@ fn message_lines(
     focused: bool,
     mode: ViewMode,
     unread: bool,
+    width: u16,
 ) -> Vec<Line<'static>> {
     let selected = view.active_message == Some(index);
     let direction = match message.direction {
@@ -80,31 +90,16 @@ fn message_lines(
     let reply = message
         .reply_to
         .map_or_else(String::new, |id| format!(" ↩{}", id.0));
-    let mut header = vec![
+    let header = vec![
         selection_rule(selected),
         Span::styled(
             format!("{direction} {}", message.sender),
             Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
         ),
         Span::styled(reply, Style::default().fg(MUTED_TEXT)),
-        Span::raw("  "),
-        Span::styled(message.timestamp.clone(), Style::default().fg(MUTED_TEXT)),
-        Span::raw(" "),
     ];
-    match message.delivery {
-        DeliveryState::Pending => {
-            header.extend(effort_spans("sending…", view.animation_frame));
-        }
-        DeliveryState::Sent => header.push(Span::styled("✓", Style::default().fg(MUTED_TEXT))),
-        DeliveryState::Read => header.push(Span::styled("✓✓", Style::default().fg(MUTED_TEXT))),
-        DeliveryState::Failed => header.push(Span::styled("!", Style::default().fg(MUTED_TEXT))),
-    }
     let header = Line::from(header);
-    let mut body_lines = render_rich_text_lines(message);
-    body_lines
-        .last_mut()
-        .expect("Message text always has at least one line")
-        .extend(message_metadata(message));
+    let body_lines = render_rich_text_lines(message);
     let mut lines = Vec::new();
     if unread {
         lines.push(Line::from(vec![
@@ -161,10 +156,58 @@ fn message_lines(
         lines.extend(body_lines);
         lines.extend(media_lines);
     }
+    append_message_metadata(
+        &mut lines,
+        message,
+        view.animation_frame,
+        width,
+        selected,
+        forwarded,
+    );
     if mode == ViewMode::Default {
         lines.push(Line::from(""));
     }
     lines
+}
+
+fn append_message_metadata(
+    lines: &mut Vec<Line<'static>>,
+    message: &MessageView,
+    animation_frame: u8,
+    width: u16,
+    selected: bool,
+    forwarded: bool,
+) {
+    let metadata = message_metadata(message, animation_frame);
+    let metadata_width = Line::from(metadata.clone()).width();
+    let line = lines
+        .last_mut()
+        .expect("Every Message has a sender header and content line");
+    let line_width = line.width();
+    let width = usize::from(width);
+    if line_width.saturating_add(metadata_width).saturating_add(2) <= width {
+        line.push_span(Span::raw(
+            " ".repeat(
+                width
+                    .saturating_sub(line_width)
+                    .saturating_sub(metadata_width),
+            ),
+        ));
+        line.extend(metadata);
+        return;
+    }
+
+    let mut spans = content_prefix(selected, forwarded);
+    let prefix_width = Line::from(spans.clone()).width();
+    spans.push(Span::raw(
+        " ".repeat(
+            width
+                .saturating_sub(prefix_width)
+                .saturating_sub(metadata_width),
+        ),
+    ));
+    spans.extend(metadata);
+    lines.push(Line::from(spans));
 }
 
 fn content_prefix(selected: bool, forwarded: bool) -> Vec<Span<'static>> {
@@ -180,21 +223,13 @@ fn render_semantics(
     view: &View,
     focused: bool,
     range: std::ops::Range<usize>,
-    mode: ViewMode,
-    unread: Option<usize>,
+    heights: &[u16],
     semantics: &mut Vec<SemanticNode>,
 ) {
     let mut y = area.y;
     for (offset, message) in view.messages[range.clone()].iter().enumerate() {
         let index = range.start + offset;
-        let height = message_height(
-            message,
-            mode,
-            media_preview(view, message.id),
-            media_preview_is_loading(view, message.id),
-            unread == Some(index),
-        )
-        .min(area.bottom().saturating_sub(y));
+        let height = heights[index].min(area.bottom().saturating_sub(y));
         semantics.push(SemanticNode {
             role: SemanticRole::Message,
             name: message.body.clone(),
@@ -224,13 +259,7 @@ fn render_semantics(
                 ),
             });
         }
-        y = y.saturating_add(message_height(
-            message,
-            mode,
-            media_preview(view, message.id),
-            media_preview_is_loading(view, message.id),
-            unread == Some(index),
-        ));
+        y = y.saturating_add(heights[index]);
     }
 }
 

@@ -301,6 +301,7 @@ mod effort;
 mod forwarded;
 mod image_loading;
 mod loading;
+mod metadata;
 mod multiline;
 mod rendering;
 mod semantics;

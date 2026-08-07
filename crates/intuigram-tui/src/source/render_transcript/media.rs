@@ -43,27 +43,6 @@ impl AlbumPosition {
     }
 }
 
-pub(super) fn media_line_count(
-    media: &MediaCard,
-    preview: Option<&InlineImage>,
-    loading: bool,
-) -> u16 {
-    let poll_lines = media.poll.as_ref().map_or(0, |poll| {
-        poll.options.len()
-            + usize::from(poll.total_voters.is_some())
-            + usize::from(poll.solution.is_some())
-    });
-    let preview_lines = if preview.is_some() || loading {
-        INLINE_IMAGE_HEIGHT
-    } else {
-        0
-    };
-    let fallback_lines = usize::from(preview.is_none() && !loading);
-    u16::try_from(fallback_lines + media.details.len() + poll_lines)
-        .unwrap_or(u16::MAX)
-        .saturating_add(preview_lines)
-}
-
 pub(super) fn render_media(
     media: &MediaCard,
     preview: Option<&InlineImage>,

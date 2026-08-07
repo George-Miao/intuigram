@@ -1,41 +1,77 @@
 use super::*;
 
-pub(super) fn message_metadata(message: &MessageView) -> Vec<Span<'static>> {
-    let mut parts = Vec::new();
-    if message.details.edited {
-        parts.push("edited".to_owned());
-    }
-    if message.details.pinned {
-        parts.push("pinned".to_owned());
-    }
-    if let Some(views) = message.details.views {
-        parts.push(format!("{views} views"));
-    }
-    if let Some(forwards) = message.details.forwards {
-        parts.push(format!("{forwards} forwards"));
-    }
-    if let Some(replies) = message.details.replies {
-        parts.push(format!("{replies} replies"));
-    }
+pub(super) fn message_metadata(message: &MessageView, animation_frame: u8) -> Vec<Span<'static>> {
     let mut spans = Vec::new();
-    if !parts.is_empty() {
-        spans.push(Span::styled(
-            format!("  · {}", parts.join(" · ")),
+    if let Some(views) = message.details.views {
+        push_metadata(
+            &mut spans,
+            format!("{views} views"),
             Style::default().fg(MUTED_TEXT),
-        ));
+        );
     }
-    for reaction in &message.details.reactions {
+    if let Some(forwards) = message.details.forwards.filter(|count| *count > 0) {
+        push_metadata(
+            &mut spans,
+            format!("{forwards} forwards"),
+            Style::default().fg(MUTED_TEXT),
+        );
+    }
+    if let Some(replies) = message.details.replies.filter(|count| *count > 0) {
+        push_metadata(
+            &mut spans,
+            format!("{replies} replies"),
+            Style::default().fg(MUTED_TEXT),
+        );
+    }
+    for reaction in message
+        .details
+        .reactions
+        .iter()
+        .filter(|reaction| reaction.count > 0)
+    {
         let style = if reaction.chosen {
             Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(MUTED_TEXT)
         };
-        spans.push(Span::styled(
-            format!("  {} {}", reaction.label, reaction.count),
+        push_metadata(
+            &mut spans,
+            format!("{} {}", reaction.label, reaction.count),
             style,
-        ));
+        );
+    }
+    if message.details.edited {
+        push_metadata(&mut spans, "edited", Style::default().fg(MUTED_TEXT));
+    }
+    if message.details.pinned {
+        push_metadata(&mut spans, "pinned", Style::default().fg(MUTED_TEXT));
+    }
+    push_metadata(
+        &mut spans,
+        message.timestamp.clone(),
+        Style::default().fg(MUTED_TEXT),
+    );
+    match message.delivery {
+        DeliveryState::Pending => {
+            if !spans.is_empty() {
+                spans.push(Span::styled(" · ", Style::default().fg(MUTED_TEXT)));
+            }
+            spans.extend(effort_spans("sending…", animation_frame));
+        }
+        DeliveryState::Sent => push_metadata(&mut spans, "✓", Style::default().fg(MUTED_TEXT)),
+        DeliveryState::Read => push_metadata(&mut spans, "✓✓", Style::default().fg(MUTED_TEXT)),
+        DeliveryState::Failed => {
+            push_metadata(&mut spans, "failed !", Style::default().fg(MUTED_TEXT))
+        }
     }
     spans
+}
+
+fn push_metadata(spans: &mut Vec<Span<'static>>, text: impl Into<String>, style: Style) {
+    if !spans.is_empty() {
+        spans.push(Span::styled(" · ", Style::default().fg(MUTED_TEXT)));
+    }
+    spans.push(Span::styled(text.into(), style));
 }
 
 pub(super) fn render_rich_text(message: &MessageView) -> Vec<Span<'static>> {

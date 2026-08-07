@@ -1,44 +1,19 @@
 use super::*;
 
-pub(super) fn message_height(
-    message: &MessageView,
-    mode: ViewMode,
-    preview: Option<&intuigram_app::InlineImage>,
-    preview_loading: bool,
-    unread: bool,
-) -> u16 {
-    let body_height = u16::try_from(message.body.split('\n').count()).unwrap_or(u16::MAX);
-    let media_height = message
-        .details
-        .media
-        .as_ref()
-        .map_or(0, |media| media_line_count(media, preview, preview_loading));
-    mode.item_height(
-        u16::from(unread)
-            .saturating_add(u16::from(message.details.forwarded_from.is_some()))
-            .saturating_add(1)
-            .saturating_add(body_height)
-            .saturating_add(media_height),
-    )
-}
-
 pub(super) fn transcript_window(
-    view: &View,
+    heights: &[u16],
     active: Option<usize>,
     available: u16,
-    mode: ViewMode,
-    unread: Option<usize>,
 ) -> std::ops::Range<usize> {
-    let messages = &view.messages;
-    if messages.is_empty() {
+    if heights.is_empty() {
         return 0..0;
     }
-    let active = active.unwrap_or(messages.len() - 1).min(messages.len() - 1);
+    let active = active.unwrap_or(heights.len() - 1).min(heights.len() - 1);
     let mut start = active;
     let mut before_height = 0_u16;
     let before_budget = available / 3;
     while start > 0 {
-        let height = height_at(view, start - 1, mode, unread);
+        let height = heights[start - 1];
         if before_height.saturating_add(height) > before_budget {
             break;
         }
@@ -46,9 +21,9 @@ pub(super) fn transcript_window(
         before_height = before_height.saturating_add(height);
     }
     let mut end = active + 1;
-    let mut used = before_height.saturating_add(height_at(view, active, mode, unread));
-    while end < messages.len() {
-        let height = height_at(view, end, mode, unread);
+    let mut used = before_height.saturating_add(heights[active]);
+    while end < heights.len() {
+        let height = heights[end];
         if used.saturating_add(height) > available {
             break;
         }
@@ -56,7 +31,7 @@ pub(super) fn transcript_window(
         end += 1;
     }
     while start > 0 {
-        let height = height_at(view, start - 1, mode, unread);
+        let height = heights[start - 1];
         if used.saturating_add(height) > available {
             break;
         }
@@ -71,15 +46,4 @@ pub(super) fn unread_boundary_index(view: &View) -> Option<usize> {
     view.messages
         .iter()
         .position(|message| message.id == boundary)
-}
-
-fn height_at(view: &View, index: usize, mode: ViewMode, unread: Option<usize>) -> u16 {
-    let message = &view.messages[index];
-    message_height(
-        message,
-        mode,
-        media_preview(view, message.id),
-        media_preview_is_loading(view, message.id),
-        unread == Some(index),
-    )
 }
