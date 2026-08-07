@@ -5,11 +5,12 @@ pub(super) fn render_folders(
     mode: ViewMode,
     semantics: &mut Vec<SemanticNode>,
 ) {
-    let mut x = area.x;
+    let content_area = mode.horizontally_padded(area);
+    let mut x = content_area.x;
     for (index, folder) in view.folders.iter().enumerate() {
         let width = u16::try_from(folder.title.chars().count().saturating_add(3))
             .unwrap_or(u16::MAX)
-            .min(area.right().saturating_sub(x));
+            .min(content_area.right().saturating_sub(x));
         semantics.push(SemanticNode {
             role: SemanticRole::Folder,
             name: folder.title.clone(),
@@ -19,10 +20,12 @@ pub(super) fn render_folders(
             delivery: None,
             active: index == view.active_folder,
             focused: view.focus == Focus::Chats,
-            bounds: Rect::new(x, area.y, width, area.height),
+            bounds: Rect::new(x, content_area.y, width, content_area.height),
         });
         x = x.saturating_add(width);
     }
+    let leading = if mode == ViewMode::Default { "" } else { "  " };
+    let trailing = if mode == ViewMode::Default { "  " } else { " " };
     let spans = view.folders.iter().enumerate().flat_map(|(index, folder)| {
         let active = index == view.active_folder;
         let style = if active {
@@ -36,9 +39,9 @@ pub(super) fn render_folders(
             String::new()
         };
         [
-            Span::raw("  "),
+            Span::raw(leading),
             Span::styled(format!("{}{unread}", folder.title), style),
-            Span::raw(" "),
+            Span::raw(trailing),
         ]
     });
     let folders = Line::from(spans.collect::<Vec<_>>());
@@ -46,7 +49,11 @@ pub(super) fn render_folders(
         ViewMode::Default => vec![Line::from(""), folders, Line::from("")],
         ViewMode::Compact => vec![folders],
     };
-    frame.render_widget(Paragraph::new(lines).style(surface_style(false)), area);
+    frame.render_widget(Paragraph::new("").style(surface_style(false)), area);
+    frame.render_widget(
+        Paragraph::new(lines).style(surface_style(false)),
+        content_area,
+    );
 }
 
 pub(super) fn render_actions(
@@ -54,10 +61,12 @@ pub(super) fn render_actions(
     area: Rect,
     view: &View,
     keymap: &EffectiveKeymap,
+    mode: ViewMode,
     semantics: &mut Vec<SemanticNode>,
 ) {
+    let content_area = mode.horizontally_padded(area);
     let mut spans = Vec::new();
-    let mut x = area.x;
+    let mut x = content_area.x;
     for binding in keymap.action_bar(view) {
         let width = u16::try_from(
             binding
@@ -69,7 +78,7 @@ pub(super) fn render_actions(
                 .saturating_add(3),
         )
         .unwrap_or(u16::MAX)
-        .min(area.right().saturating_sub(x));
+        .min(content_area.right().saturating_sub(x));
         semantics.push(SemanticNode {
             role: SemanticRole::Action,
             name: binding.label.to_owned(),
@@ -79,7 +88,7 @@ pub(super) fn render_actions(
             delivery: None,
             active: true,
             focused: false,
-            bounds: Rect::new(x, area.y, width, area.height),
+            bounds: Rect::new(x, content_area.y, width, content_area.height),
         });
         x = x.saturating_add(width);
         spans.push(Span::styled(
@@ -88,13 +97,14 @@ pub(super) fn render_actions(
         ));
         spans.push(Span::raw(format!(" {}  ", binding.label)));
     }
+    frame.render_widget(Paragraph::new("").style(surface_style(false)), area);
     frame.render_widget(
         Paragraph::new(Line::from(spans)).style(surface_style(false)),
-        area,
+        content_area,
     );
 }
 
-pub(super) fn render_status(frame: &mut Frame<'_>, area: Rect, view: &View) {
+pub(super) fn render_status(frame: &mut Frame<'_>, area: Rect, view: &View, mode: ViewMode) {
     let connection = match view.connection {
         ConnectionState::Connected => "connected",
         ConnectionState::Connecting => "connecting",
@@ -116,7 +126,11 @@ pub(super) fn render_status(frame: &mut Frame<'_>, area: Rect, view: &View) {
     } else {
         Style::default().fg(MUTED_TEXT).bg(CHROME_BACKGROUND)
     };
-    frame.render_widget(Paragraph::new(status).style(style), area);
+    frame.render_widget(Paragraph::new("").style(style), area);
+    frame.render_widget(
+        Paragraph::new(status).style(style),
+        mode.horizontally_padded(area),
+    );
 }
 
 pub(super) fn render_help(

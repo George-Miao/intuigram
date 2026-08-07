@@ -16,6 +16,8 @@ pub(super) fn render_transcript(
     mode: ViewMode,
     semantics: &mut Vec<SemanticNode>,
 ) {
+    frame.render_widget(Paragraph::new("").style(surface_style(focused)), area);
+    let area = mode.padded(area);
     let unread = unread_boundary_index(view);
     let range = transcript_window(
         view,

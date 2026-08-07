@@ -138,8 +138,8 @@ fn redrawing_shorter_chat_text_clears_the_previous_frame() {
         .expect("short view should render");
     let buffer = terminal.backend().buffer();
 
-    assert!((5..30).all(|x| buffer[(x, 2)].symbol() == " "));
-    assert!((2..30).all(|x| buffer[(x, 3)].symbol() == " "));
+    assert!((4..30).all(|x| buffer[(x, 3)].symbol() == " "));
+    assert!((3..30).all(|x| buffer[(x, 4)].symbol() == " "));
 }
 
 #[test]
@@ -186,10 +186,10 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
         .expect("view should render");
     let buffer = terminal.backend().buffer();
 
-    assert_eq!(buffer[(0, 2)].symbol(), "│");
-    assert_eq!(buffer[(31, 2)].symbol(), "│");
-    assert_eq!(buffer[(39, 2)].symbol(), "↩");
-    assert_eq!(buffer[(39, 2)].fg, Color::Rgb(130, 145, 129));
+    assert_eq!(buffer[(1, 3)].symbol(), "│");
+    assert_eq!(buffer[(32, 3)].symbol(), "│");
+    assert_eq!(buffer[(40, 3)].symbol(), "↩");
+    assert_eq!(buffer[(40, 3)].fg, Color::Rgb(130, 145, 129));
     assert_eq!(buffer[(32, 17)].symbol(), "│");
     assert_eq!(buffer[(34, 17)].symbol(), "D");
     assert_eq!(buffer[(5, 5)].bg, Color::Rgb(244, 240, 217));

@@ -10,6 +10,33 @@ pub enum ViewMode {
 }
 
 impl ViewMode {
+    pub(super) const fn padded(self, area: ratatui::layout::Rect) -> ratatui::layout::Rect {
+        match self {
+            Self::Default if area.width > 2 && area.height > 2 => ratatui::layout::Rect::new(
+                area.x.saturating_add(1),
+                area.y.saturating_add(1),
+                area.width.saturating_sub(2),
+                area.height.saturating_sub(2),
+            ),
+            Self::Default | Self::Compact => area,
+        }
+    }
+
+    pub(super) const fn horizontally_padded(
+        self,
+        area: ratatui::layout::Rect,
+    ) -> ratatui::layout::Rect {
+        match self {
+            Self::Default if area.width > 2 => ratatui::layout::Rect::new(
+                area.x.saturating_add(1),
+                area.y,
+                area.width.saturating_sub(2),
+                area.height,
+            ),
+            Self::Default | Self::Compact => area,
+        }
+    }
+
     pub(super) const fn item_height(self, content_height: u16) -> u16 {
         match self {
             Self::Default => content_height.saturating_add(1),

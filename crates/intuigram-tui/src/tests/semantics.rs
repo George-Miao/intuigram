@@ -125,7 +125,7 @@ fn chat_list_scroll_keeps_the_active_chat_near_one_third_height() {
     let buffer = terminal.backend().buffer();
     let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
 
-    assert_eq!(buffer[(0, 5)].symbol(), "│");
+    assert_eq!(buffer[(1, 6)].symbol(), "│");
     assert!(rendered.contains("Chat 8"));
     assert!(!rendered.contains("Chat 0"));
 }
@@ -166,8 +166,8 @@ fn transcript_scroll_keeps_the_active_message_visible() {
         .expect("view should render");
     let buffer = terminal.backend().buffer();
 
-    assert_eq!(buffer[(31, 5)].symbol(), "│");
-    assert_eq!(buffer[(33, 6)].symbol(), "M");
+    assert_eq!(buffer[(32, 6)].symbol(), "│");
+    assert_eq!(buffer[(34, 7)].symbol(), "M");
 }
 
 #[test]
@@ -206,7 +206,7 @@ fn transcript_scroll_preserves_an_inactive_anchor() {
         .expect("view should render");
     let buffer = terminal.backend().buffer();
 
-    assert_eq!(buffer[(31, 5)].symbol(), " ");
-    assert_eq!(buffer[(33, 6)].symbol(), "M");
+    assert_eq!(buffer[(32, 6)].symbol(), " ");
+    assert_eq!(buffer[(34, 7)].symbol(), "M");
 }
 use super::*;

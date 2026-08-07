@@ -64,7 +64,7 @@ fn composer_is_one_continuous_bar_with_internal_padding() -> Result<()> {
 }
 
 #[test]
-fn chat_titles_start_immediately_after_the_interaction_rule() -> Result<()> {
+fn chat_list_and_transcript_have_one_cell_internal_padding() -> Result<()> {
     let mut rust = chat(10, "Rust");
     rust.preview = "owned buffers".to_owned();
     let mut app = TestSystem::builder()
@@ -73,15 +73,21 @@ fn chat_titles_start_immediately_after_the_interaction_rule() -> Result<()> {
         .telegram(
             TelegramScenario::new()
                 .bootstrap(account("Ada").with_chat(rust))
-                .expect_load_history(10, []),
+                .expect_load_history(10, [incoming(40, "Lin", "hello")]),
         )
         .start()?;
 
     app.press(key::ENTER)?;
     let rows = app.screen().rows();
     let title_row = row_within(&rows, "Rust", 0, 30);
+    let message_row = row_within(&rows, "hello", 31, 100);
 
-    assert_eq!(row_segment(&rows, title_row, 0, 6), "│ Rust");
+    assert_eq!(row_segment(&rows, title_row, 0, 7), " │ Rust");
+    assert!(row_segment(&rows, 2, 31, 100).trim().is_empty());
+    assert_eq!(row_segment(&rows, message_row, 31, 35), "   h");
+    assert!(rows[20].starts_with(' '));
+    assert!(rows[22].starts_with(' '));
+    assert!(rows[23].starts_with(' '));
     app.expect_no_unhandled_work()
 }
 

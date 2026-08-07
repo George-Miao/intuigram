@@ -34,8 +34,8 @@ pub(super) fn render_with_semantics(
     .split(area);
     render_main(frame, rows[0], view, mode, semantics);
     render_folders(frame, rows[1], view, mode, semantics);
-    render_actions(frame, rows[2], view, keymap, semantics);
-    render_status(frame, rows[3], view);
+    render_actions(frame, rows[2], view, keymap, mode, semantics);
+    render_status(frame, rows[3], view, mode);
     if view.help_open {
         render_help(frame, area, view, keymap);
     } else if view.link_confirmation.is_some() {
@@ -99,8 +99,10 @@ pub(super) fn render_chats(
         .style(surface_style(focused)),
         rows[0],
     );
+    frame.render_widget(Paragraph::new("").style(surface_style(focused)), rows[1]);
+    let list_area = mode.padded(rows[1]);
     let item_height = mode.item_height(2);
-    let visible_items = usize::from(rows[1].height) / usize::from(item_height);
+    let visible_items = usize::from(list_area.height) / usize::from(item_height);
     let range = anchored_window(view.chats.len(), view.active_chat, visible_items, false);
     semantics.extend(
         view.chats[range.clone()]
@@ -116,13 +118,13 @@ pub(super) fn render_chats(
                 active: view.active_chat == Some(range.start + offset),
                 focused,
                 bounds: Rect::new(
-                    rows[1].x,
-                    rows[1]
+                    list_area.x,
+                    list_area
                         .y
                         .saturating_add((offset as u16).saturating_mul(item_height)),
-                    rows[1].width,
+                    list_area.width,
                     item_height.min(
-                        rows[1]
+                        list_area
                             .height
                             .saturating_sub((offset as u16).saturating_mul(item_height)),
                     ),
@@ -161,7 +163,7 @@ pub(super) fn render_chats(
             }
             ListItem::new(lines)
         });
-    frame.render_widget(List::new(items).style(surface_style(focused)), rows[1]);
+    frame.render_widget(List::new(items).style(surface_style(focused)), list_area);
 }
 
 pub(super) fn render_active_chat(
