@@ -37,9 +37,10 @@ pub(super) fn commit_sync(connection: &Connection, batch: SyncBatch) -> Result<(
     for chat in batch.chats {
         transaction
             .execute(
-                "INSERT INTO chats(chat_id, kind, title, preview, unread_count, pinned, \
-                 can_pin_messages) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) ON CONFLICT(chat_id) DO \
-                 UPDATE SET kind=excluded.kind, title=excluded.title, preview=excluded.preview, \
+                "INSERT INTO chats(chat_id, kind, title, preview, status, unread_count, pinned, \
+                 can_pin_messages) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) ON CONFLICT(chat_id) \
+                 DO UPDATE SET kind=excluded.kind, title=excluded.title, \
+                 preview=excluded.preview, status=excluded.status, \
                  unread_count=excluded.unread_count, pinned=excluded.pinned, \
                  can_pin_messages=excluded.can_pin_messages",
                 params![
@@ -47,6 +48,7 @@ pub(super) fn commit_sync(connection: &Connection, batch: SyncBatch) -> Result<(
                     chat.kind,
                     chat.title,
                     chat.preview,
+                    chat.status,
                     chat.unread,
                     chat.pinned,
                     chat.can_pin_messages

@@ -130,9 +130,10 @@ pub(crate) fn set_dialog_filter_membership(
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(crate) struct ChatTraits {
     pub(super) kind: ChatKind,
+    pub(crate) status: String,
     pub(crate) can_pin_messages: bool,
     contact: bool,
 }
@@ -145,10 +146,12 @@ pub(crate) fn chat_traits(
     let mut result = HashMap::new();
     for user in users {
         let contact = matches!(user, tl::enums::User::User(user) if user.contact);
+        let kind = user_chat_kind(user, account_id);
         result.insert(
             ChatId(user.id()),
             ChatTraits {
-                kind: user_chat_kind(user, account_id),
+                kind,
+                status: user_status(user, kind),
                 can_pin_messages: !matches!(user, tl::enums::User::Empty(_)),
                 contact,
             },
@@ -166,6 +169,7 @@ pub(crate) fn chat_traits(
             id,
             ChatTraits {
                 kind: cloud_chat_kind(chat),
+                status: cloud_chat_status(chat),
                 can_pin_messages: cloud_chat_can_pin(chat),
                 contact: false,
             },

@@ -7,6 +7,7 @@ fn pending_work_uses_a_moving_highlight_and_stops_when_complete() {
         id: ChatId(10),
         title: "Intuigram".to_owned(),
         preview: String::new(),
+        status: String::new(),
         unread: 0,
         pinned: false,
         can_pin_messages: true,

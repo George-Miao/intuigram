@@ -6,6 +6,7 @@ pub(super) fn cached_bootstrap(account_name: String, cached: CachedAccount) -> B
             id: ChatId(chat.id),
             title: chat.title,
             preview: chat.preview,
+            status: chat.status,
             unread: chat.unread,
             pinned: chat.pinned,
             can_pin_messages: chat.can_pin_messages,

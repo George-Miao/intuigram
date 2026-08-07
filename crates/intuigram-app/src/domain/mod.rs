@@ -118,6 +118,10 @@ pub struct ChatView {
     pub title: String,
     /// Compact last-message preview.
     pub preview: String,
+
+    /// Idle Active-Chat metadata normalized for display.
+    pub status: String,
+
     /// Unread message count.
     pub unread: u32,
     /// Whether Telegram pins this Chat.

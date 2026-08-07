@@ -78,10 +78,10 @@ fn title_and_status(view: &View) -> (Line<'static>, Line<'static>) {
                     ChatLoadingState::Idle => {
                         let status = if let Some(root) = view.active_thread {
                             format!("Thread {}", root.0)
-                        } else if chat.unread > 0 {
-                            format!("{} unread", chat.unread)
+                        } else if !chat.status.is_empty() {
+                            chat.status.clone()
                         } else {
-                            "up to date".to_owned()
+                            fallback_status(chat.kind).to_owned()
                         };
                         Line::from(Span::styled(status, Style::default().fg(MUTED_TEXT)))
                     }
@@ -95,6 +95,17 @@ fn title_and_status(view: &View) -> (Line<'static>, Line<'static>) {
                 )
             },
         )
+}
+
+fn fallback_status(kind: ChatKind) -> &'static str {
+    match kind {
+        ChatKind::SavedMessages => "personal cloud",
+        ChatKind::Private => "private chat",
+        ChatKind::Bot => "bot",
+        ChatKind::BasicGroup | ChatKind::Supergroup | ChatKind::Gigagroup => "group",
+        ChatKind::Channel => "channel",
+        ChatKind::Inaccessible => "unavailable",
+    }
 }
 
 fn active_context(view: &View) -> Line<'static> {

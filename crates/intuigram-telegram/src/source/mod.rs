@@ -41,6 +41,7 @@ mod client_send;
 mod client_vote;
 mod connection;
 mod dialog_normalization;
+mod dialog_status;
 mod entity_conversion;
 mod error;
 mod live_normalization;
@@ -66,6 +67,7 @@ pub(crate) use dialog_normalization::{
     chat_traits, cloud_chat_can_pin, dialog_filter_id, dialog_folder_membership,
     normalize_dialog_folders, set_dialog_filter_membership,
 };
+use dialog_status::{cloud_chat_status, user_status};
 use entity_conversion::serialize_entities;
 use error::*;
 pub use error::{Error, Result};

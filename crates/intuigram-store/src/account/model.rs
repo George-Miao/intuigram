@@ -99,6 +99,9 @@ pub struct StoredChat {
     /// Last-message fallback.
     pub preview: String,
 
+    /// Idle Chat metadata normalized for display.
+    pub status: String,
+
     /// Unread count.
     pub unread: u32,
 

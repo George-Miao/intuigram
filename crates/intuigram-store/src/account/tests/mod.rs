@@ -163,6 +163,38 @@ fn version_three_chats_receive_safe_pin_permission_defaults() {
 }
 
 #[test]
+fn version_four_chats_receive_an_empty_status_without_losing_records() {
+    let temporary = tempdir().expect("temporary directory should be created");
+    let layout = StoreLayout::new(temporary.path().join("intuigram"));
+    fs::create_dir_all(layout.data_directory()).expect("data directory should be created");
+    let mut connection =
+        Connection::open(layout.pending_database()).expect("fixture database should open");
+    super::migrations::migrations::runner()
+        .set_target(Target::Version(4))
+        .run(&mut connection)
+        .expect("released version four schema should install");
+    connection
+        .execute(
+            "INSERT INTO chats(chat_id, kind, title, preview, unread_count, pinned, \
+             can_pin_messages) VALUES (1, 'private', 'Ada', '', 0, 0, 1)",
+            [],
+        )
+        .expect("version four Chat fixture should insert");
+    drop(connection);
+
+    let database = AccountDatabase::begin_login(&layout)
+        .expect("version four database should migrate to the current schema");
+    let chats = database
+        .cached_account()
+        .expect("migrated Chats should load")
+        .chats;
+
+    assert_eq!(chats.len(), 1);
+    assert_eq!(chats[0].title, "Ada");
+    assert!(chats[0].status.is_empty());
+}
+
+#[test]
 fn normalized_records_and_cursor_commit_or_roll_back_together() {
     let temporary = tempdir().expect("temporary directory should be created");
     let layout = StoreLayout::new(temporary.path().join("intuigram"));
@@ -246,6 +278,7 @@ fn sync_batch() -> SyncBatch {
             kind: "private".to_owned(),
             title: "Ada".to_owned(),
             preview: "hello".to_owned(),
+            status: "online".to_owned(),
             unread: 1,
             pinned: false,
             can_pin_messages: true,

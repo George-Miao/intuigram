@@ -14,8 +14,8 @@ use crossterm::terminal::{
 };
 use futures_util::{Stream, StreamExt};
 use intuigram_app::{
-    Action, ChatLoadingState, ComposerMovement, ConnectionState, DeliveryState, Focus, Intent,
-    MessageDirection, MessageView, TextEntityKind, View,
+    Action, ChatKind, ChatLoadingState, ComposerMovement, ConnectionState, DeliveryState, Focus,
+    Intent, MessageDirection, MessageView, TextEntityKind, View,
 };
 use qrcode::render::unicode::Dense1x2;
 use qrcode::types::Color as QrColor;

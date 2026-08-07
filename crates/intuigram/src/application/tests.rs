@@ -72,6 +72,7 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
             kind: "private".to_owned(),
             title: "Ada".to_owned(),
             preview: "cached caption".to_owned(),
+            status: "online".to_owned(),
             unread: 1,
             pinned: false,
             can_pin_messages: true,

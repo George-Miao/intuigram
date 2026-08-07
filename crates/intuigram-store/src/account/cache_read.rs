@@ -65,21 +65,22 @@ pub(super) fn load_folders(connection: &Connection) -> Result<Vec<StoredFolder>>
 pub(super) fn load_chats(connection: &Connection) -> Result<Vec<StoredChat>> {
     let mut statement = connection
         .prepare(
-            "SELECT chat_id, kind, title, preview, unread_count, pinned, can_pin_messages FROM \
-             chats ORDER BY pinned DESC, chat_id DESC",
+            "SELECT chat_id, kind, title, preview, status, unread_count, pinned, can_pin_messages \
+             FROM chats ORDER BY pinned DESC, chat_id DESC",
         )
         .context(LoadCacheSnafu)?;
     statement
         .query_map([], |row| {
-            let unread = row.get::<_, i64>(4)?;
+            let unread = row.get::<_, i64>(5)?;
             Ok(StoredChat {
                 id: row.get(0)?,
                 kind: row.get(1)?,
                 title: row.get(2)?,
                 preview: row.get(3)?,
+                status: row.get(4)?,
                 unread: u32::try_from(unread).unwrap_or(0),
-                pinned: row.get(5)?,
-                can_pin_messages: row.get(6)?,
+                pinned: row.get(6)?,
+                can_pin_messages: row.get(7)?,
                 folders: Vec::new(),
             })
         })

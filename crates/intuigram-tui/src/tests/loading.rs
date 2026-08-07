@@ -29,6 +29,7 @@ fn active_chat() -> View {
         id: ChatId(10),
         title: "Intuigram".to_owned(),
         preview: String::new(),
+        status: String::new(),
         unread: 0,
         pinned: false,
         can_pin_messages: true,

@@ -51,6 +51,10 @@ impl Client {
                         id: chat_id,
                         title,
                         preview,
+                        status: traits.get(&chat_id).map_or_else(
+                            || "unavailable".to_owned(),
+                            |traits| traits.status.clone(),
+                        ),
                         unread: u32::try_from(dialog.unread_count.max(0)).unwrap_or(0),
                         pinned: dialog.pinned,
                         can_pin_messages: traits

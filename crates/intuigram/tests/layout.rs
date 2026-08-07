@@ -110,7 +110,7 @@ fn headers_have_vertical_padding_and_an_active_chat_status_row() -> Result<()> {
     assert!(row_segment(&rows, 0, 31, 100).trim().is_empty());
     assert!(row_segment(&rows, 1, 0, 30).contains("Chats"));
     assert!(row_segment(&rows, 1, 31, 100).contains("Rust"));
-    assert!(row_segment(&rows, 2, 31, 100).contains("up to date"));
+    assert!(row_segment(&rows, 2, 31, 100).contains("last seen recently"));
     assert!(row_segment(&rows, 3, 31, 100).trim().is_empty());
     app.expect_no_unhandled_work()
 }

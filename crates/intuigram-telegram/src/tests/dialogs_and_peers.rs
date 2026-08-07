@@ -46,6 +46,7 @@ fn dialog_filters_include_custom_and_shared_folders_in_server_order() {
             id: ChatId(10),
             title: "Ada".to_owned(),
             preview: String::new(),
+            status: String::new(),
             unread: 5,
             pinned: false,
             can_pin_messages: true,
@@ -56,6 +57,7 @@ fn dialog_filters_include_custom_and_shared_folders_in_server_order() {
             id: ChatId(20),
             title: "Archived".to_owned(),
             preview: String::new(),
+            status: String::new(),
             unread: 2,
             pinned: false,
             can_pin_messages: true,
@@ -251,7 +253,8 @@ fn minimal_channel_does_not_overwrite_cached_pin_permission() {
 
 #[test]
 fn chat_traits_preserve_message_pin_permission() {
-    let denied = channel(true, false);
+    let mut denied = channel(true, false);
+    denied.participants_count = Some(120);
     let denied_id = ChatId(-1_000_000_000_000 - denied.id);
     let mut creator = channel(true, false);
     creator.id = 8;
@@ -259,6 +262,7 @@ fn chat_traits_preserve_message_pin_permission() {
     let creator_id = ChatId(-1_000_000_000_000 - creator.id);
     let mut allowed_group = channel(false, false);
     allowed_group.id = 7;
+    allowed_group.participants_count = Some(42);
     let allowed_group_id = ChatId(-1_000_000_000_000 - allowed_group.id);
     let mut denied_group = channel(false, false);
     denied_group.id = 9;
@@ -282,11 +286,14 @@ fn chat_traits_preserve_message_pin_permission() {
     );
 
     assert!(!traits[&denied_id].can_pin_messages);
+    assert_eq!(traits[&denied_id].status, "120 subscribers");
     assert!(traits[&creator_id].can_pin_messages);
     assert!(traits[&allowed_group_id].can_pin_messages);
+    assert_eq!(traits[&allowed_group_id].status, "42 members");
     assert!(!traits[&denied_group_id].can_pin_messages);
     assert!(!traits[&minimal_group_id].can_pin_messages);
     assert!(traits[&ChatId(7)].can_pin_messages);
+    assert_eq!(traits[&ChatId(7)].status, "offline");
 }
 
 fn banned_pin_rights() -> tl::types::ChatBannedRights {
