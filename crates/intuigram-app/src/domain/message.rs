@@ -204,4 +204,14 @@ pub struct MediaPreviewView {
     /// Bounded decoded image rendered by the terminal adapter.
     pub image: super::InlineImage,
 }
+
+/// One image preview whose final Transcript space is reserved while loading.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MediaPreviewLoadView {
+    /// Chat containing the Message.
+    pub chat: ChatId,
+
+    /// Message containing the image.
+    pub message: MessageId,
+}
 use super::*;

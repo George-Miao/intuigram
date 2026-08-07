@@ -110,6 +110,7 @@ fn downloaded_photos_keep_independent_inline_previews() -> Result<()> {
     });
     let mut app = TestSystem::builder()
         .name("media-independent-inline-previews")
+        .terminal(100, 40)
         .telegram(
             TelegramScenario::new()
                 .bootstrap(account("Ada").with_chat(chat(10, "Rust")))

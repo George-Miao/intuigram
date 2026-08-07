@@ -14,7 +14,6 @@
 - [ ] **p-core:** Add responsive TUI layouts for narrow, normal, and wide terminals, including stacked hierarchy navigation and preservation of the Active Chat, Active Message, Message Selection, anchored history, Draft, and interaction target across resize.
 - [ ] **p-core:** Restore the last Active Folder and Active Chat when an Account is reopened. Validate both against current synchronized state; if either no longer exists, clear the Active Chat and return to the default Folder.
 - [ ] **p-core:** Add click support for activating Chats and Messages, switching Folders, and focusing the Composer without replacing the keyboard hierarchy or terminal-native text selection.
-- [ ] **p-core:** Show an animated placeholder in an image's final layout space while its preview loads. Replace it in place without moving the Transcript anchor, and retain the Media Card fallback when inline graphics are unavailable or fail.
 - [ ] **p-core:** Refine forwarded Messages with a vertical provenance bar and clear source text, including forwarded media and captions.
 - [ ] **p-core:** Render inline images directly without a redundant `[Image]` label when graphics succeed, place captions below their image, and retain an informative text fallback when graphics are unavailable.
 - [ ] **p-core:** Right-align Message metadata at the end of the final content line, including time, sent/read state, and edited state. Hide every zero-valued counter except views, always show the view counter where Telegram supplies one, and keep pending or failed delivery unambiguous.

@@ -8,7 +8,7 @@ use snafu::{ResultExt, Snafu};
 const MAX_SOURCE_DIMENSION: u32 = 16_384;
 const MAX_DECODED_BYTES: u64 = 64 * 1024 * 1024;
 const PREVIEW_WIDTH: u32 = 32;
-const PREVIEW_HEIGHT: u32 = 24;
+const PREVIEW_HEIGHT: u32 = 12;
 
 /// Failure while decoding untrusted media bytes into a bounded terminal
 /// preview.

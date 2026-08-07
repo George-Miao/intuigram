@@ -299,6 +299,9 @@ pub struct View {
     /// Automatically loaded inline image previews for visible histories.
     pub media_previews: Vec<MediaPreviewView>,
 
+    /// Image previews with final Transcript space currently reserved.
+    pub media_preview_loads: Vec<MediaPreviewLoadView>,
+
     /// Whether the Composer contains a poll question and answer choices.
     pub poll_composer: bool,
 
@@ -318,6 +321,7 @@ impl View {
     pub fn has_pending_effort(&self) -> bool {
         self.connection == ConnectionState::Connecting
             || self.chat_loading != ChatLoadingState::Idle
+            || !self.media_preview_loads.is_empty()
             || self
                 .messages
                 .iter()

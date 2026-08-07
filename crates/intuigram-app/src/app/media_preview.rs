@@ -30,6 +30,7 @@ impl App {
 
     pub(super) fn queue_active_media_previews(&mut self) {
         self.media_preview_loads.queued.clear();
+        self.view.media_preview_loads.clear();
         let Some(chat) = self.active_chat_id() else {
             return;
         };
@@ -68,6 +69,17 @@ impl App {
             })
             .take(MAX_QUEUED_PREVIEWS)
             .collect::<VecDeque<_>>();
+        self.view.media_preview_loads.extend(
+            self.media_preview_loads
+                .active
+                .filter(|key| key.chat == chat)
+                .into_iter()
+                .chain(candidates.iter().copied())
+                .map(|key| MediaPreviewLoadView {
+                    chat: key.chat,
+                    message: key.message,
+                }),
+        );
         self.media_preview_loads.queued = candidates;
     }
 
@@ -88,6 +100,9 @@ impl App {
             return None;
         }
         self.media_preview_loads.active = None;
+        self.view
+            .media_preview_loads
+            .retain(|loading| loading.chat != key.chat || loading.message != key.message);
         self.request_next_media_preview().or_else(|| {
             (!self.history_load_is_active())
                 .then(|| self.request_next_background_history())

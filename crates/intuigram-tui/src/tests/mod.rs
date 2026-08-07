@@ -75,6 +75,7 @@ fn view(actions: Vec<Action>) -> View {
         link_confirmation: None,
         downloads: Vec::new(),
         media_previews: Vec::new(),
+        media_preview_loads: Vec::new(),
         poll_composer: false,
         notice: None,
         animation_frame: 0,
@@ -297,6 +298,7 @@ fn terminal_events_resolve_against_the_current_view() {
 }
 mod density;
 mod effort;
+mod image_loading;
 mod loading;
 mod multiline;
 mod rendering;

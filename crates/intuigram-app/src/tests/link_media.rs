@@ -1,8 +1,40 @@
 use super::{apply, bootstrap};
 use crate::{
-    Action, AdapterEvent, DownloadId, DownloadView, Effect, Input, Intent, MediaCard, MediaKind,
-    MessageId, TextEntity, TextEntityKind,
+    Action, AdapterEvent, ChatId, DownloadId, DownloadView, Effect, Input, Intent, MediaCard,
+    MediaKind, MessageId, TextEntity, TextEntityKind,
 };
+
+#[test]
+fn image_preview_space_is_reserved_only_while_loading() {
+    let mut fixture = bootstrap();
+    fixture.messages[2].details.media = Some(MediaCard {
+        kind: MediaKind::Photo,
+        title: "Photo".to_owned(),
+        description: "image".to_owned(),
+        details: Vec::new(),
+        poll: None,
+        remote_id: Some("42".to_owned()),
+    });
+    let mut app = crate::App::new();
+
+    let loading = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+
+    assert_eq!(
+        loading.effect,
+        Some(Effect::LoadMediaPreview {
+            chat: ChatId(10),
+            message: MessageId(3),
+        })
+    );
+    assert_eq!(loading.view.media_preview_loads.len(), 1);
+    assert!(loading.view.has_pending_effort());
+
+    let failed = app.transition(Input::Adapter(AdapterEvent::MediaPreviewFailed {
+        chat: ChatId(10),
+        message: MessageId(3),
+    }));
+    assert!(failed.view.media_preview_loads.is_empty());
+}
 
 #[test]
 fn safe_and_internal_links_route_without_leaving_the_state_owner() {

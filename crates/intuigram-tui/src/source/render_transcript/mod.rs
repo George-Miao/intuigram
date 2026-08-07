@@ -131,12 +131,15 @@ fn message_lines(
     }));
     if let Some(media) = &message.details.media {
         let preview = media_preview(view, message.id);
+        let loading = media_preview_is_loading(view, message.id);
         lines.extend(render_media(
             media,
             preview,
+            loading,
             selected,
             focused,
             album_position(view, index, message.details.album_id),
+            view.animation_frame,
         ));
     }
     if mode == ViewMode::Default {
@@ -161,6 +164,7 @@ fn render_semantics(
             message,
             mode,
             media_preview(view, message.id),
+            media_preview_is_loading(view, message.id),
             unread == Some(index),
         )
         .min(area.bottom().saturating_sub(y));
@@ -197,6 +201,7 @@ fn render_semantics(
             message,
             mode,
             media_preview(view, message.id),
+            media_preview_is_loading(view, message.id),
             unread == Some(index),
         ));
     }
@@ -217,6 +222,15 @@ fn media_preview(
                 .find(|preview| preview.chat == chat && preview.message == message)
                 .map(|preview| &preview.image)
         })
+}
+
+fn media_preview_is_loading(view: &View, message: intuigram_app::MessageId) -> bool {
+    let Some(chat) = active_chat(view) else {
+        return false;
+    };
+    view.media_preview_loads
+        .iter()
+        .any(|loading| loading.chat == chat && loading.message == message)
 }
 
 fn active_chat(view: &View) -> Option<intuigram_app::ChatId> {

@@ -4,6 +4,7 @@ pub(super) fn message_height(
     message: &MessageView,
     mode: ViewMode,
     preview: Option<&intuigram_app::InlineImage>,
+    preview_loading: bool,
     unread: bool,
 ) -> u16 {
     let body_height = u16::try_from(message.body.split('\n').count()).unwrap_or(u16::MAX);
@@ -11,7 +12,7 @@ pub(super) fn message_height(
         .details
         .media
         .as_ref()
-        .map_or(0, |media| media_line_count(media, preview));
+        .map_or(0, |media| media_line_count(media, preview, preview_loading));
     mode.item_height(
         u16::from(unread)
             .saturating_add(1)
@@ -77,6 +78,7 @@ fn height_at(view: &View, index: usize, mode: ViewMode, unread: Option<usize>) -
         message,
         mode,
         media_preview(view, message.id),
+        media_preview_is_loading(view, message.id),
         unread == Some(index),
     )
 }

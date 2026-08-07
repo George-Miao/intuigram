@@ -2,6 +2,9 @@ use intuigram_app::{InlineImage, MediaCard, PollOptionView};
 
 use super::*;
 
+const INLINE_IMAGE_WIDTH: u16 = 32;
+const INLINE_IMAGE_HEIGHT: u16 = 6;
+
 pub(super) enum AlbumPosition {
     None,
     First,
@@ -31,13 +34,21 @@ impl AlbumPosition {
     }
 }
 
-pub(super) fn media_line_count(media: &MediaCard, preview: Option<&InlineImage>) -> u16 {
+pub(super) fn media_line_count(
+    media: &MediaCard,
+    preview: Option<&InlineImage>,
+    loading: bool,
+) -> u16 {
     let poll_lines = media.poll.as_ref().map_or(0, |poll| {
         poll.options.len()
             + usize::from(poll.total_voters.is_some())
             + usize::from(poll.solution.is_some())
     });
-    let preview_lines = preview.map_or(0, |image| image.height().div_ceil(2));
+    let preview_lines = if preview.is_some() || loading {
+        INLINE_IMAGE_HEIGHT
+    } else {
+        0
+    };
     u16::try_from(1 + media.details.len() + poll_lines)
         .unwrap_or(u16::MAX)
         .saturating_add(preview_lines)
@@ -46,9 +57,11 @@ pub(super) fn media_line_count(media: &MediaCard, preview: Option<&InlineImage>)
 pub(super) fn render_media(
     media: &MediaCard,
     preview: Option<&InlineImage>,
+    loading: bool,
     selected: bool,
     focused: bool,
     album: AlbumPosition,
+    animation_frame: u8,
 ) -> Vec<Line<'static>> {
     let mut lines = vec![Line::from(vec![
         selection_rule(selected),
@@ -63,6 +76,8 @@ pub(super) fn render_media(
     ])];
     if let Some(preview) = preview {
         lines.extend(render_inline_image(preview, selected, focused));
+    } else if loading {
+        lines.extend(render_image_placeholder(selected, animation_frame));
     }
     lines.extend(media.details.iter().map(|detail| {
         Line::from(vec![
@@ -110,14 +125,20 @@ fn render_inline_image(image: &InlineImage, selected: bool, focused: bool) -> Ve
     } else {
         (244, 240, 217)
     };
-    (0..image.height())
-        .step_by(2)
-        .map(|upper_y| {
-            let mut spans = Vec::with_capacity(usize::from(image.width()).saturating_add(1));
+    (0..INLINE_IMAGE_HEIGHT)
+        .map(|line| {
+            let upper_y = line.saturating_mul(2);
+            let mut spans = Vec::with_capacity(usize::from(INLINE_IMAGE_WIDTH).saturating_add(1));
             spans.push(selection_rule(selected));
-            spans.extend((0..image.width()).map(|x| {
+            spans.extend((0..INLINE_IMAGE_WIDTH).map(|x| {
+                if x >= image.width() || upper_y >= image.height() {
+                    return Span::styled(
+                        " ",
+                        Style::default().bg(Color::Rgb(background.0, background.1, background.2)),
+                    );
+                }
                 let upper = pixel(image, x, upper_y, background);
-                let lower = if upper_y + 1 < image.height() {
+                let lower = if upper_y.saturating_add(1) < image.height() {
                     pixel(image, x, upper_y + 1, background)
                 } else {
                     background
@@ -129,6 +150,30 @@ fn render_inline_image(image: &InlineImage, selected: bool, focused: bool) -> Ve
                         .bg(Color::Rgb(lower.0, lower.1, lower.2)),
                 )
             }));
+            Line::from(spans)
+        })
+        .collect()
+}
+
+fn render_image_placeholder(selected: bool, animation_frame: u8) -> Vec<Line<'static>> {
+    let highlight = u16::from(animation_frame) % INLINE_IMAGE_WIDTH;
+    (0..INLINE_IMAGE_HEIGHT)
+        .map(|row| {
+            let mut spans = Vec::with_capacity(usize::from(INLINE_IMAGE_WIDTH).saturating_add(1));
+            spans.push(selection_rule(selected));
+            spans.extend((0..INLINE_IMAGE_WIDTH).map(|column| {
+                let highlighted = column == highlight;
+                Span::styled(
+                    if highlighted { "▒" } else { "░" },
+                    Style::default().fg(if highlighted { PRIMARY } else { MUTED_TEXT }),
+                )
+            }));
+            if row == INLINE_IMAGE_HEIGHT / 2 {
+                spans.push(Span::styled(
+                    "  loading image",
+                    Style::default().fg(MUTED_TEXT),
+                ));
+            }
             Line::from(spans)
         })
         .collect()

@@ -28,6 +28,7 @@ impl App {
                 link_confirmation: None,
                 downloads: Vec::new(),
                 media_previews: Vec::new(),
+                media_preview_loads: Vec::new(),
                 poll_composer: false,
                 notice: None,
                 animation_frame: 0,
@@ -159,6 +160,7 @@ impl App {
         self.restore_active_draft();
         self.reset_background_history();
         self.media_preview_loads = MediaPreviewLoads::default();
+        self.view.media_preview_loads.clear();
     }
 
     pub(super) fn merge_restored_connection(&mut self, bootstrap: Bootstrap) {
