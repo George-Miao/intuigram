@@ -9,7 +9,6 @@
 
 ## TODO
 
-- [ ] **p-core:** Retain synchronized Chat metadata and Message text until the user explicitly clears Account data or logs out. Keep media and thumbnails in a size-bounded LRU Media Cache with a configurable 2 GiB default; expose usage and precise clear-media/clear-account actions without silently deleting Message text.
 - [ ] **p-core:** Add polished onboarding, packaging, migration, and support for public distribution, including a deliberate Telegram application-credential policy.
 - [ ] **p-core:** Add an optional Local Lock that encrypts both the Account cache and Telegram authorization material, unlocked through an OS keyring or passphrase.
 - [ ] **p-core:** Add and switch between multiple Accounts while restoring each Account's Folder, Active Chat, Drafts, scroll positions, and notification identity.

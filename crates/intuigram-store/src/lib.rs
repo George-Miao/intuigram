@@ -3,6 +3,7 @@
 mod account;
 mod global;
 mod layout;
+mod lifecycle;
 mod recovery;
 
 pub use account::{
@@ -12,4 +13,5 @@ pub use account::{
 };
 pub use global::{AccountRecord, Error as GlobalError, GlobalDatabase, Result as GlobalResult};
 pub use layout::{AccountId, StoreLayout};
+pub use lifecycle::{AccountDataRemoval, Error as LifecycleError, Result as LifecycleResult};
 pub use recovery::{AccountOpen, AccountRecovery, RebuiltAccount, RecoveryError, RecoveryResult};

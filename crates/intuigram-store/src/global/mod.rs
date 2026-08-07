@@ -23,8 +23,8 @@ use error::UnsupportedPermissionsSnafu;
 use error::{
     BackupDatabaseSnafu, BackupNamesExhaustedSnafu, CreateDataDirectorySnafu,
     DatabaseCheckFailedSnafu, InspectMigrationsSnafu, ListAccountsSnafu, MigrateDatabaseSnafu,
-    OpenDatabaseSnafu, ProtectDataPathSnafu, RegisterAccountSnafu, RunDatabaseCheckSnafu,
-    SpawnWorkerSnafu,
+    OpenDatabaseSnafu, ProtectDataPathSnafu, RegisterAccountSnafu, RemoveAccountSnafu,
+    RunDatabaseCheckSnafu, SpawnWorkerSnafu,
 };
 pub use error::{Error, Result};
 
@@ -46,6 +46,10 @@ enum Command {
     },
     List {
         reply: SyncSender<Result<Vec<AccountRecord>>>,
+    },
+    Remove {
+        account: AccountId,
+        reply: SyncSender<Result<()>>,
     },
     Shutdown,
 }
@@ -88,6 +92,15 @@ impl GlobalDatabase {
         let (reply, response) = mpsc::sync_channel(1);
         self.commands
             .send(Command::List { reply })
+            .map_err(|_| Error::WorkerUnavailable)?;
+        response.recv().map_err(|_| Error::WorkerUnavailable)?
+    }
+
+    /// Removes one Account from the cross-Account registry.
+    pub fn remove(&self, account: AccountId) -> Result<()> {
+        let (reply, response) = mpsc::sync_channel(1);
+        self.commands
+            .send(Command::Remove { account, reply })
             .map_err(|_| Error::WorkerUnavailable)?;
         response.recv().map_err(|_| Error::WorkerUnavailable)?
     }
@@ -143,6 +156,16 @@ fn run_worker(path: &Path, requests: &Receiver<Command>, ready: &SyncSender<Resu
             }
             Command::List { reply } => {
                 let _ = reply.send(list_accounts(&connection));
+            }
+            Command::Remove { account, reply } => {
+                let result = connection
+                    .execute(
+                        "DELETE FROM accounts WHERE telegram_user_id = ?1",
+                        [account.get()],
+                    )
+                    .context(RemoveAccountSnafu { account })
+                    .map(|_| ());
+                let _ = reply.send(result);
             }
             Command::Shutdown => break,
         }
@@ -360,6 +383,36 @@ mod tests {
         assert_eq!(accounts[0].id, second);
         assert!(accounts[0].active);
         assert!(!accounts[1].active);
+    }
+
+    #[test]
+    fn removing_an_account_leaves_other_registry_records() {
+        let temporary = tempdir().expect("temporary directory should be created");
+        let layout = StoreLayout::new(temporary.path().join("intuigram"));
+        let first = AccountId::new(11).expect("fixture ID should be positive");
+        let second = AccountId::new(22).expect("fixture ID should be positive");
+        let database = GlobalDatabase::open(&layout).expect("global database should open");
+        for id in [first, second] {
+            database
+                .register(AccountRecord {
+                    id,
+                    display_name: id.get().to_string(),
+                    active: id == first,
+                })
+                .expect("account should register");
+        }
+
+        database.remove(first).expect("account should be removed");
+
+        assert_eq!(
+            database
+                .accounts()
+                .expect("remaining accounts should load")
+                .into_iter()
+                .map(|account| account.id)
+                .collect::<Vec<_>>(),
+            vec![second]
+        );
     }
 
     #[test]

@@ -2,7 +2,7 @@ pub(super) async fn resume_account(
     credentials: ApplicationCredentials,
     layout: &StoreLayout,
     account: &AccountRecord,
-    downloads: PathBuf,
+    storage: AdapterStorage,
 ) -> Result<(
     Backend,
     BackendEvents,
@@ -61,7 +61,8 @@ pub(super) async fn resume_account(
             store: store.clone(),
             next_local_message_id: 0,
             attachments: AttachmentStore::default(),
-            downloads: intuigram_media::DownloadDirectory::new(downloads),
+            downloads: intuigram_media::DownloadDirectory::new(storage.downloads.clone()),
+            media_cache: storage.for_account(account.id),
             downloaded: DownloadStore::default(),
         },
         BackendEvents {
@@ -181,6 +182,12 @@ pub(super) async fn authorize_new_account(
             next_local_message_id: 0,
             attachments: AttachmentStore::default(),
             downloads: intuigram_media::DownloadDirectory::new(config.paths.downloads.clone()),
+            media_cache: AdapterStorage {
+                downloads: config.paths.downloads.clone(),
+                cache_root: config.paths.cache.clone(),
+                cache_limit: config.media.cache_bytes,
+            }
+            .for_account(account_id),
             downloaded: DownloadStore::default(),
         },
         BackendEvents {

@@ -49,6 +49,19 @@ Configuration may also come from `config.yaml`, `config.yml`, `config.json`,
 command-line overrides. Later sources take precedence. The media-cache default
 is 2 GiB.
 
+Inspect or explicitly clear one Account's local storage without starting the
+TUI:
+
+```sh
+intuigram --media-cache-usage TELEGRAM_USER_ID
+intuigram --clear-media-cache TELEGRAM_USER_ID
+intuigram --clear-account-data TELEGRAM_USER_ID
+```
+
+Clearing media never deletes Chat metadata or Message text. Clearing Account
+data requires typing the displayed Account-specific confirmation and names the
+authorization, records, backups, and Media Cache that it removes.
+
 ## Running the PoC
 
 Create an application at `my.telegram.org`, copy

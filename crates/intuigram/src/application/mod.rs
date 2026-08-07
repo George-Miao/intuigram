@@ -94,7 +94,15 @@ struct Arguments {
     data: Option<PathBuf>,
     cache: Option<PathBuf>,
     downloads: Option<PathBuf>,
+    maintenance: Option<Maintenance>,
     help: bool,
+}
+
+#[derive(Clone, Copy)]
+enum Maintenance {
+    MediaUsage(AccountId),
+    ClearMedia(AccountId),
+    ClearAccount(AccountId),
 }
 
 struct Backend {
@@ -104,7 +112,24 @@ struct Backend {
     next_local_message_id: i64,
     attachments: AttachmentStore,
     downloads: intuigram_media::DownloadDirectory,
+    media_cache: intuigram_media::MediaCache,
     downloaded: DownloadStore,
+}
+
+#[derive(Clone)]
+struct AdapterStorage {
+    downloads: PathBuf,
+    cache_root: PathBuf,
+    cache_limit: u64,
+}
+
+impl AdapterStorage {
+    fn for_account(&self, account: AccountId) -> intuigram_media::MediaCache {
+        intuigram_media::MediaCache::new(
+            self.cache_root.join(account.get().to_string()),
+            self.cache_limit,
+        )
+    }
 }
 
 #[derive(Default)]
@@ -177,6 +202,12 @@ enum Error {
     #[snafu(display("unknown argument {argument}"))]
     UnknownArgument { argument: String },
 
+    #[snafu(display("{argument} requires a positive decimal Telegram user ID, got {value:?}"))]
+    InvalidArgumentValue { argument: String, value: String },
+
+    #[snafu(display("only one storage maintenance action may be requested"))]
+    ConflictingMaintenance,
+
     #[snafu(display("failed to load Intuigram configuration"))]
     LoadConfiguration { source: intuigram_config::Error },
 
@@ -196,6 +227,11 @@ enum Error {
     #[snafu(display("failed to update Intuigram Account registry"))]
     UpdateAccountRegistry {
         source: intuigram_store::GlobalError,
+    },
+
+    #[snafu(display("failed to clear durable Account data"))]
+    ClearAccountData {
+        source: intuigram_store::LifecycleError,
     },
 
     #[snafu(display("failed to access Intuigram Account database"))]
@@ -244,6 +280,9 @@ enum Error {
     SaveDownload {
         source: intuigram_media::DownloadError,
     },
+
+    #[snafu(display("failed to access the redownloadable Media Cache"))]
+    MediaCache { source: intuigram_media::CacheError },
 
     #[snafu(display("completed download {download_id} is no longer available"))]
     DownloadUnavailable { download_id: u64 },

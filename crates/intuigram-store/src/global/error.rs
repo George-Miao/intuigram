@@ -146,6 +146,16 @@ pub enum Error {
         source: rusqlite::Error,
     },
 
+    /// An Account could not be removed from the registry.
+    #[snafu(display("failed to remove Telegram Account {} from the registry", account.get()))]
+    RemoveAccount {
+        /// Account being removed.
+        account: AccountId,
+
+        /// Underlying database failure.
+        source: rusqlite::Error,
+    },
+
     /// Registered Accounts could not be loaded.
     #[snafu(display("failed to load registered Telegram Accounts"))]
     ListAccounts {

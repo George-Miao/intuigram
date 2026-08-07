@@ -9,6 +9,9 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
         })
         .load()
         .context(LoadConfigurationSnafu)?;
+    if let Some(maintenance) = arguments.maintenance {
+        return run_maintenance(&config, maintenance);
+    }
     let layout = StoreLayout::new(config.paths.data.clone());
     let global = GlobalDatabase::open(&layout).context(OpenAccountRegistrySnafu)?;
     let view_mode = match config.view.mode {
@@ -47,7 +50,11 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
             layout,
             account.clone(),
             cached_bootstrap(account.display_name, cached),
-            config.paths.downloads,
+            AdapterStorage {
+                downloads: config.paths.downloads,
+                cache_root: config.paths.cache,
+                cache_limit: config.media.cache_bytes,
+            },
         )
         .await;
     }
@@ -64,6 +71,78 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
     .await
 }
 
+fn run_maintenance(config: &Config, maintenance: Maintenance) -> Result<()> {
+    let account = match maintenance {
+        Maintenance::MediaUsage(account)
+        | Maintenance::ClearMedia(account)
+        | Maintenance::ClearAccount(account) => account,
+    };
+    let cache = intuigram_media::MediaCache::new(
+        config.paths.cache.join(account.get().to_string()),
+        config.media.cache_bytes,
+    );
+    match maintenance {
+        Maintenance::MediaUsage(_) => {
+            let usage = cache.usage().context(MediaCacheSnafu)?;
+            println!(
+                "Account {} Media Cache: {} bytes in {} entries (limit {} bytes)",
+                account.get(),
+                usage.bytes,
+                usage.entries,
+                usage.limit
+            );
+        }
+        Maintenance::ClearMedia(_) => {
+            let removed = cache.clear().context(MediaCacheSnafu)?;
+            println!(
+                "Cleared {} bytes in {} redownloadable media entries for Account {}. Chat and \
+                 Message text were retained.",
+                removed.bytes,
+                removed.entries,
+                account.get()
+            );
+        }
+        Maintenance::ClearAccount(_) => {
+            let layout = StoreLayout::new(config.paths.data.clone());
+            let global = GlobalDatabase::open(&layout).context(OpenAccountRegistrySnafu)?;
+            let identity = global
+                .accounts()
+                .context(ReadAccountRegistrySnafu)?
+                .into_iter()
+                .find(|candidate| candidate.id == account)
+                .map_or_else(
+                    || format!("Account {}", account.get()),
+                    |record| record.display_name,
+                );
+            println!(
+                "Clear local data for {identity} (Telegram user {})? This deletes its \
+                 authorization, synchronized Chat and Message records, Drafts, recovery backups, \
+                 and Media Cache. The server-side Telegram authorization may remain active.",
+                account.get()
+            );
+            let confirmation = prompt(
+                &format!("Type CLEAR {} to continue", account.get()),
+                "clear-account confirmation",
+            )?;
+            if confirmation != format!("CLEAR {}", account.get()) {
+                println!("Account data was not changed.");
+                return Ok(());
+            }
+            global.remove(account).context(UpdateAccountRegistrySnafu)?;
+            drop(global);
+            let durable = intuigram_store::AccountDataRemoval::clear(&layout, account)
+                .context(ClearAccountDataSnafu)?;
+            let media = cache.clear().context(MediaCacheSnafu)?;
+            println!(
+                "Removed {} durable files and {} cached bytes for {identity}.",
+                durable.removed.len(),
+                media.bytes
+            );
+        }
+    }
+    Ok(())
+}
+
 pub(super) async fn run_cached_account<U, E>(
     terminal: &mut U,
     events: &mut E,
@@ -71,7 +150,7 @@ pub(super) async fn run_cached_account<U, E>(
     layout: StoreLayout,
     account: AccountRecord,
     bootstrap: Bootstrap,
-    downloads: PathBuf,
+    storage: AdapterStorage,
 ) -> Result<()>
 where
     U: ApplicationUi,
@@ -86,7 +165,7 @@ where
         credentials.clone(),
         &layout,
         &account,
-        downloads.clone(),
+        storage.clone(),
     )));
 
     loop {
@@ -99,7 +178,7 @@ where
                         credentials.clone(),
                         &layout,
                         &account,
-                        downloads.clone(),
+                        storage.clone(),
                     )));
                 }
                 Effect::Reconnect => {}
@@ -190,7 +269,7 @@ where
                             credentials.clone(),
                             &layout,
                             &account,
-                            downloads.clone(),
+                            storage.clone(),
                         )));
                     }
                 }

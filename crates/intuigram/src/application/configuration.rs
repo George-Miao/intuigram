@@ -1,3 +1,5 @@
+use super::*;
+
 pub(super) fn telegram_credentials(config: &Config) -> Result<ApplicationCredentials> {
     let api_id = config
         .telegram
@@ -56,6 +58,34 @@ pub(super) fn parse_arguments(arguments: impl IntoIterator<Item = String>) -> Re
     let mut parsed = Arguments::default();
     let mut arguments = arguments.into_iter();
     while let Some(argument) = arguments.next() {
+        if matches!(
+            argument.as_str(),
+            "--media-cache-usage" | "--clear-media-cache" | "--clear-account-data"
+        ) {
+            if parsed.maintenance.is_some() {
+                return ConflictingMaintenanceSnafu.fail();
+            }
+            let value = arguments
+                .next()
+                .ok_or_else(|| Error::MissingArgumentValue {
+                    argument: argument.clone(),
+                })?;
+            let account = value
+                .parse::<i64>()
+                .ok()
+                .and_then(AccountId::new)
+                .ok_or_else(|| Error::InvalidArgumentValue {
+                    argument: argument.clone(),
+                    value,
+                })?;
+            parsed.maintenance = Some(match argument.as_str() {
+                "--media-cache-usage" => Maintenance::MediaUsage(account),
+                "--clear-media-cache" => Maintenance::ClearMedia(account),
+                "--clear-account-data" => Maintenance::ClearAccount(account),
+                _ => unreachable!("maintenance arguments were matched above"),
+            });
+            continue;
+        }
         let destination = match argument.as_str() {
             "-h" | "--help" => {
                 parsed.help = true;
@@ -113,6 +143,9 @@ pub(super) fn print_help() {
            --data-dir PATH         Override the platform data directory\n\
            --cache-dir PATH        Override the platform cache directory\n\
            --downloads-dir PATH    Override the platform Downloads directory\n\
+           --media-cache-usage ID  Show one Account's cache usage and configured limit\n\
+           --clear-media-cache ID  Clear only redownloadable media for one Account\n\
+           --clear-account-data ID Clear local records, authorization, and media after confirmation\n\
            -h, --help              Print this help\n\n\
          Configure telegram.api_id and telegram.api_hash in config.toml, YAML, JSON, or the\n\
          INTUIGRAM_TELEGRAM__API_ID and INTUIGRAM_TELEGRAM__API_HASH environment variables."
@@ -150,4 +183,26 @@ pub(super) fn derived_random_id(base: i64, index: usize, domain: u64) -> i64 {
     value = value.wrapping_mul(0x94d0_49bb_1331_11eb);
     (value ^ (value >> 31)) as i64
 }
-use super::*;
+
+#[cfg(test)]
+mod argument_tests {
+    use super::{Maintenance, parse_arguments};
+
+    #[test]
+    fn storage_maintenance_requires_one_positive_account_id() {
+        let parsed = parse_arguments(["--media-cache-usage".to_owned(), "42".to_owned()])
+            .expect("valid maintenance arguments should parse");
+        assert!(matches!(parsed.maintenance, Some(Maintenance::MediaUsage(id)) if id.get() == 42));
+
+        assert!(parse_arguments(["--clear-media-cache".to_owned(), "0".to_owned()]).is_err());
+        assert!(
+            parse_arguments([
+                "--clear-media-cache".to_owned(),
+                "1".to_owned(),
+                "--clear-account-data".to_owned(),
+                "1".to_owned(),
+            ])
+            .is_err()
+        );
+    }
+}
