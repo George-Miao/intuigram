@@ -163,7 +163,7 @@ fn transcript_scroll_keeps_the_active_message_visible() {
     view.active_message = Some(10);
     view.focus = Focus::Transcript;
 
-    let backend = TestBackend::new(100, 24);
+    let backend = TestBackend::new(100, 28);
     let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
     terminal
         .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))

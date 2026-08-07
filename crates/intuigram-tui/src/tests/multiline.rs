@@ -106,7 +106,7 @@ fn active_chat_view() -> View {
 }
 
 fn terminal() -> Terminal<TestBackend> {
-    Terminal::new(TestBackend::new(100, 24)).expect("test terminal should initialize")
+    Terminal::new(TestBackend::new(100, 28)).expect("test terminal should initialize")
 }
 
 fn row_text(buffer: &ratatui::buffer::Buffer, row: u16) -> String {

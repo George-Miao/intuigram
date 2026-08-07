@@ -27,11 +27,11 @@ fn pending_work_uses_a_moving_highlight_and_stops_when_complete() {
     }];
 
     let mut terminal =
-        Terminal::new(TestBackend::new(100, 24)).expect("test terminal should initialize");
+        Terminal::new(TestBackend::new(100, 28)).expect("test terminal should initialize");
     terminal
         .draw(|frame| render(frame, &current, &EffectiveKeymap::defaults()))
         .expect("first effort frame should render");
-    let first = highlighted_columns(terminal.backend().buffer(), 23);
+    let first = highlighted_columns(terminal.backend().buffer(), 26);
     let rendered = terminal
         .backend()
         .buffer()
@@ -47,7 +47,7 @@ fn pending_work_uses_a_moving_highlight_and_stops_when_complete() {
     terminal
         .draw(|frame| render(frame, &current, &EffectiveKeymap::defaults()))
         .expect("next effort frame should render");
-    let second = highlighted_columns(terminal.backend().buffer(), 23);
+    let second = highlighted_columns(terminal.backend().buffer(), 26);
     assert_ne!(first, second);
 
     current.connection = ConnectionState::Connected;

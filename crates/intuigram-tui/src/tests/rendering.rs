@@ -80,7 +80,7 @@ fn active_folder_is_bold_and_underlined_without_a_selection_rule() {
             unread: 0,
         },
     ];
-    let backend = TestBackend::new(100, 24);
+    let backend = TestBackend::new(100, 28);
     let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
     terminal
         .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
@@ -186,7 +186,7 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
     view.active_message = Some(0);
     view.focus = Focus::Composer;
 
-    let backend = TestBackend::new(100, 24);
+    let backend = TestBackend::new(100, 28);
     let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
     terminal
         .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
@@ -209,7 +209,8 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
     assert_eq!(buffer[(30, 5)].bg, Color::Rgb(253, 246, 227));
     assert_eq!(buffer[(5, 21)].bg, Color::Rgb(244, 240, 217));
     assert_eq!(buffer[(5, 22)].bg, Color::Rgb(244, 240, 217));
-    assert_eq!(buffer[(5, 23)].bg, Color::Rgb(239, 235, 212));
+    assert_eq!(buffer[(5, 23)].bg, Color::Rgb(244, 240, 217));
+    assert_eq!(buffer[(5, 26)].bg, Color::Rgb(239, 235, 212));
     assert!(
         buffer
             .content
@@ -240,7 +241,7 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
         .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
         .expect("search focus should render");
     assert_eq!(
-        terminal.backend().buffer()[(5, 23)].bg,
+        terminal.backend().buffer()[(5, 26)].bg,
         Color::Rgb(230, 226, 204)
     );
 }
@@ -325,7 +326,7 @@ fn transcript_renders_rich_metadata_album_and_quiz_fallbacks() {
         },
     });
 
-    let backend = TestBackend::new(120, 32);
+    let backend = TestBackend::new(120, 36);
     let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
     terminal
         .draw(|frame| render(frame, &current, &EffectiveKeymap::defaults()))

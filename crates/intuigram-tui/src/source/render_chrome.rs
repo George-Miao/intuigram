@@ -64,7 +64,7 @@ pub(super) fn render_actions(
     mode: ViewMode,
     semantics: &mut Vec<SemanticNode>,
 ) {
-    let content_area = mode.horizontally_padded(area);
+    let content_area = mode.padded(area);
     let mut spans = Vec::new();
     let mut x = content_area.x;
     for binding in keymap.action_bar(view) {
@@ -154,7 +154,7 @@ pub(super) fn render_status(frame: &mut Frame<'_>, area: Rect, view: &View, mode
     frame.render_widget(Paragraph::new("").style(style), area);
     frame.render_widget(
         Paragraph::new(Line::from(spans)).style(style),
-        mode.horizontally_padded(area),
+        mode.padded(area),
     );
 }
 

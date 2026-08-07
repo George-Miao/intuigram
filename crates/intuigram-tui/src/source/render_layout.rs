@@ -29,8 +29,8 @@ pub(super) fn render_with_semantics(
     let rows = Layout::vertical([
         Constraint::Min(5),
         Constraint::Length(mode.folder_height()),
-        Constraint::Length(1),
-        Constraint::Length(1),
+        Constraint::Length(mode.chrome_row_height()),
+        Constraint::Length(mode.chrome_row_height()),
     ])
     .split(area);
     render_main(frame, rows[0], view, mode, semantics);

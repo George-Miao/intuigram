@@ -55,11 +55,11 @@ fn message(body: &str) -> MessageView {
 
 fn render_rows(current: &View) -> Vec<String> {
     let mut terminal =
-        Terminal::new(TestBackend::new(100, 24)).expect("test terminal should initialize");
+        Terminal::new(TestBackend::new(100, 28)).expect("test terminal should initialize");
     terminal
         .draw(|frame| render(frame, current, &EffectiveKeymap::defaults()))
         .expect("loading state should render");
-    (0..24)
+    (0..28)
         .map(|row| {
             (0..100)
                 .map(|column| terminal.backend().buffer()[(column, row)].symbol())

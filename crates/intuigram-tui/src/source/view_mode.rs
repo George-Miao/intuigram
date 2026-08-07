@@ -64,4 +64,11 @@ impl ViewMode {
             Self::Compact => 1,
         }
     }
+
+    pub(super) const fn chrome_row_height(self) -> u16 {
+        match self {
+            Self::Default => 3,
+            Self::Compact => 1,
+        }
+    }
 }

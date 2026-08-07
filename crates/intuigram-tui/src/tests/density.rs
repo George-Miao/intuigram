@@ -57,6 +57,20 @@ fn compact_view_preserves_the_original_dense_layout() {
 }
 
 #[test]
+fn default_view_pads_action_and_status_regions_on_all_sides() {
+    let current = view(vec![Action::Quit]);
+    let rendered = render_test_frame(&current, 100, 28);
+    let buffer = &rendered.buffer;
+
+    assert_eq!(buffer[(1, 22)].symbol(), " ");
+    assert_eq!(buffer[(1, 23)].symbol(), "C");
+    assert_eq!(buffer[(1, 24)].symbol(), " ");
+    assert_eq!(buffer[(1, 25)].symbol(), " ");
+    assert_eq!(buffer[(1, 26)].symbol(), "T");
+    assert_eq!(buffer[(1, 27)].symbol(), " ");
+}
+
+#[test]
 fn narrow_layout_projects_the_current_hierarchy_level() {
     let current = responsive_view();
     let chats = render_test_frame(&current, 70, 24);
