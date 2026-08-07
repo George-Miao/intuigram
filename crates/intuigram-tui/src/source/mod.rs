@@ -39,6 +39,7 @@ pub(crate) mod qr_render;
 mod qr_session;
 mod render_chrome;
 mod render_composer;
+mod render_headers;
 pub(crate) mod render_layout;
 mod render_overlays;
 mod render_transcript;
@@ -53,6 +54,7 @@ use render_chrome::{
     render_help, render_status, selection_rule, surface_style,
 };
 use render_composer::{composer_height, render_composer};
+use render_headers::{render_active_chat_header, render_chat_list_header};
 use render_layout::{render_with_mode, render_with_semantics};
 use render_overlays::{
     render_delete_confirmation, render_forward_picker, render_link_confirmation, render_poll_vote,

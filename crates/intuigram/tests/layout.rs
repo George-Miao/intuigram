@@ -83,11 +83,35 @@ fn chat_list_and_transcript_have_one_cell_internal_padding() -> Result<()> {
     let message_row = row_within(&rows, "hello", 31, 100);
 
     assert_eq!(row_segment(&rows, title_row, 0, 7), " │ Rust");
-    assert!(row_segment(&rows, 2, 31, 100).trim().is_empty());
+    assert!(row_segment(&rows, 4, 31, 100).trim().is_empty());
     assert_eq!(row_segment(&rows, message_row, 31, 35), "   h");
     assert!(rows[20].starts_with(' '));
     assert!(rows[22].starts_with(' '));
     assert!(rows[23].starts_with(' '));
+    app.expect_no_unhandled_work()
+}
+
+#[test]
+fn headers_have_vertical_padding_and_an_active_chat_status_row() -> Result<()> {
+    let mut app = TestSystem::builder()
+        .name("layout-padded-headers")
+        .terminal(100, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, []),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    let rows = app.screen().rows();
+
+    assert!(row_segment(&rows, 0, 0, 30).trim().is_empty());
+    assert!(row_segment(&rows, 0, 31, 100).trim().is_empty());
+    assert!(row_segment(&rows, 1, 0, 30).contains("Chats"));
+    assert!(row_segment(&rows, 1, 31, 100).contains("Rust"));
+    assert!(row_segment(&rows, 2, 31, 100).contains("up to date"));
+    assert!(row_segment(&rows, 3, 31, 100).trim().is_empty());
     app.expect_no_unhandled_work()
 }
 

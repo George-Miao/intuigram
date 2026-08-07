@@ -87,18 +87,12 @@ pub(super) fn render_chats(
     semantics: &mut Vec<SemanticNode>,
 ) {
     let focused = view.focus == Focus::Chats;
-    let rows = Layout::vertical([Constraint::Length(2), Constraint::Min(1)]).split(area);
-    frame.render_widget(
-        Paragraph::new(Line::from(vec![
-            Span::styled("Chats", Style::default().add_modifier(Modifier::BOLD)),
-            Span::styled(
-                format!("  {}", view.account_name),
-                Style::default().fg(MUTED_TEXT),
-            ),
-        ]))
-        .style(surface_style(focused)),
-        rows[0],
-    );
+    let rows = Layout::vertical([
+        Constraint::Length(mode.chat_header_height()),
+        Constraint::Min(1),
+    ])
+    .split(area);
+    render_chat_list_header(frame, rows[0], view, mode, focused);
     frame.render_widget(Paragraph::new("").style(surface_style(focused)), rows[1]);
     let list_area = mode.padded(rows[1]);
     let item_height = mode.item_height(2);
@@ -175,85 +169,12 @@ pub(super) fn render_active_chat(
 ) {
     let composer_height = composer_height(area, view);
     let rows = Layout::vertical([
-        Constraint::Length(2),
+        Constraint::Length(mode.active_chat_header_height()),
         Constraint::Min(1),
         Constraint::Length(composer_height),
     ])
     .split(area);
-    let header = view
-        .active_chat
-        .and_then(|index| view.chats.get(index))
-        .map_or_else(
-            || {
-                Line::from(Span::styled(
-                    "No active Chat",
-                    Style::default().fg(MUTED_TEXT),
-                ))
-            },
-            |chat| {
-                Line::from(vec![
-                    Span::styled(
-                        chat.title.clone(),
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    Span::styled(
-                        if let Some(root) = view.active_thread {
-                            format!("  Thread {}", root.0)
-                        } else if chat.unread > 0 {
-                            format!("  {} unread", chat.unread)
-                        } else {
-                            "  up to date".to_owned()
-                        },
-                        Style::default().fg(MUTED_TEXT),
-                    ),
-                ])
-            },
-        );
-    let active_message = view
-        .active_message
-        .and_then(|index| view.messages.get(index))
-        .map_or_else(
-            || Line::from(""),
-            |message| {
-                Line::from(vec![
-                    selection_rule(true),
-                    Span::styled(
-                        "Active message",
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    Span::styled(
-                        format!(" · {} · {}", message.sender, message.timestamp),
-                        Style::default().fg(MUTED_TEXT),
-                    ),
-                ])
-            },
-        );
-    let pinned = view
-        .pinned_messages
-        .iter()
-        .rev()
-        .find(|message| message.details.pinned)
-        .map(|message| {
-            Span::styled(
-                format!("Pinned · {}", message.body.replace('\n', " ")),
-                Style::default().fg(MUTED_TEXT),
-            )
-        });
-    let subheader = if let Some(pinned) = pinned {
-        let mut spans = vec![pinned];
-        if !active_message.spans.is_empty() {
-            spans.push(Span::raw("  "));
-            spans.extend(active_message.spans);
-        }
-        Line::from(spans)
-    } else {
-        active_message
-    };
-    frame.render_widget(
-        Paragraph::new(vec![header, subheader])
-            .style(surface_style(view.focus == Focus::Transcript)),
-        rows[0],
-    );
+    render_active_chat_header(frame, rows[0], view, mode, view.focus == Focus::Transcript);
     render_transcript(
         frame,
         rows[1],

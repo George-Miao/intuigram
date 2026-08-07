@@ -44,6 +44,20 @@ impl ViewMode {
         }
     }
 
+    pub(super) const fn chat_header_height(self) -> u16 {
+        match self {
+            Self::Default => 3,
+            Self::Compact => 2,
+        }
+    }
+
+    pub(super) const fn active_chat_header_height(self) -> u16 {
+        match self {
+            Self::Default => 4,
+            Self::Compact => 2,
+        }
+    }
+
     pub(super) const fn folder_height(self) -> u16 {
         match self {
             Self::Default => 3,
