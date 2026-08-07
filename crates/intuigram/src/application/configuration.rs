@@ -1,20 +1,34 @@
 use super::*;
 
-pub(super) fn telegram_credentials(config: &Config) -> Result<ApplicationCredentials> {
-    let api_id = config
-        .telegram
-        .api_id
-        .context(MissingTelegramSettingSnafu {
-            setting: "telegram.api_id",
-        })?;
-    let api_hash = config
-        .telegram
-        .api_hash
-        .as_ref()
-        .context(MissingTelegramSettingSnafu {
-            setting: "telegram.api_hash",
-        })?;
-    Ok(ApplicationCredentials::new(api_id, api_hash.expose()))
+pub(super) fn resolve_telegram_credentials(
+    config: &Config,
+    config_directory: &std::path::Path,
+) -> Result<ApplicationCredentials> {
+    if let (Some(api_id), Some(api_hash)) =
+        (config.telegram.api_id, config.telegram.api_hash.as_ref())
+    {
+        return Ok(ApplicationCredentials::new(api_id, api_hash.expose()));
+    }
+    println!(
+        "First-run setup\n\nIntuigram public builds do not bundle shared Telegram application credentials.\nCreate your own application at https://my.telegram.org/apps, then enter its values below.\nThe API hash is hidden and both values will be saved to an owner-protected credentials.toml."
+    );
+    let api_id = match config.telegram.api_id {
+        Some(api_id) => api_id,
+        None => prompt("Application ID", "Telegram application ID")?
+            .parse::<i32>()
+            .ok()
+            .filter(|value| *value > 0)
+            .context(InvalidApplicationIdSnafu)?,
+    };
+    let api_hash = match config.telegram.api_hash.as_ref() {
+        Some(api_hash) => api_hash.expose().to_owned(),
+        None => rpassword::prompt_password("Application hash (hidden): ")
+            .context(PromptApplicationHashSnafu)?,
+    };
+    let path = intuigram_config::save_application_credentials(config_directory, api_id, &api_hash)
+        .context(SaveApplicationCredentialsSnafu)?;
+    println!("Saved credentials to {}.", path.display());
+    Ok(ApplicationCredentials::new(api_id, api_hash))
 }
 
 pub(super) fn store_session(session: &Session) -> SessionMaterial {

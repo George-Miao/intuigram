@@ -1,8 +1,11 @@
 //! Layered configuration for Intuigram.
 
+mod credentials;
+
 use std::path::PathBuf;
 use std::{fmt, ops};
 
+pub use credentials::{Error as CredentialError, save_application_credentials};
 use figment::Figment;
 use figment::providers::{Env, Format, Json, Serialized, Toml, Yaml};
 use serde::{Deserialize, Serialize};
@@ -224,7 +227,8 @@ impl ConfigLoader {
             .merge(Toml::file(self.defaults.config.join("config.toml")))
             .merge(Yaml::file(self.defaults.config.join("config.yaml")))
             .merge(Yaml::file(self.defaults.config.join("config.yml")))
-            .merge(Json::file(self.defaults.config.join("config.json")));
+            .merge(Json::file(self.defaults.config.join("config.json")))
+            .merge(Toml::file(self.defaults.config.join("credentials.toml")));
         if self.environment {
             figment = figment.merge(Env::prefixed("INTUIGRAM_").split("__"));
         }

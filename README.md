@@ -62,9 +62,23 @@ Clearing media never deletes Chat metadata or Message text. Clearing Account
 data requires typing the displayed Account-specific confirmation and names the
 authorization, records, backups, and Media Cache that it removes.
 
-## Running the PoC
+## Install and first run
 
-Create an application at `my.telegram.org`, copy
+Tagged releases provide archives for Linux x86-64, macOS Apple Silicon, and
+Windows x86-64. From a source checkout, install with:
+
+```sh
+cargo install --locked --path crates/intuigram
+```
+
+Official Intuigram builds deliberately contain no shared Telegram application
+credentials. Each user creates an application at `my.telegram.org`; on first
+run Intuigram explains this policy, prompts for the ID and a hidden hash, and
+saves them separately in an owner-protected `credentials.toml`. Existing
+configuration files and Account databases are migrated in place; database
+migrations create a backup and run integrity checks before normal startup.
+
+For non-interactive setup, copy
 [`config.example.toml`](config.example.toml) to the platform config directory as
 `config.toml`, then replace its example credentials:
 

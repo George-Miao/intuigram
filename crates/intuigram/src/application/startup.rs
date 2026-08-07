@@ -1,5 +1,6 @@
 pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
     let defaults = platform_defaults(arguments.config.clone())?;
+    let config_directory = defaults.config.clone();
     let config = ConfigLoader::new(defaults)
         .with_overrides(Overrides {
             data: arguments.data,
@@ -12,6 +13,7 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
     if let Some(maintenance) = arguments.maintenance {
         return run_maintenance(&config, maintenance);
     }
+    let credentials = resolve_telegram_credentials(&config, &config_directory)?;
     let layout = StoreLayout::new(config.paths.data.clone());
     let global = GlobalDatabase::open(&layout).context(OpenAccountRegistrySnafu)?;
     let view_mode = match config.view.mode {
@@ -46,7 +48,7 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
         return run_cached_account(
             &mut terminal,
             &mut events,
-            telegram_credentials(&config)?,
+            credentials,
             layout,
             account.clone(),
             cached_bootstrap(account.display_name, cached),
@@ -59,7 +61,7 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
         .await;
     }
     let (backend, mut backend_events, peers, bootstrap) =
-        authorize_new_account(&telegram_credentials(&config)?, &config, &layout, &global).await?;
+        authorize_new_account(&credentials, &config, &layout, &global).await?;
     run_application(
         &mut terminal,
         &mut events,

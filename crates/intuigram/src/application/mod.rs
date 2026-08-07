@@ -59,7 +59,7 @@ use backend::{MessageSend, OutgoingRecord};
 use cache::cached_bootstrap;
 use configuration::{
     derived_random_id, mime_type_for_path, parse_arguments, platform_defaults, print_help, prompt,
-    store_session, telegram_credentials, telegram_session,
+    resolve_telegram_credentials, store_session, telegram_session,
 };
 #[cfg(test)]
 use fixtures::application_fixture;
@@ -211,8 +211,16 @@ enum Error {
     #[snafu(display("failed to load Intuigram configuration"))]
     LoadConfiguration { source: intuigram_config::Error },
 
-    #[snafu(display("Telegram setting {setting} is required"))]
-    MissingTelegramSetting { setting: &'static str },
+    #[snafu(display("Telegram application ID must be a positive decimal integer"))]
+    InvalidApplicationId,
+
+    #[snafu(display("failed to read the hidden Telegram application hash"))]
+    PromptApplicationHash { source: io::Error },
+
+    #[snafu(display("failed to save first-run Telegram application credentials"))]
+    SaveApplicationCredentials {
+        source: intuigram_config::CredentialError,
+    },
 
     #[snafu(display("failed to open Intuigram Account registry"))]
     OpenAccountRegistry {
