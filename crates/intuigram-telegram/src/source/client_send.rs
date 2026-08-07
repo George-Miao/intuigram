@@ -231,31 +231,22 @@ fn uploaded_media(upload: Upload, input_file: tl::enums::InputFile) -> tl::enums
             video: None,
         }
         .into(),
-        UploadKind::Video | UploadKind::File => {
+        UploadKind::Video
+        | UploadKind::Voice
+        | UploadKind::VideoNote
+        | UploadKind::Animation
+        | UploadKind::Sticker
+        | UploadKind::CustomEmoji
+        | UploadKind::File => {
             let mut attributes = vec![
                 tl::types::DocumentAttributeFilename {
                     file_name: upload.name,
                 }
                 .into(),
             ];
-            if upload.kind == UploadKind::Video {
-                attributes.push(
-                    tl::types::DocumentAttributeVideo {
-                        round_message: false,
-                        supports_streaming: true,
-                        nosound: false,
-                        duration: 0.0,
-                        w: 0,
-                        h: 0,
-                        preload_prefix_size: None,
-                        video_start_ts: None,
-                        video_codec: None,
-                    }
-                    .into(),
-                );
-            }
+            attributes.extend(upload_attributes(upload.kind));
             tl::types::InputMediaUploadedDocument {
-                nosound_video: false,
+                nosound_video: upload.kind == UploadKind::Animation,
                 force_file: false,
                 spoiler: false,
                 file: input_file,
@@ -269,6 +260,55 @@ fn uploaded_media(upload: Upload, input_file: tl::enums::InputFile) -> tl::enums
             }
             .into()
         }
+    }
+}
+
+fn upload_attributes(kind: UploadKind) -> Vec<tl::enums::DocumentAttribute> {
+    match kind {
+        UploadKind::Video | UploadKind::VideoNote => vec![
+            tl::types::DocumentAttributeVideo {
+                round_message: kind == UploadKind::VideoNote,
+                supports_streaming: true,
+                nosound: false,
+                duration: 0.0,
+                w: 0,
+                h: 0,
+                preload_prefix_size: None,
+                video_start_ts: None,
+                video_codec: None,
+            }
+            .into(),
+        ],
+        UploadKind::Voice => vec![
+            tl::types::DocumentAttributeAudio {
+                voice: true,
+                duration: 0,
+                title: None,
+                performer: None,
+                waveform: None,
+            }
+            .into(),
+        ],
+        UploadKind::Animation => vec![tl::enums::DocumentAttribute::Animated],
+        UploadKind::Sticker => vec![
+            tl::types::DocumentAttributeSticker {
+                mask: false,
+                alt: String::new(),
+                stickerset: tl::enums::InputStickerSet::Empty,
+                mask_coords: None,
+            }
+            .into(),
+        ],
+        UploadKind::CustomEmoji => vec![
+            tl::types::DocumentAttributeCustomEmoji {
+                free: false,
+                text_color: false,
+                alt: String::new(),
+                stickerset: tl::enums::InputStickerSet::Empty,
+            }
+            .into(),
+        ],
+        UploadKind::Photo | UploadKind::File => Vec::new(),
     }
 }
 
@@ -301,5 +341,38 @@ mod tests {
             attribute,
             tl::enums::DocumentAttribute::Video(video) if video.supports_streaming
         )));
+    }
+
+    #[test]
+    fn note_and_library_uploads_use_telegram_specific_attributes() {
+        let attributes = [
+            (UploadKind::Voice, "voice"),
+            (UploadKind::VideoNote, "video-note"),
+            (UploadKind::Animation, "animation"),
+            (UploadKind::Sticker, "sticker"),
+            (UploadKind::CustomEmoji, "custom-emoji"),
+        ]
+        .map(|(kind, label)| (label, upload_attributes(kind)));
+
+        assert!(matches!(
+            &attributes[0].1[0],
+            tl::enums::DocumentAttribute::Audio(audio) if audio.voice
+        ));
+        assert!(matches!(
+            &attributes[1].1[0],
+            tl::enums::DocumentAttribute::Video(video) if video.round_message
+        ));
+        assert!(matches!(
+            &attributes[2].1[0],
+            tl::enums::DocumentAttribute::Animated
+        ));
+        assert!(matches!(
+            &attributes[3].1[0],
+            tl::enums::DocumentAttribute::Sticker(_)
+        ));
+        assert!(matches!(
+            &attributes[4].1[0],
+            tl::enums::DocumentAttribute::CustomEmoji(_)
+        ));
     }
 }

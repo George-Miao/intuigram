@@ -18,6 +18,9 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
             Maintenance::Folder(account, command) => {
                 run_folder_maintenance(&config, &config_directory, account, command).await
             }
+            Maintenance::RichMedia(account, command) => {
+                run_rich_media_maintenance(&config, &config_directory, account, command).await
+            }
             maintenance => run_maintenance(&config, maintenance),
         };
     }

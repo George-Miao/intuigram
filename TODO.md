@@ -9,7 +9,6 @@
 
 ## TODO
 
-- [ ] **p-core:** Record and send voice and video notes; browse and send stickers, GIFs, and custom emoji; and share contacts.
 - [ ] **p-core:** Manage Scheduled Messages per Chat: schedule for an explicitly zoned local date and time, send when online where Telegram permits it, and view, edit, reschedule, delete, or send now. Keep scheduled state distinct from Drafts and Pending Actions; delivery remains server-side and survives Intuigram exiting.
 - [ ] **p-core:** Add SOCKS5, HTTP CONNECT, and MTProxy transports, including secret parsing, proxy authentication, explicit DNS behavior, connection testing, and automatic fallback.
 

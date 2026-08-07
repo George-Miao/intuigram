@@ -132,6 +132,14 @@ creates a rule-based Folder for Account `123456`. The related
 `--folder-rules` commands are listed by `intuigram --help`; the in-TUI Folder
 membership picker provides explicit per-Chat inclusion and exclusion overrides.
 
+Rich media commands use the same Account session and raw Telegram adapter as
+the TUI. `--media-browse` and `--media-send` select recent stickers, saved GIFs,
+or searched custom emoji; `--media-file` sends voice notes, video notes,
+stickers, GIFs, and custom emoji from a local file; and `--send-contact` shares a
+contact card. `--record-media` runs `ffmpeg` asynchronously with an explicit
+platform capture-device name and sends the resulting voice or circular video
+note. See `intuigram --help` for argument order.
+
 Account files always use owner-only filesystem permissions. Optional Local Lock
 also encrypts the complete Account database, including Telegram authorization
 and synchronized Message text. Configure either a hidden passphrase prompt or

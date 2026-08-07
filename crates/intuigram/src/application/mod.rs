@@ -30,7 +30,8 @@ use intuigram_store::{
 };
 use intuigram_telegram::{
     ApplicationCredentials, AuthorizedUser, Client, CodeRequest, CodeSignIn, FolderRules,
-    LiveUpdates, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginCodeToken, QrLogin, Session,
+    LiveUpdates, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginCodeToken, MediaLibraryKind,
+    QrLogin, Session, UploadKind,
 };
 use intuigram_tui::{
     QrLoginAction, QrLoginUi, TerminalEvents, TerminalUi, UiEvent, ViewMode as TuiViewMode,
@@ -50,6 +51,7 @@ mod history_failure;
 mod local_lock;
 mod login;
 mod maintenance;
+mod media_arguments;
 mod poll;
 mod runtime_adapters;
 mod runtime_loop;
@@ -75,7 +77,10 @@ use login::{
     request_code_with_migration, seconds_until, sign_in_with_delivered_code, sign_in_with_password,
     unix_timestamp,
 };
-use maintenance::{run_folder_maintenance, run_logout, run_maintenance};
+use maintenance::{
+    run_folder_maintenance, run_logout, run_maintenance, run_rich_media_maintenance,
+};
+use media_arguments::parse_media_maintenance;
 use poll::PollPersistence;
 use runtime_adapters::{
     AdapterBatch, ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents, BackendOutput,
@@ -114,6 +119,7 @@ enum Maintenance {
     ClearAccount(AccountId),
     Logout(AccountId),
     Folder(AccountId, FolderMaintenance),
+    RichMedia(AccountId, RichMediaMaintenance),
 }
 
 #[derive(Clone)]
@@ -124,6 +130,37 @@ enum FolderMaintenance {
     Share { folder: i32 },
     Delete { folder: i32 },
     Rules { folder: i32, rules: FolderRules },
+}
+
+#[derive(Clone)]
+enum RichMediaMaintenance {
+    Browse {
+        kind: MediaLibraryKind,
+        query: String,
+    },
+    SendLibrary {
+        chat: ChatId,
+        kind: MediaLibraryKind,
+        index: usize,
+        query: String,
+    },
+    SendFile {
+        chat: ChatId,
+        kind: UploadKind,
+        path: PathBuf,
+    },
+    Record {
+        chat: ChatId,
+        kind: UploadKind,
+        seconds: u32,
+        device: String,
+    },
+    Contact {
+        chat: ChatId,
+        phone: String,
+        first_name: String,
+        last_name: String,
+    },
 }
 
 struct Backend {
@@ -319,6 +356,21 @@ enum Error {
 
     #[snafu(display("failed to read attachment {}", path.display()))]
     ReadAttachment { path: PathBuf, source: io::Error },
+
+    #[snafu(display("failed to run ffmpeg for {kind} recording"))]
+    RecordMedia {
+        kind: &'static str,
+        source: io::Error,
+    },
+
+    #[snafu(display("ffmpeg {kind} recording exited with {status}"))]
+    RecorderFailed {
+        kind: &'static str,
+        status: std::process::ExitStatus,
+    },
+
+    #[snafu(display("media library item {index} is unavailable"))]
+    MediaIndexUnavailable { index: usize },
 
     #[snafu(display("failed to save Telegram media to the download directory"))]
     SaveDownload {

@@ -38,6 +38,7 @@ mod client_links;
 mod client_phone;
 mod client_poll;
 mod client_qr;
+mod client_rich_media;
 mod client_send;
 mod client_session;
 mod client_vote;
@@ -57,6 +58,7 @@ mod session_types;
 use authorization::{normalize_authorization, password_parameters};
 use client_dialogs::DialogBatch;
 pub use client_folders::FolderRules;
+pub use client_rich_media::{MediaLibraryEntry, MediaLibraryKind};
 pub use client_send::{TextSend, UploadSend};
 use connection::Connection;
 #[cfg(test)]
@@ -258,6 +260,21 @@ pub enum UploadKind {
 
     /// Display as a streamable video.
     Video,
+
+    /// Display as a push-to-talk voice note.
+    Voice,
+
+    /// Display as a circular video note.
+    VideoNote,
+
+    /// Display as an animated GIF-style document.
+    Animation,
+
+    /// Display as a sticker.
+    Sticker,
+
+    /// Display as a custom emoji document.
+    CustomEmoji,
 
     /// Preserve as a generic file.
     File,

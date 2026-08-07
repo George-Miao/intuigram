@@ -116,6 +116,23 @@ pub(super) fn parse_arguments(arguments: impl IntoIterator<Item = String>) -> Re
             parsed.maintenance = Some(Maintenance::Folder(account, command));
             continue;
         }
+        if matches!(
+            argument.as_str(),
+            "--media-browse"
+                | "--media-send"
+                | "--media-file"
+                | "--record-media"
+                | "--send-contact"
+        ) {
+            if parsed.maintenance.is_some() {
+                return ConflictingMaintenanceSnafu.fail();
+            }
+            let account =
+                parse_account_argument(&argument, next_argument(&mut arguments, &argument)?)?;
+            let command = parse_media_maintenance(&mut arguments, &argument)?;
+            parsed.maintenance = Some(Maintenance::RichMedia(account, command));
+            continue;
+        }
         let destination = match argument.as_str() {
             "-h" | "--help" => {
                 parsed.help = true;
@@ -213,6 +230,16 @@ pub(super) fn print_help() {
                                    Delete a Folder without deleting its Chats\n\
            --folder-rules ID FOLDER RULES\n\
                                    Replace inclusion/exclusion category rules\n\
+           --media-browse ID KIND QUERY\n\
+                                   Browse stickers, gifs, or custom-emoji; use - for no query\n\
+           --media-send ID CHAT KIND INDEX QUERY\n\
+                                   Send an item from the same media-library query\n\
+           --media-file ID CHAT KIND PATH\n\
+                                   Send voice, video-note, sticker, gif, or custom-emoji media\n\
+           --record-media ID CHAT KIND SECONDS DEVICE\n\
+                                   Record voice or video-note with ffmpeg, then send it\n\
+           --send-contact ID CHAT PHONE FIRST LAST\n\
+                                   Share a Telegram contact card\n\
            -h, --help              Print this help\n\n\
          Configure telegram.api_id and telegram.api_hash in config.toml, YAML, JSON, or the\n\
          INTUIGRAM_TELEGRAM__API_ID and INTUIGRAM_TELEGRAM__API_HASH environment variables."
@@ -264,7 +291,9 @@ pub(super) fn derived_random_id(base: i64, index: usize, domain: u64) -> i64 {
 
 #[cfg(test)]
 mod argument_tests {
-    use super::{FolderMaintenance, Maintenance, parse_arguments};
+    use super::{
+        FolderMaintenance, Maintenance, RichMediaMaintenance, UploadKind, parse_arguments,
+    };
 
     #[test]
     fn storage_maintenance_requires_one_positive_account_id() {
@@ -322,6 +351,43 @@ mod argument_tests {
             parse_arguments([
                 "--folder-delete".to_owned(),
                 "42".to_owned(),
+                "0".to_owned(),
+            ])
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn recording_and_contact_commands_keep_typed_chat_targets() {
+        let recorded = parse_arguments([
+            "--record-media".to_owned(),
+            "42".to_owned(),
+            "-1001195461650".to_owned(),
+            "voice".to_owned(),
+            "15".to_owned(),
+            ":0".to_owned(),
+        ])
+        .expect("voice recording should parse");
+        assert!(matches!(
+            recorded.maintenance,
+            Some(Maintenance::RichMedia(
+                account,
+                RichMediaMaintenance::Record {
+                    chat,
+                    kind: UploadKind::Voice,
+                    seconds: 15,
+                    ..
+                }
+            )) if account.get() == 42 && chat.0 == -1_001_195_461_650
+        ));
+
+        assert!(
+            parse_arguments([
+                "--record-media".to_owned(),
+                "42".to_owned(),
+                "7".to_owned(),
+                "sticker".to_owned(),
+                "2".to_owned(),
                 "0".to_owned(),
             ])
             .is_err()
