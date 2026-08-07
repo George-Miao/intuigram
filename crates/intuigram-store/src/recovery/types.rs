@@ -3,7 +3,9 @@ use std::path::{Path, PathBuf};
 use super::error::{RecoveryError, RecoveryResult};
 use super::rebuild::rebuild;
 use super::snapshot::{discover_backups, read_unique_records};
-use crate::{AccountDatabase, AccountId, SessionMaterial, StoreLayout, StoredDraft, account};
+use crate::{
+    AccountCipher, AccountDatabase, AccountId, SessionMaterial, StoreLayout, StoredDraft, account,
+};
 
 /// Result of opening an existing Account without silently changing its data.
 pub enum AccountOpen {
@@ -18,6 +20,7 @@ pub enum AccountOpen {
 pub struct AccountRecovery {
     layout: StoreLayout,
     account: AccountId,
+    cipher: AccountCipher,
     database_path: PathBuf,
     backup_paths: Vec<PathBuf>,
     cause: Box<account::Error>,
@@ -25,13 +28,19 @@ pub struct AccountRecovery {
 }
 
 impl AccountRecovery {
-    pub(crate) fn inspect(layout: &StoreLayout, account: AccountId, cause: account::Error) -> Self {
+    pub(crate) fn inspect(
+        layout: &StoreLayout,
+        account: AccountId,
+        cipher: AccountCipher,
+        cause: account::Error,
+    ) -> Self {
         let database_path = layout.account_database(account);
         Self {
             backup_paths: discover_backups(&database_path),
-            snapshot: read_unique_records(&database_path, account),
+            snapshot: read_unique_records(&database_path, account, &cipher),
             layout: layout.clone(),
             account,
+            cipher,
             database_path,
             cause: Box::new(cause),
         }
@@ -70,14 +79,20 @@ impl AccountRecovery {
     /// Retries the normal migration and consistency-check path without
     /// modifying the database on failure.
     pub fn retry(self) -> account::Result<AccountOpen> {
-        AccountDatabase::open_recoverable(&self.layout, self.account)
+        AccountDatabase::open_recoverable_with_cipher(&self.layout, self.account, self.cipher)
     }
 
     /// Replaces only redownloadable synchronized tables after copying all
     /// verified unique records into a fresh schema.
     pub fn rebuild_cache(self) -> RecoveryResult<RebuiltAccount> {
         let records = self.snapshot?;
-        rebuild(self.layout, self.account, self.database_path, records)
+        rebuild(
+            self.layout,
+            self.account,
+            self.cipher,
+            self.database_path,
+            records,
+        )
     }
 }
 

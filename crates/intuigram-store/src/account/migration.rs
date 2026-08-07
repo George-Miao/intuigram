@@ -1,4 +1,8 @@
-pub(crate) fn open_and_migrate(path: &Path, create: bool) -> Result<Connection> {
+pub(crate) fn open_and_migrate(
+    path: &Path,
+    create: bool,
+    cipher: &AccountCipher,
+) -> Result<Connection> {
     let existed = path.is_file();
     let mut flags = OpenFlags::SQLITE_OPEN_READ_WRITE;
     if create {
@@ -7,6 +11,13 @@ pub(crate) fn open_and_migrate(path: &Path, create: bool) -> Result<Connection> 
     let mut connection = Connection::open_with_flags(path, flags).context(OpenDatabaseSnafu {
         path: path.to_path_buf(),
     })?;
+    if let Some(pragma) = cipher.key_pragma() {
+        connection
+            .execute_batch(&pragma)
+            .context(OpenDatabaseSnafu {
+                path: path.to_path_buf(),
+            })?;
+    }
     connection
         .execute_batch("PRAGMA foreign_keys = ON")
         .context(OpenDatabaseSnafu {

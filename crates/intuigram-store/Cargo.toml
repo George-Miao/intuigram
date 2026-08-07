@@ -6,9 +6,10 @@ license.workspace = true
 
 [dependencies]
 refinery = { workspace = true, features = ["rusqlite"] }
-rusqlite = { workspace = true, features = ["backup", "bundled"] }
+rusqlite = { workspace = true, features = ["backup"] }
 rustix = { workspace = true, features = ["fs"] }
 snafu.workspace = true
+zeroize.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

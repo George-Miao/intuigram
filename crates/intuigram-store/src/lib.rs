@@ -7,9 +7,10 @@ mod lifecycle;
 mod recovery;
 
 pub use account::{
-    AccountDatabase, AccountStore, CachedAccount, DatabaseRequest, Error, Result, SessionMaterial,
-    StoredChat, StoredDraft, StoredFolder, StoredMessage, StoredMutation, StoredSelection,
-    SyncBatch, SyncCursor,
+    AccountCipher, AccountDatabase, AccountStore, CachedAccount, DatabaseRequest, Error, Result,
+    SecurityError, SecurityResult, SessionMaterial, StoredChat, StoredDraft, StoredFolder,
+    StoredMessage, StoredMutation, StoredSelection, SyncBatch, SyncCursor, enable_local_lock,
+    local_lock_is_enabled,
 };
 pub use global::{AccountRecord, Error as GlobalError, GlobalDatabase, Result as GlobalResult};
 pub use layout::{AccountId, StoreLayout};

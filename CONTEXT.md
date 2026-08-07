@@ -132,6 +132,10 @@ _Avoid_: Media Cache, temporary file
 Size-bounded, redownloadable media and thumbnails stored locally for responsive presentation. Eviction may remove cached bytes but never the corresponding Message or its metadata.
 _Avoid_: Local Record, Message History
 
+**Local Lock**:
+Optional full-database encryption for one Account's Telegram authorization and Local Records. Unlock material comes from a hidden passphrase or an operating-system credential vault and never enters application state, logs, or configuration.
+_Avoid_: Telegram 2FA, screen lock, Media Cache encryption
+
 **Clipboard Paste**:
 A context-sensitive composer action that queries the platform clipboard directly. Text is inserted into the Draft, images become photo attachment candidates, and copied files become file attachment candidates; unavailable or unsupported clipboard formats fail visibly without altering the Draft.
 _Avoid_: Terminal text paste only, shell evaluation, path picker

@@ -25,8 +25,8 @@ use intuigram_config::{
     Config, ConfigLoader, Overrides, PlatformDefaults, ViewMode as ConfigViewMode,
 };
 use intuigram_store::{
-    AccountDatabase, AccountId, AccountOpen, AccountRecord, AccountStore, CachedAccount,
-    GlobalDatabase, SessionMaterial, StoreLayout,
+    AccountCipher, AccountDatabase, AccountId, AccountOpen, AccountRecord, AccountStore,
+    CachedAccount, GlobalDatabase, SessionMaterial, StoreLayout,
 };
 use intuigram_telegram::{
     ApplicationCredentials, AuthorizedUser, Client, CodeRequest, CodeSignIn, LiveUpdates,
@@ -46,6 +46,7 @@ mod cache;
 mod configuration;
 mod fixtures;
 mod history_failure;
+mod local_lock;
 mod login;
 mod poll;
 mod runtime_adapters;
@@ -64,6 +65,7 @@ use configuration::{
 #[cfg(test)]
 use fixtures::application_fixture;
 use history_failure::history_failure_event;
+use local_lock::unlock_local_lock;
 #[cfg(test)]
 use login::{login_code_delivery_message, login_code_delivery_method_name, seconds_until_at};
 use login::{
@@ -121,6 +123,7 @@ struct AdapterStorage {
     downloads: PathBuf,
     cache_root: PathBuf,
     cache_limit: u64,
+    cipher: AccountCipher,
 }
 
 impl AdapterStorage {
@@ -240,6 +243,14 @@ enum Error {
     #[snafu(display("failed to clear durable Account data"))]
     ClearAccountData {
         source: intuigram_store::LifecycleError,
+    },
+
+    #[snafu(display("failed to unlock Local Lock"))]
+    LocalLock { source: local_lock::Error },
+
+    #[snafu(display("failed to encrypt existing Account data for Local Lock"))]
+    EnableLocalLock {
+        source: intuigram_store::SecurityError,
     },
 
     #[snafu(display("failed to access Intuigram Account database"))]

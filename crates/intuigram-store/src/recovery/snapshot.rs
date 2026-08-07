@@ -8,17 +8,25 @@ use super::error::{
     InvalidAuthorizationKeySnafu, ReadUniqueRecordsSnafu, RecoveryError, RecoveryResult,
 };
 use super::types::{DraftHistory, UniqueRecords};
-use crate::{AccountId, SessionMaterial, StoredDraft};
+use crate::{AccountCipher, AccountId, SessionMaterial, StoredDraft};
 
 pub(super) fn read_unique_records(
     path: &Path,
     expected: AccountId,
+    cipher: &AccountCipher,
 ) -> RecoveryResult<UniqueRecords> {
     let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY).context(
         ReadUniqueRecordsSnafu {
             path: path.to_path_buf(),
         },
     )?;
+    if let Some(pragma) = cipher.key_pragma() {
+        connection
+            .execute_batch(&pragma)
+            .context(ReadUniqueRecordsSnafu {
+                path: path.to_path_buf(),
+            })?;
+    }
     let account = connection
         .query_row(
             "SELECT telegram_user_id FROM account_identity WHERE singleton = 1",

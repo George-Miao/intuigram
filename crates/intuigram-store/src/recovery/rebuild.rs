@@ -9,16 +9,17 @@ use super::error::{
     PreserveOriginalSnafu, RebuildNamesExhaustedSnafu, RecoveryError, RecoveryResult,
 };
 use super::types::{RebuiltAccount, UniqueRecords};
-use crate::{AccountDatabase, AccountId, StoreLayout, account};
+use crate::{AccountCipher, AccountDatabase, AccountId, StoreLayout, account};
 
 pub(super) fn rebuild(
     layout: StoreLayout,
     account: AccountId,
+    cipher: AccountCipher,
     path: PathBuf,
     records: UniqueRecords,
 ) -> RecoveryResult<RebuiltAccount> {
     let workspace = RebuildWorkspace::reserve(&path)?;
-    let mut connection = account::open_and_migrate(&workspace.database, true)
+    let mut connection = account::open_and_migrate(&workspace.database, true, &cipher)
         .map_err(Box::new)
         .context(CreateRebuiltDatabaseSnafu {
             path: workspace.database.clone(),
@@ -35,7 +36,7 @@ pub(super) fn rebuild(
         let _ = fs::rename(&backup, &path);
         return Err(RecoveryError::InstallRebuiltDatabase { path, source });
     }
-    let database = AccountDatabase::open(&layout, account)
+    let database = AccountDatabase::open_with_cipher(&layout, account, cipher)
         .map_err(Box::new)
         .context(OpenRebuiltDatabaseSnafu { path: path.clone() })?;
     Ok(RebuiltAccount {

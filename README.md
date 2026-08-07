@@ -107,9 +107,20 @@ Intuigram then prompts for the delivered code and, when enabled, a hidden 2FA
 password.
 Use `Ctrl+C` to quit and `?` for the context-sensitive key reference.
 
-The current PoC protects Account files with owner-only filesystem permissions,
-but its Telegram authorization material and synchronized data are not encrypted
-at rest. Local Lock encryption remains a future p-high feature.
+Account files always use owner-only filesystem permissions. Optional Local Lock
+also encrypts the complete Account database, including Telegram authorization
+and synchronized Message text. Configure either a hidden passphrase prompt or
+the native OS credential vault:
+
+```toml
+[local_lock]
+enabled = true
+unlock = "keyring" # or "passphrase"
+```
+
+Enabling it converts an existing Account and its retained backups before the
+TUI opens. Redownloadable Media Cache bytes are outside Local Lock and can be
+cleared independently.
 
 ## Development
 

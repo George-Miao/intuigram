@@ -20,6 +20,7 @@ mod filesystem;
 mod message_write;
 mod migration;
 mod model;
+mod security;
 mod selection;
 mod session;
 mod sync_write;
@@ -36,6 +37,10 @@ use migration::read_account_id;
 pub use model::{
     CachedAccount, SessionMaterial, StoredChat, StoredDraft, StoredFolder, StoredMessage,
     StoredMutation, StoredSelection, SyncBatch, SyncCursor,
+};
+pub use security::{
+    AccountCipher, Error as SecurityError, Result as SecurityResult, enable_local_lock,
+    local_lock_is_enabled,
 };
 use selection::save_selection;
 use session::read_session;

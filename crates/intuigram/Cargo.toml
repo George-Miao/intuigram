@@ -25,11 +25,23 @@ intuigram-media.workspace = true
 intuigram-store.workspace = true
 intuigram-telegram.workspace = true
 intuigram-tui.workspace = true
+pbkdf2.workspace = true
 rich-clipboard.workspace = true
 rpassword.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 snafu.workspace = true
+sha2.workspace = true
+zeroize.workspace = true
+
+[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
+keyring = { workspace = true, features = ["apple-native"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { workspace = true, features = ["windows-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { workspace = true, features = ["crypto-rust", "linux-native-sync-persistent"] }
 
 [dev-dependencies]
 test-harness.workspace = true

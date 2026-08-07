@@ -36,10 +36,11 @@ pub(super) fn promote_without_replace(from: &Path, to: &Path) -> std::io::Result
 pub(super) fn run_worker(
     path: &Path,
     create: bool,
+    cipher: AccountCipher,
     requests: &Receiver<Command>,
     ready: &SyncSender<Result<()>>,
 ) {
-    let connection = open_and_migrate(path, create);
+    let connection = open_and_migrate(path, create, &cipher);
     let Ok(connection) = connection else {
         let _ = ready.send(connection.map(|_| ()));
         return;

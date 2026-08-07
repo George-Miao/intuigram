@@ -2,6 +2,7 @@
 pub struct AccountDatabase {
     commands: SyncSender<Command>,
     worker: Option<JoinHandle<()>>,
+    cipher: AccountCipher,
 }
 
 impl AccountDatabase {
@@ -11,16 +12,27 @@ impl AccountDatabase {
         layout: &StoreLayout,
         account: AccountId,
     ) -> Result<crate::AccountOpen> {
+        Self::open_recoverable_with_cipher(layout, account, AccountCipher::plaintext())
+    }
+
+    /// Opens an Account with its configured Local Lock key.
+    pub fn open_recoverable_with_cipher(
+        layout: &StoreLayout,
+        account: AccountId,
+        cipher: AccountCipher,
+    ) -> Result<crate::AccountOpen> {
         let path = layout.account_database(account);
         if !path.is_file() {
             return MissingDatabaseSnafu { path }.fail();
         }
-        Ok(match Self::open(layout, account) {
-            Ok(database) => crate::AccountOpen::Ready(database),
-            Err(cause) => crate::AccountOpen::Recovery(Box::new(crate::AccountRecovery::inspect(
-                layout, account, cause,
-            ))),
-        })
+        Ok(
+            match Self::open_with_cipher(layout, account, cipher.clone()) {
+                Ok(database) => crate::AccountOpen::Ready(database),
+                Err(cause) => crate::AccountOpen::Recovery(Box::new(
+                    crate::AccountRecovery::inspect(layout, account, cipher, cause),
+                )),
+            },
+        )
     }
 
     /// Returns a cloneable nonblocking endpoint for runtime adapter tasks.
@@ -33,7 +45,12 @@ impl AccountDatabase {
 
     /// Creates and migrates the database used during login.
     pub fn begin_login(layout: &StoreLayout) -> Result<Self> {
-        Self::spawn(layout.pending_database(), true)
+        Self::begin_login_with_cipher(layout, AccountCipher::plaintext())
+    }
+
+    /// Creates and migrates an encrypted pending-login database.
+    pub fn begin_login_with_cipher(layout: &StoreLayout, cipher: AccountCipher) -> Result<Self> {
+        Self::spawn(layout.pending_database(), true, cipher)
     }
 
     /// Stores the authorized Telegram user ID and atomically promotes the
@@ -53,16 +70,25 @@ impl AccountDatabase {
                 source,
             });
         }
-        Self::spawn(target, false)
+        Self::spawn(target, false, self.cipher.clone())
     }
 
     /// Opens a previously authorized account database.
     pub fn open(layout: &StoreLayout, account: AccountId) -> Result<Self> {
+        Self::open_with_cipher(layout, account, AccountCipher::plaintext())
+    }
+
+    /// Opens a previously authorized Account with its Local Lock key.
+    pub fn open_with_cipher(
+        layout: &StoreLayout,
+        account: AccountId,
+        cipher: AccountCipher,
+    ) -> Result<Self> {
         let path = layout.account_database(account);
         if !path.is_file() {
             return MissingDatabaseSnafu { path }.fail();
         }
-        let database = Self::spawn(path, false)?;
+        let database = Self::spawn(path, false, cipher)?;
         let actual = database.account_id()?;
         if actual != Some(account) {
             return IdentityMismatchSnafu {
@@ -143,18 +169,22 @@ impl AccountDatabase {
         response.recv().map_err(|_| Error::WorkerUnavailable)?
     }
 
-    fn spawn(path: PathBuf, create: bool) -> Result<Self> {
+    fn spawn(path: PathBuf, create: bool, cipher: AccountCipher) -> Result<Self> {
         prepare_data_directory(&path)?;
         let (commands, requests) = mpsc::sync_channel(32);
         let (ready, initialized) = mpsc::sync_channel(1);
         let worker = thread::Builder::new()
             .name("intuigram-account-db".to_owned())
-            .spawn(move || run_worker(&path, create, &requests, &ready))
+            .spawn({
+                let cipher = cipher.clone();
+                move || run_worker(&path, create, cipher, &requests, &ready)
+            })
             .context(SpawnWorkerSnafu)?;
         initialized.recv().map_err(|_| Error::WorkerUnavailable)??;
         Ok(Self {
             commands,
             worker: Some(worker),
+            cipher,
         })
     }
 

@@ -16,6 +16,13 @@ cache_bytes = 2147483648
 # "default" adds breathing room; "compact" preserves the original dense layout.
 mode = "default"
 
+# Optional Local Lock encrypts the complete Account database, including
+# Telegram authorization and synchronized Message text. Use "keyring" to keep
+# a random key in the OS credential vault, or "passphrase" to prompt at launch.
+[local_lock]
+enabled = false
+unlock = "passphrase"
+
 # Intuigram normally uses platform-native data, cache, and Downloads directories.
 # Uncomment only the paths you want to override.
 # [paths]

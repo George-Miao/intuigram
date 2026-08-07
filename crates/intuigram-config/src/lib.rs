@@ -32,6 +32,9 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 /// Fully resolved Intuigram configuration.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct Config {
+    /// Optional encryption and unlock policy for Account-local data.
+    pub local_lock: LocalLock,
+
     /// Filesystem locations used by Intuigram.
     pub paths: Paths,
 
@@ -43,6 +46,28 @@ pub struct Config {
 
     /// Terminal presentation settings.
     pub view: View,
+}
+
+/// Optional encryption of Account records and authorization material.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
+pub struct LocalLock {
+    /// Whether Account databases are encrypted with SQLCipher.
+    pub enabled: bool,
+
+    /// Where Intuigram obtains the unlock secret.
+    pub unlock: UnlockMethod,
+}
+
+/// Source used to unlock encrypted Account databases.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UnlockMethod {
+    /// Ask for a hidden passphrase on every launch.
+    #[default]
+    Passphrase,
+
+    /// Store a random database key in the operating-system credential vault.
+    Keyring,
 }
 
 /// Terminal presentation settings.
@@ -210,6 +235,8 @@ impl ConfigLoader {
     /// Resolves the configured sources.
     pub fn load(self) -> Result<Config> {
         let defaults = Config {
+            local_lock: LocalLock::default(),
+
             paths: Paths {
                 data: self.defaults.data.clone(),
                 cache: self.defaults.cache.clone(),
@@ -256,7 +283,7 @@ mod tests {
 
     use tempfile::tempdir;
 
-    use super::{ConfigLoader, Overrides, PlatformDefaults, ViewMode};
+    use super::{ConfigLoader, Overrides, PlatformDefaults, UnlockMethod, ViewMode};
 
     fn defaults(root: &Path) -> PlatformDefaults {
         PlatformDefaults {
@@ -368,5 +395,29 @@ mod tests {
             .load()
             .expect("compact view configuration should load");
         assert_eq!(compact.view.mode, ViewMode::Compact);
+    }
+
+    #[test]
+    fn local_lock_is_opt_in_with_explicit_unlock_source() {
+        let temporary = tempdir().expect("temporary directory should be created");
+        let platform = defaults(temporary.path());
+        fs::create_dir_all(&platform.config).expect("config directory should be created");
+        let unlocked = ConfigLoader::new(platform.clone())
+            .read_environment(false)
+            .load()
+            .expect("default configuration should load");
+        assert!(!unlocked.local_lock.enabled);
+
+        fs::write(
+            platform.config.join("config.toml"),
+            "[local_lock]\nenabled = true\nunlock = 'keyring'\n",
+        )
+        .expect("Local Lock config should be written");
+        let locked = ConfigLoader::new(platform)
+            .read_environment(false)
+            .load()
+            .expect("Local Lock configuration should load");
+        assert!(locked.local_lock.enabled);
+        assert_eq!(locked.local_lock.unlock, UnlockMethod::Keyring);
     }
 }

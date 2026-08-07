@@ -16,16 +16,35 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
     let credentials = resolve_telegram_credentials(&config, &config_directory)?;
     let layout = StoreLayout::new(config.paths.data.clone());
     let global = GlobalDatabase::open(&layout).context(OpenAccountRegistrySnafu)?;
+    let accounts = global.accounts().context(ReadAccountRegistrySnafu)?;
+    let active_account = accounts.iter().find(|account| account.active).cloned();
+    let initializing_lock = config.local_lock.enabled
+        && active_account
+            .as_ref()
+            .is_none_or(|account| !intuigram_store::local_lock_is_enabled(&layout, account.id));
+    let mut unlock = unlock_local_lock(
+        &config,
+        active_account.as_ref().map(|account| account.id),
+        initializing_lock,
+    )
+    .context(LocalLockSnafu)?;
     let view_mode = match config.view.mode {
         ConfigViewMode::Default => TuiViewMode::Default,
         ConfigViewMode::Compact => TuiViewMode::Compact,
     };
     let mut terminal = TerminalUi::enter_with_mode(view_mode).context(TerminalSnafu)?;
     let mut events = TerminalEvents::new().context(TerminalSnafu)?;
-    let accounts = global.accounts().context(ReadAccountRegistrySnafu)?;
-    if let Some(account) = accounts.into_iter().find(|account| account.active) {
-        let database = match AccountDatabase::open_recoverable(&layout, account.id)
-            .context(AccountDatabaseSnafu)?
+    if let Some(account) = active_account {
+        if unlock.cipher().is_encrypted() {
+            intuigram_store::enable_local_lock(&layout, account.id, &unlock.cipher())
+                .context(EnableLocalLockSnafu)?;
+        }
+        let database = match AccountDatabase::open_recoverable_with_cipher(
+            &layout,
+            account.id,
+            unlock.cipher(),
+        )
+        .context(AccountDatabaseSnafu)?
         {
             AccountOpen::Ready(database) => database,
             AccountOpen::Recovery(recovery) => {
@@ -56,12 +75,19 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
                 downloads: config.paths.downloads,
                 cache_root: config.paths.cache,
                 cache_limit: config.media.cache_bytes,
+                cipher: unlock.cipher(),
             },
         )
         .await;
     }
     let (backend, mut backend_events, peers, bootstrap) =
-        authorize_new_account(&credentials, &config, &layout, &global).await?;
+        authorize_new_account(&credentials, &config, &layout, &global, unlock.cipher()).await?;
+    let account = backend
+        ._database
+        .account_id()
+        .context(AccountDatabaseSnafu)?
+        .expect("an authorized backend always has a persisted Account identity");
+    unlock.promote_keyring(account).context(LocalLockSnafu)?;
     run_application(
         &mut terminal,
         &mut events,

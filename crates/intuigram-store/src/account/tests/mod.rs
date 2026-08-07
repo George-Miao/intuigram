@@ -5,12 +5,70 @@ use rusqlite::Connection;
 use tempfile::tempdir;
 
 use super::{
-    AccountDatabase, SessionMaterial, StoredChat, StoredDraft, StoredFolder, StoredMessage,
-    StoredSelection, SyncBatch, SyncCursor,
+    AccountCipher, AccountDatabase, SessionMaterial, StoredChat, StoredDraft, StoredFolder,
+    StoredMessage, StoredSelection, SyncBatch, SyncCursor, enable_local_lock,
 };
 use crate::{AccountId, StoreLayout};
 
 mod pinned;
+
+#[test]
+fn local_lock_encrypts_new_and_existing_account_records() {
+    let temporary = tempdir().expect("temporary directory should be created");
+    let layout = StoreLayout::new(temporary.path().join("intuigram"));
+    let first = AccountId::new(41).expect("fixture ID should be positive");
+    let second = AccountId::new(42).expect("fixture ID should be positive");
+    let cipher = AccountCipher::encrypted([7; 32]);
+
+    let encrypted = AccountDatabase::begin_login_with_cipher(&layout, cipher.clone())
+        .expect("encrypted pending database should open")
+        .finish_login(&layout, first)
+        .expect("encrypted Account should promote");
+    encrypted
+        .save_draft(StoredDraft {
+            chat_id: 9,
+            thread_root: None,
+            text: "private draft".to_owned(),
+            reply_to: None,
+            modified_at: 1,
+        })
+        .expect("encrypted draft should save");
+    drop(encrypted);
+    assert_ne!(
+        &fs::read(layout.account_database(first)).expect("database should be readable")[..16],
+        b"SQLite format 3\0"
+    );
+    assert!(AccountDatabase::open(&layout, first).is_err());
+    assert_eq!(
+        AccountDatabase::open_with_cipher(&layout, first, cipher.clone())
+            .expect("correct key should open")
+            .cached_account()
+            .expect("encrypted cache should load")
+            .drafts[0]
+            .text,
+        "private draft"
+    );
+
+    let plaintext = AccountDatabase::begin_login(&layout)
+        .expect("plaintext pending database should open")
+        .finish_login(&layout, second)
+        .expect("plaintext Account should promote");
+    plaintext
+        .commit_sync(sync_batch())
+        .expect("plaintext cache should save");
+    drop(plaintext);
+    enable_local_lock(&layout, second, &cipher).expect("existing Account should encrypt");
+    let reopened = AccountDatabase::open_with_cipher(&layout, second, cipher)
+        .expect("migrated Account should open");
+    assert_eq!(
+        reopened
+            .cached_account()
+            .expect("migrated cache should load")
+            .messages[0]
+            .body,
+        "hello"
+    );
+}
 
 #[test]
 fn pending_login_is_promoted_to_a_persistent_account_database() {

@@ -9,7 +9,8 @@ pub(super) async fn resume_account(
     intuigram_telegram::PeerDirectory,
     Bootstrap,
 )> {
-    let database = AccountDatabase::open(layout, account.id).context(AccountDatabaseSnafu)?;
+    let database = AccountDatabase::open_with_cipher(layout, account.id, storage.cipher.clone())
+        .context(AccountDatabaseSnafu)?;
     let cached = database.cached_account().context(AccountDatabaseSnafu)?;
     let cached_cursors = cached.cursors.clone();
     let stored =
@@ -86,13 +87,15 @@ pub(super) async fn authorize_new_account(
     config: &Config,
     layout: &StoreLayout,
     global: &GlobalDatabase,
+    cipher: AccountCipher,
 ) -> Result<(
     Backend,
     BackendEvents,
     intuigram_telegram::PeerDirectory,
     Bootstrap,
 )> {
-    let pending = AccountDatabase::begin_login(layout).context(AccountDatabaseSnafu)?;
+    let pending = AccountDatabase::begin_login_with_cipher(layout, cipher.clone())
+        .context(AccountDatabaseSnafu)?;
     let (client, session) = if let Some(stored) = pending.session().context(AccountDatabaseSnafu)? {
         let session = telegram_session(&stored)?;
         match Client::connect_pending(credentials.clone(), &session).await {
@@ -186,6 +189,7 @@ pub(super) async fn authorize_new_account(
                 downloads: config.paths.downloads.clone(),
                 cache_root: config.paths.cache.clone(),
                 cache_limit: config.media.cache_bytes,
+                cipher,
             }
             .for_account(account_id),
             downloaded: DownloadStore::default(),
