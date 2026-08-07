@@ -9,7 +9,6 @@
 
 ## TODO
 
-- [ ] **p-core:** Add explicit Account exit workflows. `Logout` must revoke the Telegram authorization before deleting local Account data; when offline, do not report success. `Remove locally` deletes the session, Local Records, and Media Cache with an exact warning that the server-side authorization may remain active. Show the Account identity and deletion scope in confirmation.
 - [ ] **p-core:** Create, rename, reorder, share, and delete Folders, including editing Telegram inclusion and exclusion rules.
 - [ ] **p-core:** Record and send voice and video notes; browse and send stickers, GIFs, and custom emoji; and share contacts.
 - [ ] **p-core:** Manage Scheduled Messages per Chat: schedule for an explicitly zoned local date and time, send when online where Telegram permits it, and view, edit, reschedule, delete, or send now. Keep scheduled state distinct from Drafts and Pending Actions; delivery remains server-side and survives Intuigram exiting.

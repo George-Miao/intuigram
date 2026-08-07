@@ -132,3 +132,15 @@ fn keyring_unlock(account: Option<AccountId>) -> Result<LocalUnlock, Error> {
         pending_keyring: account.is_none(),
     })
 }
+
+pub(super) fn delete_local_lock_key(config: &Config, account: AccountId) -> Result<(), Error> {
+    if !config.local_lock.enabled || config.local_lock.unlock != UnlockMethod::Keyring {
+        return Ok(());
+    }
+    let entry =
+        keyring::Entry::new(KEYRING_SERVICE, &account.get().to_string()).context(KeyringSnafu)?;
+    match entry.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(source) => Err(Error::Keyring { source }),
+    }
+}

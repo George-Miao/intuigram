@@ -74,7 +74,11 @@ pub(super) fn parse_arguments(arguments: impl IntoIterator<Item = String>) -> Re
     while let Some(argument) = arguments.next() {
         if matches!(
             argument.as_str(),
-            "--media-cache-usage" | "--clear-media-cache" | "--clear-account-data"
+            "--media-cache-usage"
+                | "--clear-media-cache"
+                | "--clear-account-data"
+                | "--remove-account"
+                | "--logout"
         ) {
             if parsed.maintenance.is_some() {
                 return ConflictingMaintenanceSnafu.fail();
@@ -96,6 +100,8 @@ pub(super) fn parse_arguments(arguments: impl IntoIterator<Item = String>) -> Re
                 "--media-cache-usage" => Maintenance::MediaUsage(account),
                 "--clear-media-cache" => Maintenance::ClearMedia(account),
                 "--clear-account-data" => Maintenance::ClearAccount(account),
+                "--remove-account" => Maintenance::ClearAccount(account),
+                "--logout" => Maintenance::Logout(account),
                 _ => unreachable!("maintenance arguments were matched above"),
             });
             continue;
@@ -183,6 +189,8 @@ pub(super) fn print_help() {
            --media-cache-usage ID  Show one Account's cache usage and configured limit\n\
            --clear-media-cache ID  Clear only redownloadable media for one Account\n\
            --clear-account-data ID Clear local records, authorization, and media after confirmation\n\
+           --remove-account ID     Remove local data; server authorization may remain active\n\
+           --logout ID             Revoke Telegram authorization, then remove local Account data\n\
            -h, --help              Print this help\n\n\
          Configure telegram.api_id and telegram.api_hash in config.toml, YAML, JSON, or the\n\
          INTUIGRAM_TELEGRAM__API_ID and INTUIGRAM_TELEGRAM__API_HASH environment variables."

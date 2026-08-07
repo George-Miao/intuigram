@@ -56,11 +56,17 @@ TUI:
 intuigram --media-cache-usage TELEGRAM_USER_ID
 intuigram --clear-media-cache TELEGRAM_USER_ID
 intuigram --clear-account-data TELEGRAM_USER_ID
+intuigram --remove-account TELEGRAM_USER_ID
+intuigram --logout TELEGRAM_USER_ID
 ```
 
 Clearing media never deletes Chat metadata or Message text. Clearing Account
 data requires typing the displayed Account-specific confirmation and names the
 authorization, records, backups, and Media Cache that it removes.
+`--logout` additionally requires a live Telegram acknowledgement before any
+local deletion; an offline or rejected request leaves the Account intact.
+`--remove-account` gives the exact local scope and warns that its server-side
+authorization may still need termination from another Telegram client.
 
 ## Install and first run
 

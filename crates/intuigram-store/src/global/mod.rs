@@ -158,18 +158,33 @@ fn run_worker(path: &Path, requests: &Receiver<Command>, ready: &SyncSender<Resu
                 let _ = reply.send(list_accounts(&connection));
             }
             Command::Remove { account, reply } => {
-                let result = connection
-                    .execute(
-                        "DELETE FROM accounts WHERE telegram_user_id = ?1",
-                        [account.get()],
-                    )
-                    .context(RemoveAccountSnafu { account })
-                    .map(|_| ());
+                let result = remove_account(&mut connection, account);
                 let _ = reply.send(result);
             }
             Command::Shutdown => break,
         }
     }
+}
+
+fn remove_account(connection: &mut Connection, account: AccountId) -> Result<()> {
+    let transaction = connection
+        .transaction()
+        .context(RemoveAccountSnafu { account })?;
+    transaction
+        .execute(
+            "DELETE FROM accounts WHERE telegram_user_id = ?1",
+            [account.get()],
+        )
+        .context(RemoveAccountSnafu { account })?;
+    transaction
+        .execute(
+            "UPDATE accounts SET active = 1 WHERE telegram_user_id = (SELECT telegram_user_id \
+             FROM accounts ORDER BY last_used_at DESC, telegram_user_id LIMIT 1) AND NOT EXISTS \
+             (SELECT 1 FROM accounts WHERE active = 1)",
+            [],
+        )
+        .context(RemoveAccountSnafu { account })?;
+    transaction.commit().context(RemoveAccountSnafu { account })
 }
 
 fn open_and_migrate(path: &Path) -> Result<Connection> {
@@ -412,6 +427,13 @@ mod tests {
                 .map(|account| account.id)
                 .collect::<Vec<_>>(),
             vec![second]
+        );
+        assert!(
+            database
+                .accounts()
+                .expect("remaining Account should load")
+                .first()
+                .is_some_and(|account| account.active)
         );
     }
 

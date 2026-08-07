@@ -65,7 +65,7 @@ use configuration::{
 #[cfg(test)]
 use fixtures::application_fixture;
 use history_failure::history_failure_event;
-use local_lock::unlock_local_lock;
+use local_lock::{delete_local_lock_key, unlock_local_lock};
 #[cfg(test)]
 use login::{login_code_delivery_message, login_code_delivery_method_name, seconds_until_at};
 use login::{
@@ -108,6 +108,7 @@ enum Maintenance {
     MediaUsage(AccountId),
     ClearMedia(AccountId),
     ClearAccount(AccountId),
+    Logout(AccountId),
 }
 
 struct Backend {

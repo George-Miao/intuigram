@@ -38,6 +38,7 @@ mod client_phone;
 mod client_poll;
 mod client_qr;
 mod client_send;
+mod client_session;
 mod client_vote;
 mod connection;
 mod dialog_normalization;
