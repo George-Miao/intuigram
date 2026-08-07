@@ -130,6 +130,7 @@ fn bootstrap_restores_a_valid_folder_and_chat_selection() {
     fixture.restored_selection = Some(SelectionView {
         folder: 1,
         chat: Some(ChatId(20)),
+        message: None,
     });
     let mut app = App::new();
 
@@ -142,11 +143,27 @@ fn bootstrap_restores_a_valid_folder_and_chat_selection() {
 }
 
 #[test]
+fn bootstrap_restores_the_per_account_transcript_anchor() {
+    let mut fixture = bootstrap();
+    fixture.restored_selection = Some(SelectionView {
+        folder: 0,
+        chat: Some(ChatId(10)),
+        message: Some(MessageId(2)),
+    });
+    let mut app = App::new();
+
+    apply(&mut app, Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+
+    assert_eq!(app.view().transcript_anchor, Some(1));
+}
+
+#[test]
 fn bootstrap_clears_a_stale_selection_and_returns_to_the_default_folder() {
     let mut fixture = hierarchy_bootstrap();
     fixture.restored_selection = Some(SelectionView {
         folder: 1,
         chat: Some(ChatId(999)),
+        message: None,
     });
     let mut app = App::new();
 

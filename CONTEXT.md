@@ -136,6 +136,12 @@ _Avoid_: Local Record, Message History
 Optional full-database encryption for one Account's Telegram authorization and Local Records. Unlock material comes from a hidden passphrase or an operating-system credential vault and never enters application state, logs, or configuration.
 _Avoid_: Telegram 2FA, screen lock, Media Cache encryption
 
+**Active Account**:
+The registered Telegram Account selected for the current process. Switching it
+updates `global.db`, then opens only that Account's isolated authorization,
+navigation, Drafts, scroll position, records, cache, and notification identity.
+_Avoid_: Active Chat, shared session
+
 **Clipboard Paste**:
 A context-sensitive composer action that queries the platform clipboard directly. Text is inserted into the Draft, images become photo attachment candidates, and copied files become file attachment candidates; unavailable or unsupported clipboard formats fail visibly without altering the Draft.
 _Avoid_: Terminal text paste only, shell evaluation, path picker

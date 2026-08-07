@@ -13,11 +13,41 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
     if let Some(maintenance) = arguments.maintenance {
         return run_maintenance(&config, maintenance);
     }
-    let credentials = resolve_telegram_credentials(&config, &config_directory)?;
     let layout = StoreLayout::new(config.paths.data.clone());
     let global = GlobalDatabase::open(&layout).context(OpenAccountRegistrySnafu)?;
     let accounts = global.accounts().context(ReadAccountRegistrySnafu)?;
-    let active_account = accounts.iter().find(|account| account.active).cloned();
+    if arguments.list_accounts {
+        for account in &accounts {
+            println!(
+                "{}\t{}{}",
+                account.id.get(),
+                account.display_name,
+                if account.active { "\tactive" } else { "" }
+            );
+        }
+        return Ok(());
+    }
+    let active_account = if arguments.add_account {
+        None
+    } else if let Some(requested) = arguments.account {
+        let selected = accounts
+            .iter()
+            .find(|account| account.id == requested)
+            .cloned()
+            .context(UnknownAccountSnafu {
+                account: requested.get(),
+            })?;
+        global
+            .register(AccountRecord {
+                active: true,
+                ..selected.clone()
+            })
+            .context(UpdateAccountRegistrySnafu)?;
+        Some(selected)
+    } else {
+        accounts.iter().find(|account| account.active).cloned()
+    };
+    let credentials = resolve_telegram_credentials(&config, &config_directory)?;
     let initializing_lock = config.local_lock.enabled
         && active_account
             .as_ref()

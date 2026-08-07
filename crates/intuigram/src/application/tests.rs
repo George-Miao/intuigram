@@ -91,6 +91,7 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
         selection: Some(StoredSelection {
             folder_id: 0,
             chat_id: Some(7),
+            anchor_message_id: Some(42),
         }),
     };
 
@@ -106,6 +107,7 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
         Some(SelectionView {
             folder: 0,
             chat: Some(ChatId(7)),
+            message: Some(MessageId(42)),
         })
     );
 }

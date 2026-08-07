@@ -34,6 +34,7 @@ impl TestSystem {
                             .save_selection(StoredSelection {
                                 folder_id: selection.folder,
                                 chat_id: selection.chat.map(|chat| chat.0),
+                                anchor_message_id: selection.message.map(|message| message.0),
                             })
                             .context(StoreSnafu)?;
                     }
@@ -75,11 +76,16 @@ impl TestSystem {
                         },
                     });
                 }
-                Effect::SaveSelection { folder, chat } => {
+                Effect::SaveSelection {
+                    folder,
+                    chat,
+                    message,
+                } => {
                     self.database
                         .save_selection(StoredSelection {
                             folder_id: folder,
                             chat_id: chat.map(|chat| chat.0),
+                            anchor_message_id: message.map(|message| message.0),
                         })
                         .context(StoreSnafu)?;
                 }

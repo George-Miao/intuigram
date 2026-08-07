@@ -107,6 +107,18 @@ Intuigram then prompts for the delivered code and, when enabled, a hidden 2FA
 password.
 Use `Ctrl+C` to quit and `?` for the context-sensitive key reference.
 
+Add and switch among isolated Accounts from the launcher:
+
+```sh
+intuigram --add-account
+intuigram --list-accounts
+intuigram --account TELEGRAM_USER_ID
+```
+
+The active Account is remembered. Each Account reopens its own Folder, Chat,
+Transcript position, Drafts, synchronized records, Media Cache, Local Lock key,
+and displayed identity.
+
 Account files always use owner-only filesystem permissions. Optional Local Lock
 also encrypts the complete Account database, including Telegram authorization
 and synchronized Message text. Configure either a hidden passphrase prompt or

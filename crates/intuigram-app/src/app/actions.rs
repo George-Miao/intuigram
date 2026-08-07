@@ -127,11 +127,11 @@ impl App {
             Action::SendPoll => self.send_poll(),
             Action::TargetPreviousMessage => {
                 self.target_previous_message();
-                None
+                Some(self.selection_effect())
             }
             Action::TargetNextMessage => {
                 self.target_next_message();
-                None
+                Some(self.selection_effect())
             }
             Action::Search => {
                 let scope = if self.view.focus == Focus::Chats {
@@ -176,7 +176,7 @@ impl App {
                 self.view.active_message = (!self.view.messages.is_empty()).then_some(0);
                 self.view.transcript_anchor = self.view.active_message;
                 self.view.focus = Focus::Transcript;
-                None
+                Some(self.selection_effect())
             }
             Action::JumpLatest => {
                 self.refresh_active_history();
@@ -184,7 +184,7 @@ impl App {
                 self.view.transcript_anchor = self.view.active_message;
                 self.view.has_newer_messages = false;
                 self.view.focus = Focus::Transcript;
-                None
+                Some(self.selection_effect())
             }
             Action::Send => self.send_message(),
             Action::Newline => {

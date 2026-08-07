@@ -7,7 +7,7 @@ impl App {
             ActivationTarget::Chat(chat) => self.activate_chat(chat),
             ActivationTarget::Message(message) => {
                 self.activate_message(message);
-                None
+                Some(self.selection_effect())
             }
             ActivationTarget::Composer => {
                 if self.active_chat_id().is_some() {

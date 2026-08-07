@@ -21,8 +21,12 @@ impl Backend {
                 },
             )),
             Effect::LoadChat { chat, selection } => self.load_selected_chat(chat, selection).await,
-            Effect::SaveSelection { folder, chat } => {
-                self.save_selection(folder, chat).await?;
+            Effect::SaveSelection {
+                folder,
+                chat,
+                message,
+            } => {
+                self.save_selection(folder, chat, message).await?;
                 Ok(None)
             }
             Effect::LoadThread { chat, root } => match self.load_thread(chat, root).await {

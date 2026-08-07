@@ -2,6 +2,7 @@ pub(super) fn cached_bootstrap(account_name: String, cached: CachedAccount) -> B
     let restored_selection = cached.selection.map(|selection| SelectionView {
         folder: selection.folder_id,
         chat: selection.chat_id.map(ChatId),
+        message: selection.anchor_message_id.map(MessageId),
     });
     let folders = cached
         .folders

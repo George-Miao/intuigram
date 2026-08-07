@@ -17,12 +17,13 @@ pub(super) fn load_cache(connection: &Connection) -> Result<CachedAccount> {
     let drafts = load_drafts(connection)?;
     let selection = connection
         .query_row(
-            "SELECT folder_id, chat_id FROM ui_selection WHERE singleton = 1",
+            "SELECT folder_id, chat_id, anchor_message_id FROM ui_selection WHERE singleton = 1",
             [],
             |row| {
                 Ok(StoredSelection {
                     folder_id: row.get(0)?,
                     chat_id: row.get(1)?,
+                    anchor_message_id: row.get(2)?,
                 })
             },
         )

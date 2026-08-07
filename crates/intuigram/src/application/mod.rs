@@ -97,6 +97,9 @@ struct Arguments {
     cache: Option<PathBuf>,
     downloads: Option<PathBuf>,
     maintenance: Option<Maintenance>,
+    account: Option<AccountId>,
+    add_account: bool,
+    list_accounts: bool,
     help: bool,
 }
 
@@ -210,6 +213,12 @@ enum Error {
 
     #[snafu(display("only one storage maintenance action may be requested"))]
     ConflictingMaintenance,
+
+    #[snafu(display("--account and --add-account cannot be used together"))]
+    ConflictingAccountSelection,
+
+    #[snafu(display("Telegram Account {account} is not registered; use --add-account first"))]
+    UnknownAccount { account: i64 },
 
     #[snafu(display("failed to load Intuigram configuration"))]
     LoadConfiguration { source: intuigram_config::Error },

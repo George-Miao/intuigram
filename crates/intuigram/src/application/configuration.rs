@@ -109,6 +109,23 @@ pub(super) fn parse_arguments(arguments: impl IntoIterator<Item = String>) -> Re
             "--data-dir" => &mut parsed.data,
             "--cache-dir" => &mut parsed.cache,
             "--downloads-dir" => &mut parsed.downloads,
+            "--account" => {
+                let value = arguments
+                    .next()
+                    .ok_or_else(|| Error::MissingArgumentValue {
+                        argument: argument.clone(),
+                    })?;
+                parsed.account = Some(parse_account_argument(&argument, value)?);
+                continue;
+            }
+            "--add-account" => {
+                parsed.add_account = true;
+                continue;
+            }
+            "--list-accounts" => {
+                parsed.list_accounts = true;
+                continue;
+            }
             _ => return UnknownArgumentSnafu { argument }.fail(),
         };
         *destination = Some(
@@ -119,6 +136,9 @@ pub(super) fn parse_arguments(arguments: impl IntoIterator<Item = String>) -> Re
                 })?
                 .into(),
         );
+    }
+    if parsed.account.is_some() && parsed.add_account {
+        return ConflictingAccountSelectionSnafu.fail();
     }
     Ok(parsed)
 }
@@ -157,6 +177,9 @@ pub(super) fn print_help() {
            --data-dir PATH         Override the platform data directory\n\
            --cache-dir PATH        Override the platform cache directory\n\
            --downloads-dir PATH    Override the platform Downloads directory\n\
+           --account ID            Switch to a registered Telegram Account\n\
+           --add-account           Authorize and add another Telegram Account\n\
+           --list-accounts         List registered Accounts without opening the TUI\n\
            --media-cache-usage ID  Show one Account's cache usage and configured limit\n\
            --clear-media-cache ID  Clear only redownloadable media for one Account\n\
            --clear-account-data ID Clear local records, authorization, and media after confirmation\n\
@@ -164,6 +187,17 @@ pub(super) fn print_help() {
          Configure telegram.api_id and telegram.api_hash in config.toml, YAML, JSON, or the\n\
          INTUIGRAM_TELEGRAM__API_ID and INTUIGRAM_TELEGRAM__API_HASH environment variables."
     );
+}
+
+fn parse_account_argument(argument: &str, value: String) -> Result<AccountId> {
+    value
+        .parse::<i64>()
+        .ok()
+        .and_then(AccountId::new)
+        .ok_or_else(|| Error::InvalidArgumentValue {
+            argument: argument.to_owned(),
+            value,
+        })
 }
 
 pub(super) fn mime_type_for_path(path: &std::path::Path) -> String {
@@ -215,6 +249,22 @@ mod argument_tests {
                 "1".to_owned(),
                 "--clear-account-data".to_owned(),
                 "1".to_owned(),
+            ])
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn account_launcher_arguments_are_unambiguous() {
+        let selected = parse_arguments(["--account".to_owned(), "42".to_owned()])
+            .expect("Account selection should parse");
+        assert_eq!(selected.account.map(|account| account.get()), Some(42));
+
+        assert!(
+            parse_arguments([
+                "--account".to_owned(),
+                "42".to_owned(),
+                "--add-account".to_owned(),
             ])
             .is_err()
         );

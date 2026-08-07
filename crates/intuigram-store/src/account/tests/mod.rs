@@ -253,6 +253,37 @@ fn version_four_chats_receive_an_empty_status_without_losing_records() {
 }
 
 #[test]
+fn version_six_selection_gains_an_empty_transcript_anchor() {
+    let temporary = tempdir().expect("temporary directory should be created");
+    let layout = StoreLayout::new(temporary.path().join("intuigram"));
+    fs::create_dir_all(layout.data_directory()).expect("data directory should be created");
+    let mut connection =
+        Connection::open(layout.pending_database()).expect("fixture database should open");
+    super::migrations::migrations::runner()
+        .set_target(Target::Version(6))
+        .run(&mut connection)
+        .expect("released version six schema should install");
+    connection
+        .execute(
+            "INSERT INTO ui_selection(singleton, folder_id, chat_id) VALUES (1, 0, 7)",
+            [],
+        )
+        .expect("version six selection should insert");
+    drop(connection);
+
+    let selection = AccountDatabase::begin_login(&layout)
+        .expect("version six database should migrate")
+        .cached_account()
+        .expect("migrated selection should load")
+        .selection
+        .expect("selection should remain");
+
+    assert_eq!(selection.folder_id, 0);
+    assert_eq!(selection.chat_id, Some(7));
+    assert_eq!(selection.anchor_message_id, None);
+}
+
+#[test]
 fn normalized_records_and_cursor_commit_or_roll_back_together() {
     let temporary = tempdir().expect("temporary directory should be created");
     let layout = StoreLayout::new(temporary.path().join("intuigram"));
@@ -328,11 +359,13 @@ fn replacing_the_ui_selection_keeps_the_current_value_durable() {
         .save_selection(StoredSelection {
             folder_id: 0,
             chat_id: Some(7),
+            anchor_message_id: Some(6),
         })
         .expect("initial selection should persist");
     let replacement = StoredSelection {
         folder_id: -1,
         chat_id: Some(9),
+        anchor_message_id: Some(8),
     };
 
     database

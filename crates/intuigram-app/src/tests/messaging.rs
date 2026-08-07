@@ -146,6 +146,7 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
             selection: Some(SelectionView {
                 folder: 0,
                 chat: Some(ChatId(10)),
+                message: None,
             }),
         })
     );
@@ -171,6 +172,7 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
         Some(Effect::SaveSelection {
             folder: 0,
             chat: Some(ChatId(20)),
+            message: None,
         })
     );
     let first = app.transition(Input::Intent(Intent::Action(Action::MoveUp)));
@@ -182,6 +184,7 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
         Some(Effect::SaveSelection {
             folder: 0,
             chat: Some(ChatId(10)),
+            message: None,
         })
     );
 }
@@ -208,6 +211,7 @@ fn revisiting_a_loaded_chat_renders_cached_history_while_refreshing() {
         Some(Effect::SaveSelection {
             folder: 0,
             chat: Some(ChatId(20)),
+            message: None,
         })
     );
 
@@ -237,6 +241,7 @@ fn revisiting_a_loaded_chat_renders_cached_history_while_refreshing() {
             selection: Some(SelectionView {
                 folder: 0,
                 chat: Some(ChatId(10)),
+                message: None,
             }),
         })
     );
@@ -296,6 +301,7 @@ fn bootstrap_cached_history_renders_before_a_background_refresh() {
         Some(Effect::SaveSelection {
             folder: 0,
             chat: Some(ChatId(20)),
+            message: None,
         })
     );
 }

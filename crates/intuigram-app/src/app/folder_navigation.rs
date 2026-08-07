@@ -42,6 +42,12 @@ impl App {
                 .get(self.view.active_folder)
                 .map_or(0, |folder| folder.id),
             chat: self.active_chat_id(),
+            message: self
+                .view
+                .active_message
+                .or(self.view.transcript_anchor)
+                .and_then(|index| self.view.messages.get(index))
+                .map(|message| message.id),
         }
     }
 
@@ -50,6 +56,7 @@ impl App {
         Effect::SaveSelection {
             folder: selection.folder,
             chat: selection.chat,
+            message: selection.message,
         }
     }
 

@@ -256,6 +256,9 @@ pub struct StoredSelection {
 
     /// Selected Chat, or `None` when no Chat is selected.
     pub chat_id: Option<i64>,
+
+    /// Message anchoring the restored Transcript viewport.
+    pub anchor_message_id: Option<i64>,
 }
 
 /// Immediately renderable durable Account cache.

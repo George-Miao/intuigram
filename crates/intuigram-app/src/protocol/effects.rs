@@ -38,6 +38,9 @@ pub enum Effect {
 
         /// Selected Chat, or `None` when the Folder has no active Chat.
         chat: Option<ChatId>,
+
+        /// Message anchoring the Transcript viewport.
+        message: Option<MessageId>,
     },
     /// Load an ordinary Message Thread or Channel comments.
     LoadThread {

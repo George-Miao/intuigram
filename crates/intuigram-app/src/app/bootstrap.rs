@@ -197,6 +197,15 @@ impl App {
         self.view.active_thread = None;
         self.view.transcript_anchor = None;
         self.refresh_active_history();
+        if let Some(message) = restored_selection.and_then(|selection| selection.message)
+            && let Some(index) = self
+                .view
+                .messages
+                .iter()
+                .position(|candidate| candidate.id == message)
+        {
+            self.view.transcript_anchor = Some(index);
+        }
         self.restore_active_draft();
         self.reset_background_history();
         self.media_preview_loads = MediaPreviewLoads::default();

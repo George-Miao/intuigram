@@ -95,11 +95,17 @@ impl Backend {
             .context(AccountDatabaseSnafu)
     }
 
-    pub(super) async fn save_selection(&mut self, folder: i32, chat: Option<ChatId>) -> Result<()> {
+    pub(super) async fn save_selection(
+        &mut self,
+        folder: i32,
+        chat: Option<ChatId>,
+        message: Option<MessageId>,
+    ) -> Result<()> {
         self.store
             .save_selection(intuigram_store::StoredSelection {
                 folder_id: folder,
                 chat_id: chat.map(|chat| chat.0),
+                anchor_message_id: message.map(|message| message.0),
             })
             .context(AccountDatabaseSnafu)?
             .await
@@ -144,7 +150,7 @@ impl Backend {
         selection: Option<SelectionView>,
     ) -> Result<Option<AdapterEvent>> {
         if let Some(selection) = selection {
-            self.save_selection(selection.folder, selection.chat)
+            self.save_selection(selection.folder, selection.chat, selection.message)
                 .await?;
         }
         match self.load_chat(chat).await {

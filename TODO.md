@@ -9,7 +9,6 @@
 
 ## TODO
 
-- [ ] **p-core:** Add and switch between multiple Accounts while restoring each Account's Folder, Active Chat, Drafts, scroll positions, and notification identity.
 - [ ] **p-core:** Add explicit Account exit workflows. `Logout` must revoke the Telegram authorization before deleting local Account data; when offline, do not report success. `Remove locally` deletes the session, Local Records, and Media Cache with an exact warning that the server-side authorization may remain active. Show the Account identity and deletion scope in confirmation.
 - [ ] **p-core:** Create, rename, reorder, share, and delete Folders, including editing Telegram inclusion and exclusion rules.
 - [ ] **p-core:** Record and send voice and video notes; browse and send stickers, GIFs, and custom emoji; and share contacts.

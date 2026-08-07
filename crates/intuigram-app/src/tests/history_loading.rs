@@ -211,6 +211,7 @@ fn load_chat(chat: i64, selected_chat: Option<i64>) -> Effect {
         selection: selected_chat.map(|chat| SelectionView {
             folder: 0,
             chat: Some(ChatId(chat)),
+            message: None,
         }),
     }
 }
