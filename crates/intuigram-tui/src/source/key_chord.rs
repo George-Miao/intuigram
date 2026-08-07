@@ -106,7 +106,7 @@ fn binding_matches_context(view: &View, binding: &Binding) -> bool {
             view.focus == Focus::Transcript
         }
         (Action::TargetPreviousMessage, key) if key == KeyChord::alt(Key::Up) => {
-            view.focus == Focus::Composer && !view.composer.text.is_empty()
+            matches!(view.focus, Focus::Composer | Focus::Transcript)
         }
         (Action::TargetNextMessage, key) if key == KeyChord::plain(Key::Down) => {
             view.focus == Focus::Transcript

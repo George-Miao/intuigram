@@ -206,7 +206,10 @@ fn hierarchy_modifiers_resolve_only_in_their_effective_context() {
         keymap.resolve(&empty_editor, KeyChord::plain(Key::Up)),
         Some(Action::EditPrevious)
     );
-    assert_eq!(keymap.resolve(&composer, KeyChord::alt(Key::Up)), None);
+    assert_eq!(
+        keymap.resolve(&composer, KeyChord::alt(Key::Up)),
+        Some(Action::TargetPreviousMessage)
+    );
     composer.composer.text = "draft".to_owned();
     assert_eq!(
         keymap.resolve(&composer, KeyChord::alt(Key::Up)),
