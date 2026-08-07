@@ -11,6 +11,10 @@ pub enum Error {
         source: compio_mtproto::ProxyError,
     },
 
+    /// One route did not complete MTProto initialization before its deadline.
+    #[snafu(display("Telegram route initialization timed out at {endpoint}"))]
+    RouteInitializationTimeout { endpoint: SocketAddr },
+
     /// A fresh `MTProto` authorization key could not be generated.
     #[snafu(display("failed to generate Telegram authorization key"))]
     GenerateKey {

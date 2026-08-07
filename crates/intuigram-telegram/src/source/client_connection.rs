@@ -1,3 +1,5 @@
+use super::*;
+
 impl Client {
     /// Connects to a Telegram data center and generates fresh authorization
     /// material.
@@ -26,7 +28,39 @@ impl Client {
         credentials: ApplicationCredentials,
         route: Route,
     ) -> Result<(Self, Session)> {
-        let mut transport = connect_route(endpoint, proxy_dc_id, &route)
+        let mut last_error = None;
+        for attempt in route_attempts(&route) {
+            let deadline = attempt.timeout;
+            let connection = compio::time::timeout(
+                deadline,
+                Self::connect_new_attempt(
+                    dc_id,
+                    proxy_dc_id,
+                    endpoint,
+                    credentials.clone(),
+                    attempt,
+                    route.clone(),
+                ),
+            )
+            .await;
+            match connection {
+                Ok(Ok(connected)) => return Ok(connected),
+                Ok(Err(error)) => last_error = Some(error),
+                Err(_) => last_error = Some(Error::RouteInitializationTimeout { endpoint }),
+            }
+        }
+        Err(last_error.expect("every route policy has at least one connection attempt"))
+    }
+
+    async fn connect_new_attempt(
+        dc_id: i32,
+        proxy_dc_id: i32,
+        endpoint: SocketAddr,
+        credentials: ApplicationCredentials,
+        attempt: Route,
+        route: Route,
+    ) -> Result<(Self, Session)> {
+        let mut transport = connect_route(endpoint, proxy_dc_id, &attempt)
             .await
             .context(ConnectSnafu { endpoint })?;
         let material = generate_auth_key(&mut transport)
@@ -57,6 +91,18 @@ impl Client {
         Ok((client, session))
     }
 
+    /// Verifies a complete MTProto handshake and Telegram API initialization.
+    pub async fn test_connection(
+        dc_id: i32,
+        endpoint: SocketAddr,
+        credentials: ApplicationCredentials,
+        route: Route,
+    ) -> Result<()> {
+        Self::connect_new(dc_id, endpoint, credentials, route)
+            .await
+            .map(|_| ())
+    }
+
     /// Reconnects with authorization material loaded from Account storage.
     pub async fn connect_existing(
         credentials: ApplicationCredentials,
@@ -83,8 +129,42 @@ impl Client {
         identity: Option<AuthorizedUser>,
         route: Route,
     ) -> Result<Self> {
+        let mut last_error = None;
+        for attempt in route_attempts(&route) {
+            let deadline = attempt.timeout;
+            let connection = compio::time::timeout(
+                deadline,
+                Self::connect_session_attempt(
+                    credentials.clone(),
+                    session,
+                    identity.clone(),
+                    attempt,
+                    route.clone(),
+                ),
+            )
+            .await;
+            match connection {
+                Ok(Ok(client)) => return Ok(client),
+                Ok(Err(error)) => last_error = Some(error),
+                Err(_) => {
+                    last_error = Some(Error::RouteInitializationTimeout {
+                        endpoint: session.endpoint,
+                    });
+                }
+            }
+        }
+        Err(last_error.expect("every route policy has at least one connection attempt"))
+    }
+
+    async fn connect_session_attempt(
+        credentials: ApplicationCredentials,
+        session: &Session,
+        identity: Option<AuthorizedUser>,
+        attempt: Route,
+        route: Route,
+    ) -> Result<Self> {
         let endpoint = session.endpoint;
-        let transport = connect_route(endpoint, session.dc_id, &route)
+        let transport = connect_route(endpoint, session.dc_id, &attempt)
             .await
             .context(ConnectSnafu { endpoint })?;
         let material = AuthKeyMaterial {
@@ -165,4 +245,58 @@ impl Client {
         self.route.clone()
     }
 }
-use super::*;
+
+fn route_attempts(route: &Route) -> Vec<Route> {
+    let mut attempts = route
+        .proxies
+        .iter()
+        .cloned()
+        .map(|proxy| Route {
+            proxies: vec![proxy],
+            direct_fallback: false,
+            timeout: route.timeout,
+        })
+        .collect::<Vec<_>>();
+    if route.direct_fallback {
+        attempts.push(Route {
+            proxies: Vec::new(),
+            direct_fallback: true,
+            timeout: route.timeout,
+        });
+    }
+    if attempts.is_empty() {
+        attempts.push(route.clone());
+    }
+    attempts
+}
+
+#[cfg(test)]
+mod tests {
+    use compio_mtproto::{DnsStrategy, Proxy, ProxyEndpoint, Route};
+
+    use super::route_attempts;
+
+    #[test]
+    fn telegram_validation_receives_each_proxy_then_direct_fallback() {
+        let proxy = Proxy::Socks5 {
+            endpoint: ProxyEndpoint {
+                host: "proxy.example".to_owned(),
+                port: 1080,
+            },
+            credentials: None,
+            dns: DnsStrategy::Remote,
+        };
+        let route = Route {
+            proxies: vec![proxy.clone(), proxy],
+            ..Route::default()
+        };
+
+        let attempts = route_attempts(&route);
+
+        assert_eq!(attempts.len(), 3);
+        assert_eq!(attempts[0].proxies.len(), 1);
+        assert_eq!(attempts[1].proxies.len(), 1);
+        assert!(attempts[2].proxies.is_empty());
+        assert!(attempts[2].direct_fallback);
+    }
+}

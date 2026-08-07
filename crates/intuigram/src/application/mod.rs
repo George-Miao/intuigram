@@ -320,7 +320,7 @@ enum Error {
     ProxyConfiguration { source: compio_mtproto::ProxyError },
 
     #[snafu(display("Telegram connection test failed"))]
-    ProxyConnectionTest { source: compio_mtproto::ProxyError },
+    ProxyConnectionTest { source: intuigram_telegram::Error },
 
     #[snafu(display("Telegram application ID must be a positive decimal integer"))]
     InvalidApplicationId,

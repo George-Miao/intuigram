@@ -15,10 +15,11 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
         .context(LoadConfigurationSnafu)?;
     if test_connection {
         let route = telegram_route(&config)?;
-        let _ = compio_mtproto::connect_route(PRIMARY_DC_ENDPOINT, PRIMARY_DC_ID, &route)
+        let credentials = resolve_telegram_credentials(&config, &config_directory)?;
+        Client::test_connection(PRIMARY_DC_ID, PRIMARY_DC_ENDPOINT, credentials, route)
             .await
             .context(ProxyConnectionTestSnafu)?;
-        println!("Telegram connection route is available.");
+        println!("Telegram connection route completed MTProto initialization.");
         return Ok(());
     }
     if let Some(maintenance) = arguments.maintenance {
