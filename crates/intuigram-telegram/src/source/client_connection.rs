@@ -5,11 +5,30 @@ impl Client {
         dc_id: i32,
         endpoint: SocketAddr,
         credentials: ApplicationCredentials,
+        route: Route,
     ) -> Result<(Self, Session)> {
-        let transport = AbridgedConnection::connect(endpoint)
+        Self::connect_new_routed(dc_id, dc_id, endpoint, credentials, route).await
+    }
+
+    pub(super) async fn connect_new_media(
+        dc_id: i32,
+        endpoint: SocketAddr,
+        credentials: ApplicationCredentials,
+        route: Route,
+    ) -> Result<(Self, Session)> {
+        Self::connect_new_routed(dc_id, -dc_id, endpoint, credentials, route).await
+    }
+
+    async fn connect_new_routed(
+        dc_id: i32,
+        proxy_dc_id: i32,
+        endpoint: SocketAddr,
+        credentials: ApplicationCredentials,
+        route: Route,
+    ) -> Result<(Self, Session)> {
+        let mut transport = connect_route(endpoint, proxy_dc_id, &route)
             .await
             .context(ConnectSnafu { endpoint })?;
-        let mut transport = BoxedTransport::new(transport);
         let material = generate_auth_key(&mut transport)
             .await
             .context(GenerateKeySnafu)?;
@@ -25,6 +44,7 @@ impl Client {
                 transport, &material,
             ))),
             dc_id,
+            route,
             credentials,
             password: None,
             identity: None,
@@ -42,8 +62,9 @@ impl Client {
         credentials: ApplicationCredentials,
         session: &Session,
         identity: AuthorizedUser,
+        route: Route,
     ) -> Result<Self> {
-        Self::connect_with_session(credentials, session, Some(identity)).await
+        Self::connect_with_session(credentials, session, Some(identity), route).await
     }
 
     /// Reconnects an incomplete login using authorization material saved in
@@ -51,17 +72,19 @@ impl Client {
     pub async fn connect_pending(
         credentials: ApplicationCredentials,
         session: &Session,
+        route: Route,
     ) -> Result<Self> {
-        Self::connect_with_session(credentials, session, None).await
+        Self::connect_with_session(credentials, session, None, route).await
     }
 
     pub(super) async fn connect_with_session(
         credentials: ApplicationCredentials,
         session: &Session,
         identity: Option<AuthorizedUser>,
+        route: Route,
     ) -> Result<Self> {
         let endpoint = session.endpoint;
-        let transport = AbridgedConnection::connect(endpoint)
+        let transport = connect_route(endpoint, session.dc_id, &route)
             .await
             .context(ConnectSnafu { endpoint })?;
         let material = AuthKeyMaterial {
@@ -70,8 +93,11 @@ impl Client {
             first_salt: session.first_salt,
         };
         let mut client = Self {
-            connection: Connection::Login(Box::new(EncryptedConnection::new(transport, &material))),
+            connection: Connection::Login(Box::new(EncryptedConnection::from_boxed(
+                transport, &material,
+            ))),
             dc_id: session.dc_id,
+            route,
             credentials,
             password: None,
             identity,
@@ -91,6 +117,7 @@ impl Client {
         let Self {
             connection,
             dc_id,
+            route,
             credentials,
             password,
             identity,
@@ -108,6 +135,7 @@ impl Client {
             Self {
                 connection: Connection::Live(handle),
                 dc_id,
+                route,
                 credentials,
                 password,
                 identity,
@@ -129,6 +157,12 @@ impl Client {
     /// Adds operation addresses learned by the live update stream.
     pub fn merge_peers(&mut self, peers: PeerDirectory) {
         self.peers.merge(peers);
+    }
+
+    /// Returns the route policy for data-center migrations and media downloads.
+    #[must_use]
+    pub fn connection_route(&self) -> Route {
+        self.route.clone()
     }
 }
 use super::*;

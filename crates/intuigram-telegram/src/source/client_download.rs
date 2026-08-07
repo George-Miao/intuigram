@@ -41,8 +41,13 @@ impl Client {
             .await
             .context(InvokeSnafu)?;
         let tl::enums::auth::ExportedAuthorization::Authorization(exported) = exported;
-        let (mut media_client, _) =
-            Client::connect_new(dc_id, endpoint, self.credentials.clone()).await?;
+        let (mut media_client, _) = Client::connect_new_media(
+            dc_id,
+            endpoint,
+            self.credentials.clone(),
+            self.route.clone(),
+        )
+        .await?;
         media_client
             .connection
             .invoke(&tl::functions::auth::ImportAuthorization {

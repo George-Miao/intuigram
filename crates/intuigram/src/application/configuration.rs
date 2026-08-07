@@ -177,6 +177,10 @@ pub(super) fn parse_arguments(arguments: impl IntoIterator<Item = String>) -> Re
                 parsed.list_accounts = true;
                 continue;
             }
+            "--test-connection" => {
+                parsed.test_connection = true;
+                continue;
+            }
             _ => return UnknownArgumentSnafu { argument }.fail(),
         };
         *destination = Some(
@@ -190,6 +194,9 @@ pub(super) fn parse_arguments(arguments: impl IntoIterator<Item = String>) -> Re
     }
     if parsed.account.is_some() && parsed.add_account {
         return ConflictingAccountSelectionSnafu.fail();
+    }
+    if parsed.test_connection && parsed.maintenance.is_some() {
+        return ConflictingMaintenanceSnafu.fail();
     }
     Ok(parsed)
 }
@@ -231,6 +238,7 @@ pub(super) fn print_help() {
            --account ID            Switch to a registered Telegram Account\n\
            --add-account           Authorize and add another Telegram Account\n\
            --list-accounts         List registered Accounts without opening the TUI\n\
+           --test-connection      Test configured proxy order and direct fallback\n\
            --media-cache-usage ID  Show one Account's cache usage and configured limit\n\
            --clear-media-cache ID  Clear only redownloadable media for one Account\n\
            --clear-account-data ID Clear local records, authorization, and media after confirmation\n\

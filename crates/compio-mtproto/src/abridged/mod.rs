@@ -142,6 +142,7 @@ struct AbridgedFramer {
 }
 
 impl AbridgedFramer {
+    #[cfg(test)]
     const fn new() -> Self {
         Self {
             preamble_sent: false,
@@ -220,12 +221,11 @@ impl Framer<Vec<u8>> for AbridgedFramer {
     }
 }
 
-type FramedTransport =
-    SymmetricFramed<TcpStream, TcpStream, AbridgedCodec, AbridgedFramer, Vec<u8>, Vec<u8>>;
+type FramedTransport<R, W> = SymmetricFramed<R, W, AbridgedCodec, AbridgedFramer, Vec<u8>, Vec<u8>>;
 
 /// Direct TCP connection carrying abridged `MTProto` frames through Compio.
-pub struct AbridgedConnection {
-    framed: FramedTransport,
+pub struct AbridgedConnection<R = TcpStream, W = TcpStream> {
+    framed: FramedTransport<R, W>,
     queued_send: Option<Vec<u8>>,
     flushing_send: bool,
 }
@@ -236,14 +236,32 @@ impl AbridgedConnection {
         let stream = TcpStream::connect(endpoint)
             .await
             .context(ConnectSnafu { endpoint })?;
-        let framed = SymmetricFramed::symmetric(AbridgedCodec::new(), AbridgedFramer::new())
-            .with_duplex(stream)
-            .with_buffer(Vec::with_capacity(4096), Vec::with_capacity(4096));
-        Ok(Self {
+        Ok(Self::from_stream(stream))
+    }
+
+    /// Starts abridged framing on an already-negotiated TCP tunnel.
+    #[must_use]
+    pub fn from_stream(stream: TcpStream) -> Self {
+        Self::from_halves(stream.clone(), stream, false)
+    }
+}
+
+impl<R, W> AbridgedConnection<R, W>
+where
+    R: compio::io::AsyncRead + Unpin + 'static,
+    W: compio::io::AsyncWrite + Unpin + 'static,
+{
+    pub(crate) fn from_halves(reader: R, writer: W, preamble_sent: bool) -> Self {
+        let framed =
+            SymmetricFramed::symmetric(AbridgedCodec::new(), AbridgedFramer { preamble_sent })
+                .with_reader(reader)
+                .with_writer(writer)
+                .with_buffer(Vec::with_capacity(4096), Vec::with_capacity(4096));
+        Self {
             framed,
             queued_send: None,
             flushing_send: false,
-        })
+        }
     }
 
     /// Sends one already-serialized `MTProto` envelope.
@@ -288,7 +306,11 @@ impl AbridgedConnection {
     }
 }
 
-impl Transport for AbridgedConnection {
+impl<R, W> Transport for AbridgedConnection<R, W>
+where
+    R: compio::io::AsyncRead + Unpin + 'static,
+    W: compio::io::AsyncWrite + Unpin + 'static,
+{
     fn queue_send(mut self: Pin<&mut Self>, payload: Vec<u8>) {
         self.as_mut().get_mut().queue_send(payload);
     }

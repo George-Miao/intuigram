@@ -48,9 +48,10 @@ pub(crate) async fn run_logout(
         display_name: record.display_name.clone(),
         username: None,
     };
-    let mut client = Client::connect_existing(credentials, &session, identity)
-        .await
-        .context(TelegramSnafu)?;
+    let mut client =
+        Client::connect_existing(credentials, &session, identity, telegram_route(config)?)
+            .await
+            .context(TelegramSnafu)?;
     let revoked = client.log_out().await.context(TelegramSnafu);
     drop(client);
     drop(database);

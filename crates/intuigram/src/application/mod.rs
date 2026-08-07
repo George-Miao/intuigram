@@ -55,6 +55,7 @@ mod login;
 mod maintenance;
 mod media_arguments;
 mod poll;
+mod proxy;
 mod runtime_adapters;
 mod runtime_loop;
 mod runtime_types;
@@ -86,6 +87,7 @@ use maintenance::{
 };
 use media_arguments::parse_media_maintenance;
 use poll::PollPersistence;
+use proxy::telegram_route;
 use runtime_adapters::{
     AdapterBatch, ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents, BackendOutput,
 };
@@ -114,6 +116,7 @@ struct Arguments {
     account: Option<AccountId>,
     add_account: bool,
     list_accounts: bool,
+    test_connection: bool,
     help: bool,
 }
 
@@ -216,6 +219,7 @@ struct AdapterStorage {
     cache_root: PathBuf,
     cache_limit: u64,
     cipher: AccountCipher,
+    route: compio_mtproto::Route,
 }
 
 impl AdapterStorage {
@@ -311,6 +315,12 @@ enum Error {
 
     #[snafu(display("failed to load Intuigram configuration"))]
     LoadConfiguration { source: intuigram_config::Error },
+
+    #[snafu(display("Telegram proxy configuration is invalid"))]
+    ProxyConfiguration { source: compio_mtproto::ProxyError },
+
+    #[snafu(display("Telegram connection test failed"))]
+    ProxyConnectionTest { source: compio_mtproto::ProxyError },
 
     #[snafu(display("Telegram application ID must be a positive decimal integer"))]
     InvalidApplicationId,

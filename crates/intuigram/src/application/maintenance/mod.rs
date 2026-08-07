@@ -48,6 +48,7 @@ async fn connect_account(
             display_name: record.display_name,
             username: None,
         },
+        telegram_route(config)?,
     )
     .await
     .context(TelegramSnafu)

@@ -26,9 +26,10 @@ pub(super) async fn resume_account(
         display_name: account.display_name.clone(),
         username: None,
     };
-    let mut client = Client::connect_existing(credentials, &session, identity)
-        .await
-        .context(TelegramSnafu)?;
+    let mut client =
+        Client::connect_existing(credentials, &session, identity, storage.route.clone())
+            .await
+            .context(TelegramSnafu)?;
     let mut bootstrap = client.bootstrap(100).await.context(TelegramSnafu)?;
     let cached = cached_bootstrap(account.display_name.clone(), cached);
     bootstrap.drafts = cached.drafts;
@@ -94,17 +95,22 @@ pub(super) async fn authorize_new_account(
     intuigram_telegram::PeerDirectory,
     Bootstrap,
 )> {
+    let route = telegram_route(config)?;
     let pending = AccountDatabase::begin_login_with_cipher(layout, cipher.clone())
         .context(AccountDatabaseSnafu)?;
     let (client, session) = if let Some(stored) = pending.session().context(AccountDatabaseSnafu)? {
         let session = telegram_session(&stored)?;
-        match Client::connect_pending(credentials.clone(), &session).await {
+        match Client::connect_pending(credentials.clone(), &session, route.clone()).await {
             Ok(client) => (client, session),
             Err(error) if error.is_test_data_center() => {
-                let connected =
-                    Client::connect_new(PRIMARY_DC_ID, PRIMARY_DC_ENDPOINT, credentials.clone())
-                        .await
-                        .context(TelegramSnafu)?;
+                let connected = Client::connect_new(
+                    PRIMARY_DC_ID,
+                    PRIMARY_DC_ENDPOINT,
+                    credentials.clone(),
+                    route.clone(),
+                )
+                .await
+                .context(TelegramSnafu)?;
                 pending
                     .save_session(store_session(&connected.1))
                     .context(AccountDatabaseSnafu)?;
@@ -113,10 +119,14 @@ pub(super) async fn authorize_new_account(
             Err(source) => return Err(Error::Telegram { source }),
         }
     } else {
-        let (client, session) =
-            Client::connect_new(PRIMARY_DC_ID, PRIMARY_DC_ENDPOINT, credentials.clone())
-                .await
-                .context(TelegramSnafu)?;
+        let (client, session) = Client::connect_new(
+            PRIMARY_DC_ID,
+            PRIMARY_DC_ENDPOINT,
+            credentials.clone(),
+            route,
+        )
+        .await
+        .context(TelegramSnafu)?;
         pending
             .save_session(store_session(&session))
             .context(AccountDatabaseSnafu)?;
@@ -185,13 +195,10 @@ pub(super) async fn authorize_new_account(
             next_local_message_id: 0,
             attachments: AttachmentStore::default(),
             downloads: intuigram_media::DownloadDirectory::new(config.paths.downloads.clone()),
-            media_cache: AdapterStorage {
-                downloads: config.paths.downloads.clone(),
-                cache_root: config.paths.cache.clone(),
-                cache_limit: config.media.cache_bytes,
-                cipher,
-            }
-            .for_account(account_id),
+            media_cache: intuigram_media::MediaCache::new(
+                config.paths.cache.join(account_id.get().to_string()),
+                config.media.cache_bytes,
+            ),
             downloaded: DownloadStore::default(),
         },
         BackendEvents {
@@ -249,9 +256,11 @@ pub(super) async fn authorize_with_qr(
                 let endpoint = client
                     .data_center_endpoint(dc_id)
                     .context(MissingDataCenterSnafu { dc_id })?;
-                (client, session) = Client::connect_new(dc_id, endpoint, credentials.clone())
-                    .await
-                    .context(TelegramSnafu)?;
+                let route = client.connection_route();
+                (client, session) =
+                    Client::connect_new(dc_id, endpoint, credentials.clone(), route)
+                        .await
+                        .context(TelegramSnafu)?;
                 pending
                     .save_session(store_session(&session))
                     .context(AccountDatabaseSnafu)?;

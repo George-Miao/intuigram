@@ -1,6 +1,9 @@
 //! Layered configuration for Intuigram.
 
 mod credentials;
+mod proxy;
+#[cfg(test)]
+mod tests;
 
 use std::path::PathBuf;
 use std::{fmt, ops};
@@ -8,6 +11,7 @@ use std::{fmt, ops};
 pub use credentials::{Error as CredentialError, save_application_credentials};
 use figment::Figment;
 use figment::providers::{Env, Format, Json, Serialized, Toml, Yaml};
+pub use proxy::{Connection, DnsStrategy, Proxy, ProxyAuthentication, ProxySecret};
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 
@@ -32,6 +36,9 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 /// Fully resolved Intuigram configuration.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct Config {
+    /// Telegram transport routing and fallback policy.
+    pub connection: Connection,
+
     /// Optional encryption and unlock policy for Account-local data.
     pub local_lock: LocalLock,
 
@@ -235,6 +242,8 @@ impl ConfigLoader {
     /// Resolves the configured sources.
     pub fn load(self) -> Result<Config> {
         let defaults = Config {
+            connection: Connection::default(),
+
             local_lock: LocalLock::default(),
 
             paths: Paths {
@@ -273,151 +282,5 @@ impl ConfigLoader {
             .merge(Serialized::defaults(overrides))
             .extract()
             .context(ResolveSnafu)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::fs;
-    use std::path::Path;
-
-    use tempfile::tempdir;
-
-    use super::{ConfigLoader, Overrides, PlatformDefaults, UnlockMethod, ViewMode};
-
-    fn defaults(root: &Path) -> PlatformDefaults {
-        PlatformDefaults {
-            config: root.join("config"),
-            data: root.join("default-data"),
-            cache: root.join("default-cache"),
-            downloads: root.join("default-downloads"),
-        }
-    }
-
-    #[test]
-    fn json_overrides_yaml_and_toml_from_the_default_config_directory() {
-        let temporary = tempdir().expect("temporary directory should be created");
-        let platform = defaults(temporary.path());
-        fs::create_dir_all(&platform.config).expect("config directory should be created");
-        fs::write(
-            platform.config.join("config.toml"),
-            "[media]\ncache_bytes = 1024\n",
-        )
-        .expect("TOML config should be written");
-        fs::write(
-            platform.config.join("config.yaml"),
-            "media:\n  cache_bytes: 2048\n",
-        )
-        .expect("YAML config should be written");
-        fs::write(
-            platform.config.join("config.json"),
-            "{\"media\": {\"cache_bytes\": 4096}}",
-        )
-        .expect("JSON config should be written");
-
-        let config = ConfigLoader::new(platform)
-            .read_environment(false)
-            .load()
-            .expect("layered configuration should load");
-
-        assert_eq!(config.media.cache_bytes, 4096);
-    }
-
-    #[test]
-    fn command_line_values_override_configuration_files() {
-        let temporary = tempdir().expect("temporary directory should be created");
-        let platform = defaults(temporary.path());
-        fs::create_dir_all(&platform.config).expect("config directory should be created");
-        fs::write(
-            platform.config.join("config.toml"),
-            "[paths]\ndata = 'from-file'\n[media]\ncache_bytes = 'invalid lower source'\n",
-        )
-        .expect("TOML config should be written");
-        let command_line_data = temporary.path().join("from-command-line");
-
-        let config = ConfigLoader::new(platform)
-            .read_environment(false)
-            .with_overrides(Overrides {
-                data: Some(command_line_data.clone()),
-                media_cache_bytes: Some(8192),
-                ..Overrides::default()
-            })
-            .load()
-            .expect("layered configuration should load");
-
-        assert_eq!(config.paths.data, command_line_data);
-        assert_eq!(config.media.cache_bytes, 8192);
-    }
-
-    #[test]
-    fn telegram_api_hash_is_loaded_but_redacted_from_diagnostics() {
-        let temporary = tempdir().expect("temporary directory should be created");
-        let platform = defaults(temporary.path());
-        fs::create_dir_all(&platform.config).expect("config directory should be created");
-        fs::write(
-            platform.config.join("config.toml"),
-            "[telegram]\napi_id = 42\napi_hash = 'super-secret-hash'\n",
-        )
-        .expect("TOML config should be written");
-
-        let config = ConfigLoader::new(platform)
-            .read_environment(false)
-            .load()
-            .expect("Telegram configuration should load");
-
-        let hash = config
-            .telegram
-            .api_hash
-            .expect("Telegram API hash should exist");
-        assert_eq!(hash.expose(), "super-secret-hash");
-        assert_eq!(format!("{hash:?}"), "ApiHash([REDACTED])");
-    }
-
-    #[test]
-    fn spacious_view_is_default_and_compact_view_can_be_configured() {
-        let temporary = tempdir().expect("temporary directory should be created");
-        let platform = defaults(temporary.path());
-        fs::create_dir_all(&platform.config).expect("config directory should be created");
-
-        let default = ConfigLoader::new(platform.clone())
-            .read_environment(false)
-            .load()
-            .expect("default configuration should load");
-        assert_eq!(default.view.mode, ViewMode::Default);
-
-        fs::write(
-            platform.config.join("config.toml"),
-            "[view]\nmode = 'compact'\n",
-        )
-        .expect("TOML config should be written");
-        let compact = ConfigLoader::new(platform)
-            .read_environment(false)
-            .load()
-            .expect("compact view configuration should load");
-        assert_eq!(compact.view.mode, ViewMode::Compact);
-    }
-
-    #[test]
-    fn local_lock_is_opt_in_with_explicit_unlock_source() {
-        let temporary = tempdir().expect("temporary directory should be created");
-        let platform = defaults(temporary.path());
-        fs::create_dir_all(&platform.config).expect("config directory should be created");
-        let unlocked = ConfigLoader::new(platform.clone())
-            .read_environment(false)
-            .load()
-            .expect("default configuration should load");
-        assert!(!unlocked.local_lock.enabled);
-
-        fs::write(
-            platform.config.join("config.toml"),
-            "[local_lock]\nenabled = true\nunlock = 'keyring'\n",
-        )
-        .expect("Local Lock config should be written");
-        let locked = ConfigLoader::new(platform)
-            .read_environment(false)
-            .load()
-            .expect("Local Lock configuration should load");
-        assert!(locked.local_lock.enabled);
-        assert_eq!(locked.local_lock.unlock, UnlockMethod::Keyring);
     }
 }

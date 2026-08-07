@@ -2,13 +2,13 @@
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum Error {
-    /// The direct Telegram connection failed.
+    /// Every configured Telegram transport route failed.
     #[snafu(display("failed to connect to Telegram at {endpoint}"))]
     Connect {
         /// Telegram data-center endpoint.
         endpoint: SocketAddr,
         /// Underlying transport failure.
-        source: compio_mtproto::TransportError,
+        source: compio_mtproto::ProxyError,
     },
 
     /// A fresh `MTProto` authorization key could not be generated.

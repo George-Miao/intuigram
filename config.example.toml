@@ -8,6 +8,30 @@ api_hash = "replace-with-your-api-hash"
 # on the QR-login screen.
 # phone_number = "+12025550123"
 
+# Proxy routes are tried in order. Direct TCP is the final fallback by default.
+[connection]
+direct_fallback = true
+timeout_seconds = 10
+
+# [[connection.proxies]]
+# kind = "socks5"
+# host = "127.0.0.1"
+# port = 1080
+# dns = "remote" # or "local" for domain targets
+# auth = { username = "user", password = "secret" }
+
+# [[connection.proxies]]
+# kind = "http-connect"
+# host = "proxy.example"
+# port = 8080
+# auth = { username = "user", password = "secret" }
+
+# [[connection.proxies]]
+# kind = "mt-proxy"
+# host = "proxy.example"
+# port = 443
+# secret = "dd00112233445566778899aabbccddeeff"
+
 [media]
 # Maximum redownloadable media-cache size in bytes. The default is 2 GiB.
 cache_bytes = 2147483648

@@ -10,8 +10,8 @@ use std::time::Duration;
 
 use base64::Engine as _;
 use compio_mtproto::{
-    AbridgedConnection, AuthKeyMaterial, BoxedTransport, ConnectionDriver, EncryptedConnection,
-    InvocationError, InvocationHandle, UpdateStream, generate_auth_key,
+    AuthKeyMaterial, ConnectionDriver, EncryptedConnection, InvocationError, InvocationHandle,
+    Route, UpdateStream, connect_route, generate_auth_key,
 };
 use futures_util::Stream;
 use grammers_crypto::two_factor_auth::{calculate_2fa, check_p_and_g};

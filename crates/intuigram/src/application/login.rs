@@ -159,7 +159,8 @@ pub(super) async fn request_code_with_migration(
                 let endpoint = client
                     .data_center_endpoint(dc_id)
                     .context(MissingDataCenterSnafu { dc_id })?;
-                let connected = Client::connect_new(dc_id, endpoint, credentials.clone())
+                let route = client.connection_route();
+                let connected = Client::connect_new(dc_id, endpoint, credentials.clone(), route)
                     .await
                     .context(TelegramSnafu)?;
                 client = connected.0;

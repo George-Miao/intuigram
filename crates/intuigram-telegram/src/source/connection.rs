@@ -51,6 +51,7 @@ pub(crate) fn flood_wait_delay(error: &InvocationError, already_retried: bool) -
 pub struct Client {
     pub(super) connection: Connection,
     pub(super) dc_id: i32,
+    pub(super) route: Route,
     pub(super) credentials: ApplicationCredentials,
     pub(super) password: Option<tl::types::account::Password>,
     pub(super) identity: Option<AuthorizedUser>,

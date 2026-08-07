@@ -1,6 +1,7 @@
 use super::*;
 
 pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
+    let test_connection = arguments.test_connection;
     let defaults = platform_defaults(arguments.config.clone())?;
     let config_directory = defaults.config.clone();
     let config = ConfigLoader::new(defaults)
@@ -12,6 +13,14 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
         })
         .load()
         .context(LoadConfigurationSnafu)?;
+    if test_connection {
+        let route = telegram_route(&config)?;
+        let _ = compio_mtproto::connect_route(PRIMARY_DC_ENDPOINT, PRIMARY_DC_ID, &route)
+            .await
+            .context(ProxyConnectionTestSnafu)?;
+        println!("Telegram connection route is available.");
+        return Ok(());
+    }
     if let Some(maintenance) = arguments.maintenance {
         return match maintenance {
             Maintenance::Logout(account) => run_logout(&config, &config_directory, account).await,
@@ -108,6 +117,7 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
         };
         let cached = database.cached_account().context(AccountDatabaseSnafu)?;
         drop(database);
+        let route = telegram_route(&config)?;
         return run_cached_account(
             &mut terminal,
             &mut events,
@@ -120,6 +130,7 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
                 cache_root: config.paths.cache,
                 cache_limit: config.media.cache_bytes,
                 cipher: unlock.cipher(),
+                route,
             },
         )
         .await;

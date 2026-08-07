@@ -35,6 +35,21 @@ fn account_launcher_arguments_are_unambiguous() {
 }
 
 #[test]
+fn connection_test_is_explicit_and_cannot_mutate_storage() {
+    let parsed =
+        parse_arguments(["--test-connection".to_owned()]).expect("connection test should parse");
+    assert!(parsed.test_connection);
+    assert!(
+        parse_arguments([
+            "--test-connection".to_owned(),
+            "--clear-media-cache".to_owned(),
+            "42".to_owned(),
+        ])
+        .is_err()
+    );
+}
+
+#[test]
 fn folder_commands_parse_rules_and_reject_built_in_ids() {
     let parsed = parse_arguments([
         "--folder-create".to_owned(),

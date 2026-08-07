@@ -106,6 +106,15 @@ INTUIGRAM_TELEGRAM__API_HASH=your-api-hash \
 cargo run -p intuigram
 ```
 
+Telegram connections can use an ordered mix of SOCKS5, HTTP CONNECT, and
+MTProxy routes. SOCKS5 supports explicit local or remote target DNS and RFC
+1929 authentication; HTTP CONNECT supports Basic authentication; MTProxy
+accepts bare abridged and `dd` padded-intermediate secrets. Passwords and
+secrets are redacted from diagnostics. Set `connection.direct_fallback` to
+control whether direct TCP follows failed proxies, and run
+`intuigram --test-connection` to test the effective route without opening an
+Account. See [`config.example.toml`](config.example.toml) for each form.
+
 On a new Account, Intuigram displays a QR code that can be scanned from Telegram
 under **Settings → Devices → Link Desktop Device**. The code refreshes
 automatically. Press `P` on that screen to use phone-number login instead;
