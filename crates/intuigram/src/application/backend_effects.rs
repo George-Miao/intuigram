@@ -257,110 +257,26 @@ impl Backend {
                 chat,
                 message,
                 draft_text,
-            } => {
-                let message = *message;
-                let result = self
-                    .client
-                    .edit_text(
-                        chat,
-                        message.id,
-                        message.body.clone(),
-                        message.details.entities.clone(),
-                    )
-                    .await;
-                match result {
-                    Ok(()) => {
-                        self.store
-                            .save_messages(vec![encode_stored_message(chat, &message)])
-                            .context(AccountDatabaseSnafu)?
-                            .await
-                            .context(AccountDatabaseSnafu)?;
-                        Ok(Some(AdapterEvent::MessageUpdated {
-                            chat,
-                            message: Box::new(message),
-                        }))
-                    }
-                    Err(source) if source.is_connection_failure() => {
-                        Err(Error::Telegram { source })
-                    }
-                    Err(error) => Ok(Some(AdapterEvent::MessageEditFailed {
-                        chat,
-                        message: message.id,
-                        text: draft_text,
-                        reason: error.to_string(),
-                    })),
-                }
-            }
-            Effect::DeleteMessages { chat, messages } => {
-                let result = self.client.delete_messages(chat, messages.clone()).await;
-                match result {
-                    Ok(()) => {
-                        self.store
-                            .delete_messages(
-                                Some(chat.0),
-                                messages.iter().map(|message| message.0).collect(),
-                            )
-                            .context(AccountDatabaseSnafu)?
-                            .await
-                            .context(AccountDatabaseSnafu)?;
-                        Ok(Some(AdapterEvent::MessagesDeleted {
-                            chat: Some(chat),
-                            ids: messages,
-                        }))
-                    }
-                    Err(source) if source.is_connection_failure() => {
-                        Err(Error::Telegram { source })
-                    }
-                    Err(error) => Ok(Some(AdapterEvent::OperationFailed(error.to_string()))),
-                }
-            }
-            Effect::ForwardMessage {
+            } => self.edit_message(chat, *message, draft_text).await,
+            Effect::DeleteMessages { chat, messages } => self.delete_messages(chat, messages).await,
+            Effect::ForwardMessages {
                 source,
                 destination,
-                message,
+                messages,
             } => {
-                let result = self
-                    .client
-                    .forward_message(
-                        source,
-                        destination,
-                        message,
-                        random_id.expect("every queued forward has an idempotency token"),
-                    )
-                    .await;
-                match result {
-                    Ok(()) => Ok(None),
-                    Err(source) if source.is_connection_failure() => {
-                        Err(Error::Telegram { source })
-                    }
-                    Err(error) => Ok(Some(AdapterEvent::OperationFailed(error.to_string()))),
-                }
+                self.forward_messages(
+                    source,
+                    destination,
+                    messages,
+                    random_id.expect("every queued forward has an idempotency token"),
+                )
+                .await
             }
             Effect::ReactMessage {
                 chat,
                 message,
                 reaction,
-            } => {
-                let message = *message;
-                let result = self.client.react_message(chat, message.id, reaction).await;
-                match result {
-                    Ok(()) => {
-                        self.store
-                            .save_messages(vec![encode_stored_message(chat, &message)])
-                            .context(AccountDatabaseSnafu)?
-                            .await
-                            .context(AccountDatabaseSnafu)?;
-                        Ok(Some(AdapterEvent::MessageUpdated {
-                            chat,
-                            message: Box::new(message),
-                        }))
-                    }
-                    Err(source) if source.is_connection_failure() => {
-                        Err(Error::Telegram { source })
-                    }
-                    Err(error) => Ok(Some(AdapterEvent::OperationFailed(error.to_string()))),
-                }
-            }
+            } => self.react_message(chat, *message, reaction).await,
             Effect::SetMessagePinned {
                 chat: _,
                 message: _,
@@ -370,28 +286,7 @@ impl Backend {
                 chat,
                 message,
                 options,
-            } => {
-                let mut message = *message;
-                let result = self.client.vote_poll(chat, message.id, options).await;
-                match result {
-                    Ok(media) => {
-                        message.details.media = Some(media);
-                        self.store
-                            .save_messages(vec![encode_stored_message(chat, &message)])
-                            .context(AccountDatabaseSnafu)?
-                            .await
-                            .context(AccountDatabaseSnafu)?;
-                        Ok(Some(AdapterEvent::MessageUpdated {
-                            chat,
-                            message: Box::new(message),
-                        }))
-                    }
-                    Err(source) if source.is_connection_failure() => {
-                        Err(Error::Telegram { source })
-                    }
-                    Err(error) => Ok(Some(AdapterEvent::OperationFailed(error.to_string()))),
-                }
-            }
+            } => self.vote_poll(chat, *message, options).await,
             Effect::OpenExternalLink { url } => Ok(Some(
                 match intuigram_media::PlatformLauncher.open_url(&url).await {
                     Ok(()) => AdapterEvent::OperationCompleted(format!("Opened {url}")),

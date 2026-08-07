@@ -38,6 +38,7 @@ pub(super) fn render_composer(
         action: None,
         delivery: None,
         active: true,
+        selected: false,
         focused,
         bounds: area,
     });

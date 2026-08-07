@@ -222,25 +222,27 @@ impl TelegramScenario {
         }
     }
 
-    pub fn forward_message(
+    pub fn forward_messages(
         &mut self,
         source: ChatId,
         destination: ChatId,
-        message: MessageId,
+        messages: Vec<MessageId>,
     ) -> Result<(), ScenarioMismatch> {
         let observed = format!(
-            "forward Message {} from Chat {} to Chat {}",
-            message.0, source.0, destination.0
+            "forward Messages {:?} from Chat {} to Chat {}",
+            messages.iter().map(|message| message.0).collect::<Vec<_>>(),
+            source.0,
+            destination.0
         );
         let expected = self.next_expected(&observed)?;
         match expected {
-            ExpectedCommand::ForwardMessage {
+            ExpectedCommand::ForwardMessages {
                 source: expected_source,
                 destination: expected_destination,
-                message: expected_message,
+                messages: expected_messages,
             } if expected_source == source
                 && expected_destination == destination
-                && expected_message == message =>
+                && expected_messages == messages =>
             {
                 Ok(())
             }

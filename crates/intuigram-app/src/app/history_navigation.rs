@@ -27,6 +27,7 @@ impl App {
         }
         self.save_active_draft();
         self.save_transcript_anchor();
+        self.clear_message_selection();
         self.view.active_thread = None;
         self.view.active_chat = next;
         self.restore_active_draft();
@@ -198,6 +199,7 @@ impl App {
         let root = self.active_message_id()?;
         self.save_active_draft();
         self.save_transcript_anchor();
+        self.clear_message_selection();
         self.view.active_thread = Some(root);
         self.view.active_message = None;
         self.view.transcript_anchor = None;
@@ -213,6 +215,7 @@ impl App {
     pub(super) fn leave_thread(&mut self) {
         self.save_active_draft();
         self.save_transcript_anchor();
+        self.clear_message_selection();
         self.view.active_thread = None;
         self.view.active_message = None;
         self.view.transcript_anchor = None;
@@ -252,6 +255,7 @@ impl App {
 
     pub(super) fn focus_composer_at_anchor(&mut self) {
         self.restore_recent_history_from_pin_projection();
+        self.clear_message_selection();
         if self.view.active_message.is_some() {
             self.view.transcript_anchor = self.view.active_message;
         }
@@ -302,6 +306,12 @@ impl App {
             active_message.and_then(|message| self.history_position(message));
         self.view.transcript_anchor =
             transcript_anchor.and_then(|message| self.history_position(message));
+        self.view.selected_messages.retain(|selected| {
+            self.view
+                .messages
+                .iter()
+                .any(|message| message.id == *selected)
+        });
     }
 
     pub(super) fn history_position(&self, message: MessageId) -> Option<usize> {

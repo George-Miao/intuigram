@@ -93,6 +93,7 @@ impl App {
                     Action::Forward,
                     Action::React,
                     Action::TogglePin,
+                    Action::ToggleMessageSelection,
                     Action::Cancel,
                 ]);
                 if self

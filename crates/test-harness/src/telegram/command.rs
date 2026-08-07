@@ -61,10 +61,10 @@ pub(super) enum ExpectedCommand {
         messages: Vec<MessageId>,
     },
 
-    ForwardMessage {
+    ForwardMessages {
         source: ChatId,
         destination: ChatId,
-        message: MessageId,
+        messages: Vec<MessageId>,
     },
 
     ReactMessage {
@@ -149,13 +149,15 @@ impl ExpectedCommand {
                 messages.iter().map(|message| message.0).collect::<Vec<_>>(),
                 chat.0
             ),
-            Self::ForwardMessage {
+            Self::ForwardMessages {
                 source,
                 destination,
-                message,
+                messages,
             } => format!(
-                "forward Message {} from Chat {} to Chat {}",
-                message.0, source.0, destination.0
+                "forward Messages {:?} from Chat {} to Chat {}",
+                messages.iter().map(|message| message.0).collect::<Vec<_>>(),
+                source.0,
+                destination.0
             ),
             Self::ReactMessage {
                 chat,

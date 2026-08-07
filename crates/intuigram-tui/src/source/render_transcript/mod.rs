@@ -58,17 +58,26 @@ pub(super) fn render_transcript(
         .iter()
         .map(|lines| u16::try_from(lines.len()).unwrap_or(u16::MAX))
         .collect::<Vec<_>>();
-    let range = transcript_window(
-        &heights,
-        view.active_message.or(view.transcript_anchor),
-        area.height,
-    );
+    let anchor = view
+        .active_message
+        .or(view.transcript_anchor)
+        .unwrap_or_else(|| view.messages.len().saturating_sub(1));
+    let range = transcript_window(&heights, Some(anchor), area.height);
     render_semantics(area, view, focused, range.clone(), &heights, semantics);
     let items = rendered_messages
         .into_iter()
+        .enumerate()
         .skip(range.start)
         .take(range.len())
-        .map(ListItem::new);
+        .map(|(index, lines)| {
+            let visible = usize::from(area.height);
+            if index == anchor && lines.len() > visible {
+                let hidden = lines.len() - visible;
+                ListItem::new(lines.into_iter().skip(hidden).collect::<Vec<_>>())
+            } else {
+                ListItem::new(lines)
+            }
+        });
     frame.render_widget(List::new(items).style(surface_style(focused)), area);
 }
 
@@ -108,6 +117,7 @@ fn render_semantics(
             action: None,
             delivery: Some(message.delivery),
             active: view.active_message == Some(index),
+            selected: view.selected_messages.contains(&message.id),
             focused,
             bounds: Rect::new(area.x, y, area.width, height),
         });
@@ -120,6 +130,7 @@ fn render_semantics(
                 action: None,
                 delivery: None,
                 active: view.active_message == Some(index),
+                selected: view.selected_messages.contains(&message.id),
                 focused,
                 bounds: Rect::new(
                     area.x,

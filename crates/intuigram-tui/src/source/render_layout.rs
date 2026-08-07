@@ -128,6 +128,7 @@ pub(super) fn render_chats(
                 action: None,
                 delivery: None,
                 active: view.active_chat == Some(range.start + offset),
+                selected: false,
                 focused,
                 bounds: Rect::new(
                     list_area.x,

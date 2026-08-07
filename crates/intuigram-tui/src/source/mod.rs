@@ -52,6 +52,7 @@ mod view_mode;
 use avatar::avatar_badge;
 use effort::effort_spans;
 pub use events::*;
+pub use key_chord::{Binding, Key, KeyChord};
 use qr_render::{chord_from_crossterm, qr_login_symbols, render_qr_login};
 pub use qr_session::*;
 use render_chrome::{
@@ -80,58 +81,6 @@ pub(crate) const TEXT: Color = Color::Rgb(92, 106, 114);
 pub(crate) const MUTED_TEXT: Color = Color::Rgb(130, 145, 129);
 pub(crate) const PRIMARY: Color = Color::Rgb(141, 161, 1);
 const SECONDARY: Color = Color::Rgb(58, 148, 197);
-
-/// A terminal key independent of a concrete terminal backend.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum Key {
-    /// Printable character.
-    Char(char),
-    /// Up arrow.
-    Up,
-
-    /// Down arrow.
-    Down,
-
-    /// Left arrow.
-    Left,
-
-    /// Right arrow.
-    Right,
-
-    /// Home key.
-    Home,
-
-    /// End key.
-    End,
-
-    /// Enter key.
-    Enter,
-
-    /// Escape key.
-    Escape,
-}
-
-/// A terminal key with modifier state.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct KeyChord {
-    key: Key,
-    control: bool,
-    shift: bool,
-    alt: bool,
-}
-
-/// One context-sensitive shortcut shown in the Action Bar and Help.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Binding {
-    /// Shortcut accepted by input handling.
-    pub key: KeyChord,
-    /// User-facing action label.
-    pub label: &'static str,
-    /// Application action produced by the shortcut.
-    pub action: Action,
-    /// Whether this is the compact Action Bar binding for its action.
-    pub primary: bool,
-}
 
 const BINDINGS: &[Binding] = &[
     binding(
@@ -361,6 +310,12 @@ const BINDINGS: &[Binding] = &[
         KeyChord::alt(Key::Char('p')),
         "Pin / Unpin",
         Action::TogglePin,
+        true,
+    ),
+    binding(
+        KeyChord::plain(Key::Char(' ')),
+        "Select",
+        Action::ToggleMessageSelection,
         true,
     ),
     binding(

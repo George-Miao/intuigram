@@ -40,6 +40,7 @@ impl App {
         }
         self.save_active_draft();
         self.save_transcript_anchor();
+        self.clear_message_selection();
         self.view.active_thread = None;
         self.view.active_chat = Some(index);
         self.restore_active_draft();

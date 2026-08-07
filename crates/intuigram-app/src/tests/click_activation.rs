@@ -62,3 +62,48 @@ fn stale_pointer_targets_do_not_change_the_current_selection() {
     assert_eq!(app.view().active_chat, before.active_chat);
     assert_eq!(app.view().active_message, before.active_message);
 }
+
+#[test]
+fn message_selection_is_cleared_when_its_chat_or_message_disappears() {
+    let mut app = App::new();
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
+    );
+    apply(
+        &mut app,
+        Input::Intent(Intent::Activate(ActivationTarget::Message(MessageId(2)))),
+    );
+    apply(
+        &mut app,
+        Input::Intent(Intent::Action(Action::ToggleMessageSelection)),
+    );
+    assert_eq!(app.view().selected_messages, vec![MessageId(2)]);
+
+    apply(
+        &mut app,
+        Input::Intent(Intent::Activate(ActivationTarget::Chat(ChatId(20)))),
+    );
+    assert!(app.view().selected_messages.is_empty());
+
+    apply(
+        &mut app,
+        Input::Intent(Intent::Activate(ActivationTarget::Chat(ChatId(10)))),
+    );
+    apply(
+        &mut app,
+        Input::Intent(Intent::Activate(ActivationTarget::Message(MessageId(2)))),
+    );
+    apply(
+        &mut app,
+        Input::Intent(Intent::Action(Action::ToggleMessageSelection)),
+    );
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::MessagesDeleted {
+            chat: Some(ChatId(10)),
+            ids: vec![MessageId(2)],
+        }),
+    );
+    assert!(app.view().selected_messages.is_empty());
+}

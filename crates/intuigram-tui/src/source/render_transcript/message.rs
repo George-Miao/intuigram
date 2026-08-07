@@ -13,17 +13,27 @@ pub(super) struct MessageLayout {
     pub(super) date_boundary: bool,
 }
 
+#[derive(Clone, Copy)]
+struct MessageState {
+    active: bool,
+    selected: bool,
+    forwarded: bool,
+}
+
 pub(super) fn message_lines(
     view: &View,
     index: usize,
     message: &MessageView,
     layout: MessageLayout,
 ) -> Vec<Line<'static>> {
-    let selected = view.active_message == Some(index);
-    let forwarded = message.details.forwarded_from.is_some();
-    let mut lines = message_heading(message, selected, &layout);
+    let state = MessageState {
+        active: view.active_message == Some(index),
+        selected: view.selected_messages.contains(&message.id),
+        forwarded: message.details.forwarded_from.is_some(),
+    };
+    let mut lines = message_heading(message, state, &layout);
     if let Some(source) = &message.details.forwarded_from {
-        let mut provenance = content_prefix(selected, true);
+        let mut provenance = content_prefix(state.active, state.selected, true);
         provenance.push(Span::styled(
             format!("Forwarded from {source}"),
             Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
@@ -31,7 +41,7 @@ pub(super) fn message_lines(
         lines.push(Line::from(provenance));
     }
     if let Some(reply) = message.reply_to {
-        let mut spans = content_prefix(selected, forwarded);
+        let mut spans = content_prefix(state.active, state.selected, state.forwarded);
         spans.push(Span::styled("│ ", Style::default().fg(SECONDARY)));
         spans.push(Span::styled(
             reply_preview(view, reply),
@@ -39,16 +49,13 @@ pub(super) fn message_lines(
         ));
         lines.push(Line::from(spans));
     }
-    append_content(
-        view, index, message, &layout, selected, forwarded, &mut lines,
-    );
+    append_content(view, index, message, &layout, state, &mut lines);
     append_message_metadata(
         &mut lines,
         message,
         view.animation_frame,
         layout.width,
-        selected,
-        forwarded,
+        state,
     );
     if layout.mode == ViewMode::Default && !layout.grouped_with_next {
         lines.push(Line::from(""));
@@ -58,7 +65,7 @@ pub(super) fn message_lines(
 
 fn message_heading(
     message: &MessageView,
-    selected: bool,
+    state: MessageState,
     layout: &MessageLayout,
 ) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
@@ -86,7 +93,8 @@ fn message_heading(
             MessageDirection::Outgoing => "→",
         };
         lines.push(Line::from(vec![
-            selection_rule(selected),
+            selection_rule(state.active),
+            message_selection_marker(state.selected),
             avatar_badge(&message.sender),
             Span::styled(
                 format!("{direction} {}", message.sender),
@@ -102,8 +110,7 @@ fn append_content(
     index: usize,
     message: &MessageView,
     layout: &MessageLayout,
-    selected: bool,
-    forwarded: bool,
+    state: MessageState,
     lines: &mut Vec<Line<'static>>,
 ) {
     let preview = media_preview(view, message.id);
@@ -119,8 +126,9 @@ fn append_content(
                 preview,
                 loading,
                 MediaRenderContext {
-                    selected,
-                    forwarded,
+                    active: state.active,
+                    selected: state.selected,
+                    forwarded: state.forwarded,
                     focused: layout.focused,
                     album: album_position(view, index, message.details.album_id),
                     animation_frame: view.animation_frame,
@@ -130,7 +138,7 @@ fn append_content(
         });
     let body_lines = render_rich_text_lines(message).into_iter().map(|body| {
         Line::from(
-            content_prefix(selected, forwarded)
+            content_prefix(state.active, state.selected, state.forwarded)
                 .into_iter()
                 .chain(body)
                 .collect::<Vec<_>>(),
@@ -173,8 +181,7 @@ fn append_message_metadata(
     message: &MessageView,
     animation_frame: u8,
     width: u16,
-    selected: bool,
-    forwarded: bool,
+    state: MessageState,
 ) {
     let metadata = message_metadata(message, animation_frame);
     let metadata_width = Line::from(metadata.clone()).width();
@@ -192,7 +199,7 @@ fn append_message_metadata(
         line.extend(metadata);
         return;
     }
-    let mut spans = content_prefix(selected, forwarded);
+    let mut spans = content_prefix(state.active, state.selected, state.forwarded);
     let prefix_width = Line::from(spans.clone()).width();
     spans.push(Span::raw(
         " ".repeat(
@@ -205,10 +212,18 @@ fn append_message_metadata(
     lines.push(Line::from(spans));
 }
 
-pub(super) fn content_prefix(selected: bool, forwarded: bool) -> Vec<Span<'static>> {
-    let mut spans = vec![selection_rule(selected)];
+pub(super) fn content_prefix(active: bool, selected: bool, forwarded: bool) -> Vec<Span<'static>> {
+    let mut spans = vec![selection_rule(active), message_selection_marker(selected)];
     if forwarded {
         spans.push(Span::styled("│ ", Style::default().fg(PRIMARY)));
     }
     spans
+}
+
+fn message_selection_marker(selected: bool) -> Span<'static> {
+    if selected {
+        Span::styled("[✓] ", Style::default().fg(PRIMARY))
+    } else {
+        Span::raw("")
+    }
 }

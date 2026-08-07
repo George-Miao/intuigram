@@ -9,7 +9,6 @@
 
 ## TODO
 
-- [ ] **p-core:** Add Message Selection as state distinct from the Active Message. Support toggling one or more Messages, visibly mark the selected set, route compatible batch actions through it, preserve valid selections across redraw and resize, and clear stale selections when their Chat or history disappears.
 - [ ] **p-core:** Add Account management inside the application hierarchy. List and switch Accounts without restarting, start Add Account from the TUI, and expose safe Logout and Remove Locally confirmations while keeping each Account's state isolated.
 - [ ] **p-core:** Add Folder lifecycle management inside the TUI and `intuigram-app`: create, rename, reorder, share, delete, and edit inclusion/exclusion rules, with Telegram results reconciled into the visible Folder strip.
 - [ ] **p-core:** Add rich-media sending inside the Composer flow: browse Telegram GIF/sticker libraries, send files as the chosen media kind, record voice/video where supported, and send contacts, while representing progress and failure through typed state-owner events.

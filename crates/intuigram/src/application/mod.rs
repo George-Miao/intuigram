@@ -42,6 +42,7 @@ mod authorization;
 mod backend;
 mod backend_download;
 mod backend_effects;
+mod backend_message_actions;
 mod backend_pins;
 mod cache;
 mod configuration;
@@ -61,6 +62,7 @@ mod runtime_loop;
 mod runtime_types;
 mod schedule_arguments;
 mod startup;
+mod types;
 mod ui;
 
 use authorization::{authorize_new_account, resume_account};
@@ -98,6 +100,7 @@ use runtime_types::{
 };
 use schedule_arguments::parse_scheduled_maintenance;
 use startup::run_async;
+use types::*;
 pub(super) use ui::main;
 use ui::{ApplicationUi, error_lines};
 
@@ -105,190 +108,6 @@ const PRIMARY_DC_ID: i32 = 2;
 const PRIMARY_DC_ENDPOINT: SocketAddr =
     SocketAddr::new(IpAddr::V4(Ipv4Addr::new(149, 154, 167, 41)), 443);
 const EFFECT_CAPACITY: usize = 64;
-
-#[derive(Default)]
-struct Arguments {
-    config: Option<PathBuf>,
-    data: Option<PathBuf>,
-    cache: Option<PathBuf>,
-    downloads: Option<PathBuf>,
-    maintenance: Option<Maintenance>,
-    account: Option<AccountId>,
-    add_account: bool,
-    list_accounts: bool,
-    test_connection: bool,
-    help: bool,
-}
-
-#[derive(Clone)]
-enum Maintenance {
-    MediaUsage(AccountId),
-    ClearMedia(AccountId),
-    ClearAccount(AccountId),
-    Logout(AccountId),
-    Folder(AccountId, FolderMaintenance),
-    RichMedia(AccountId, RichMediaMaintenance),
-    Scheduled(AccountId, ScheduledMaintenance),
-}
-
-#[derive(Clone)]
-enum FolderMaintenance {
-    Create { title: String, rules: FolderRules },
-    Rename { folder: i32, title: String },
-    Reorder { folder: i32, position: usize },
-    Share { folder: i32 },
-    Delete { folder: i32 },
-    Rules { folder: i32, rules: FolderRules },
-}
-
-#[derive(Clone)]
-enum RichMediaMaintenance {
-    Browse {
-        kind: MediaLibraryKind,
-        query: String,
-    },
-    SendLibrary {
-        chat: ChatId,
-        kind: MediaLibraryKind,
-        index: usize,
-        query: String,
-    },
-    SendFile {
-        chat: ChatId,
-        kind: UploadKind,
-        path: PathBuf,
-    },
-    Record {
-        chat: ChatId,
-        kind: UploadKind,
-        seconds: u32,
-        device: String,
-    },
-    Contact {
-        chat: ChatId,
-        phone: String,
-        first_name: String,
-        last_name: String,
-    },
-}
-
-#[derive(Clone)]
-enum ScheduledMaintenance {
-    Create {
-        chat: ChatId,
-        delivery: ScheduledDelivery,
-        text: String,
-    },
-    List {
-        chat: ChatId,
-    },
-    Edit {
-        chat: ChatId,
-        message: i32,
-        text: String,
-    },
-    Reschedule {
-        chat: ChatId,
-        message: i32,
-        delivery: ScheduledDelivery,
-    },
-    Delete {
-        chat: ChatId,
-        message: i32,
-    },
-    SendNow {
-        chat: ChatId,
-        message: i32,
-    },
-}
-
-struct Backend {
-    client: Box<Client>,
-    _database: AccountDatabase,
-    store: AccountStore,
-    next_local_message_id: i64,
-    attachments: AttachmentStore,
-    downloads: intuigram_media::DownloadDirectory,
-    media_cache: intuigram_media::MediaCache,
-    downloaded: DownloadStore,
-}
-
-#[derive(Clone)]
-struct AdapterStorage {
-    downloads: PathBuf,
-    cache_root: PathBuf,
-    cache_limit: u64,
-    cipher: AccountCipher,
-    route: compio_mtproto::Route,
-}
-
-impl AdapterStorage {
-    fn for_account(&self, account: AccountId) -> intuigram_media::MediaCache {
-        intuigram_media::MediaCache::new(
-            self.cache_root.join(account.get().to_string()),
-            self.cache_limit,
-        )
-    }
-}
-
-#[derive(Default)]
-struct AttachmentStore {
-    next_id: u64,
-    payloads: HashMap<AttachmentId, AttachmentPayload>,
-}
-
-#[derive(Clone)]
-enum AttachmentPayload {
-    Image { mime_type: String, bytes: Vec<u8> },
-    File { path: PathBuf, kind: AttachmentKind },
-}
-
-#[derive(Default)]
-struct DownloadStore {
-    next_id: u64,
-    paths: HashMap<DownloadId, PathBuf>,
-}
-
-impl DownloadStore {
-    fn register(&mut self, path: PathBuf) -> DownloadId {
-        self.next_id = self.next_id.saturating_add(1);
-        let id = DownloadId(self.next_id);
-        self.paths.insert(id, path);
-        id
-    }
-
-    fn merge(&mut self, mut other: Self) {
-        self.next_id = self.next_id.max(other.next_id);
-        self.paths.extend(other.paths.drain());
-    }
-}
-
-impl AttachmentStore {
-    fn register(&mut self, payload: AttachmentPayload) -> AttachmentId {
-        self.next_id = self.next_id.saturating_add(1);
-        let id = AttachmentId(self.next_id);
-        self.payloads.insert(id, payload);
-        id
-    }
-
-    fn merge(&mut self, mut other: Self) {
-        self.next_id = self.next_id.max(other.next_id);
-        self.payloads.extend(other.payloads.drain());
-    }
-}
-
-struct BackendEvents {
-    updates: LiveUpdates,
-    committer: UpdateCommitter,
-    pending: Option<UpdateCommit>,
-    pending_events: VecDeque<AdapterEvent>,
-    submitted_updates: VecDeque<intuigram_telegram::LiveEvent>,
-}
-
-enum QrAuthorization {
-    Authorized(Box<(Client, Session, AuthorizedUser)>),
-    PhoneLogin(Box<(Client, Session)>),
-}
 
 #[derive(Debug, Snafu)]
 enum Error {

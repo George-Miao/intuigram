@@ -233,13 +233,13 @@ impl TestSystem {
                             ids: messages,
                         });
                 }
-                Effect::ForwardMessage {
+                Effect::ForwardMessages {
                     source,
                     destination,
-                    message,
+                    messages,
                 } => {
                     self.telegram
-                        .forward_message(source, destination, message)
+                        .forward_messages(source, destination, messages)
                         .map_err(|error| self.scenario_error(error))?;
                 }
                 Effect::ReactMessage {

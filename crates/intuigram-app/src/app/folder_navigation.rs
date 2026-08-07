@@ -21,6 +21,7 @@ impl App {
         let active_chat = self.active_chat_id();
         self.save_active_draft();
         self.save_transcript_anchor();
+        self.clear_message_selection();
         self.view.active_folder = index;
         self.refresh_folder_chats(active_chat);
         self.restore_active_draft();

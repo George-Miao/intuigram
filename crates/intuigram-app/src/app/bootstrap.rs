@@ -13,6 +13,7 @@ impl App {
                 chat_loading: ChatLoadingState::Idle,
                 pinned_messages: Vec::new(),
                 active_message: None,
+                selected_messages: Vec::new(),
                 active_thread: None,
                 transcript_anchor: None,
                 unread_boundary: None,
@@ -212,6 +213,7 @@ impl App {
         }
         self.rebuild_unread_boundaries();
         self.view.active_message = None;
+        self.view.selected_messages.clear();
         self.view.delete_confirmation = None;
         self.view.forward_picker = None;
         self.view.reaction_picker = None;
@@ -245,6 +247,7 @@ impl App {
             .map(|folder| folder.id);
         let active_thread = self.view.active_thread;
         let active_message = self.active_message_id();
+        let selected_messages = self.view.selected_messages.clone();
         let transcript_anchor = self.transcript_anchor_id();
         let focus = self.view.focus;
         let drafts = std::mem::take(&mut self.drafts);
@@ -289,6 +292,7 @@ impl App {
             })
             .or_else(|| (!self.view.chats.is_empty()).then_some(0));
         self.view.active_thread = active_thread.filter(|_| self.active_chat_id() == active_chat);
+        self.view.selected_messages = selected_messages;
         self.view.focus = focus;
         self.view.notice = None;
         self.refresh_active_history_at(active_message, transcript_anchor);

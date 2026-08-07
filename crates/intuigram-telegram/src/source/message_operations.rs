@@ -69,19 +69,27 @@ impl Client {
         Ok(())
     }
 
-    /// Forwards one Message to another cloud Chat.
-    pub async fn forward_message(
+    /// Forwards one or more Messages to another cloud Chat.
+    pub async fn forward_messages(
         &mut self,
         source: ChatId,
         destination: ChatId,
-        message: MessageId,
-        random_id: i64,
+        messages: Vec<MessageId>,
+        first_random_id: i64,
     ) -> Result<()> {
         let from_peer = self.peers.resolve(source)?;
         let to_peer = self.peers.resolve(destination)?;
-        let id = i32::try_from(message.0).map_err(|_| Error::InvalidMessageId {
-            message_id: message.0,
-        })?;
+        let ids = messages
+            .iter()
+            .map(|message| {
+                i32::try_from(message.0).map_err(|_| Error::InvalidMessageId {
+                    message_id: message.0,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let random_ids = (0..messages.len())
+            .map(|offset| first_random_id.wrapping_add(i64::try_from(offset).unwrap_or(i64::MAX)))
+            .collect();
         self.connection
             .invoke(&tl::functions::messages::ForwardMessages {
                 silent: false,
@@ -90,8 +98,8 @@ impl Client {
                 drop_author: false,
                 drop_media_captions: false,
                 from_peer,
-                id: vec![id],
-                random_id: vec![random_id],
+                id: ids,
+                random_id: random_ids,
                 to_peer,
                 top_msg_id: None,
                 reply_to: None,

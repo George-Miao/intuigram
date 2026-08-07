@@ -1,3 +1,50 @@
+use super::Action;
+
+/// A terminal key independent of a concrete terminal backend.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Key {
+    /// Printable character.
+    Char(char),
+    /// Up arrow.
+    Up,
+    /// Down arrow.
+    Down,
+    /// Left arrow.
+    Left,
+    /// Right arrow.
+    Right,
+    /// Home key.
+    Home,
+    /// End key.
+    End,
+    /// Enter key.
+    Enter,
+    /// Escape key.
+    Escape,
+}
+
+/// A terminal key with modifier state.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct KeyChord {
+    pub(super) key: Key,
+    pub(super) control: bool,
+    pub(super) shift: bool,
+    pub(super) alt: bool,
+}
+
+/// One context-sensitive shortcut shown in the Action Bar and Help.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Binding {
+    /// Shortcut accepted by input handling.
+    pub key: KeyChord,
+    /// User-facing action label.
+    pub label: &'static str,
+    /// Application action produced by the shortcut.
+    pub action: Action,
+    /// Whether this is the compact Action Bar binding for its action.
+    pub primary: bool,
+}
+
 impl KeyChord {
     /// Creates an unmodified key.
     #[must_use]

@@ -1,0 +1,117 @@
+use crate::domain::{ActivationTarget, ComposerMovement};
+
+/// Context-sensitive actions shown by every user interface.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Action {
+    /// Exit Intuigram cleanly.
+    Quit,
+    /// Open exhaustive context help.
+    Help,
+    /// Move the active item upward.
+    MoveUp,
+    /// Move the active item downward.
+    MoveDown,
+    /// Switch to the previous Folder from the Chat list.
+    PreviousFolder,
+    /// Switch to the next Folder from the Chat list.
+    NextFolder,
+    /// Open Folder membership for the Active Chat.
+    ManageFolders,
+    /// Toggle the selected Folder membership for the Active Chat.
+    ToggleFolderMembership,
+    /// Enter the Active Chat with its Composer focused.
+    Open,
+    /// Focus the Draft editor.
+    Compose,
+    /// Send the current Draft.
+    Send,
+    /// Insert a line break into the current Draft.
+    Newline,
+    /// Query the native clipboard for text, images, or files.
+    Paste,
+    /// Open the built-in attachment path editor.
+    Attach,
+    /// Add the exact path entered in the attachment editor.
+    ConfirmAttachment,
+    /// Replace the Composer with a structured poll editor.
+    CreatePoll,
+    /// Send the question and options from the poll editor.
+    SendPoll,
+    /// Reply to the Active Message.
+    Reply,
+    /// Edit the Active outgoing Message.
+    Edit,
+    /// Edit the newest eligible outgoing Message from an empty Composer.
+    EditPrevious,
+    /// Ask for confirmation before deleting the Active Message.
+    Delete,
+    /// Confirm the pending Message deletion.
+    ConfirmDelete,
+    /// Choose a destination Chat for the Active Message.
+    Forward,
+    /// Confirm the selected forward destination.
+    ConfirmForward,
+    /// Open reactions for the Active Message.
+    React,
+    /// Apply the selected reaction.
+    ConfirmReaction,
+    /// Open voting for the Active Message's poll or quiz.
+    VotePoll,
+    /// Toggle the targeted option in a multiple-choice poll.
+    TogglePollChoice,
+    /// Submit the selected poll options.
+    ConfirmPollVote,
+    /// Open the first link in the Active Message.
+    OpenLink,
+    /// Confirm a suspicious or disguised link destination.
+    ConfirmOpenLink,
+    /// Download the Active Message's media to the default destination.
+    DownloadMedia,
+    /// Choose an exact destination for the Active Message's media.
+    SaveAs,
+    /// Download media to the entered exact destination.
+    ConfirmSaveAs,
+    /// Open a safe download or reveal launchable content in its folder.
+    OpenDownload,
+    /// Save the Message currently open for editing.
+    SaveEdit,
+    /// Open the Active Message's ordinary Thread or Channel comments.
+    OpenThread,
+    /// Target the newest pinned Message, then cycle toward older pins.
+    NavigatePinned,
+    /// Pin or unpin the Active cloud Message.
+    TogglePin,
+    /// Add or remove the Active Message from Message Selection.
+    ToggleMessageSelection,
+    /// Target the previous Message, entering the Transcript from the Composer.
+    TargetPreviousMessage,
+    /// Target the next Message, returning to the Composer after the newest.
+    TargetNextMessage,
+    /// Search using the context selected by focus.
+    Search,
+    /// Cancel the active transient interaction.
+    Cancel,
+    /// Jump to the oldest loaded Message.
+    JumpEarliest,
+    /// Jump to the newest loaded Message.
+    JumpLatest,
+    /// Retry immediately during a reconnect cooldown.
+    Reconnect,
+}
+
+/// User actions understood by the state owner.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Intent {
+    /// Invoke an action resolved by the effective keymap.
+    Action(Action),
+    /// Insert text into the Draft or active search query.
+    Insert(String),
+    /// Remove the final character from the active text field.
+    Backspace,
+    /// Move the insertion cursor without changing the Draft.
+    MoveComposerCursor(ComposerMovement),
+    /// Activate a semantic region selected by pointer input.
+    Activate(ActivationTarget),
+    /// Advance one renderer animation frame while pending work remains.
+    Animate,
+}

@@ -178,16 +178,16 @@ pub enum Effect {
         /// Telegram Message IDs to delete.
         messages: Vec<MessageId>,
     },
-    /// Forward one Message between cloud Chats.
-    ForwardMessage {
+    /// Forward one or more Messages between cloud Chats.
+    ForwardMessages {
         /// Source Chat containing the Message.
         source: ChatId,
 
         /// Destination Chat selected by the user.
         destination: ChatId,
 
-        /// Telegram Message to forward.
-        message: MessageId,
+        /// Telegram Messages to forward in Transcript order.
+        messages: Vec<MessageId>,
     },
     /// Replace this Account's reaction on one Message.
     ReactMessage {
@@ -302,6 +302,9 @@ pub struct View {
     /// Active Message index.
     pub active_message: Option<usize>,
 
+    /// Explicit Message Selection in the active history.
+    pub selected_messages: Vec<MessageId>,
+
     /// Active ordinary Thread or Channel comments root.
     pub active_thread: Option<MessageId>,
 
@@ -335,8 +338,8 @@ pub struct View {
     /// Selected index in the Folder membership overlay, when open.
     pub folder_picker: Option<usize>,
 
-    /// Message awaiting explicit destructive-action confirmation.
-    pub delete_confirmation: Option<MessageId>,
+    /// Messages awaiting explicit destructive-action confirmation.
+    pub delete_confirmation: Option<Vec<MessageId>>,
 
     /// Selected destination index in the forward Chat picker.
     pub forward_picker: Option<usize>,

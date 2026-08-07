@@ -114,12 +114,16 @@ impl App {
                     .forward_picker
                     .and_then(|index| self.view.chats.get(index))?
                     .id;
-                let message = self.active_message_id()?;
+                let messages = self.selected_message_ids();
+                if messages.is_empty() {
+                    return None;
+                }
                 self.view.forward_picker = None;
-                Some(Effect::ForwardMessage {
+                self.clear_message_selection();
+                Some(Effect::ForwardMessages {
                     source,
                     destination,
-                    message,
+                    messages,
                 })
             }
             Action::Cancel => {
@@ -134,11 +138,9 @@ impl App {
         match action {
             Action::ConfirmDelete => {
                 let chat = self.active_chat_id()?;
-                let message = self.view.delete_confirmation.take()?;
-                Some(Effect::DeleteMessages {
-                    chat,
-                    messages: vec![message],
-                })
+                let messages = self.view.delete_confirmation.take()?;
+                self.clear_message_selection();
+                Some(Effect::DeleteMessages { chat, messages })
             }
             Action::Cancel => {
                 self.view.delete_confirmation = None;

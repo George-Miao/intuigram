@@ -1,11 +1,15 @@
 pub(super) fn render_delete_confirmation(frame: &mut Frame<'_>, area: Rect, view: &View) {
-    let Some(message) = view.delete_confirmation else {
+    let Some(messages) = &view.delete_confirmation else {
         return;
     };
     let popup = centered_rect(48, 28, area);
     let lines = vec![
         Line::from(Span::styled(
-            format!("Delete Message {}?", message.0),
+            if messages.len() == 1 {
+                format!("Delete Message {}?", messages[0].0)
+            } else {
+                format!("Delete {} Messages?", messages.len())
+            },
             Style::default().add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
@@ -46,20 +50,28 @@ pub(super) fn render_link_confirmation(frame: &mut Frame<'_>, area: Rect, view: 
 }
 
 pub(super) fn render_forward_picker(frame: &mut Frame<'_>, area: Rect, view: &View) {
-    let Some(message) = view
-        .active_message
-        .and_then(|index| view.messages.get(index))
-        .map(|message| message.id)
-    else {
-        return;
+    let messages = if view.selected_messages.is_empty() {
+        view.active_message
+            .and_then(|index| view.messages.get(index))
+            .map(|message| vec![message.id])
+            .unwrap_or_default()
+    } else {
+        view.selected_messages.clone()
     };
+    if messages.is_empty() {
+        return;
+    }
     let source = view
         .active_chat
         .and_then(|index| view.chats.get(index))
         .map(|chat| chat.id);
     let popup = centered_rect(52, 60, area);
     let lines = std::iter::once(Line::from(Span::styled(
-        format!("Forward Message {}", message.0),
+        if messages.len() == 1 {
+            format!("Forward Message {}", messages[0].0)
+        } else {
+            format!("Forward {} Messages", messages.len())
+        },
         Style::default().add_modifier(Modifier::BOLD),
     )))
     .chain(std::iter::once(Line::from(Span::styled(

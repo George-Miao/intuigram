@@ -19,6 +19,7 @@ pub(super) fn render_folders(
             action: None,
             delivery: None,
             active: index == view.active_folder,
+            selected: false,
             focused: view.focus == Focus::Chats,
             bounds: Rect::new(x, content_area.y, width, content_area.height),
         });
@@ -87,6 +88,7 @@ pub(super) fn render_actions(
             action: Some(binding.action),
             delivery: None,
             active: true,
+            selected: false,
             focused: false,
             bounds: Rect::new(x, content_area.y, width, content_area.height),
         });

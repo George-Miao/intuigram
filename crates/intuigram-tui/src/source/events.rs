@@ -53,6 +53,9 @@ pub struct SemanticNode {
     /// Whether this node is the current item.
     pub active: bool,
 
+    /// Whether this Message belongs to the explicit Message Selection.
+    pub selected: bool,
+
     /// Whether interaction currently targets this node or region.
     pub focused: bool,
 

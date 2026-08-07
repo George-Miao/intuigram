@@ -246,10 +246,25 @@ impl TelegramScenario {
 
     #[must_use]
     pub fn expect_forward_message(mut self, source: i64, destination: i64, message: i64) -> Self {
-        self.expected.push_back(ExpectedCommand::ForwardMessage {
+        self.expected.push_back(ExpectedCommand::ForwardMessages {
             source: ChatId(source),
             destination: ChatId(destination),
-            message: MessageId(message),
+            messages: vec![MessageId(message)],
+        });
+        self
+    }
+
+    #[must_use]
+    pub fn expect_forward_messages(
+        mut self,
+        source: i64,
+        destination: i64,
+        messages: impl IntoIterator<Item = i64>,
+    ) -> Self {
+        self.expected.push_back(ExpectedCommand::ForwardMessages {
+            source: ChatId(source),
+            destination: ChatId(destination),
+            messages: messages.into_iter().map(MessageId).collect(),
         });
         self
     }
