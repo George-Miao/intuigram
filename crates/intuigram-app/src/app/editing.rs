@@ -81,6 +81,9 @@ impl App {
     }
 
     pub(super) fn open_forward_picker(&mut self) {
+        if self.selected_message_ids().is_empty() {
+            return;
+        }
         let Some(source) = self.active_chat_id() else {
             return;
         };

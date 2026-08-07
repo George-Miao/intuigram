@@ -69,14 +69,8 @@ impl App {
         let Some(composer) = &mut self.view.rich_media else {
             return false;
         };
-        let field = match (&mut composer.mode, composer.selected) {
-            (RichMediaComposerMode::File { path, .. }, 0) => path,
-            (RichMediaComposerMode::Recording { seconds, .. }, 0) => seconds,
-            (RichMediaComposerMode::Recording { device, .. }, 1) => device,
-            (RichMediaComposerMode::Contact { phone, .. }, 0) => phone,
-            (RichMediaComposerMode::Contact { first_name, .. }, 1) => first_name,
-            (RichMediaComposerMode::Contact { last_name, .. }, 2) => last_name,
-            _ => return true,
+        let Some(field) = rich_media_field(composer) else {
+            return true;
         };
         field.push_str(text);
         true
@@ -86,14 +80,8 @@ impl App {
         let Some(composer) = &mut self.view.rich_media else {
             return false;
         };
-        let field = match (&mut composer.mode, composer.selected) {
-            (RichMediaComposerMode::File { path, .. }, 0) => path,
-            (RichMediaComposerMode::Recording { seconds, .. }, 0) => seconds,
-            (RichMediaComposerMode::Recording { device, .. }, 1) => device,
-            (RichMediaComposerMode::Contact { phone, .. }, 0) => phone,
-            (RichMediaComposerMode::Contact { first_name, .. }, 1) => first_name,
-            (RichMediaComposerMode::Contact { last_name, .. }, 2) => last_name,
-            _ => return true,
+        let Some(field) = rich_media_field(composer) else {
+            return true;
         };
         field.pop();
         true
@@ -119,6 +107,12 @@ impl App {
             }
             AdapterEvent::RichMediaAcknowledged { chat, local_id } => {
                 self.update_delivery(chat, local_id, DeliveryState::Sent);
+                if let Some(history) = self.histories.iter().find_map(|(key, messages)| {
+                    (key.chat == chat && messages.iter().any(|message| message.id == local_id))
+                        .then_some(*key)
+                }) {
+                    self.acknowledged_rich_media.insert(local_id, history);
+                }
                 self.view.notice = None;
             }
             AdapterEvent::RichMediaFailed {
@@ -294,5 +288,17 @@ impl App {
             Some(RichMediaComposerMode::Contact { .. }) => 3,
             None => 0,
         }
+    }
+}
+
+fn rich_media_field(composer: &mut RichMediaComposerView) -> Option<&mut String> {
+    match (&mut composer.mode, composer.selected) {
+        (RichMediaComposerMode::File { path, .. }, 0) => Some(path),
+        (RichMediaComposerMode::Recording { seconds, .. }, 0) => Some(seconds),
+        (RichMediaComposerMode::Recording { device, .. }, 1) => Some(device),
+        (RichMediaComposerMode::Contact { phone, .. }, 0) => Some(phone),
+        (RichMediaComposerMode::Contact { first_name, .. }, 1) => Some(first_name),
+        (RichMediaComposerMode::Contact { last_name, .. }, 2) => Some(last_name),
+        _ => None,
     }
 }

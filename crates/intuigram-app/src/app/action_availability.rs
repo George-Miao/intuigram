@@ -238,6 +238,7 @@ impl App {
                 }
             }
             Focus::Transcript => {
+                let has_cloud_message = !self.selected_message_ids().is_empty();
                 actions.extend([
                     Action::NavigatePinned,
                     Action::TargetPreviousMessage,
@@ -249,13 +250,14 @@ impl App {
                     Action::Search,
                     Action::JumpEarliest,
                     Action::JumpLatest,
-                    Action::Delete,
-                    Action::Forward,
                     Action::React,
                     Action::TogglePin,
                     Action::ToggleMessageSelection,
                     Action::Cancel,
                 ]);
+                if has_cloud_message {
+                    actions.extend([Action::Delete, Action::Forward]);
+                }
                 if self
                     .view
                     .active_message

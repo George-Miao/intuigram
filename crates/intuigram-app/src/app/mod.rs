@@ -14,6 +14,7 @@ pub struct App {
     pending_drafts: HashMap<MessageId, PendingDraft>,
     saved_poll_draft: Option<ComposerView>,
     pending_polls: HashMap<MessageId, PendingPoll>,
+    acknowledged_rich_media: HashMap<MessageId, HistoryKey>,
 }
 
 impl App {
@@ -69,6 +70,8 @@ impl App {
             Input::Adapter(
                 event @ (AdapterEvent::FolderMembershipChanged { .. }
                 | AdapterEvent::FolderOperationCompleted { .. }
+                | AdapterEvent::FolderReconciled(_)
+                | AdapterEvent::FolderReconciliationFailed(_)
                 | AdapterEvent::FolderOperationFailed(_)),
             ) => self.apply_folder_adapter_event(event),
             Input::Adapter(
@@ -107,61 +110,7 @@ impl App {
                 None
             }
             Input::Adapter(AdapterEvent::MessageAdded { chat, message }) => {
-                let incoming = message.direction == MessageDirection::Incoming;
-                let message_thread = message.details.thread_root;
-                let active = self.active_chat_id() == Some(chat);
-                let was_latest = active && self.at_latest();
-                let active_message = active.then(|| self.active_message_id()).flatten();
-                let transcript_anchor = active.then(|| self.transcript_anchor_id()).flatten();
-                let visibly_read = active && self.view.focus != Focus::Chats && was_latest;
-                let unread_increment =
-                    u32::from(message.direction == MessageDirection::Incoming && !visibly_read);
-                if unread_increment > 0 && message_thread.is_none() {
-                    self.unread_boundaries
-                        .entry(HistoryKey { chat, thread: None })
-                        .or_insert(message.id);
-                }
-                for chat_view in self
-                    .all_chats
-                    .iter_mut()
-                    .chain(self.view.chats.iter_mut())
-                    .filter(|view| view.id == chat)
-                {
-                    chat_view.preview.clone_from(&message.body);
-                    chat_view.unread = chat_view.unread.saturating_add(unread_increment);
-                }
-                let reconciled = self.reconcile_pending_message(chat, &message);
-                if !reconciled {
-                    self.histories
-                        .entry(HistoryKey { chat, thread: None })
-                        .or_default()
-                        .push((*message).clone());
-                    if let Some(root) = message.details.thread_root {
-                        self.histories
-                            .entry(HistoryKey {
-                                chat,
-                                thread: Some(root),
-                            })
-                            .or_default()
-                            .push(*message);
-                    }
-                }
-                if active {
-                    self.refresh_active_history_at(active_message, transcript_anchor);
-                    self.view.has_newer_messages = !was_latest;
-                }
-                let read_effect = (incoming
-                    && visibly_read
-                    && message_thread.is_some()
-                    && self.view.active_thread == message_thread)
-                    .then(|| self.active_thread_read_effect())
-                    .flatten();
-                read_effect.or_else(|| {
-                    (incoming && !visibly_read).then(|| Effect::Notify {
-                        identity: self.view.notification_identity.clone(),
-                        chat,
-                    })
-                })
+                self.apply_added_message(chat, *message)
             }
             Input::Adapter(AdapterEvent::MessageUpdated { chat, message }) => {
                 self.replace_message(chat, *message);

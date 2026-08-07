@@ -2,7 +2,7 @@ use super::*;
 
 impl App {
     pub(super) fn toggle_message_selection(&mut self) {
-        let Some(message) = self.active_message_id() else {
+        let Some(message) = self.active_message_id().filter(|message| message.0 > 0) else {
             return;
         };
         if let Some(index) = self
@@ -28,12 +28,16 @@ impl App {
 
     pub(super) fn selected_message_ids(&self) -> Vec<MessageId> {
         if self.view.selected_messages.is_empty() {
-            return self.active_message_id().into_iter().collect();
+            return self
+                .active_message_id()
+                .filter(|message| message.0 > 0)
+                .into_iter()
+                .collect();
         }
         self.view
             .messages
             .iter()
-            .filter(|message| self.view.selected_messages.contains(&message.id))
+            .filter(|message| message.id.0 > 0 && self.view.selected_messages.contains(&message.id))
             .map(|message| message.id)
             .collect()
     }

@@ -1,4 +1,65 @@
 impl App {
+    pub(super) fn apply_added_message(
+        &mut self,
+        chat: ChatId,
+        message: MessageView,
+    ) -> Option<Effect> {
+        let incoming = message.direction == MessageDirection::Incoming;
+        let message_thread = message.details.thread_root;
+        let active = self.active_chat_id() == Some(chat);
+        let was_latest = active && self.at_latest();
+        let active_message = active.then(|| self.active_message_id()).flatten();
+        let transcript_anchor = active.then(|| self.transcript_anchor_id()).flatten();
+        let visibly_read = active && self.view.focus != Focus::Chats && was_latest;
+        let unread_increment = u32::from(incoming && !visibly_read);
+        if unread_increment > 0 && message_thread.is_none() {
+            self.unread_boundaries
+                .entry(HistoryKey { chat, thread: None })
+                .or_insert(message.id);
+        }
+        for chat_view in self
+            .all_chats
+            .iter_mut()
+            .chain(self.view.chats.iter_mut())
+            .filter(|view| view.id == chat)
+        {
+            chat_view.preview.clone_from(&message.body);
+            chat_view.unread = chat_view.unread.saturating_add(unread_increment);
+        }
+        let reconciled = self.reconcile_pending_message(chat, &message);
+        if !reconciled {
+            self.histories
+                .entry(HistoryKey { chat, thread: None })
+                .or_default()
+                .push(message.clone());
+            if let Some(root) = message_thread {
+                self.histories
+                    .entry(HistoryKey {
+                        chat,
+                        thread: Some(root),
+                    })
+                    .or_default()
+                    .push(message);
+            }
+        }
+        if active {
+            self.refresh_active_history_at(active_message, transcript_anchor);
+            self.view.has_newer_messages = !was_latest;
+        }
+        let read_effect = (incoming
+            && visibly_read
+            && message_thread.is_some()
+            && self.view.active_thread == message_thread)
+            .then(|| self.active_thread_read_effect())
+            .flatten();
+        read_effect.or_else(|| {
+            (incoming && !visibly_read).then(|| Effect::Notify {
+                identity: self.view.notification_identity.clone(),
+                chat,
+            })
+        })
+    }
+
     pub(super) fn send_message(&mut self) -> Option<Effect> {
         if self.view.composer.editing.is_some() {
             return self.save_edit();
@@ -103,6 +164,27 @@ impl App {
     ) -> bool {
         if message.direction != MessageDirection::Outgoing || message.id.0 <= 0 {
             return false;
+        }
+        let server_history = HistoryKey {
+            chat,
+            thread: message.details.thread_root,
+        };
+        let rich_media = self
+            .acknowledged_rich_media
+            .iter()
+            .filter(|(_, history)| **history == server_history)
+            .max_by_key(|(local_id, _)| local_id.0)
+            .map(|(local_id, _)| *local_id);
+        if let Some(local_id) = rich_media {
+            self.acknowledged_rich_media.remove(&local_id);
+            if let Some(pending) = self
+                .histories
+                .get_mut(&server_history)
+                .and_then(|history| history.iter_mut().find(|item| item.id == local_id))
+            {
+                pending.clone_from(message);
+                return true;
+            }
         }
         let mut reconciled = false;
         for history in self

@@ -107,3 +107,36 @@ fn message_selection_is_cleared_when_its_chat_or_message_disappears() {
     );
     assert!(app.view().selected_messages.is_empty());
 }
+
+#[test]
+fn pending_local_messages_cannot_enter_cloud_batch_actions() {
+    let mut app = App::new();
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::Bootstrap(bootstrap())),
+    );
+    apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
+    apply(
+        &mut app,
+        Input::Intent(Intent::Insert("pending".to_owned())),
+    );
+    apply(&mut app, Input::Intent(Intent::Action(Action::Send)));
+    let pending = app
+        .view()
+        .messages
+        .last()
+        .expect("optimistic message should be visible")
+        .id;
+    apply(
+        &mut app,
+        Input::Intent(Intent::Activate(ActivationTarget::Message(pending))),
+    );
+
+    let selected = app.transition(Input::Intent(Intent::Action(
+        Action::ToggleMessageSelection,
+    )));
+
+    assert!(selected.view.selected_messages.is_empty());
+    assert!(!selected.view.actions.contains(&Action::Delete));
+    assert!(!selected.view.actions.contains(&Action::Forward));
+}

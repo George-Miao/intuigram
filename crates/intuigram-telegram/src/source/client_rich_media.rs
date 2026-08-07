@@ -16,10 +16,14 @@ pub enum MediaLibraryKind {
 pub struct MediaLibraryEntry {
     /// Stable Telegram document identifier.
     pub id: i64,
+
     /// Human-readable emoji, filename, or MIME fallback.
     pub label: String,
+
     kind: MediaLibraryKind,
+
     access_hash: i64,
+
     file_reference: Vec<u8>,
 }
 
@@ -27,16 +31,22 @@ pub struct MediaLibraryEntry {
 pub struct ContactCardSend {
     /// Destination Chat.
     pub chat: ChatId,
+
     /// Telegram-compatible telephone number.
     pub phone_number: String,
+
     /// Contact first name.
     pub first_name: String,
+
     /// Optional contact last name.
     pub last_name: String,
+
     /// Direct reply target.
     pub reply_to: Option<MessageId>,
+
     /// Active Thread root.
     pub thread_root: Option<MessageId>,
+
     /// Stable Message idempotency identifier.
     pub random_id: i64,
 }

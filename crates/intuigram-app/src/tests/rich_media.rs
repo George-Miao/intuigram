@@ -54,3 +54,72 @@ fn library_loading_and_send_failure_remain_typed_application_state() {
     );
     assert_eq!(app.view().notice.as_deref(), Some("upload rejected"));
 }
+
+#[test]
+fn acknowledged_rich_media_is_replaced_by_its_normalized_server_message() {
+    let mut app = App::new();
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::Bootstrap(bootstrap())),
+    );
+    apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
+    apply(
+        &mut app,
+        Input::Intent(Intent::Action(Action::OpenRichMedia)),
+    );
+    apply(
+        &mut app,
+        Input::Intent(Intent::Action(Action::ChooseRichMedia)),
+    );
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::RichMediaLibraryReady {
+            kind: RichMediaLibraryKind::Stickers,
+            items: vec![RichMediaItemView {
+                id: RichMediaItemId(7),
+                label: "wave".to_owned(),
+            }],
+        }),
+    );
+    let sent = app.transition(Input::Intent(Intent::Action(Action::ChooseRichMedia)));
+    let local_id = sent
+        .view
+        .messages
+        .last()
+        .expect("optimistic rich media should be visible")
+        .id;
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::RichMediaAcknowledged {
+            chat: ChatId(10),
+            local_id,
+        }),
+    );
+
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::MessageAdded {
+            chat: ChatId(10),
+            message: Box::new(MessageView {
+                id: MessageId(77),
+                sender: "You".to_owned(),
+                body: "[Sticker] animated.webp".to_owned(),
+                timestamp: "12:10".to_owned(),
+                direction: MessageDirection::Outgoing,
+                delivery: DeliveryState::Sent,
+                reply_to: None,
+                details: MessageDetails::default(),
+            }),
+        }),
+    );
+
+    assert!(!app.view().messages.iter().any(|message| message.id.0 < 0));
+    assert_eq!(
+        app.view()
+            .messages
+            .iter()
+            .filter(|message| message.id == MessageId(77))
+            .count(),
+        1
+    );
+}
