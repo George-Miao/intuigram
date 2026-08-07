@@ -266,14 +266,14 @@ pub(super) fn print_help() {
                                    Record voice or video-note with ffmpeg, then send it\n\
            --send-contact ID CHAT PHONE FIRST LAST\n\
                                    Share a Telegram contact card\n\
-           --schedule-message ID CHAT RFC3339 TEXT\n\
-                                   Schedule text at a time carrying an explicit UTC offset\n\
+           --schedule-message ID CHAT RFC3339|online TEXT\n\
+                                   Schedule text at an offset time or when the recipient is online\n\
            --scheduled-list ID CHAT\n\
                                    List Telegram-owned Scheduled Messages for a Chat\n\
            --scheduled-edit ID CHAT MESSAGE TEXT\n\
                                    Replace a Scheduled Message's text\n\
-           --scheduled-reschedule ID CHAT MESSAGE RFC3339\n\
-                                   Change its delivery time using an explicit UTC offset\n\
+           --scheduled-reschedule ID CHAT MESSAGE RFC3339|online\n\
+                                   Change its delivery time or choose when-online delivery\n\
            --scheduled-delete ID CHAT MESSAGE\n\
                                    Delete a Scheduled Message after confirmation\n\
            --scheduled-send-now ID CHAT MESSAGE\n\

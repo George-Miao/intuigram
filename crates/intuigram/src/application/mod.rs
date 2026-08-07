@@ -31,7 +31,7 @@ use intuigram_store::{
 use intuigram_telegram::{
     ApplicationCredentials, AuthorizedUser, Client, CodeRequest, CodeSignIn, FolderRules,
     LiveUpdates, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginCodeToken, MediaLibraryKind,
-    QrLogin, Session, UploadKind,
+    QrLogin, ScheduledDelivery, Session, UploadKind,
 };
 use intuigram_tui::{
     QrLoginAction, QrLoginUi, TerminalEvents, TerminalUi, UiEvent, ViewMode as TuiViewMode,
@@ -176,7 +176,7 @@ enum RichMediaMaintenance {
 enum ScheduledMaintenance {
     Create {
         chat: ChatId,
-        schedule_date: i32,
+        delivery: ScheduledDelivery,
         text: String,
     },
     List {
@@ -190,7 +190,7 @@ enum ScheduledMaintenance {
     Reschedule {
         chat: ChatId,
         message: i32,
-        schedule_date: i32,
+        delivery: ScheduledDelivery,
     },
     Delete {
         chat: ChatId,

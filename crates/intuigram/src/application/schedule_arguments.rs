@@ -10,7 +10,7 @@ pub(super) fn parse_scheduled_maintenance(
     match argument {
         "--schedule-message" => Ok(ScheduledMaintenance::Create {
             chat: chat(argument, next_argument(arguments, argument)?)?,
-            schedule_date: timestamp(argument, next_argument(arguments, argument)?)?,
+            delivery: delivery(argument, next_argument(arguments, argument)?)?,
             text: next_argument(arguments, argument)?,
         }),
         "--scheduled-list" => Ok(ScheduledMaintenance::List {
@@ -24,7 +24,7 @@ pub(super) fn parse_scheduled_maintenance(
         "--scheduled-reschedule" => Ok(ScheduledMaintenance::Reschedule {
             chat: chat(argument, next_argument(arguments, argument)?)?,
             message: message(argument, next_argument(arguments, argument)?)?,
-            schedule_date: timestamp(argument, next_argument(arguments, argument)?)?,
+            delivery: delivery(argument, next_argument(arguments, argument)?)?,
         }),
         "--scheduled-delete" => Ok(ScheduledMaintenance::Delete {
             chat: chat(argument, next_argument(arguments, argument)?)?,
@@ -58,10 +58,14 @@ fn message(argument: &str, value: String) -> Result<i32> {
         .ok_or_else(|| invalid(argument, value))
 }
 
-fn timestamp(argument: &str, value: String) -> Result<i32> {
+fn delivery(argument: &str, value: String) -> Result<ScheduledDelivery> {
+    if value == "online" {
+        return Ok(ScheduledDelivery::WhenOnline);
+    }
     OffsetDateTime::parse(&value, &Rfc3339)
         .ok()
         .and_then(|date| i32::try_from(date.unix_timestamp()).ok())
+        .map(ScheduledDelivery::At)
         .ok_or_else(|| invalid(argument, value))
 }
 
@@ -90,7 +94,7 @@ mod tests {
             command,
             ScheduledMaintenance::Create {
                 chat: ChatId(7),
-                schedule_date: 1_906_507_800,
+                delivery: ScheduledDelivery::At(1_906_507_800),
                 ref text,
             } if text == "hello"
         ));
@@ -102,5 +106,14 @@ mod tests {
         ]
         .into_iter();
         assert!(parse_scheduled_maintenance(&mut local, "--schedule-message").is_err());
+
+        let mut online = ["7".to_owned(), "online".to_owned(), "hello".to_owned()].into_iter();
+        assert!(matches!(
+            parse_scheduled_maintenance(&mut online, "--schedule-message"),
+            Ok(ScheduledMaintenance::Create {
+                delivery: ScheduledDelivery::WhenOnline,
+                ..
+            })
+        ));
     }
 }

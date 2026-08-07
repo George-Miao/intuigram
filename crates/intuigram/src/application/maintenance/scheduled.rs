@@ -13,11 +13,11 @@ pub(crate) async fn run_scheduled_maintenance(
     match command {
         ScheduledMaintenance::Create {
             chat,
-            schedule_date,
+            delivery,
             text,
         } => {
             client
-                .schedule_text(chat, text, schedule_date, operation_id()?)
+                .schedule_text(chat, text, delivery, operation_id()?)
                 .await
                 .context(TelegramSnafu)?;
             println!("Scheduled a Message for Chat {}.", chat.0);
@@ -31,7 +31,7 @@ pub(crate) async fn run_scheduled_maintenance(
                 println!(
                     "{}\t{}\t{}",
                     message.id,
-                    format_timestamp(message.schedule_date),
+                    format_delivery(message.delivery),
                     message.summary.replace(['\r', '\n'], " ")
                 );
             }
@@ -50,10 +50,10 @@ pub(crate) async fn run_scheduled_maintenance(
         ScheduledMaintenance::Reschedule {
             chat,
             message,
-            schedule_date,
+            delivery,
         } => {
             client
-                .edit_scheduled_message(chat, message, None, Some(schedule_date))
+                .edit_scheduled_message(chat, message, None, Some(delivery))
                 .await
                 .context(TelegramSnafu)?;
             println!("Rescheduled Message {message} in Chat {}.", chat.0);
@@ -98,6 +98,13 @@ fn format_timestamp(timestamp: i32) -> String {
         .ok()
         .and_then(|date| date.format(&Rfc3339).ok())
         .unwrap_or_else(|| timestamp.to_string())
+}
+
+fn format_delivery(delivery: ScheduledDelivery) -> String {
+    match delivery {
+        ScheduledDelivery::At(timestamp) => format_timestamp(timestamp),
+        ScheduledDelivery::WhenOnline => "when-online".to_owned(),
+    }
 }
 
 #[cfg(test)]

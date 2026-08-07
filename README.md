@@ -150,7 +150,8 @@ platform capture-device name and sends the resulting voice or circular video
 note. See `intuigram --help` for argument order.
 
 Scheduled Messages remain owned by Telegram and survive Intuigram exiting.
-Use `--schedule-message` with an RFC 3339 date and explicit UTC offset, then
+Use `--schedule-message` with an RFC 3339 date and explicit UTC offset or the
+literal `online` for delivery when the recipient next appears, then
 `--scheduled-list`, `--scheduled-edit`, `--scheduled-reschedule`,
 `--scheduled-delete`, or `--scheduled-send-now` to manage them per Chat. These
 operations do not use Draft or Pending Action storage.

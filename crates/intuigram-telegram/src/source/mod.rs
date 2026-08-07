@@ -60,7 +60,7 @@ use authorization::{normalize_authorization, password_parameters};
 use client_dialogs::DialogBatch;
 pub use client_folders::FolderRules;
 pub use client_rich_media::{MediaLibraryEntry, MediaLibraryKind};
-pub use client_scheduled::ScheduledMessage;
+pub use client_scheduled::{ScheduledDelivery, ScheduledMessage};
 pub use client_send::{TextSend, UploadSend};
 use connection::Connection;
 #[cfg(test)]
