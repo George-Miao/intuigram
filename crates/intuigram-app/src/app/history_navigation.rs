@@ -211,6 +211,39 @@ impl App {
         self.view.focus = Focus::Transcript;
     }
 
+    pub(super) fn navigate_pinned(&mut self) {
+        if self.view.active_thread.is_some() {
+            return;
+        }
+        let current = self.view.active_message.filter(|index| {
+            self.view
+                .messages
+                .get(*index)
+                .is_some_and(|message| message.details.pinned)
+        });
+        let target = self
+            .view
+            .messages
+            .iter()
+            .enumerate()
+            .rev()
+            .filter(|(_, message)| message.details.pinned)
+            .map(|(index, _)| index)
+            .find(|index| current.is_none_or(|current| *index < current))
+            .or_else(|| {
+                self.view
+                    .messages
+                    .iter()
+                    .rposition(|message| message.details.pinned)
+            });
+        if let Some(target) = target {
+            self.save_active_draft();
+            self.view.active_message = Some(target);
+            self.view.transcript_anchor = Some(target);
+            self.view.focus = Focus::Transcript;
+        }
+    }
+
     pub(super) fn open_thread(&mut self) -> Option<Effect> {
         let chat = self.active_chat_id()?;
         let root = self.active_message_id()?;

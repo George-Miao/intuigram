@@ -41,6 +41,7 @@ mod authorization;
 mod backend;
 mod backend_download;
 mod backend_effects;
+mod backend_pins;
 mod cache;
 mod configuration;
 mod fixtures;

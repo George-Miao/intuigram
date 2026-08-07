@@ -156,6 +156,17 @@ pub enum Effect {
         /// Emoji sent through Telegram's reaction API.
         reaction: String,
     },
+    /// Change Telegram's pinned state for one Message.
+    SetMessagePinned {
+        /// Chat containing the Message.
+        chat: ChatId,
+
+        /// Complete normalized Message after the requested change.
+        message: Box<MessageView>,
+
+        /// New pinned state.
+        pinned: bool,
+    },
     /// Submit one or more option indices for an open poll or quiz.
     VotePoll {
         /// Chat containing the poll.

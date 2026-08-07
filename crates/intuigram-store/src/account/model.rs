@@ -149,6 +149,18 @@ pub struct StoredMessage {
 /// Normalized durable mutation applied with an update cursor.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StoredMutation {
+    /// Change pinned state for Message IDs in one Chat.
+    SetMessagesPinned {
+        /// Owning Chat.
+        chat_id: i64,
+
+        /// Telegram Message IDs whose state changed.
+        ids: Vec<i64>,
+
+        /// New pinned state.
+        pinned: bool,
+    },
+
     /// Delete Message IDs, optionally scoped to one Channel Chat.
     DeleteMessages {
         /// Channel Chat for channel-local IDs; `None` for account-wide IDs.

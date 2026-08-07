@@ -9,10 +9,13 @@ pub mod key {
     pub const ESCAPE: TestKey = TestKey::Escape;
     pub const DOWN: TestKey = TestKey::Down;
     pub const ALT_UP: TestKey = TestKey::AltUp;
+    pub const ALT_DOWN: TestKey = TestKey::AltDown;
     pub const ALT_EDIT: TestKey = TestKey::AltEdit;
     pub const ALT_DELETE: TestKey = TestKey::AltDelete;
     pub const ALT_FORWARD: TestKey = TestKey::AltForward;
     pub const ALT_REACT: TestKey = TestKey::AltReact;
+    pub const ALT_PIN: TestKey = TestKey::AltPin;
+    pub const PINNED: TestKey = TestKey::Pinned;
     pub const CTRL_POLL: TestKey = TestKey::ControlPoll;
     pub const VOTE: TestKey = TestKey::Vote;
     pub const SPACE: TestKey = TestKey::Space;
@@ -32,10 +35,13 @@ pub enum TestKey {
     Escape,
     Down,
     AltUp,
+    AltDown,
     AltEdit,
     AltDelete,
     AltForward,
     AltReact,
+    AltPin,
+    Pinned,
     ControlPoll,
     Vote,
     Space,
@@ -56,10 +62,13 @@ impl TestKey {
             Self::Escape => (KeyCode::Esc, KeyModifiers::NONE),
             Self::Down => (KeyCode::Down, KeyModifiers::NONE),
             Self::AltUp => (KeyCode::Up, KeyModifiers::ALT),
+            Self::AltDown => (KeyCode::Down, KeyModifiers::ALT),
             Self::AltEdit => (KeyCode::Char('e'), KeyModifiers::ALT),
             Self::AltDelete => (KeyCode::Char('d'), KeyModifiers::ALT),
             Self::AltForward => (KeyCode::Char('f'), KeyModifiers::ALT),
             Self::AltReact => (KeyCode::Char('r'), KeyModifiers::ALT),
+            Self::AltPin => (KeyCode::Char('p'), KeyModifiers::ALT),
+            Self::Pinned => (KeyCode::Char('p'), KeyModifiers::NONE),
             Self::ControlPoll => (KeyCode::Char('p'), KeyModifiers::CONTROL),
             Self::Vote => (KeyCode::Char('v'), KeyModifiers::NONE),
             Self::Space => (KeyCode::Char(' '), KeyModifiers::NONE),

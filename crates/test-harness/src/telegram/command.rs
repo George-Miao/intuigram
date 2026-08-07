@@ -73,6 +73,13 @@ pub(super) enum ExpectedCommand {
         updated: MessageView,
     },
 
+    SetMessagePinned {
+        chat: ChatId,
+        message: MessageId,
+        pinned: bool,
+        updated: MessageView,
+    },
+
     VotePoll {
         chat: ChatId,
         message: MessageId,
@@ -156,6 +163,15 @@ impl ExpectedCommand {
                 ..
             } => format!(
                 "react to Message {} in Chat {} with {reaction:?}",
+                message.0, chat.0
+            ),
+            Self::SetMessagePinned {
+                chat,
+                message,
+                pinned,
+                ..
+            } => format!(
+                "set pinned state of Message {} in Chat {} to {pinned}",
                 message.0, chat.0
             ),
             Self::VotePoll {

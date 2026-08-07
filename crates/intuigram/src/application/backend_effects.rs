@@ -292,6 +292,11 @@ impl Backend {
                     Err(error) => Ok(Some(AdapterEvent::OperationFailed(error.to_string()))),
                 }
             }
+            Effect::SetMessagePinned {
+                chat,
+                message,
+                pinned,
+            } => self.set_message_pinned(chat, *message, pinned).await,
             Effect::VotePoll {
                 chat,
                 message,

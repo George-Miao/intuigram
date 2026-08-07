@@ -289,6 +289,13 @@ fn discovered_chat(id: ChatId, preview: String, unread: u32) -> ChatView {
 
 fn stored_mutation(event: &AdapterEvent) -> Option<StoredMutation> {
     match event {
+        AdapterEvent::MessagesPinChanged { chat, ids, pinned } => {
+            Some(StoredMutation::SetMessagesPinned {
+                chat_id: chat.0,
+                ids: ids.iter().map(|id| id.0).collect(),
+                pinned: *pinned,
+            })
+        }
         AdapterEvent::MessagesDeleted { chat, ids } => Some(StoredMutation::DeleteMessages {
             chat_id: chat.map(|chat| chat.0),
             ids: ids.iter().map(|id| id.0).collect(),

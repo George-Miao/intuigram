@@ -79,6 +79,20 @@ pub(super) fn apply_sync_mutation(
     mutation: StoredMutation,
 ) -> rusqlite::Result<()> {
     match mutation {
+        StoredMutation::SetMessagesPinned {
+            chat_id,
+            ids,
+            pinned,
+        } => {
+            for id in ids {
+                connection.execute(
+                    "UPDATE messages SET metadata = json_set(metadata, '$.pinned', CASE WHEN ?3 \
+                     THEN json('true') ELSE json('false') END) WHERE chat_id = ?1 AND message_id \
+                     = ?2",
+                    params![chat_id, id, pinned],
+                )?;
+            }
+        }
         StoredMutation::DeleteMessages { chat_id, ids } => {
             for id in ids {
                 if let Some(chat_id) = chat_id {

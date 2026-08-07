@@ -247,6 +247,23 @@ impl TelegramScenario {
     }
 
     #[must_use]
+    pub fn expect_set_message_pinned(
+        mut self,
+        chat: i64,
+        message: i64,
+        pinned: bool,
+        updated: MessageView,
+    ) -> Self {
+        self.expected.push_back(ExpectedCommand::SetMessagePinned {
+            chat: ChatId(chat),
+            message: MessageId(message),
+            pinned,
+            updated,
+        });
+        self
+    }
+
+    #[must_use]
     pub fn expect_vote_poll(
         mut self,
         chat: i64,

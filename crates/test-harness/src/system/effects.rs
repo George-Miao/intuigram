@@ -34,6 +34,19 @@ impl TestSystem {
                         .telegram
                         .load_history(chat)
                         .map_err(|error| self.scenario_error(error))?;
+                    if let HistoryResult::Loaded(messages) = &result {
+                        let request = self
+                            .database
+                            .store()
+                            .save_messages(
+                                messages
+                                    .iter()
+                                    .map(|message| encode_stored_message(chat, message))
+                                    .collect(),
+                            )
+                            .context(StoreSnafu)?;
+                        block_on(request).context(StoreSnafu)?;
+                    }
                     self.application.handle_adapter(match result {
                         HistoryResult::Loaded(messages) => {
                             AdapterEvent::ChatLoaded { chat, messages }
@@ -184,6 +197,27 @@ impl TestSystem {
                     let updated = self
                         .telegram
                         .react_message(chat, message.id, reaction)
+                        .map_err(|error| self.scenario_error(error))?;
+                    let request = self
+                        .database
+                        .store()
+                        .save_messages(vec![encode_stored_message(chat, &updated)])
+                        .context(StoreSnafu)?;
+                    block_on(request).context(StoreSnafu)?;
+                    self.application
+                        .handle_adapter(AdapterEvent::MessageUpdated {
+                            chat,
+                            message: Box::new(updated),
+                        });
+                }
+                Effect::SetMessagePinned {
+                    chat,
+                    message,
+                    pinned,
+                } => {
+                    let updated = self
+                        .telegram
+                        .set_message_pinned(chat, message.id, pinned)
                         .map_err(|error| self.scenario_error(error))?;
                     let request = self
                         .database

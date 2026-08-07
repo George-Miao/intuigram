@@ -105,6 +105,11 @@ impl App {
             Action::OpenDownload => self.open_download(),
             Action::SaveEdit => self.save_edit(),
             Action::OpenThread => self.open_thread(),
+            Action::NavigatePinned => {
+                self.navigate_pinned();
+                None
+            }
+            Action::TogglePin => self.toggle_active_pin(),
             Action::Paste => self.active_history_key().map(|key| Effect::ReadClipboard {
                 chat: key.chat,
                 thread_root: key.thread,

@@ -1,5 +1,6 @@
 //! Durable-state assertions for behavior scenarios.
 
+use intuigram::decode_stored_message;
 use intuigram_store::SyncCursor;
 use snafu::ResultExt;
 
@@ -7,6 +8,28 @@ use super::TestSystem;
 use crate::error::{Error, Result, StoreSnafu};
 
 impl TestSystem {
+    /// Requires one Message's pinned state to be durable.
+    pub fn expect_durable_message_pinned(&self, chat: i64, id: i64, pinned: bool) -> Result<()> {
+        let cached = self.database.cached_account().context(StoreSnafu)?;
+        let actual = cached
+            .messages
+            .iter()
+            .find(|message| message.chat_id == chat && message.id == id)
+            .map(|message| decode_stored_message(message.clone()))
+            .map(|message| message.details.pinned);
+        if actual == Some(pinned) {
+            Ok(())
+        } else {
+            Err(Error::Expectation {
+                expectation: format!(
+                    "durable Message {id} in Chat {chat} has pinned state {pinned}"
+                ),
+                actual: format!("{actual:?}"),
+                artifact: self.trace.borrow().persist(),
+            })
+        }
+    }
+
     /// Requires one Message to be absent from durable storage.
     pub fn expect_no_durable_message(&self, chat: i64, id: i64) -> Result<()> {
         let cached = self.database.cached_account().context(StoreSnafu)?;

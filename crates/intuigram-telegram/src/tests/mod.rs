@@ -218,6 +218,34 @@ fn passive_mutations_are_normalized_before_cursor_exposure() {
 }
 
 #[test]
+fn pinned_message_deltas_are_normalized_with_their_chat_and_state() {
+    let update = tl::enums::Updates::UpdateShort(tl::types::UpdateShort {
+        update: tl::types::UpdatePinnedMessages {
+            pinned: true,
+            peer: tl::types::PeerUser { user_id: 7 }.into(),
+            messages: vec![40, 42],
+            pts: 9,
+            pts_count: 1,
+        }
+        .into(),
+        date: 1_700_000_000,
+    });
+    let mut names = HashMap::new();
+
+    let batch = normalize_live_update(&update.to_bytes(), &mut names)
+        .expect("serialized pin update should normalize");
+
+    assert!(matches!(
+        &batch.events[0],
+        AdapterEvent::MessagesPinChanged {
+            chat: ChatId(7),
+            ids,
+            pinned: true,
+        } if ids == &vec![MessageId(40), MessageId(42)]
+    ));
+}
+
+#[test]
 fn channel_pts_never_advance_the_account_cursor() {
     let update = tl::enums::Updates::Updates(tl::types::Updates {
         updates: vec![

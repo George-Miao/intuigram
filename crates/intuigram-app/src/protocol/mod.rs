@@ -65,6 +65,10 @@ pub enum Action {
     SaveEdit,
     /// Open the Active Message's ordinary Thread or Channel comments.
     OpenThread,
+    /// Target the newest pinned Message, then cycle toward older pins.
+    NavigatePinned,
+    /// Pin or unpin the Active cloud Message.
+    TogglePin,
     /// Target the previous Message, entering the Transcript from the Composer.
     TargetPreviousMessage,
     /// Target the next Message, returning to the Composer after the newest.
@@ -168,6 +172,19 @@ pub enum AdapterEvent {
 
         /// Complete replacement Message.
         message: Box<MessageView>,
+    },
+
+    /// Telegram changed pinned state for Messages without replacing their
+    /// content.
+    MessagesPinChanged {
+        /// Chat containing the affected Messages.
+        chat: ChatId,
+
+        /// Telegram Message IDs whose pinned state changed.
+        ids: Vec<MessageId>,
+
+        /// New pinned state.
+        pinned: bool,
     },
 
     /// A terminal edit failure restored the attempted text for correction.

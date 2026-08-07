@@ -163,6 +163,26 @@ pub(crate) fn normalize_update(
                     .collect(),
             }]
         }
+        tl::enums::Update::PinnedMessages(update) => vec![AdapterEvent::MessagesPinChanged {
+            chat: marked_peer_id(&update.peer),
+            ids: update
+                .messages
+                .into_iter()
+                .map(|id| MessageId(i64::from(id)))
+                .collect(),
+            pinned: update.pinned,
+        }],
+        tl::enums::Update::PinnedChannelMessages(update) => {
+            vec![AdapterEvent::MessagesPinChanged {
+                chat: ChatId(mark_channel_id(update.channel_id)),
+                ids: update
+                    .messages
+                    .into_iter()
+                    .map(|id| MessageId(i64::from(id)))
+                    .collect(),
+                pinned: update.pinned,
+            }]
+        }
         tl::enums::Update::ReadHistoryInbox(update) => vec![AdapterEvent::HistoryRead {
             chat: marked_peer_id(&update.peer),
             max_id: MessageId(i64::from(update.max_id)),

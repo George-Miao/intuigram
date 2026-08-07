@@ -132,5 +132,29 @@ impl Client {
             .context(InvokeSnafu)?;
         Ok(())
     }
+
+    /// Pins or unpins one Message where the Account has permission.
+    pub async fn set_message_pinned(
+        &mut self,
+        chat: ChatId,
+        message: MessageId,
+        pinned: bool,
+    ) -> Result<()> {
+        let peer = self.peers.resolve(chat)?;
+        let id = i32::try_from(message.0).map_err(|_| Error::InvalidMessageId {
+            message_id: message.0,
+        })?;
+        self.connection
+            .invoke(&tl::functions::messages::UpdatePinnedMessage {
+                silent: false,
+                unpin: !pinned,
+                pm_oneside: false,
+                peer,
+                id,
+            })
+            .await
+            .context(InvokeSnafu)?;
+        Ok(())
+    }
 }
 use super::*;

@@ -271,6 +271,33 @@ impl TelegramScenario {
         }
     }
 
+    pub fn set_message_pinned(
+        &mut self,
+        chat: ChatId,
+        message: MessageId,
+        pinned: bool,
+    ) -> Result<MessageView, ScenarioMismatch> {
+        let observed = format!(
+            "set pinned state of Message {} in Chat {} to {pinned}",
+            message.0, chat.0
+        );
+        let expected = self.next_expected(&observed)?;
+        match expected {
+            ExpectedCommand::SetMessagePinned {
+                chat: expected_chat,
+                message: expected_message,
+                pinned: expected_pinned,
+                updated,
+            } if expected_chat == chat
+                && expected_message == message
+                && expected_pinned == pinned =>
+            {
+                Ok(updated)
+            }
+            expected => Err(mismatch(expected, observed)),
+        }
+    }
+
     pub fn vote_poll(
         &mut self,
         chat: ChatId,

@@ -300,6 +300,18 @@ const BINDINGS: &[Binding] = &[
         true,
     ),
     binding(
+        KeyChord::plain(Key::Char('p')),
+        "Pinned",
+        Action::NavigatePinned,
+        true,
+    ),
+    binding(
+        KeyChord::alt(Key::Char('p')),
+        "Pin / Unpin",
+        Action::TogglePin,
+        true,
+    ),
+    binding(
         KeyChord::alt(Key::Up),
         "Previous Message",
         Action::TargetPreviousMessage,

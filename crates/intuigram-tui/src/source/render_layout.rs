@@ -225,8 +225,29 @@ pub(super) fn render_active_chat(
                 ])
             },
         );
+    let pinned = view
+        .messages
+        .iter()
+        .rev()
+        .find(|message| message.details.pinned)
+        .map(|message| {
+            Span::styled(
+                format!("Pinned · {}", message.body.replace('\n', " ")),
+                Style::default().fg(MUTED_TEXT),
+            )
+        });
+    let subheader = if let Some(pinned) = pinned {
+        let mut spans = vec![pinned];
+        if !active_message.spans.is_empty() {
+            spans.push(Span::raw("  "));
+            spans.extend(active_message.spans);
+        }
+        Line::from(spans)
+    } else {
+        active_message
+    };
     frame.render_widget(
-        Paragraph::new(vec![header, active_message])
+        Paragraph::new(vec![header, subheader])
             .style(surface_style(view.focus == Focus::Transcript)),
         rows[0],
     );

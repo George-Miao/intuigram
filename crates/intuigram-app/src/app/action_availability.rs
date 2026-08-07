@@ -71,6 +71,7 @@ impl App {
             }
             Focus::Transcript => {
                 actions.extend([
+                    Action::NavigatePinned,
                     Action::TargetPreviousMessage,
                     Action::TargetNextMessage,
                     Action::Compose,
@@ -82,6 +83,7 @@ impl App {
                     Action::Delete,
                     Action::Forward,
                     Action::React,
+                    Action::TogglePin,
                 ]);
                 if self
                     .view
@@ -132,6 +134,7 @@ impl App {
                     actions.extend([Action::SendPoll, Action::Newline, Action::Cancel]);
                 } else {
                     actions.extend([
+                        Action::NavigatePinned,
                         Action::Send,
                         Action::Newline,
                         Action::Paste,
@@ -146,6 +149,23 @@ impl App {
         }
         if self.view.connection == ConnectionState::ReconnectCooldown {
             actions.push(Action::Reconnect);
+        }
+        if self.view.active_thread.is_some()
+            || !self
+                .view
+                .messages
+                .iter()
+                .any(|message| message.details.pinned)
+        {
+            actions.retain(|action| *action != Action::NavigatePinned);
+        }
+        if self
+            .view
+            .active_message
+            .and_then(|index| self.view.messages.get(index))
+            .is_none_or(|message| message.id.0 <= 0)
+        {
+            actions.retain(|action| *action != Action::TogglePin);
         }
         self.view.actions = actions;
     }

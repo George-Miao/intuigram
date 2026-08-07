@@ -181,6 +181,10 @@ impl App {
                 self.replace_message(chat, *message);
                 None
             }
+            Input::Adapter(AdapterEvent::MessagesPinChanged { chat, ids, pinned }) => {
+                self.apply_message_pins(chat, &ids, pinned);
+                None
+            }
             Input::Adapter(AdapterEvent::MessageEditFailed {
                 chat,
                 message,
@@ -374,6 +378,7 @@ mod history_reconciliation;
 mod link_media;
 mod media_preview;
 mod messaging;
+mod pinned;
 mod poll_composer;
 mod poll_vote;
 mod state;
