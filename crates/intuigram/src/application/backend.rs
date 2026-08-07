@@ -333,7 +333,7 @@ impl Backend {
             body: text,
             timestamp: "now".to_owned(),
             direction: MessageDirection::Outgoing,
-            delivery: DeliveryState::Pending,
+            delivery: DeliveryState::Sent,
             reply_to,
             details: MessageDetails {
                 thread_root,
