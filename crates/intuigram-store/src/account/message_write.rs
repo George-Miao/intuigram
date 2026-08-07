@@ -8,6 +8,27 @@ pub(super) fn save_messages(connection: &Connection, messages: Vec<StoredMessage
     transaction.commit().context(SaveMessagesSnafu)
 }
 
+pub(super) fn replace_message(
+    connection: &Connection,
+    chat: i64,
+    local_id: i64,
+    message: StoredMessage,
+) -> Result<()> {
+    let transaction = connection
+        .unchecked_transaction()
+        .context(SaveMessagesSnafu)?;
+    upsert_message(&transaction, &message).context(SaveMessagesSnafu)?;
+    apply_sync_mutation(
+        &transaction,
+        StoredMutation::DeleteMessages {
+            chat_id: Some(chat),
+            ids: vec![local_id],
+        },
+    )
+    .context(SaveMessagesSnafu)?;
+    transaction.commit().context(SaveMessagesSnafu)
+}
+
 pub(super) fn save_chat_history(
     connection: &Connection,
     chat: i64,

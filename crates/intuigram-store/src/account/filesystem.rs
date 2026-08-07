@@ -109,6 +109,14 @@ pub(super) fn run_worker(
             Command::SaveMessagesAsync { messages, reply } => {
                 reply.finish(save_messages(&connection, messages));
             }
+            Command::ReplaceMessageAsync {
+                chat,
+                local_id,
+                message,
+                reply,
+            } => {
+                reply.finish(replace_message(&connection, chat, local_id, *message));
+            }
             Command::SaveChatHistoryAsync {
                 chat,
                 messages,

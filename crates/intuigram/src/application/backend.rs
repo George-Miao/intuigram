@@ -202,33 +202,26 @@ impl Backend {
     }
 
     pub(super) async fn persist_outgoing(&mut self, record: OutgoingRecord<'_>) -> Result<()> {
-        let OutgoingRecord {
-            chat,
-            local_id,
-            text,
-            entities,
-            reply_to,
-            thread_root,
-            delivery,
-        } = record;
+        let message = outgoing_message(&record, record.local_id, record.delivery);
         self.store
-            .save_messages(vec![encode_stored_message(
-                chat,
-                &MessageView {
-                    id: local_id,
-                    sender: "You".to_owned(),
-                    body: text.to_owned(),
-                    timestamp: "now".to_owned(),
-                    direction: MessageDirection::Outgoing,
-                    delivery,
-                    reply_to,
-                    details: MessageDetails {
-                        entities: entities.to_vec(),
-                        thread_root,
-                        ..MessageDetails::default()
-                    },
-                },
-            )])
+            .save_messages(vec![encode_stored_message(record.chat, &message)])
+            .context(AccountDatabaseSnafu)?
+            .await
+            .context(AccountDatabaseSnafu)
+    }
+
+    pub(super) async fn acknowledge_outgoing(
+        &mut self,
+        record: OutgoingRecord<'_>,
+        server_id: MessageId,
+    ) -> Result<()> {
+        let message = outgoing_message(&record, server_id, DeliveryState::Sent);
+        self.store
+            .replace_message(
+                record.chat.0,
+                record.local_id.0,
+                encode_stored_message(record.chat, &message),
+            )
             .context(AccountDatabaseSnafu)?
             .await
             .context(AccountDatabaseSnafu)
@@ -340,7 +333,7 @@ impl Backend {
             body: text,
             timestamp: "now".to_owned(),
             direction: MessageDirection::Outgoing,
-            delivery: DeliveryState::Sent,
+            delivery: DeliveryState::Pending,
             reply_to,
             details: MessageDetails {
                 thread_root,
@@ -349,4 +342,26 @@ impl Backend {
         })
     }
 }
+
+fn outgoing_message(
+    record: &OutgoingRecord<'_>,
+    id: MessageId,
+    delivery: DeliveryState,
+) -> MessageView {
+    MessageView {
+        id,
+        sender: "You".to_owned(),
+        body: record.text.to_owned(),
+        timestamp: "now".to_owned(),
+        direction: MessageDirection::Outgoing,
+        delivery,
+        reply_to: record.reply_to,
+        details: MessageDetails {
+            entities: record.entities.to_vec(),
+            thread_root: record.thread_root,
+            ..MessageDetails::default()
+        },
+    }
+}
+
 use super::*;

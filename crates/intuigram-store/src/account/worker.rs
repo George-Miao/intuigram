@@ -44,6 +44,12 @@ pub(super) enum Command {
         messages: Vec<StoredMessage>,
         reply: AsyncReply<()>,
     },
+    ReplaceMessageAsync {
+        chat: i64,
+        local_id: i64,
+        message: Box<StoredMessage>,
+        reply: AsyncReply<()>,
+    },
     SaveChatHistoryAsync {
         chat: i64,
         messages: Vec<StoredMessage>,
@@ -159,6 +165,26 @@ impl AccountStore {
         let (reply, request) = async_response();
         self.commands
             .try_send(Command::SaveMessagesAsync { messages, reply })
+            .map_err(map_try_send_error)?;
+        Ok(request)
+    }
+
+    /// Atomically replaces an optimistic local Message with its server-owned
+    /// identity and normalized durable record.
+    pub fn replace_message(
+        &self,
+        chat: i64,
+        local_id: i64,
+        message: StoredMessage,
+    ) -> Result<DatabaseRequest<()>> {
+        let (reply, request) = async_response();
+        self.commands
+            .try_send(Command::ReplaceMessageAsync {
+                chat,
+                local_id,
+                message: Box::new(message),
+                reply,
+            })
             .map_err(map_try_send_error)?;
         Ok(request)
     }

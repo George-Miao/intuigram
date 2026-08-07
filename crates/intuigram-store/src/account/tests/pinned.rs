@@ -59,6 +59,33 @@ fn refreshed_projection_does_not_join_recent_history_after_restart() {
     assert!(cached.pinned_messages.is_empty());
 }
 
+#[test]
+fn server_acknowledgement_replaces_the_optimistic_row_across_restart() {
+    let (temporary, database, ..) = history_with_old_pin();
+    let mut local = stored_message(-1, "optimistic media");
+    local.direction = "outgoing".to_owned();
+    local.delivery = "pending".to_owned();
+    let save = database
+        .store()
+        .save_messages(vec![local.clone()])
+        .expect("optimistic Message should enqueue");
+    block_on(save).expect("optimistic Message should persist");
+
+    let mut server = local;
+    server.id = 77;
+    server.delivery = "sent".to_owned();
+    let replace = database
+        .store()
+        .replace_message(7, -1, server.clone())
+        .expect("Message identity replacement should enqueue");
+    block_on(replace).expect("Message identity replacement should persist atomically");
+
+    let reopened = reopen(&temporary, database);
+    let cached = reopened.cached_account().expect("cache should reload");
+    assert!(cached.messages.contains(&server));
+    assert!(!cached.messages.iter().any(|message| message.id == -1));
+}
+
 fn history_with_old_pin() -> (TempDir, AccountDatabase, StoredMessage, StoredMessage) {
     let temporary = tempdir().expect("temporary directory should be created");
     let layout = StoreLayout::new(temporary.path().join("intuigram"));

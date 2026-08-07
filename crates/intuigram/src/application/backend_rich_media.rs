@@ -246,15 +246,27 @@ impl Backend {
         {
             return result.map(|_| unreachable!());
         }
-        self.persist_rich_media(
-            &record,
-            if result.is_ok() {
-                DeliveryState::Sent
-            } else {
-                DeliveryState::Failed
-            },
-        )
-        .await?;
+        match &result {
+            Ok(server_id) => {
+                self.acknowledge_outgoing(
+                    OutgoingRecord {
+                        chat: record.chat,
+                        local_id: record.local_id,
+                        text: &record.body,
+                        entities: &[],
+                        reply_to: record.reply_to,
+                        thread_root: record.thread_root,
+                        delivery: DeliveryState::Sent,
+                    },
+                    *server_id,
+                )
+                .await?;
+            }
+            Err(_) => {
+                self.persist_rich_media(&record, DeliveryState::Failed)
+                    .await?
+            }
+        }
         Ok(match result {
             Ok(server_id) => AdapterEvent::RichMediaAcknowledged {
                 chat: record.chat,
