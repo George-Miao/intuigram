@@ -36,7 +36,7 @@ fn unsupported_content_remains_visible_as_an_informative_media_card() -> Result<
 }
 
 #[test]
-fn downloaded_photo_is_rendered_inline_with_its_media_card_fallback() -> Result<()> {
+fn downloaded_photo_is_rendered_inline_without_a_redundant_label() -> Result<()> {
     let mut photo = incoming(41, "Lin", "look at this");
     photo.details.media = Some(MediaCard {
         kind: MediaKind::Photo,
@@ -62,7 +62,16 @@ fn downloaded_photo_is_rendered_inline_with_its_media_card_fallback() -> Result<
 
     let rows = app.screen().rows();
     assert!(rows.iter().any(|row| row.contains('▀')));
-    assert!(rows.iter().any(|row| row.contains("photo.png")));
+    assert!(rows.iter().all(|row| !row.contains("[photo.png]")));
+    let image_row = rows
+        .iter()
+        .position(|row| row.contains('▀'))
+        .expect("image should render");
+    let caption_row = rows
+        .iter()
+        .position(|row| row.contains("look at this"))
+        .expect("caption should render");
+    assert!(caption_row > image_row);
     app.expect_no_unhandled_work()
 }
 

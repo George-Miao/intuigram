@@ -3,6 +3,10 @@ use super::*;
 #[test]
 fn image_placeholder_animates_in_the_final_preview_geometry() {
     let mut current = image_message_view();
+    let fallback = symbols(&render_test_frame(&current, 100, 40).buffer);
+    assert!(fallback.contains("[Photo]"));
+    assert!(fallback.contains("image"));
+
     current.media_preview_loads = vec![intuigram_app::MediaPreviewLoadView {
         chat: ChatId(10),
         message: MessageId(40),
@@ -32,8 +36,19 @@ fn image_placeholder_animates_in_the_final_preview_geometry() {
     assert_eq!(message_height(&ready), loading_height);
     let ready_text = symbols(&ready.buffer);
     assert!(ready_text.contains('▀'));
+    assert!(!ready_text.contains("[Photo]"));
     assert!(!ready_text.contains("loading image"));
     assert!(!ready_text.contains('░'));
+    let rows = rendered_rows(&ready.buffer);
+    let image_row = rows
+        .iter()
+        .position(|row| row.contains('▀'))
+        .expect("inline image should render");
+    let caption_row = rows
+        .iter()
+        .position(|row| row.contains("caption"))
+        .expect("caption should render");
+    assert!(caption_row > image_row);
 }
 
 fn image_message_view() -> View {
@@ -85,6 +100,16 @@ fn message_height(frame: &crate::TestFrame) -> u16 {
 
 fn symbols(buffer: &ratatui::buffer::Buffer) -> String {
     buffer.content.iter().map(|cell| cell.symbol()).collect()
+}
+
+fn rendered_rows(buffer: &ratatui::buffer::Buffer) -> Vec<String> {
+    (0..buffer.area.height)
+        .map(|row| {
+            (0..buffer.area.width)
+                .map(|column| buffer[(column, row)].symbol())
+                .collect()
+        })
+        .collect()
 }
 
 fn highlighted_columns(buffer: &ratatui::buffer::Buffer) -> Vec<u16> {

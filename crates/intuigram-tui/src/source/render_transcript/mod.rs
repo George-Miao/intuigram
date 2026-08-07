@@ -125,29 +125,41 @@ fn message_lines(
         lines.push(Line::from(provenance));
     }
     let forwarded = message.details.forwarded_from.is_some();
-    lines.extend(body_lines.into_iter().map(|body| {
+    let preview = media_preview(view, message.id);
+    let loading = media_preview_is_loading(view, message.id);
+    let inline_media = message.details.media.is_some() && (preview.is_some() || loading);
+    let media_lines = message
+        .details
+        .media
+        .as_ref()
+        .map_or_else(Vec::new, |media| {
+            render_media(
+                media,
+                preview,
+                loading,
+                MediaRenderContext {
+                    selected,
+                    forwarded,
+                    focused,
+                    album: album_position(view, index, message.details.album_id),
+                    animation_frame: view.animation_frame,
+                },
+            )
+        });
+    let body_lines = body_lines.into_iter().map(|body| {
         Line::from(
             content_prefix(selected, forwarded)
                 .into_iter()
                 .chain(body)
                 .collect::<Vec<_>>(),
         )
-    }));
-    if let Some(media) = &message.details.media {
-        let preview = media_preview(view, message.id);
-        let loading = media_preview_is_loading(view, message.id);
-        lines.extend(render_media(
-            media,
-            preview,
-            loading,
-            MediaRenderContext {
-                selected,
-                forwarded,
-                focused,
-                album: album_position(view, index, message.details.album_id),
-                animation_frame: view.animation_frame,
-            },
-        ));
+    });
+    if inline_media {
+        lines.extend(media_lines);
+        lines.extend(body_lines);
+    } else {
+        lines.extend(body_lines);
+        lines.extend(media_lines);
     }
     if mode == ViewMode::Default {
         lines.push(Line::from(""));

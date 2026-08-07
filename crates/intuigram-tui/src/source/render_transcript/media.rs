@@ -58,7 +58,8 @@ pub(super) fn media_line_count(
     } else {
         0
     };
-    u16::try_from(1 + media.details.len() + poll_lines)
+    let fallback_lines = usize::from(preview.is_none() && !loading);
+    u16::try_from(fallback_lines + media.details.len() + poll_lines)
         .unwrap_or(u16::MAX)
         .saturating_add(preview_lines)
 }
@@ -76,18 +77,7 @@ pub(super) fn render_media(
         album,
         animation_frame,
     } = context;
-    let mut card = content_prefix(selected, forwarded);
-    card.extend([
-        Span::styled(
-            format!("[{}{}]", album.label(), media.title),
-            Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(
-            format!("  {}", media.description),
-            Style::default().fg(MUTED_TEXT),
-        ),
-    ]);
-    let mut lines = vec![Line::from(card)];
+    let mut lines = Vec::new();
     if let Some(preview) = preview {
         lines.extend(render_inline_image(preview, selected, forwarded, focused));
     } else if loading {
@@ -96,6 +86,19 @@ pub(super) fn render_media(
             forwarded,
             animation_frame,
         ));
+    } else {
+        let mut card = content_prefix(selected, forwarded);
+        card.extend([
+            Span::styled(
+                format!("[{}{}]", album.label(), media.title),
+                Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                format!("  {}", media.description),
+                Style::default().fg(MUTED_TEXT),
+            ),
+        ]);
+        lines.push(Line::from(card));
     }
     lines.extend(media.details.iter().map(|detail| {
         let mut spans = content_prefix(selected, forwarded);
