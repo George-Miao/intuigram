@@ -11,5 +11,8 @@ futures-util.workspace = true
 signal-hook.workspace = true
 snafu.workspace = true
 
+[target.'cfg(windows)'.dependencies]
+compio-term-win32 = { path = "../compio-term-win32" }
+
 [lints]
 workspace = true

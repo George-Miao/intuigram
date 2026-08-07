@@ -425,10 +425,20 @@ name = "compio-term"
 version = "0.1.0"
 dependencies = [
  "compio",
+ "compio-term-win32",
  "crossterm",
  "futures-util",
  "signal-hook",
  "snafu",
+]
+
+[[package]]
+name = "compio-term-win32"
+version = "0.1.0"
+dependencies = [
+ "compio",
+ "crossterm_winapi",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

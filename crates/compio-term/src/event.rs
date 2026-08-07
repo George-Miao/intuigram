@@ -15,6 +15,10 @@ pub enum Error {
     #[snafu(display("failed to open the controlling terminal"))]
     OpenTty { source: std::io::Error },
 
+    /// The Win32 console input buffer could not be opened.
+    #[snafu(display("failed to open the Windows console input buffer"))]
+    OpenConsole { source: std::io::Error },
+
     /// Compio could not construct a readiness source for the terminal.
     #[snafu(display("failed to create the Compio terminal readiness source"))]
     CreatePollSource { source: std::io::Error },
@@ -34,6 +38,10 @@ pub enum Error {
     /// Compio failed while waiting for terminal input readiness.
     #[snafu(display("failed to await terminal input readiness"))]
     PollTty { source: std::io::Error },
+
+    /// Compio failed while waiting for Win32 console input.
+    #[snafu(display("failed to await Windows console input"))]
+    PollConsole { source: std::io::Error },
 
     /// Compio failed while waiting for a terminal resize notification.
     #[snafu(display("failed to await terminal resize notification"))]

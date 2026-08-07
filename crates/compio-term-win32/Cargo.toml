@@ -1,0 +1,10 @@
+[package]
+name = "compio-term-win32"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+compio = { version = "0.19.1", default-features = false, features = ["runtime"] }
+crossterm_winapi = "0.9.1"
+windows-sys = { version = "0.61.2", features = ["Win32_System_IO"] }
