@@ -385,3 +385,4 @@ mod history_loading;
 mod link_media;
 mod messaging;
 mod reconciliation;
+mod rich_media;

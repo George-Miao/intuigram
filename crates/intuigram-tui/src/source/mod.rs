@@ -38,6 +38,7 @@ mod composer_wrap;
 mod effort;
 mod events;
 mod key_chord;
+mod palette;
 pub(crate) mod qr_render;
 mod qr_session;
 mod render_accounts;
@@ -47,6 +48,7 @@ mod render_folder_manager;
 mod render_headers;
 pub(crate) mod render_layout;
 mod render_overlays;
+mod render_rich_media;
 mod render_transcript;
 pub(crate) mod terminal;
 mod view_mode;
@@ -55,6 +57,7 @@ use avatar::avatar_badge;
 use effort::effort_spans;
 pub use events::*;
 pub use key_chord::{Binding, Key, KeyChord};
+pub(crate) use palette::*;
 use qr_render::{chord_from_crossterm, qr_login_symbols, render_qr_login};
 pub use qr_session::*;
 use render_accounts::{render_account_confirmation, render_account_picker};
@@ -70,21 +73,11 @@ use render_overlays::{
     render_attachment_path, render_delete_confirmation, render_forward_picker,
     render_link_confirmation, render_poll_vote, render_reaction_picker, render_save_as,
 };
+use render_rich_media::render_rich_media;
 use render_transcript::render_transcript;
 pub use terminal::*;
 use terminal::{enter_terminal, restore_terminal};
 pub use view_mode::ViewMode;
-
-// OpenCode's Everforest light palette, kept local until themes become
-// configurable.
-pub(crate) const BACKGROUND: Color = Color::Rgb(253, 246, 227);
-pub(crate) const SURFACE_BACKGROUND: Color = Color::Rgb(244, 240, 217);
-const FOCUSED_SURFACE_BACKGROUND: Color = Color::Rgb(230, 226, 204);
-pub(crate) const CHROME_BACKGROUND: Color = Color::Rgb(239, 235, 212);
-pub(crate) const TEXT: Color = Color::Rgb(92, 106, 114);
-pub(crate) const MUTED_TEXT: Color = Color::Rgb(130, 145, 129);
-pub(crate) const PRIMARY: Color = Color::Rgb(141, 161, 1);
-const SECONDARY: Color = Color::Rgb(58, 148, 197);
 
 const BINDINGS: &[Binding] = &[
     binding(

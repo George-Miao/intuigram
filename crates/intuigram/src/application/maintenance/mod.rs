@@ -9,7 +9,7 @@ mod scheduled;
 pub(super) use account_exit::{remove_local_account, run_logout};
 pub(super) use folders::run_folder_maintenance;
 pub(super) use media::run_maintenance;
-pub(super) use rich_media::run_rich_media_maintenance;
+pub(super) use rich_media::{record_media, run_rich_media_maintenance};
 pub(super) use scheduled::run_scheduled_maintenance;
 
 async fn connect_account(

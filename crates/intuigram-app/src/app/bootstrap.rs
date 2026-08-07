@@ -28,6 +28,7 @@ impl App {
                 help_open: false,
                 folder_picker: None,
                 folder_manager: None,
+                rich_media: None,
                 account_picker: None,
                 account_confirmation: None,
                 delete_confirmation: None,
@@ -62,6 +63,9 @@ impl App {
     pub(super) fn apply_intent(&mut self, intent: Intent) -> Option<Effect> {
         match intent {
             Intent::Insert(text) => {
+                if self.insert_rich_media_text(&text) {
+                    return None;
+                }
                 if let Some(editor) = self
                     .view
                     .folder_manager
@@ -86,6 +90,9 @@ impl App {
                 self.draft_effect()
             }
             Intent::Backspace => {
+                if self.backspace_rich_media_text() {
+                    return None;
+                }
                 if let Some(editor) = self
                     .view
                     .folder_manager
@@ -241,6 +248,7 @@ impl App {
         self.view.selected_messages.clear();
         self.view.delete_confirmation = None;
         self.view.folder_manager = None;
+        self.view.rich_media = None;
         self.view.account_picker = None;
         self.view.account_confirmation = None;
         self.view.forward_picker = None;

@@ -11,6 +11,48 @@ pub enum Effect {
         /// Complete typed operation.
         operation: FolderOperation,
     },
+    /// Load recent or saved Telegram media for Composer selection.
+    BrowseRichMedia {
+        /// Telegram-owned library.
+        kind: RichMediaLibraryKind,
+    },
+    /// Send a previously browsed Telegram media item.
+    SendLibraryMedia {
+        chat: ChatId,
+        item: RichMediaItemId,
+        local_id: MessageId,
+        reply_to: Option<MessageId>,
+        thread_root: Option<MessageId>,
+    },
+    /// Read and upload one exact local path with explicit media semantics.
+    SendRichMediaFile {
+        chat: ChatId,
+        path: String,
+        kind: RichMediaUploadKind,
+        local_id: MessageId,
+        reply_to: Option<MessageId>,
+        thread_root: Option<MessageId>,
+    },
+    /// Capture and send a voice or circular video note.
+    RecordRichMedia {
+        chat: ChatId,
+        kind: RichMediaUploadKind,
+        seconds: u32,
+        device: String,
+        local_id: MessageId,
+        reply_to: Option<MessageId>,
+        thread_root: Option<MessageId>,
+    },
+    /// Send a Telegram contact card from Composer fields.
+    SendContact {
+        chat: ChatId,
+        phone: String,
+        first_name: String,
+        last_name: String,
+        local_id: MessageId,
+        reply_to: Option<MessageId>,
+        thread_root: Option<MessageId>,
+    },
     /// Alert the user about an incoming Message outside the visibly read Chat.
     Notify {
         /// Stable Account-scoped replacement identity.

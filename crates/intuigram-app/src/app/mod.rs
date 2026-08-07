@@ -71,6 +71,15 @@ impl App {
                 | AdapterEvent::FolderOperationCompleted { .. }
                 | AdapterEvent::FolderOperationFailed(_)),
             ) => self.apply_folder_adapter_event(event),
+            Input::Adapter(
+                event @ (AdapterEvent::RichMediaLibraryReady { .. }
+                | AdapterEvent::RichMediaLibraryFailed(_)
+                | AdapterEvent::RichMediaAcknowledged { .. }
+                | AdapterEvent::RichMediaFailed { .. }),
+            ) => {
+                self.apply_rich_media_event(event);
+                None
+            }
             Input::Adapter(AdapterEvent::OperationFailed(reason)) => {
                 self.view.notice = Some(reason);
                 None
@@ -375,6 +384,7 @@ mod messaging;
 mod pinned;
 mod poll_composer;
 mod poll_vote;
+mod rich_media;
 mod state;
 mod unread;
 

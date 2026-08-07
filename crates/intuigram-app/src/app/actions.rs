@@ -1,5 +1,8 @@
 impl App {
     pub(super) fn apply_action(&mut self, action: Action) -> Option<Effect> {
+        if self.view.rich_media.is_some() && action != Action::Quit {
+            return self.apply_rich_media_action(action);
+        }
         if self.view.folder_manager.is_some() && action != Action::Quit {
             return self.apply_folder_manager_action(action);
         }
@@ -71,6 +74,11 @@ impl App {
                 self.open_folder_manager();
                 None
             }
+            Action::OpenRichMedia => {
+                self.open_rich_media();
+                None
+            }
+            Action::ChooseRichMedia | Action::CycleRichMediaKind => None,
             Action::CreateFolder
             | Action::EditFolder
             | Action::SaveFolder

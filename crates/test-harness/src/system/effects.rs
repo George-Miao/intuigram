@@ -1,7 +1,9 @@
 //! Synchronous execution of application effects against scripted adapters.
 
 use intuigram::encode_stored_message;
-use intuigram_app::{AdapterEvent, ConnectionState, Effect, MediaPreviewView};
+use intuigram_app::{
+    AdapterEvent, ConnectionState, Effect, MediaPreviewView, RichMediaItemId, RichMediaItemView,
+};
 use intuigram_store::{StoredDraft, StoredSelection};
 use intuigram_telegram::{LiveEvent, UpdateCursor, UpdateScope};
 use snafu::ResultExt;
@@ -28,6 +30,28 @@ impl TestSystem {
                 self.application.revision(),
             );
             match effect {
+                Effect::BrowseRichMedia { kind } => {
+                    self.application
+                        .handle_adapter(AdapterEvent::RichMediaLibraryReady {
+                            kind,
+                            items: vec![
+                                RichMediaItemView {
+                                    id: RichMediaItemId(1),
+                                    label: "wave".to_owned(),
+                                },
+                                RichMediaItemView {
+                                    id: RichMediaItemId(2),
+                                    label: "party".to_owned(),
+                                },
+                            ],
+                        });
+                }
+                Effect::SendLibraryMedia { chat, local_id, .. }
+                | Effect::SendRichMediaFile { chat, local_id, .. }
+                | Effect::RecordRichMedia { chat, local_id, .. }
+                | Effect::SendContact { chat, local_id, .. } => self
+                    .application
+                    .handle_adapter(AdapterEvent::RichMediaAcknowledged { chat, local_id }),
                 Effect::FolderOperation { operation } => {
                     self.handle_folder_operation(operation);
                 }

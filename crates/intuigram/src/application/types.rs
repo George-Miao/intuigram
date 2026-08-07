@@ -102,6 +102,7 @@ pub(super) struct Backend {
     pub(super) store: AccountStore,
     pub(super) next_local_message_id: i64,
     pub(super) attachments: AttachmentStore,
+    pub(super) media_library: MediaLibraryStore,
     pub(super) downloads: intuigram_media::DownloadDirectory,
     pub(super) media_cache: intuigram_media::MediaCache,
     pub(super) downloaded: DownloadStore,
@@ -141,6 +142,35 @@ pub(super) enum AttachmentPayload {
 pub(super) struct DownloadStore {
     pub(super) next_id: u64,
     pub(super) paths: HashMap<DownloadId, PathBuf>,
+}
+
+#[derive(Default)]
+pub(super) struct MediaLibraryStore {
+    pub(super) next_id: u64,
+    pub(super) entries: HashMap<RichMediaItemId, MediaLibraryEntry>,
+}
+
+impl MediaLibraryStore {
+    pub(super) fn register(&mut self, entries: Vec<MediaLibraryEntry>) -> Vec<RichMediaItemView> {
+        entries
+            .into_iter()
+            .map(|entry| {
+                self.next_id = self.next_id.saturating_add(1);
+                let id = RichMediaItemId(self.next_id);
+                let view = RichMediaItemView {
+                    id,
+                    label: entry.label.clone(),
+                };
+                self.entries.insert(id, entry);
+                view
+            })
+            .collect()
+    }
+
+    pub(super) fn merge(&mut self, mut other: Self) {
+        self.next_id = self.next_id.max(other.next_id);
+        self.entries.extend(other.entries.drain());
+    }
 }
 
 impl DownloadStore {

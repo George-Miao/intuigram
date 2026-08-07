@@ -20,6 +20,7 @@ pub mod key {
     pub const ALT_PIN: TestKey = TestKey::AltPin;
     pub const PINNED: TestKey = TestKey::Pinned;
     pub const CTRL_POLL: TestKey = TestKey::ControlPoll;
+    pub const CTRL_MEDIA: TestKey = TestKey::ControlMedia;
     pub const VOTE: TestKey = TestKey::Vote;
     pub const SPACE: TestKey = TestKey::Space;
     pub const SHIFT_ENTER: TestKey = TestKey::ShiftEnter;
@@ -59,6 +60,7 @@ pub enum TestKey {
     AltPin,
     Pinned,
     ControlPoll,
+    ControlMedia,
     Vote,
     Space,
     ShiftEnter,
@@ -99,6 +101,7 @@ impl TestKey {
             Self::AltPin => (KeyCode::Char('p'), KeyModifiers::ALT),
             Self::Pinned => (KeyCode::Char('p'), KeyModifiers::NONE),
             Self::ControlPoll => (KeyCode::Char('p'), KeyModifiers::CONTROL),
+            Self::ControlMedia => (KeyCode::Char('m'), KeyModifiers::CONTROL),
             Self::Vote => (KeyCode::Char('v'), KeyModifiers::NONE),
             Self::Space => (KeyCode::Char(' '), KeyModifiers::NONE),
             Self::ShiftEnter => (KeyCode::Enter, KeyModifiers::SHIFT),

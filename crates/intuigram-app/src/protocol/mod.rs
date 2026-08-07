@@ -78,6 +78,25 @@ pub enum AdapterEvent {
     /// A Folder lifecycle request failed without invalidating connectivity.
     FolderOperationFailed(String),
 
+    /// A Telegram media library query completed.
+    RichMediaLibraryReady {
+        kind: RichMediaLibraryKind,
+        items: Vec<RichMediaItemView>,
+    },
+
+    /// A Telegram media library query failed without changing the Draft.
+    RichMediaLibraryFailed(String),
+
+    /// One rich-media send was accepted by Telegram.
+    RichMediaAcknowledged { chat: ChatId, local_id: MessageId },
+
+    /// One rich-media send failed and remains visible in the Transcript.
+    RichMediaFailed {
+        chat: ChatId,
+        local_id: MessageId,
+        reason: String,
+    },
+
     /// A nonfatal Telegram operation failed.
     OperationFailed(String),
 

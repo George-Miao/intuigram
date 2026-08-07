@@ -16,6 +16,40 @@ impl App {
             self.view.actions = vec![Action::Quit, Action::ConfirmAttachment, Action::Cancel];
             return;
         }
+        if let Some(composer) = &self.view.rich_media {
+            if composer.pending {
+                self.view.actions = vec![Action::Quit];
+                return;
+            }
+            let mut actions = vec![
+                Action::Quit,
+                Action::MoveUp,
+                Action::MoveDown,
+                Action::Cancel,
+            ];
+            let can_choose = match &composer.mode {
+                RichMediaComposerMode::Menu => true,
+                RichMediaComposerMode::Library { items, .. } => !items.is_empty(),
+                RichMediaComposerMode::File { path, .. } => !path.trim().is_empty(),
+                RichMediaComposerMode::Recording {
+                    seconds, device, ..
+                } => {
+                    seconds.parse::<u32>().is_ok_and(|value| value > 0) && !device.trim().is_empty()
+                }
+                RichMediaComposerMode::Contact {
+                    phone, first_name, ..
+                } => !phone.trim().is_empty() && !first_name.trim().is_empty(),
+            };
+            if can_choose {
+                actions.push(Action::ChooseRichMedia);
+            }
+            if matches!(composer.mode, RichMediaComposerMode::File { .. }) && composer.selected == 1
+            {
+                actions.push(Action::CycleRichMediaKind);
+            }
+            self.view.actions = actions;
+            return;
+        }
         if let Some(manager) = &self.view.folder_manager {
             self.view.actions = if manager.pending {
                 vec![Action::Quit]
@@ -225,6 +259,7 @@ impl App {
                         Action::Newline,
                         Action::Paste,
                         Action::Attach,
+                        Action::OpenRichMedia,
                         Action::CreatePoll,
                         Action::Cancel,
                         Action::Search,

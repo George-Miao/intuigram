@@ -55,6 +55,8 @@ pub struct View {
     pub folder_picker: Option<usize>,
     /// Folder lifecycle management overlay, when open.
     pub folder_manager: Option<FolderManagerView>,
+    /// Rich-media Composer surface, when open.
+    pub rich_media: Option<RichMediaComposerView>,
     /// Selected index in the Account picker; the final index is Add Account.
     pub account_picker: Option<usize>,
     /// Destructive Account operation awaiting explicit confirmation.
@@ -95,6 +97,10 @@ impl View {
                 .folder_manager
                 .as_ref()
                 .is_some_and(|manager| manager.pending)
+            || self
+                .rich_media
+                .as_ref()
+                .is_some_and(|composer| composer.pending)
             || !self.media_preview_loads.is_empty()
             || self
                 .messages

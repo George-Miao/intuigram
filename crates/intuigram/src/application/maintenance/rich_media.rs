@@ -33,7 +33,7 @@ pub(crate) async fn run_rich_media_maintenance(
                 .get(index)
                 .context(MediaIndexUnavailableSnafu { index })?;
             client
-                .send_library_media(chat, entry, operation_id()?)
+                .send_library_media(chat, entry, None, None, operation_id()?)
                 .await
                 .context(TelegramSnafu)?;
             println!("Sent {} to Chat {}.", entry.label, chat.0);
@@ -47,7 +47,7 @@ pub(crate) async fn run_rich_media_maintenance(
             seconds,
             device,
         } => {
-            let path = record(kind, seconds, &device).await?;
+            let path = record_media(kind, seconds, &device).await?;
             let sent = send_file(&mut client, chat, kind, path.clone()).await;
             let _ = std::fs::remove_file(path);
             sent?;
@@ -59,7 +59,15 @@ pub(crate) async fn run_rich_media_maintenance(
             last_name,
         } => {
             client
-                .send_contact(chat, phone, first_name, last_name, operation_id()?)
+                .send_contact(intuigram_telegram::ContactCardSend {
+                    chat,
+                    phone_number: phone,
+                    first_name,
+                    last_name,
+                    reply_to: None,
+                    thread_root: None,
+                    random_id: operation_id()?,
+                })
                 .await
                 .context(TelegramSnafu)?;
             println!("Sent a contact card to Chat {}.", chat.0);
@@ -106,7 +114,7 @@ async fn send_file(
     Ok(())
 }
 
-async fn record(kind: UploadKind, seconds: u32, device: &str) -> Result<PathBuf> {
+pub(crate) async fn record_media(kind: UploadKind, seconds: u32, device: &str) -> Result<PathBuf> {
     let label = match kind {
         UploadKind::Voice => "voice",
         UploadKind::VideoNote => "video note",

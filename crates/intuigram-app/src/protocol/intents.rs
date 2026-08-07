@@ -63,6 +63,12 @@ pub enum Action {
     Attach,
     /// Add the exact path entered in the attachment editor.
     ConfirmAttachment,
+    /// Open rich-media choices from the active Composer.
+    OpenRichMedia,
+    /// Activate the selected rich-media choice or submit its editor.
+    ChooseRichMedia,
+    /// Cycle the upload kind in the local-file editor.
+    CycleRichMediaKind,
     /// Replace the Composer with a structured poll editor.
     CreatePoll,
     /// Send the question and options from the poll editor.

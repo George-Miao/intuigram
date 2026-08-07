@@ -67,6 +67,7 @@ pub(super) async fn resume_account(
             store: store.clone(),
             next_local_message_id: 0,
             attachments: AttachmentStore::default(),
+            media_library: MediaLibraryStore::default(),
             downloads: intuigram_media::DownloadDirectory::new(storage.downloads.clone()),
             media_cache: storage.for_account(account.id),
             downloaded: DownloadStore::default(),
@@ -199,6 +200,7 @@ pub(super) async fn authorize_new_account(
             store: store.clone(),
             next_local_message_id: 0,
             attachments: AttachmentStore::default(),
+            media_library: MediaLibraryStore::default(),
             downloads: intuigram_media::DownloadDirectory::new(config.paths.downloads.clone()),
             media_cache: intuigram_media::MediaCache::new(
                 config.paths.cache.join(account_id.get().to_string()),

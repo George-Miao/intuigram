@@ -23,6 +23,24 @@ pub struct MediaLibraryEntry {
     file_reference: Vec<u8>,
 }
 
+/// One Telegram contact card submission.
+pub struct ContactCardSend {
+    /// Destination Chat.
+    pub chat: ChatId,
+    /// Telegram-compatible telephone number.
+    pub phone_number: String,
+    /// Contact first name.
+    pub first_name: String,
+    /// Optional contact last name.
+    pub last_name: String,
+    /// Direct reply target.
+    pub reply_to: Option<MessageId>,
+    /// Active Thread root.
+    pub thread_root: Option<MessageId>,
+    /// Stable Message idempotency identifier.
+    pub random_id: i64,
+}
+
 impl Client {
     /// Loads recent stickers, saved GIFs, or searched custom emoji.
     pub async fn browse_media(
@@ -109,6 +127,8 @@ impl Client {
         &mut self,
         chat: ChatId,
         entry: &MediaLibraryEntry,
+        reply_to: Option<MessageId>,
+        thread_root: Option<MessageId>,
         random_id: i64,
     ) -> Result<()> {
         if entry.kind == MediaLibraryKind::CustomEmoji {
@@ -129,8 +149,8 @@ impl Client {
                     }],
                     text,
                     link_preview: false,
-                    reply_to: None,
-                    thread_root: None,
+                    reply_to,
+                    thread_root,
                     random_id,
                     schedule_date: None,
                 })
@@ -151,19 +171,21 @@ impl Client {
             query: None,
         }
         .into();
-        self.send_input_media(peer, media, String::new(), random_id)
+        self.send_input_media(peer, media, String::new(), reply_to, thread_root, random_id)
             .await
     }
 
     /// Sends a Telegram contact card.
-    pub async fn send_contact(
-        &mut self,
-        chat: ChatId,
-        phone_number: String,
-        first_name: String,
-        last_name: String,
-        random_id: i64,
-    ) -> Result<()> {
+    pub async fn send_contact(&mut self, request: ContactCardSend) -> Result<()> {
+        let ContactCardSend {
+            chat,
+            phone_number,
+            first_name,
+            last_name,
+            reply_to,
+            thread_root,
+            random_id,
+        } = request;
         let peer = self.peers.resolve(chat)?;
         let media = tl::types::InputMediaContact {
             phone_number,
@@ -172,7 +194,7 @@ impl Client {
             vcard: String::new(),
         }
         .into();
-        self.send_input_media(peer, media, String::new(), random_id)
+        self.send_input_media(peer, media, String::new(), reply_to, thread_root, random_id)
             .await
     }
 
@@ -181,6 +203,8 @@ impl Client {
         peer: tl::enums::InputPeer,
         media: tl::enums::InputMedia,
         message: String,
+        reply_to: Option<MessageId>,
+        thread_root: Option<MessageId>,
         random_id: i64,
     ) -> Result<()> {
         self.connection
@@ -193,7 +217,7 @@ impl Client {
                 invert_media: false,
                 allow_paid_floodskip: false,
                 peer,
-                reply_to: None,
+                reply_to: input_reply_to(reply_to, thread_root)?,
                 media,
                 message,
                 random_id,

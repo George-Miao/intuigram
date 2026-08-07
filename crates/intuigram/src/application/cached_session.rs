@@ -32,6 +32,7 @@ where
     let mut update = app.transition(Input::Adapter(AdapterEvent::Bootstrap(bootstrap)));
     let mut pending_effects = VecDeque::with_capacity(EFFECT_CAPACITY);
     let mut retained_attachments = AttachmentStore::default();
+    let mut retained_media_library = MediaLibraryStore::default();
     let mut retained_downloads = DownloadStore::default();
     let mut attempt = Some(Box::pin(resume_account(
         credentials.clone(),
@@ -109,6 +110,9 @@ where
                     .attachments
                     .merge(std::mem::take(&mut retained_attachments));
                 backend
+                    .media_library
+                    .merge(std::mem::take(&mut retained_media_library));
+                backend
                     .downloaded
                     .merge(std::mem::take(&mut retained_downloads));
                 update =
@@ -139,6 +143,7 @@ where
                             pending_effects: disconnected_effects,
                         } = *state;
                         retained_attachments.merge(disconnected_backend.attachments);
+                        retained_media_library.merge(disconnected_backend.media_library);
                         retained_downloads.merge(disconnected_backend.downloaded);
                         app = disconnected_app;
                         pending_effects = disconnected_effects;

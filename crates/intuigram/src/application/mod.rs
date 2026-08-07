@@ -20,7 +20,8 @@ use intuigram_app::{
     DownloadId, DownloadView, DraftView, Effect, FolderOperation, FolderOperationResult,
     FolderView, HistoryView, InlineImage, Input, Intent, MediaCard, MediaKind, MediaPreviewView,
     MessageDetails, MessageDirection, MessageId, MessageView, PollOptionView, PollView,
-    SelectionView, TextEntity, TranscriptAnchorView, Update,
+    RichMediaItemId, RichMediaItemView, RichMediaLibraryKind, RichMediaUploadKind, SelectionView,
+    TextEntity, TranscriptAnchorView, Update,
 };
 use intuigram_config::{
     Config, ConfigLoader, Overrides, PlatformDefaults, ViewMode as ConfigViewMode,
@@ -31,8 +32,8 @@ use intuigram_store::{
 };
 use intuigram_telegram::{
     ApplicationCredentials, AuthorizedUser, Client, CodeRequest, CodeSignIn, FolderRules,
-    LiveUpdates, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginCodeToken, MediaLibraryKind,
-    QrLogin, ScheduledDelivery, Session, UploadKind,
+    LiveUpdates, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginCodeToken, MediaLibraryEntry,
+    MediaLibraryKind, QrLogin, ScheduledDelivery, Session, UploadKind,
 };
 use intuigram_tui::{
     QrLoginAction, QrLoginUi, TerminalEvents, TerminalUi, UiEvent, ViewMode as TuiViewMode,
@@ -46,6 +47,7 @@ mod backend_effects;
 mod backend_folders;
 mod backend_message_actions;
 mod backend_pins;
+mod backend_rich_media;
 mod cache;
 mod cached_session;
 mod configuration;
@@ -88,7 +90,7 @@ use login::{
     unix_timestamp,
 };
 use maintenance::{
-    remove_local_account, run_folder_maintenance, run_logout, run_maintenance,
+    record_media, remove_local_account, run_folder_maintenance, run_logout, run_maintenance,
     run_rich_media_maintenance, run_scheduled_maintenance,
 };
 use media_arguments::parse_media_maintenance;
@@ -244,6 +246,9 @@ enum Error {
 
     #[snafu(display("media library item {index} is unavailable"))]
     MediaIndexUnavailable { index: usize },
+
+    #[snafu(display("selected media library item {item} is no longer available"))]
+    MediaLibraryItemUnavailable { item: u64 },
 
     #[snafu(display("failed to save Telegram media to the download directory"))]
     SaveDownload {

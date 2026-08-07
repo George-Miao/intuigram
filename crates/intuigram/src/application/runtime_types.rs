@@ -63,7 +63,13 @@ impl AdapterEffect {
     pub(super) fn new(effect: Effect) -> Result<Self> {
         let random_id = if matches!(
             effect,
-            Effect::SendMessage { .. } | Effect::SendPoll { .. } | Effect::ForwardMessages { .. }
+            Effect::SendMessage { .. }
+                | Effect::SendPoll { .. }
+                | Effect::ForwardMessages { .. }
+                | Effect::SendLibraryMedia { .. }
+                | Effect::SendRichMediaFile { .. }
+                | Effect::RecordRichMedia { .. }
+                | Effect::SendContact { .. }
         ) {
             let mut bytes = [0_u8; 8];
             getrandom::fill(&mut bytes).context(OperationIdSnafu)?;

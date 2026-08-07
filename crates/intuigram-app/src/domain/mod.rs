@@ -4,6 +4,7 @@ mod formatting;
 mod links;
 mod media;
 mod message;
+mod rich_media;
 
 pub use account::*;
 pub use folder::*;
@@ -11,6 +12,7 @@ pub(crate) use formatting::format_markdown;
 pub(crate) use links::active_link;
 pub use media::*;
 pub use message::*;
+pub use rich_media::*;
 
 /// Stable identifier for a Telegram chat.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]

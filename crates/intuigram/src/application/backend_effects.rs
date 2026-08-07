@@ -6,6 +6,13 @@ impl Backend {
     pub(super) async fn execute(&mut self, effect: AdapterEffect) -> Result<Option<AdapterEvent>> {
         let AdapterEffect { effect, random_id } = effect;
         match effect {
+            effect @ (Effect::BrowseRichMedia { .. }
+            | Effect::SendLibraryMedia { .. }
+            | Effect::SendRichMediaFile { .. }
+            | Effect::RecordRichMedia { .. }
+            | Effect::SendContact { .. }) => {
+                self.execute_rich_media(effect, random_id).await.map(Some)
+            }
             Effect::FolderOperation { operation } => {
                 self.execute_folder_operation(operation).await.map(Some)
             }
