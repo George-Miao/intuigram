@@ -254,6 +254,9 @@ pub struct View {
     /// Message index anchoring the Transcript when no Message is active.
     pub transcript_anchor: Option<usize>,
 
+    /// First unread incoming Message in the active root Chat history.
+    pub unread_boundary: Option<MessageId>,
+
     /// Region receiving navigation and editing input.
     pub focus: Focus,
 

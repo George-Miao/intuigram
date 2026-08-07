@@ -322,6 +322,10 @@ impl App {
             .active_history_key()
             .and_then(|key| self.histories.get(&key).cloned())
             .unwrap_or_default();
+        self.view.unread_boundary = self
+            .active_history_key()
+            .filter(|key| key.thread.is_none())
+            .and_then(|key| self.unread_boundaries.get(&key).copied());
         self.refresh_pinned_projection();
         self.view.active_message =
             active_message.and_then(|message| self.history_position(message));

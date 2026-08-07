@@ -2,9 +2,11 @@ use super::*;
 
 mod media;
 mod rich_text;
+mod window;
 
 use media::{media_line_count, render_media};
 use rich_text::{message_metadata, render_rich_text_lines};
+use window::{message_height, transcript_window, unread_boundary_index};
 
 pub(super) fn render_transcript(
     frame: &mut Frame<'_>,
@@ -14,19 +16,28 @@ pub(super) fn render_transcript(
     mode: ViewMode,
     semantics: &mut Vec<SemanticNode>,
 ) {
+    let unread = unread_boundary_index(view);
     let range = transcript_window(
         view,
         view.active_message.or(view.transcript_anchor),
         area.height,
         mode,
+        unread,
     );
-    render_semantics(area, view, focused, range.clone(), mode, semantics);
+    render_semantics(area, view, focused, range.clone(), mode, unread, semantics);
     let items = view.messages[range.clone()]
         .iter()
         .enumerate()
         .map(|(offset, message)| {
             let index = range.start + offset;
-            ListItem::new(message_lines(view, index, message, focused, mode))
+            ListItem::new(message_lines(
+                view,
+                index,
+                message,
+                focused,
+                mode,
+                unread == Some(index),
+            ))
         });
     frame.render_widget(List::new(items).style(surface_style(focused)), area);
 }
@@ -37,6 +48,7 @@ fn message_lines(
     message: &MessageView,
     focused: bool,
     mode: ViewMode,
+    unread: bool,
 ) -> Vec<Line<'static>> {
     let selected = view.active_message == Some(index);
     let direction = match message.direction {
@@ -76,7 +88,17 @@ fn message_lines(
         .last_mut()
         .expect("Message text always has at least one line")
         .extend(message_metadata(message));
-    let mut lines = vec![header];
+    let mut lines = Vec::new();
+    if unread {
+        lines.push(Line::from(vec![
+            Span::raw("  "),
+            Span::styled(
+                "Unread messages",
+                Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
+            ),
+        ]));
+    }
+    lines.push(header);
     lines.extend(body_lines.into_iter().map(|body| {
         Line::from(
             std::iter::once(selection_rule(selected))
@@ -106,13 +128,19 @@ fn render_semantics(
     focused: bool,
     range: std::ops::Range<usize>,
     mode: ViewMode,
+    unread: Option<usize>,
     semantics: &mut Vec<SemanticNode>,
 ) {
     let mut y = area.y;
     for (offset, message) in view.messages[range.clone()].iter().enumerate() {
         let index = range.start + offset;
-        let height = message_height(message, mode, media_preview(view, message.id))
-            .min(area.bottom().saturating_sub(y));
+        let height = message_height(
+            message,
+            mode,
+            media_preview(view, message.id),
+            unread == Some(index),
+        )
+        .min(area.bottom().saturating_sub(y));
         semantics.push(SemanticNode {
             role: SemanticRole::Message,
             name: message.body.clone(),
@@ -146,77 +174,9 @@ fn render_semantics(
             message,
             mode,
             media_preview(view, message.id),
+            unread == Some(index),
         ));
     }
-}
-
-fn message_height(
-    message: &MessageView,
-    mode: ViewMode,
-    preview: Option<&intuigram_app::InlineImage>,
-) -> u16 {
-    let body_height = u16::try_from(message.body.split('\n').count()).unwrap_or(u16::MAX);
-    let media_height = message
-        .details
-        .media
-        .as_ref()
-        .map_or(0, |media| media_line_count(media, preview));
-    mode.item_height(
-        1_u16
-            .saturating_add(body_height)
-            .saturating_add(media_height),
-    )
-}
-
-fn transcript_window(
-    view: &View,
-    active: Option<usize>,
-    available: u16,
-    mode: ViewMode,
-) -> std::ops::Range<usize> {
-    let messages = &view.messages;
-    if messages.is_empty() {
-        return 0..0;
-    }
-    let active = active.unwrap_or(messages.len() - 1).min(messages.len() - 1);
-    let mut start = active;
-    let mut before_height = 0_u16;
-    let before_budget = available / 3;
-    while start > 0 {
-        let message = &messages[start - 1];
-        let height = message_height(message, mode, media_preview(view, message.id));
-        if before_height.saturating_add(height) > before_budget {
-            break;
-        }
-        start -= 1;
-        before_height = before_height.saturating_add(height);
-    }
-    let mut end = active + 1;
-    let active_message = &messages[active];
-    let mut used = before_height.saturating_add(message_height(
-        active_message,
-        mode,
-        media_preview(view, active_message.id),
-    ));
-    while end < messages.len() {
-        let message = &messages[end];
-        let height = message_height(message, mode, media_preview(view, message.id));
-        if used.saturating_add(height) > available {
-            break;
-        }
-        used = used.saturating_add(height);
-        end += 1;
-    }
-    while start > 0 {
-        let message = &messages[start - 1];
-        let height = message_height(message, mode, media_preview(view, message.id));
-        if used.saturating_add(height) > available {
-            break;
-        }
-        used = used.saturating_add(height);
-        start -= 1;
-    }
-    start..end
 }
 
 fn media_preview(

@@ -13,6 +13,7 @@ impl App {
                 active_message: None,
                 active_thread: None,
                 transcript_anchor: None,
+                unread_boundary: None,
                 focus: Focus::Chats,
                 composer: ComposerView::default(),
                 search: None,
@@ -36,6 +37,7 @@ impl App {
             pinned_histories: HashMap::new(),
             projected_pin: false,
             transcript_anchors: HashMap::new(),
+            unread_boundaries: HashMap::new(),
             history_loads: HistoryLoads::default(),
             media_preview_loads: MediaPreviewLoads::default(),
             next_local_message_id: 0,
@@ -135,6 +137,7 @@ impl App {
             self.histories
                 .insert(HistoryKey { chat, thread: None }, bootstrap.messages);
         }
+        self.rebuild_unread_boundaries();
         self.view.active_message = None;
         self.view.delete_confirmation = None;
         self.view.forward_picker = None;

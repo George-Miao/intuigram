@@ -7,6 +7,7 @@ pub struct App {
     pinned_histories: HashMap<ChatId, Vec<MessageView>>,
     projected_pin: bool,
     transcript_anchors: HashMap<HistoryKey, MessageId>,
+    unread_boundaries: HashMap<HistoryKey, MessageId>,
     history_loads: HistoryLoads,
     media_preview_loads: MediaPreviewLoads,
     next_local_message_id: i64,
@@ -104,6 +105,11 @@ impl App {
                 let visibly_read = active && self.view.focus != Focus::Chats && was_latest;
                 let unread_increment =
                     u32::from(message.direction == MessageDirection::Incoming && !visibly_read);
+                if unread_increment > 0 && message_thread.is_none() {
+                    self.unread_boundaries
+                        .entry(HistoryKey { chat, thread: None })
+                        .or_insert(message.id);
+                }
                 for chat_view in self
                     .all_chats
                     .iter_mut()
@@ -360,6 +366,7 @@ mod pinned;
 mod poll_composer;
 mod poll_vote;
 mod state;
+mod unread;
 
 use action_availability::move_index;
 use history_navigation::HistoryLoads;

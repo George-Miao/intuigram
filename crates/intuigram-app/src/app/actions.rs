@@ -375,6 +375,9 @@ impl App {
                 chat_view.unread = unread;
             }
             self.refresh_folder_unread();
+            if !outgoing {
+                self.advance_unread_boundary(chat, max_id, unread);
+            }
         }
         if self.active_chat_id() == Some(chat) {
             self.refresh_active_history();

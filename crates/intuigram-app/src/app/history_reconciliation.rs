@@ -54,6 +54,7 @@ impl App {
 
     pub(super) fn store_loaded_history(&mut self, key: HistoryKey, refreshed: Vec<MessageView>) {
         let messages = reconcile_refresh(self.histories.get(&key).map(Vec::as_slice), refreshed);
+        self.ensure_unread_boundary(key, &messages);
         if self.active_history_key() != Some(key) {
             self.histories.insert(key, messages);
             return;

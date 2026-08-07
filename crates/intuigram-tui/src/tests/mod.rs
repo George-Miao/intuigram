@@ -59,6 +59,7 @@ fn view(actions: Vec<Action>) -> View {
         active_message: None,
         active_thread: None,
         transcript_anchor: None,
+        unread_boundary: None,
         focus: Focus::Chats,
         composer: ComposerView::default(),
         search: None::<SearchView>,
@@ -292,3 +293,4 @@ mod density;
 mod multiline;
 mod rendering;
 mod semantics;
+mod unread;
