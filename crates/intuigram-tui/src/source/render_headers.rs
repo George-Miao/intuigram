@@ -70,19 +70,28 @@ fn title_and_status(view: &View) -> (Line<'static>, Line<'static>) {
                 )
             },
             |chat| {
-                let status = if let Some(root) = view.active_thread {
-                    format!("Thread {}", root.0)
-                } else if chat.unread > 0 {
-                    format!("{} unread", chat.unread)
-                } else {
-                    "up to date".to_owned()
+                let status = match view.chat_loading {
+                    ChatLoadingState::Updating => {
+                        Line::from(effort_spans("updating", view.animation_frame))
+                    }
+                    ChatLoadingState::Fresh => Line::from(""),
+                    ChatLoadingState::Idle => {
+                        let status = if let Some(root) = view.active_thread {
+                            format!("Thread {}", root.0)
+                        } else if chat.unread > 0 {
+                            format!("{} unread", chat.unread)
+                        } else {
+                            "up to date".to_owned()
+                        };
+                        Line::from(Span::styled(status, Style::default().fg(MUTED_TEXT)))
+                    }
                 };
                 (
                     Line::from(Span::styled(
                         chat.title.clone(),
                         Style::default().add_modifier(Modifier::BOLD),
                     )),
-                    Line::from(Span::styled(status, Style::default().fg(MUTED_TEXT))),
+                    status,
                 )
             },
         )

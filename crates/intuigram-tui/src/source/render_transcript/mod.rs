@@ -18,6 +18,10 @@ pub(super) fn render_transcript(
 ) {
     frame.render_widget(Paragraph::new("").style(surface_style(focused)), area);
     let area = mode.padded(area);
+    if view.chat_loading == ChatLoadingState::Fresh && view.messages.is_empty() {
+        render_fresh_loading(frame, area, view, focused);
+        return;
+    }
     let unread = unread_boundary_index(view);
     let range = transcript_window(
         view,
@@ -42,6 +46,22 @@ pub(super) fn render_transcript(
             ))
         });
     frame.render_widget(List::new(items).style(surface_style(focused)), area);
+}
+
+fn render_fresh_loading(frame: &mut Frame<'_>, area: Rect, view: &View, focused: bool) {
+    let line = Line::from(effort_spans("loading", view.animation_frame));
+    let centered = Rect::new(
+        area.x,
+        area.y.saturating_add(area.height.saturating_sub(1) / 2),
+        area.width,
+        1.min(area.height),
+    );
+    frame.render_widget(
+        Paragraph::new(line)
+            .alignment(Alignment::Center)
+            .style(surface_style(focused)),
+        centered,
+    );
 }
 
 fn message_lines(
