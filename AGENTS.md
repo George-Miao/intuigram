@@ -107,7 +107,7 @@ Enforce owner-only permissions for authorization and Account data. Never log aut
 - Do not add keyboard modes or a flat focus cycle. Interaction follows the Chat list → Active Chat → Active Message hierarchy and uses modifier keys for lateral actions.
 - Moving through the Chat list immediately changes the Active Chat and updates the adjacent Transcript without entering the Chat. `Enter` descends into the Active Chat with its Composer active by default; `Esc` ascends to the Chat list.
 - The Composer remains the ordinary interaction target while a Chat is open, including after sending. `Alt+Up` moves from the Composer to the newest Message and toward older Messages; `Alt+Down` moves toward newer Messages and returns to the Composer after the newest. `Esc` clears an Active Message and returns to the Composer before ascending further.
-- Folders are Chat-list navigation rather than a focusable region. `Alt+Left` and `Alt+Right` switch the Active Folder only while the Chat list is the interaction target; they are unavailable from the Composer or an Active Message.
+- Folders are Chat-list navigation rather than a focusable region. Bare `Left` and `Right` switch the Active Folder only while the Chat list is the interaction target; `Alt+Left` and `Alt+Right` remain compatibility aliases there. Folder switching is unavailable from the Composer or an Active Message.
 - Keep the context-sensitive Action Bar at the bottom, above the status bar. It shows all important actions currently available; `?` opens exhaustive context help.
 - Keep the Folder strip above the Action Bar.
 - Generate the Action Bar and Help from the same effective keymap. Do not hardcode displayed shortcuts separately from input handling.
