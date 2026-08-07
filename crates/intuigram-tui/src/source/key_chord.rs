@@ -94,9 +94,28 @@ impl EffectiveKeymap {
 
     /// Produces exhaustive context Help from the same bindings used for input.
     pub fn help<'a>(&'a self, view: &'a View) -> impl Iterator<Item = &'static Binding> + 'a {
-        BINDINGS
-            .iter()
-            .filter(|binding| view.actions.contains(&binding.action))
+        BINDINGS.iter().filter(|binding| {
+            view.actions.contains(&binding.action) && binding_matches_context(view, binding)
+        })
+    }
+}
+
+fn binding_matches_context(view: &View, binding: &Binding) -> bool {
+    match (binding.action, binding.key) {
+        (Action::TargetPreviousMessage, key) if key == KeyChord::plain(Key::Up) => {
+            view.focus == Focus::Transcript
+                || (view.focus == Focus::Composer && view.composer.text.is_empty())
+        }
+        (Action::TargetPreviousMessage, key) if key == KeyChord::alt(Key::Up) => {
+            view.focus == Focus::Composer && !view.composer.text.is_empty()
+        }
+        (Action::TargetNextMessage, key) if key == KeyChord::plain(Key::Down) => {
+            view.focus == Focus::Transcript
+        }
+        (Action::TargetNextMessage, key) if key == KeyChord::alt(Key::Down) => {
+            view.focus == Focus::Transcript
+        }
+        _ => true,
     }
 }
 

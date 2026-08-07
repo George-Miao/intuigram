@@ -44,6 +44,15 @@ impl Screen {
     }
 
     #[must_use]
+    pub fn folder(&self, title: impl Into<String>) -> FolderLocator {
+        FolderLocator {
+            state: Rc::clone(&self.state),
+            trace: Rc::clone(&self.trace),
+            title: title.into(),
+        }
+    }
+
+    #[must_use]
     pub fn message(&self, id: i64) -> MessageLocator {
         MessageLocator {
             state: Rc::clone(&self.state),
@@ -108,6 +117,42 @@ impl Screen {
     #[must_use]
     pub fn revision(&self) -> u64 {
         self.state.borrow().revision
+    }
+}
+
+pub struct FolderLocator {
+    state: Rc<RefCell<RenderedState>>,
+    trace: Rc<RefCell<Trace>>,
+    title: String,
+}
+
+impl FolderLocator {
+    pub fn expect_active(&self) -> Result<()> {
+        let state = self.state.borrow();
+        let matches = state
+            .semantics
+            .iter()
+            .filter(|node| node.role == SemanticRole::Folder && node.name == self.title)
+            .collect::<Vec<_>>();
+        if matches.len() != 1 {
+            return Err(Error::LocatorCardinality {
+                query: format!("Folder named {}", self.title),
+                matches: matches.len(),
+                artifact: self.trace.borrow().persist(),
+            });
+        }
+        if !matches[0].active {
+            return Err(Error::Expectation {
+                expectation: format!("Folder {} is Active Folder", self.title),
+                actual: state
+                    .semantics
+                    .iter()
+                    .find(|node| node.role == SemanticRole::Folder && node.active)
+                    .map_or_else(|| "none".to_owned(), |node| node.name.clone()),
+                artifact: self.trace.borrow().persist(),
+            });
+        }
+        Ok(())
     }
 }
 

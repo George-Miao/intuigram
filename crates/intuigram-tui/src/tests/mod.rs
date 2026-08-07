@@ -178,11 +178,11 @@ fn hierarchy_modifiers_resolve_only_in_their_effective_context() {
         Action::Open,
     ]);
     assert_eq!(
-        keymap.resolve(&chat_list, KeyChord::alt(Key::Left)),
+        keymap.resolve(&chat_list, KeyChord::plain(Key::Left)),
         Some(Action::PreviousFolder)
     );
     assert_eq!(
-        keymap.resolve(&chat_list, KeyChord::alt(Key::Right)),
+        keymap.resolve(&chat_list, KeyChord::plain(Key::Right)),
         Some(Action::NextFolder)
     );
     assert_eq!(
@@ -199,9 +199,16 @@ fn hierarchy_modifiers_resolve_only_in_their_effective_context() {
     let mut composer = view(vec![Action::TargetPreviousMessage, Action::Cancel]);
     composer.focus = Focus::Composer;
     assert_eq!(
+        keymap.resolve(&composer, KeyChord::plain(Key::Up)),
+        Some(Action::TargetPreviousMessage)
+    );
+    assert_eq!(keymap.resolve(&composer, KeyChord::alt(Key::Up)), None);
+    composer.composer.text = "draft".to_owned();
+    assert_eq!(
         keymap.resolve(&composer, KeyChord::alt(Key::Up)),
         Some(Action::TargetPreviousMessage)
     );
+    assert_eq!(keymap.resolve(&composer, KeyChord::plain(Key::Up)), None);
     assert_eq!(keymap.resolve(&composer, KeyChord::alt(Key::Left)), None);
     assert_eq!(keymap.resolve(&composer, KeyChord::alt(Key::Right)), None);
     assert!(chord_from_crossterm(CrosstermKey::Tab, KeyModifiers::NONE).is_none());

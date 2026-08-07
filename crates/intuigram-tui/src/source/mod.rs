@@ -140,16 +140,28 @@ const BINDINGS: &[Binding] = &[
     binding(KeyChord::plain(Key::Up), "Up", Action::MoveUp, true),
     binding(KeyChord::plain(Key::Down), "Down", Action::MoveDown, true),
     binding(
-        KeyChord::alt(Key::Left),
+        KeyChord::plain(Key::Left),
         "Previous Folder",
         Action::PreviousFolder,
         true,
     ),
     binding(
-        KeyChord::alt(Key::Right),
+        KeyChord::plain(Key::Right),
         "Next Folder",
         Action::NextFolder,
         true,
+    ),
+    binding(
+        KeyChord::alt(Key::Left),
+        "Previous Folder",
+        Action::PreviousFolder,
+        false,
+    ),
+    binding(
+        KeyChord::alt(Key::Right),
+        "Next Folder",
+        Action::NextFolder,
+        false,
     ),
     binding(
         KeyChord::alt(Key::Char('f')),
@@ -312,16 +324,28 @@ const BINDINGS: &[Binding] = &[
         true,
     ),
     binding(
-        KeyChord::alt(Key::Up),
+        KeyChord::plain(Key::Up),
         "Previous Message",
         Action::TargetPreviousMessage,
         true,
     ),
     binding(
-        KeyChord::alt(Key::Down),
+        KeyChord::plain(Key::Down),
         "Next Message",
         Action::TargetNextMessage,
         true,
+    ),
+    binding(
+        KeyChord::alt(Key::Up),
+        "Previous Message",
+        Action::TargetPreviousMessage,
+        false,
+    ),
+    binding(
+        KeyChord::alt(Key::Down),
+        "Next Message",
+        Action::TargetNextMessage,
+        false,
     ),
     binding(
         KeyChord::control(Key::Char('f')),

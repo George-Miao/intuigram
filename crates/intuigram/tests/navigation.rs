@@ -84,3 +84,52 @@ fn inactive_chat_history_is_loaded_before_the_chat_is_selected() -> Result<()> {
         .expect_sender("Mira")?;
     app.expect_no_unhandled_work()
 }
+
+#[test]
+fn default_keys_follow_the_chat_composer_message_hierarchy() -> Result<()> {
+    let mut archived = chat(20, "Archived");
+    archived.folders = vec![-1];
+    let mut app = TestSystem::builder()
+        .name("navigation-default-hierarchy-keys")
+        .terminal(100, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(
+                    account("Ada")
+                        .with_chat(chat(10, "Rust"))
+                        .with_chat(archived),
+                )
+                .expect_load_history(20, [incoming(50, "Mira", "archived message")])
+                .expect_load_history(
+                    10,
+                    [
+                        incoming(40, "Lin", "older message"),
+                        incoming(41, "Lin", "newer message"),
+                    ],
+                ),
+        )
+        .start()?;
+
+    app.screen().folder("All").expect_active()?;
+    app.press(key::RIGHT)?;
+    app.screen().folder("Archive").expect_active()?;
+    app.screen().chat("Archived").expect_active()?;
+    app.press(key::LEFT)?;
+    app.screen().folder("All").expect_active()?;
+    app.screen().chat("Rust").expect_active()?;
+
+    app.press(key::ENTER)?;
+    app.type_text("draft")?;
+    app.screen().composer().expect_focused()?;
+    app.screen().composer().expect_text("draft")?;
+    app.press(key::ALT_UP)?;
+    app.screen().message(41).expect_active()?;
+    app.press(key::UP)?;
+    app.screen().message(40).expect_active()?;
+    app.press(key::DOWN)?;
+    app.screen().message(41).expect_active()?;
+    app.press(key::ESCAPE)?;
+    app.screen().composer().expect_focused()?;
+    app.screen().composer().expect_text("draft")?;
+    app.expect_no_unhandled_work()
+}

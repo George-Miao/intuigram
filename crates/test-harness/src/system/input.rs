@@ -7,7 +7,10 @@ pub mod key {
 
     pub const ENTER: TestKey = TestKey::Enter;
     pub const ESCAPE: TestKey = TestKey::Escape;
+    pub const UP: TestKey = TestKey::Up;
     pub const DOWN: TestKey = TestKey::Down;
+    pub const LEFT: TestKey = TestKey::Left;
+    pub const RIGHT: TestKey = TestKey::Right;
     pub const ALT_UP: TestKey = TestKey::AltUp;
     pub const ALT_DOWN: TestKey = TestKey::AltDown;
     pub const ALT_EDIT: TestKey = TestKey::AltEdit;
@@ -33,7 +36,10 @@ pub mod key {
 pub enum TestKey {
     Enter,
     Escape,
+    Up,
     Down,
+    Left,
+    Right,
     AltUp,
     AltDown,
     AltEdit,
@@ -60,7 +66,10 @@ impl TestKey {
         let (code, modifiers) = match self {
             Self::Enter => (KeyCode::Enter, KeyModifiers::NONE),
             Self::Escape => (KeyCode::Esc, KeyModifiers::NONE),
+            Self::Up => (KeyCode::Up, KeyModifiers::NONE),
             Self::Down => (KeyCode::Down, KeyModifiers::NONE),
+            Self::Left => (KeyCode::Left, KeyModifiers::NONE),
+            Self::Right => (KeyCode::Right, KeyModifiers::NONE),
             Self::AltUp => (KeyCode::Up, KeyModifiers::ALT),
             Self::AltDown => (KeyCode::Down, KeyModifiers::ALT),
             Self::AltEdit => (KeyCode::Char('e'), KeyModifiers::ALT),
