@@ -17,7 +17,7 @@ use futures_util::{Stream, StreamExt};
 use intuigram_app::{
     Action, ActivationTarget, ChatId, ChatKind, ChatLoadingState, ComposerMovement,
     ConnectionState, DeliveryState, Focus, Intent, MessageDirection, MessageId, MessageView,
-    TextEntityKind, View,
+    SearchScope, TextEntityKind, View,
 };
 use qrcode::render::unicode::Dense1x2;
 use qrcode::types::Color as QrColor;

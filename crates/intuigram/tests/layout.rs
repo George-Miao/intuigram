@@ -115,6 +115,40 @@ fn headers_have_vertical_padding_and_an_active_chat_status_row() -> Result<()> {
     app.expect_no_unhandled_work()
 }
 
+#[test]
+fn resize_preserves_message_draft_and_interaction_state_across_layout_classes() -> Result<()> {
+    let mut app = TestSystem::builder()
+        .name("layout-resize-preserves-state")
+        .terminal(100, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(
+                    10,
+                    [
+                        incoming(40, "Lin", "first message"),
+                        incoming(41, "Lin", "second message"),
+                    ],
+                ),
+        )
+        .start()?;
+    app.press(key::ENTER)?;
+    app.type_text("durable draft")?;
+    app.press(key::ALT_UP)?;
+
+    app.resize(70, 24)?;
+    app.screen().message(41).expect_active()?;
+    app.screen().composer().expect_text("durable draft")?;
+    app.screen().folder("All").expect_active()?;
+
+    app.resize(160, 32)?;
+    app.screen().message(41).expect_active()?;
+    app.screen().composer().expect_text("durable draft")?;
+    app.screen().chat("Rust").expect_active()?;
+    app.screen().folder("All").expect_active()?;
+    app.expect_no_unhandled_work()
+}
+
 fn row_within(rows: &[String], text: &str, start: usize, end: usize) -> usize {
     rows.iter()
         .position(|row| {

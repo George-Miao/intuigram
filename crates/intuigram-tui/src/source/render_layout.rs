@@ -63,9 +63,22 @@ pub(super) fn render_main(
     mode: ViewMode,
     semantics: &mut Vec<SemanticNode>,
 ) {
-    let columns = if area.width >= 120 {
+    if area.width < 80 {
+        let chat_list_level = view.focus == Focus::Chats
+            || view
+                .search
+                .as_ref()
+                .is_some_and(|search| search.scope == SearchScope::Account);
+        if chat_list_level {
+            render_chats(frame, area, view, mode, semantics);
+        } else {
+            render_active_chat(frame, area, view, mode, semantics);
+        }
+        return;
+    }
+    let columns = if area.width >= 140 {
         Layout::horizontal([
-            Constraint::Length(32),
+            Constraint::Length(38),
             Constraint::Length(1),
             Constraint::Min(48),
         ])

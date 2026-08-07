@@ -92,6 +92,10 @@ _Avoid_: Attachment placeholder
 The dense chronological presentation of a Chat's Messages. Consecutive Messages are visually grouped, while sender accents and delivery markers provide distinction without chat bubbles.
 _Avoid_: Chat bubbles, message bubbles
 
+**Responsive Hierarchy**:
+Normal and wide terminals show the Chat list beside the Active Chat. Narrow terminals show the current hierarchy level: Chat-list interaction presents Chats, while Composer or Active-Message interaction presents the Active Chat. Resizing changes only this projection and preserves the Active Folder, Active Chat, Active Message, anchored history, Draft, and interaction target.
+_Avoid_: Resize reset, independent mobile mode
+
 **Details**:
 Secondary content for the active Chat, such as information, members, shared media, or search results. Details appear as a third pane only when requested and space permits, otherwise they participate in the same navigation stack as the Chat list and Transcript.
 _Avoid_: Permanent sidebar, empty third pane
