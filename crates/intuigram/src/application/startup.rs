@@ -117,6 +117,9 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
         };
         let cached = database.cached_account().context(AccountDatabaseSnafu)?;
         drop(database);
+        unlock
+            .promote(&config, account.id)
+            .context(LocalLockSnafu)?;
         let route = telegram_route(&config)?;
         return run_cached_account(
             &mut terminal,
@@ -142,7 +145,7 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
         .account_id()
         .context(AccountDatabaseSnafu)?
         .expect("an authorized backend always has a persisted Account identity");
-    unlock.promote_keyring(account).context(LocalLockSnafu)?;
+    unlock.promote(&config, account).context(LocalLockSnafu)?;
     run_application(
         &mut terminal,
         &mut events,

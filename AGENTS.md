@@ -84,7 +84,9 @@ Use the platform config, data, cache, and download directories. The logical layo
 
 <data>/intuigram/global.db
 <data>/intuigram/.pending.db
+<data>/intuigram/.pending.local-lock-salt
 <data>/intuigram/<telegram-user-id>.db
+<data>/intuigram/<telegram-user-id>.local-lock-salt
 
 <cache>/intuigram/<telegram-user-id>/media/
 <cache>/intuigram/<telegram-user-id>/thumbnails/

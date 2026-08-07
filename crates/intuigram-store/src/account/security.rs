@@ -5,7 +5,7 @@ use std::{fmt, fs, io};
 
 use rusqlite::Connection;
 use snafu::{ResultExt, Snafu};
-use zeroize::ZeroizeOnDrop;
+use zeroize::{ZeroizeOnDrop, Zeroizing};
 
 use crate::{AccountId, StoreLayout};
 
@@ -53,20 +53,27 @@ impl AccountCipher {
         Self(Some(key))
     }
 
-    pub(crate) fn key_pragma(&self) -> Option<String> {
-        self.key_literal()
-            .map(|literal| format!("PRAGMA key = {literal};"))
+    pub(crate) fn key_pragma(&self) -> Option<Zeroizing<String>> {
+        self.key_literal().map(|literal| {
+            let mut pragma = Zeroizing::new(String::with_capacity(literal.len() + 14));
+            pragma.push_str("PRAGMA key = ");
+            pragma.push_str(&literal);
+            pragma.push(';');
+            pragma
+        })
     }
 
-    fn key_literal(&self) -> Option<String> {
-        self.0.map(|key| {
-            let mut hex = String::with_capacity(64);
+    fn key_literal(&self) -> Option<Zeroizing<String>> {
+        self.0.as_ref().map(|key| {
+            let mut literal = Zeroizing::new(String::with_capacity(68));
+            literal.push_str("\"x'");
             for byte in key {
                 use std::fmt::Write;
 
-                write!(hex, "{byte:02x}").expect("writing to a String cannot fail");
+                write!(&mut *literal, "{byte:02x}").expect("writing to a String cannot fail");
             }
-            format!("\"x'{hex}'\"")
+            literal.push_str("'\"");
+            literal
         })
     }
 
@@ -134,26 +141,39 @@ pub fn local_lock_is_enabled(layout: &StoreLayout, account: AccountId) -> bool {
 }
 
 fn encrypt_file(path: &Path, key: &str, cipher: &AccountCipher) -> Result<()> {
-    if !is_plaintext(path) {
-        return Ok(());
-    }
     let encrypted = path.with_extension("local-lock-encrypted.tmp");
     let plaintext = path.with_extension("local-lock-plaintext.tmp");
-    if encrypted.exists() || plaintext.exists() {
+    if plaintext.exists() {
+        if !path.exists() && encrypted.exists() {
+            fs::rename(&encrypted, path).context(InstallSnafu {
+                path: path.to_path_buf(),
+            })?;
+        }
+        if path.exists() && !is_plaintext(path) && !encrypted.exists() {
+            protect(path)?;
+            return fs::remove_file(&plaintext).context(InstallSnafu { path: plaintext });
+        }
+        return WorkspaceExistsSnafu { path: plaintext }.fail();
+    }
+    if encrypted.exists() {
         return WorkspaceExistsSnafu { path: encrypted }.fail();
+    }
+    if !is_plaintext(path) {
+        return Ok(());
     }
     let connection = Connection::open(path).context(EncryptSnafu {
         path: path.to_path_buf(),
     })?;
     let escaped = encrypted.to_string_lossy().replace('\'', "''");
-    connection
-        .execute_batch(&format!(
-            "ATTACH DATABASE '{escaped}' AS locked KEY {key}; SELECT sqlcipher_export('locked'); \
-             DETACH DATABASE locked;"
-        ))
-        .context(EncryptSnafu {
-            path: path.to_path_buf(),
-        })?;
+    let mut export = Zeroizing::new(String::with_capacity(escaped.len() + key.len() + 112));
+    export.push_str("ATTACH DATABASE '");
+    export.push_str(&escaped);
+    export.push_str("' AS locked KEY ");
+    export.push_str(key);
+    export.push_str("; SELECT sqlcipher_export('locked'); DETACH DATABASE locked;");
+    connection.execute_batch(&export).context(EncryptSnafu {
+        path: path.to_path_buf(),
+    })?;
     drop(connection);
     let check = Connection::open(&encrypted).context(EncryptSnafu {
         path: encrypted.clone(),

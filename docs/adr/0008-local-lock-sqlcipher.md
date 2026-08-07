@@ -11,11 +11,15 @@ backups are converted through `sqlcipher_export`, validated under the selected
 key, atomically installed, and only then have their plaintext migration
 workspaces removed.
 
-The unlock key is derived with PBKDF2-SHA-256 from a hidden passphrase or is a
-random 256-bit value stored through the native OS credential vault. Initial
-passphrases require confirmation, secrets and raw keys use zeroizing memory,
-and diagnostics redact database keys. Keyring calls happen during startup
-before Account storage or terminal interaction begins. This increases binary
-size and migration complexity, but avoids partial field encryption that would
-leak new columns or leave authorization material outside the protected
-boundary.
+The unlock key is derived with PBKDF2-SHA-256 from a hidden passphrase and a
+random, owner-only per-Account salt, or is a random 256-bit value stored through
+the native OS credential vault. Pending-login salt and keyring entries are
+promoted only after the encrypted Account can be reopened; interrupted
+promotion recovers from the pending material rather than generating a new key.
+Accounts encrypted before per-Account salts were introduced retain the legacy
+derivation until an explicit rekey migration is available. Initial passphrases
+require confirmation, secrets and raw keys use zeroizing memory, and
+diagnostics redact database keys. Keyring calls happen during startup before
+Account storage or terminal interaction begins. This increases binary size and
+migration complexity, but avoids partial field encryption that would leak new
+columns or leave authorization material outside the protected boundary.

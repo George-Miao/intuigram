@@ -71,6 +71,31 @@ fn local_lock_encrypts_new_and_existing_account_records() {
 }
 
 #[test]
+fn local_lock_finishes_removing_plaintext_after_an_interrupted_install() {
+    let temporary = tempdir().expect("temporary directory should be created");
+    let layout = StoreLayout::new(temporary.path().join("intuigram"));
+    let account = AccountId::new(43).expect("fixture ID should be positive");
+    let cipher = AccountCipher::encrypted([8; 32]);
+    let database = AccountDatabase::begin_login(&layout)
+        .expect("plaintext pending database should open")
+        .finish_login(&layout, account)
+        .expect("plaintext Account should promote");
+    drop(database);
+    let database_path = layout.account_database(account);
+    let plaintext = database_path.with_extension("local-lock-plaintext.tmp");
+
+    enable_local_lock(&layout, account, &cipher).expect("Account should encrypt");
+    fs::write(&plaintext, b"sensitive plaintext workspace")
+        .expect("interruption fixture should be written");
+
+    enable_local_lock(&layout, account, &cipher).expect("cleanup should resume");
+
+    assert!(!plaintext.exists());
+    AccountDatabase::open_with_cipher(&layout, account, cipher)
+        .expect("encrypted Account should remain readable");
+}
+
+#[test]
 fn pending_login_is_promoted_to_a_persistent_account_database() {
     let temporary = tempdir().expect("temporary directory should be created");
     let layout = StoreLayout::new(temporary.path().join("intuigram"));
