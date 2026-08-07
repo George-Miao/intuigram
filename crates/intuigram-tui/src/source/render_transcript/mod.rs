@@ -4,7 +4,7 @@ mod media;
 mod rich_text;
 mod window;
 
-use media::{media_line_count, render_media};
+use media::{MediaRenderContext, media_line_count, render_media};
 use rich_text::{message_metadata, render_rich_text_lines};
 use window::{message_height, transcript_window, unread_boundary_index};
 
@@ -80,11 +80,6 @@ fn message_lines(
     let reply = message
         .reply_to
         .map_or_else(String::new, |id| format!(" ↩{}", id.0));
-    let forwarded = message
-        .details
-        .forwarded_from
-        .as_ref()
-        .map_or_else(String::new, |source| format!(" · forwarded from {source}"));
     let mut header = vec![
         selection_rule(selected),
         Span::styled(
@@ -92,7 +87,6 @@ fn message_lines(
             Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
         ),
         Span::styled(reply, Style::default().fg(MUTED_TEXT)),
-        Span::styled(forwarded, Style::default().fg(MUTED_TEXT)),
         Span::raw("  "),
         Span::styled(message.timestamp.clone(), Style::default().fg(MUTED_TEXT)),
         Span::raw(" "),
@@ -122,9 +116,19 @@ fn message_lines(
         ]));
     }
     lines.push(header);
+    if let Some(source) = &message.details.forwarded_from {
+        let mut provenance = content_prefix(selected, true);
+        provenance.push(Span::styled(
+            format!("Forwarded from {source}"),
+            Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
+        ));
+        lines.push(Line::from(provenance));
+    }
+    let forwarded = message.details.forwarded_from.is_some();
     lines.extend(body_lines.into_iter().map(|body| {
         Line::from(
-            std::iter::once(selection_rule(selected))
+            content_prefix(selected, forwarded)
+                .into_iter()
                 .chain(body)
                 .collect::<Vec<_>>(),
         )
@@ -136,16 +140,27 @@ fn message_lines(
             media,
             preview,
             loading,
-            selected,
-            focused,
-            album_position(view, index, message.details.album_id),
-            view.animation_frame,
+            MediaRenderContext {
+                selected,
+                forwarded,
+                focused,
+                album: album_position(view, index, message.details.album_id),
+                animation_frame: view.animation_frame,
+            },
         ));
     }
     if mode == ViewMode::Default {
         lines.push(Line::from(""));
     }
     lines
+}
+
+fn content_prefix(selected: bool, forwarded: bool) -> Vec<Span<'static>> {
+    let mut spans = vec![selection_rule(selected)];
+    if forwarded {
+        spans.push(Span::styled("│ ", Style::default().fg(PRIMARY)));
+    }
+    spans
 }
 
 fn render_semantics(

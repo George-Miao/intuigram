@@ -337,7 +337,7 @@ fn transcript_renders_rich_metadata_album_and_quiz_fallbacks() {
     for expected in [
         "Album 1 · Photo",
         "Album end · Photo",
-        "forwarded from Runtime News",
+        "Forwarded from Runtime News",
         "edited",
         "pinned",
         "10 views",

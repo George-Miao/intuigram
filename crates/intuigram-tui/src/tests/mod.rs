@@ -298,6 +298,7 @@ fn terminal_events_resolve_against_the_current_view() {
 }
 mod density;
 mod effort;
+mod forwarded;
 mod image_loading;
 mod loading;
 mod multiline;

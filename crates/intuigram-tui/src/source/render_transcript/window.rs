@@ -15,6 +15,7 @@ pub(super) fn message_height(
         .map_or(0, |media| media_line_count(media, preview, preview_loading));
     mode.item_height(
         u16::from(unread)
+            .saturating_add(u16::from(message.details.forwarded_from.is_some()))
             .saturating_add(1)
             .saturating_add(body_height)
             .saturating_add(media_height),

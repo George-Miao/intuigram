@@ -5,12 +5,21 @@ use super::*;
 const INLINE_IMAGE_WIDTH: u16 = 32;
 const INLINE_IMAGE_HEIGHT: u16 = 6;
 
+#[derive(Clone, Copy)]
 pub(super) enum AlbumPosition {
     None,
     First,
     Middle,
     Last,
     Only,
+}
+
+pub(super) struct MediaRenderContext {
+    pub(super) selected: bool,
+    pub(super) forwarded: bool,
+    pub(super) focused: bool,
+    pub(super) album: AlbumPosition,
+    pub(super) animation_frame: u8,
 }
 
 impl AlbumPosition {
@@ -58,13 +67,17 @@ pub(super) fn render_media(
     media: &MediaCard,
     preview: Option<&InlineImage>,
     loading: bool,
-    selected: bool,
-    focused: bool,
-    album: AlbumPosition,
-    animation_frame: u8,
+    context: MediaRenderContext,
 ) -> Vec<Line<'static>> {
-    let mut lines = vec![Line::from(vec![
-        selection_rule(selected),
+    let MediaRenderContext {
+        selected,
+        forwarded,
+        focused,
+        album,
+        animation_frame,
+    } = context;
+    let mut card = content_prefix(selected, forwarded);
+    card.extend([
         Span::styled(
             format!("[{}{}]", album.label(), media.title),
             Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
@@ -73,23 +86,30 @@ pub(super) fn render_media(
             format!("  {}", media.description),
             Style::default().fg(MUTED_TEXT),
         ),
-    ])];
+    ]);
+    let mut lines = vec![Line::from(card)];
     if let Some(preview) = preview {
-        lines.extend(render_inline_image(preview, selected, focused));
+        lines.extend(render_inline_image(preview, selected, forwarded, focused));
     } else if loading {
-        lines.extend(render_image_placeholder(selected, animation_frame));
+        lines.extend(render_image_placeholder(
+            selected,
+            forwarded,
+            animation_frame,
+        ));
     }
     lines.extend(media.details.iter().map(|detail| {
-        Line::from(vec![
-            selection_rule(selected),
-            Span::styled(format!("  {detail}"), Style::default().fg(MUTED_TEXT)),
-        ])
+        let mut spans = content_prefix(selected, forwarded);
+        spans.push(Span::styled(
+            format!("  {detail}"),
+            Style::default().fg(MUTED_TEXT),
+        ));
+        Line::from(spans)
     }));
     if let Some(poll) = &media.poll {
         lines.extend(
             poll.options
                 .iter()
-                .map(|option| poll_option_line(option, selected)),
+                .map(|option| poll_option_line(option, selected, forwarded)),
         );
         if let Some(total) = poll.total_voters {
             let state = if poll.closed { " · closed" } else { "" };
@@ -98,28 +118,31 @@ pub(super) fn render_media(
             } else {
                 ""
             };
-            lines.push(Line::from(vec![
-                selection_rule(selected),
-                Span::styled(
-                    format!("  {total} voters{choice}{state}"),
-                    Style::default().fg(MUTED_TEXT),
-                ),
-            ]));
+            let mut spans = content_prefix(selected, forwarded);
+            spans.push(Span::styled(
+                format!("  {total} voters{choice}{state}"),
+                Style::default().fg(MUTED_TEXT),
+            ));
+            lines.push(Line::from(spans));
         }
         if let Some(solution) = &poll.solution {
-            lines.push(Line::from(vec![
-                selection_rule(selected),
-                Span::styled(
-                    format!("  Explanation: {solution}"),
-                    Style::default().fg(PRIMARY),
-                ),
-            ]));
+            let mut spans = content_prefix(selected, forwarded);
+            spans.push(Span::styled(
+                format!("  Explanation: {solution}"),
+                Style::default().fg(PRIMARY),
+            ));
+            lines.push(Line::from(spans));
         }
     }
     lines
 }
 
-fn render_inline_image(image: &InlineImage, selected: bool, focused: bool) -> Vec<Line<'static>> {
+fn render_inline_image(
+    image: &InlineImage,
+    selected: bool,
+    forwarded: bool,
+    focused: bool,
+) -> Vec<Line<'static>> {
     let background = if focused {
         (230, 226, 204)
     } else {
@@ -129,7 +152,7 @@ fn render_inline_image(image: &InlineImage, selected: bool, focused: bool) -> Ve
         .map(|line| {
             let upper_y = line.saturating_mul(2);
             let mut spans = Vec::with_capacity(usize::from(INLINE_IMAGE_WIDTH).saturating_add(1));
-            spans.push(selection_rule(selected));
+            spans.extend(content_prefix(selected, forwarded));
             spans.extend((0..INLINE_IMAGE_WIDTH).map(|x| {
                 if x >= image.width() || upper_y >= image.height() {
                     return Span::styled(
@@ -155,12 +178,16 @@ fn render_inline_image(image: &InlineImage, selected: bool, focused: bool) -> Ve
         .collect()
 }
 
-fn render_image_placeholder(selected: bool, animation_frame: u8) -> Vec<Line<'static>> {
+fn render_image_placeholder(
+    selected: bool,
+    forwarded: bool,
+    animation_frame: u8,
+) -> Vec<Line<'static>> {
     let highlight = u16::from(animation_frame) % INLINE_IMAGE_WIDTH;
     (0..INLINE_IMAGE_HEIGHT)
         .map(|row| {
             let mut spans = Vec::with_capacity(usize::from(INLINE_IMAGE_WIDTH).saturating_add(1));
-            spans.push(selection_rule(selected));
+            spans.extend(content_prefix(selected, forwarded));
             spans.extend((0..INLINE_IMAGE_WIDTH).map(|column| {
                 let highlighted = column == highlight;
                 Span::styled(
@@ -197,7 +224,7 @@ fn blend(channel: u8, background: u8, alpha: u8) -> u8 {
         .expect("alpha blending two u8 channels always produces one u8 channel")
 }
 
-fn poll_option_line(option: &PollOptionView, selected: bool) -> Line<'static> {
+fn poll_option_line(option: &PollOptionView, selected: bool, forwarded: bool) -> Line<'static> {
     let marker = if option.correct {
         "✓"
     } else if option.chosen {
@@ -213,8 +240,10 @@ fn poll_option_line(option: &PollOptionView, selected: bool) -> Line<'static> {
     } else {
         Style::default()
     };
-    Line::from(vec![
-        selection_rule(selected),
-        Span::styled(format!("  {marker} {}{votes}", option.text), style),
-    ])
+    let mut spans = content_prefix(selected, forwarded);
+    spans.push(Span::styled(
+        format!("  {marker} {}{votes}", option.text),
+        style,
+    ));
+    Line::from(spans)
 }
