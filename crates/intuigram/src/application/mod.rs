@@ -45,6 +45,8 @@ mod backend_effects;
 mod backend_pins;
 mod cache;
 mod configuration;
+#[cfg(test)]
+mod configuration_tests;
 mod fixtures;
 mod folder_arguments;
 mod history_failure;
@@ -56,6 +58,7 @@ mod poll;
 mod runtime_adapters;
 mod runtime_loop;
 mod runtime_types;
+mod schedule_arguments;
 mod startup;
 mod ui;
 
@@ -79,6 +82,7 @@ use login::{
 };
 use maintenance::{
     run_folder_maintenance, run_logout, run_maintenance, run_rich_media_maintenance,
+    run_scheduled_maintenance,
 };
 use media_arguments::parse_media_maintenance;
 use poll::PollPersistence;
@@ -90,6 +94,7 @@ use runtime_types::{
     AdapterEffect, ApplicationExit, ApplicationState, ApplicationWake, DisconnectedApplication,
     PendingEffect, connection_failure_reason, enqueue_effect, start_effect,
 };
+use schedule_arguments::parse_scheduled_maintenance;
 use startup::run_async;
 pub(super) use ui::main;
 use ui::{ApplicationUi, error_lines};
@@ -120,6 +125,7 @@ enum Maintenance {
     Logout(AccountId),
     Folder(AccountId, FolderMaintenance),
     RichMedia(AccountId, RichMediaMaintenance),
+    Scheduled(AccountId, ScheduledMaintenance),
 }
 
 #[derive(Clone)]
@@ -160,6 +166,36 @@ enum RichMediaMaintenance {
         phone: String,
         first_name: String,
         last_name: String,
+    },
+}
+
+#[derive(Clone)]
+enum ScheduledMaintenance {
+    Create {
+        chat: ChatId,
+        schedule_date: i32,
+        text: String,
+    },
+    List {
+        chat: ChatId,
+    },
+    Edit {
+        chat: ChatId,
+        message: i32,
+        text: String,
+    },
+    Reschedule {
+        chat: ChatId,
+        message: i32,
+        schedule_date: i32,
+    },
+    Delete {
+        chat: ChatId,
+        message: i32,
+    },
+    SendNow {
+        chat: ChatId,
+        message: i32,
     },
 }
 

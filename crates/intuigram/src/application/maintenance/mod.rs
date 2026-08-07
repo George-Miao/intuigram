@@ -4,11 +4,13 @@ mod account_exit;
 mod folders;
 mod media;
 mod rich_media;
+mod scheduled;
 
 pub(super) use account_exit::run_logout;
 pub(super) use folders::run_folder_maintenance;
 pub(super) use media::run_maintenance;
 pub(super) use rich_media::run_rich_media_maintenance;
+pub(super) use scheduled::run_scheduled_maintenance;
 
 async fn connect_account(
     config: &Config,

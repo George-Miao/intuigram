@@ -247,6 +247,7 @@ impl Backend {
                         reply_to,
                         thread_root,
                         random_id,
+                        schedule_date: None,
                     })
                     .await
                     .context(TelegramSnafu)?;

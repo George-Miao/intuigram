@@ -1666,6 +1666,7 @@ dependencies = [
  "snafu",
  "tempfile",
  "test-harness",
+ "time",
  "zeroize",
 ]
 

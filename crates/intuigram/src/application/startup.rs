@@ -21,6 +21,9 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
             Maintenance::RichMedia(account, command) => {
                 run_rich_media_maintenance(&config, &config_directory, account, command).await
             }
+            Maintenance::Scheduled(account, command) => {
+                run_scheduled_maintenance(&config, &config_directory, account, command).await
+            }
             maintenance => run_maintenance(&config, maintenance),
         };
     }

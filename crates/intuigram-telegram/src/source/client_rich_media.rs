@@ -132,6 +132,7 @@ impl Client {
                     reply_to: None,
                     thread_root: None,
                     random_id,
+                    schedule_date: None,
                 })
                 .await;
         }

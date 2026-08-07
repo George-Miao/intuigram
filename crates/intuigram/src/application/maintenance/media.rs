@@ -8,7 +8,8 @@ pub(crate) fn run_maintenance(config: &Config, maintenance: Maintenance) -> Resu
         | Maintenance::ClearAccount(account)
         | Maintenance::Logout(account)
         | Maintenance::Folder(account, _)
-        | Maintenance::RichMedia(account, _) => account,
+        | Maintenance::RichMedia(account, _)
+        | Maintenance::Scheduled(account, _) => account,
     };
     let cache = intuigram_media::MediaCache::new(
         config.paths.cache.join(account.get().to_string()),
@@ -67,6 +68,9 @@ pub(crate) fn run_maintenance(config: &Config, maintenance: Maintenance) -> Resu
         Maintenance::Folder(..) => unreachable!("Folder maintenance is handled asynchronously"),
         Maintenance::RichMedia(..) => {
             unreachable!("rich media maintenance is handled asynchronously")
+        }
+        Maintenance::Scheduled(..) => {
+            unreachable!("Scheduled Message maintenance is handled asynchronously")
         }
     }
     Ok(())

@@ -22,6 +22,9 @@ pub struct TextSend {
 
     /// Stable idempotency token for this operation.
     pub random_id: i64,
+
+    /// Server-side delivery time, or immediate delivery when absent.
+    pub schedule_date: Option<i32>,
 }
 
 /// One uploaded photo, video, or file submission.
@@ -59,6 +62,7 @@ impl Client {
             reply_to,
             thread_root,
             random_id,
+            schedule_date,
         } = request;
         let peer = self.peers.resolve(chat)?;
         let reply_to = reply_to
@@ -105,7 +109,7 @@ impl Client {
                 random_id,
                 reply_markup: None,
                 entities,
-                schedule_date: None,
+                schedule_date,
                 schedule_repeat_period: None,
                 send_as: None,
                 quick_reply_shortcut: None,
