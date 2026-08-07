@@ -133,6 +133,7 @@ pub(crate) fn set_dialog_filter_membership(
 #[derive(Clone, Copy)]
 pub(crate) struct ChatTraits {
     pub(super) kind: ChatKind,
+    pub(crate) can_pin_messages: bool,
     contact: bool,
 }
 
@@ -148,6 +149,7 @@ pub(crate) fn chat_traits(
             ChatId(user.id()),
             ChatTraits {
                 kind: user_chat_kind(user, account_id),
+                can_pin_messages: !matches!(user, tl::enums::User::Empty(_)),
                 contact,
             },
         );
@@ -164,11 +166,52 @@ pub(crate) fn chat_traits(
             id,
             ChatTraits {
                 kind: cloud_chat_kind(chat),
+                can_pin_messages: cloud_chat_can_pin(chat),
                 contact: false,
             },
         );
     }
     result
+}
+
+pub(crate) fn cloud_chat_can_pin(chat: &tl::enums::Chat) -> bool {
+    match chat {
+        tl::enums::Chat::Chat(chat) => {
+            chat.creator
+                || chat.admin_rights.as_ref().is_some_and(admin_can_pin)
+                || chat
+                    .default_banned_rights
+                    .as_ref()
+                    .is_none_or(|rights| !pin_is_banned(rights))
+        }
+        tl::enums::Chat::Channel(channel) => {
+            !channel.min
+                && (channel.creator
+                    || channel.admin_rights.as_ref().is_some_and(admin_can_pin)
+                    || (!channel.broadcast
+                        && channel
+                            .banned_rights
+                            .as_ref()
+                            .is_none_or(|rights| !pin_is_banned(rights))
+                        && channel
+                            .default_banned_rights
+                            .as_ref()
+                            .is_none_or(|rights| !pin_is_banned(rights))))
+        }
+        tl::enums::Chat::Forbidden(_)
+        | tl::enums::Chat::ChannelForbidden(_)
+        | tl::enums::Chat::Empty(_) => false,
+    }
+}
+
+fn admin_can_pin(rights: &tl::enums::ChatAdminRights) -> bool {
+    let tl::enums::ChatAdminRights::Rights(rights) = rights;
+    rights.pin_messages
+}
+
+fn pin_is_banned(rights: &tl::enums::ChatBannedRights) -> bool {
+    let tl::enums::ChatBannedRights::Rights(rights) = rights;
+    rights.pin_messages
 }
 
 pub(crate) fn user_chat_kind(user: &tl::enums::User, account_id: Option<i64>) -> ChatKind {

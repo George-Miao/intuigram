@@ -226,7 +226,7 @@ pub(super) fn render_active_chat(
             },
         );
     let pinned = view
-        .messages
+        .pinned_messages
         .iter()
         .rev()
         .find(|message| message.details.pinned)

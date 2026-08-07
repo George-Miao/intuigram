@@ -21,7 +21,11 @@ impl Backend {
                 },
             )),
             Effect::LoadChat { chat } => match self.load_chat(chat).await {
-                Ok(messages) => Ok(Some(AdapterEvent::ChatLoaded { chat, messages })),
+                Ok((messages, pinned_messages)) => Ok(Some(AdapterEvent::ChatLoaded {
+                    chat,
+                    messages,
+                    pinned_messages,
+                })),
                 Err(error) => history_failure_event(chat, None, error),
             },
             Effect::LoadThread { chat, root } => match self.load_thread(chat, root).await {
@@ -293,10 +297,10 @@ impl Backend {
                 }
             }
             Effect::SetMessagePinned {
-                chat,
-                message,
-                pinned,
-            } => self.set_message_pinned(chat, *message, pinned).await,
+                chat: _,
+                message: _,
+                pinned: _,
+            } => MisroutedPinEffectSnafu.fail(),
             Effect::VotePoll {
                 chat,
                 message,

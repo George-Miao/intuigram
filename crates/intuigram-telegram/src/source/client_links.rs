@@ -29,6 +29,9 @@ impl Client {
             preview: String::new(),
             unread: 0,
             pinned: false,
+            can_pin_messages: traits
+                .get(&chat)
+                .is_some_and(|traits| traits.can_pin_messages),
             kind: traits
                 .get(&chat)
                 .map_or(ChatKind::Inaccessible, |traits| traits.kind),

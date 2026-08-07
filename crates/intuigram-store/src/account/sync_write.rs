@@ -37,17 +37,19 @@ pub(super) fn commit_sync(connection: &Connection, batch: SyncBatch) -> Result<(
     for chat in batch.chats {
         transaction
             .execute(
-                "INSERT INTO chats(chat_id, kind, title, preview, unread_count, pinned) VALUES \
-                 (?1, ?2, ?3, ?4, ?5, ?6) ON CONFLICT(chat_id) DO UPDATE SET kind=excluded.kind, \
-                 title=excluded.title, preview=excluded.preview, \
-                 unread_count=excluded.unread_count, pinned=excluded.pinned",
+                "INSERT INTO chats(chat_id, kind, title, preview, unread_count, pinned, \
+                 can_pin_messages) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) ON CONFLICT(chat_id) DO \
+                 UPDATE SET kind=excluded.kind, title=excluded.title, preview=excluded.preview, \
+                 unread_count=excluded.unread_count, pinned=excluded.pinned, \
+                 can_pin_messages=excluded.can_pin_messages",
                 params![
                     chat.id,
                     chat.kind,
                     chat.title,
                     chat.preview,
                     chat.unread,
-                    chat.pinned
+                    chat.pinned,
+                    chat.can_pin_messages
                 ],
             )
             .context(CommitSyncSnafu)?;
@@ -79,6 +81,15 @@ pub(super) fn apply_sync_mutation(
     mutation: StoredMutation,
 ) -> rusqlite::Result<()> {
     match mutation {
+        StoredMutation::SetChatPinPermission {
+            chat_id,
+            can_pin_messages,
+        } => {
+            connection.execute(
+                "UPDATE chats SET can_pin_messages = ?2 WHERE chat_id = ?1",
+                params![chat_id, can_pin_messages],
+            )?;
+        }
         StoredMutation::SetMessagesPinned {
             chat_id,
             ids,
@@ -91,6 +102,20 @@ pub(super) fn apply_sync_mutation(
                      = ?2",
                     params![chat_id, id, pinned],
                 )?;
+                if pinned {
+                    connection.execute(
+                        "INSERT OR IGNORE INTO pinned_message_projection(chat_id, message_id) \
+                         SELECT ?1, ?2 WHERE EXISTS (SELECT 1 FROM messages WHERE chat_id = ?1 \
+                         AND message_id = ?2)",
+                        params![chat_id, id],
+                    )?;
+                } else {
+                    connection.execute(
+                        "DELETE FROM pinned_message_projection WHERE chat_id = ?1 AND message_id \
+                         = ?2",
+                        params![chat_id, id],
+                    )?;
+                }
             }
         }
         StoredMutation::DeleteMessages { chat_id, ids } => {

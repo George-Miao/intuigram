@@ -247,9 +247,19 @@ fn sync_batch_for_event(cursors: Vec<SyncCursor>, update: &LiveEvent) -> SyncBat
 }
 
 fn discover_missing_chats(known: &mut HashSet<ChatId>, events: &mut Vec<AdapterEvent>) {
+    let pin_permissions = events
+        .iter()
+        .filter_map(|event| match event {
+            AdapterEvent::ChatPinPermissionChanged {
+                chat,
+                can_pin_messages,
+            } => Some((*chat, *can_pin_messages)),
+            _ => None,
+        })
+        .collect::<HashMap<_, _>>();
     let mut normalized = Vec::with_capacity(events.len());
     for event in events.drain(..) {
-        let discovered = match &event {
+        let mut discovered = match &event {
             AdapterEvent::MessageAdded { chat, message }
             | AdapterEvent::MessageUpdated { chat, message }
                 if known.insert(*chat) =>
@@ -267,6 +277,11 @@ fn discover_missing_chats(known: &mut HashSet<ChatId>, events: &mut Vec<AdapterE
             }
             _ => None,
         };
+        if let Some(chat) = &mut discovered
+            && let Some(can_pin_messages) = pin_permissions.get(&chat.id)
+        {
+            chat.can_pin_messages = *can_pin_messages;
+        }
         if let Some(chat) = discovered {
             normalized.push(AdapterEvent::ChatDiscovered { chat });
         }
@@ -282,6 +297,7 @@ fn discovered_chat(id: ChatId, preview: String, unread: u32) -> ChatView {
         preview,
         unread,
         pinned: false,
+        can_pin_messages: false,
         kind: ChatKind::Inaccessible,
         folders: vec![0],
     }
@@ -289,6 +305,13 @@ fn discovered_chat(id: ChatId, preview: String, unread: u32) -> ChatView {
 
 fn stored_mutation(event: &AdapterEvent) -> Option<StoredMutation> {
     match event {
+        AdapterEvent::ChatPinPermissionChanged {
+            chat,
+            can_pin_messages,
+        } => Some(StoredMutation::SetChatPinPermission {
+            chat_id: chat.0,
+            can_pin_messages: *can_pin_messages,
+        }),
         AdapterEvent::MessagesPinChanged { chat, ids, pinned } => {
             Some(StoredMutation::SetMessagesPinned {
                 chat_id: chat.0,
@@ -337,6 +360,7 @@ fn stored_chat(chat: &ChatView) -> StoredChat {
         preview: chat.preview.clone(),
         unread: chat.unread,
         pinned: chat.pinned,
+        can_pin_messages: chat.can_pin_messages,
         folders: chat.folders.clone(),
     }
 }

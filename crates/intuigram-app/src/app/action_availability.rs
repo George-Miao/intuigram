@@ -66,6 +66,7 @@ impl App {
                     Action::NextFolder,
                     Action::ManageFolders,
                     Action::Open,
+                    Action::NavigatePinned,
                     Action::Search,
                 ]);
             }
@@ -84,6 +85,7 @@ impl App {
                     Action::Forward,
                     Action::React,
                     Action::TogglePin,
+                    Action::Cancel,
                 ]);
                 if self
                     .view
@@ -134,7 +136,6 @@ impl App {
                     actions.extend([Action::SendPoll, Action::Newline, Action::Cancel]);
                 } else {
                     actions.extend([
-                        Action::NavigatePinned,
                         Action::Send,
                         Action::Newline,
                         Action::Paste,
@@ -153,17 +154,22 @@ impl App {
         if self.view.active_thread.is_some()
             || !self
                 .view
-                .messages
+                .pinned_messages
                 .iter()
                 .any(|message| message.details.pinned)
         {
             actions.retain(|action| *action != Action::NavigatePinned);
         }
-        if self
+        if !self
             .view
-            .active_message
-            .and_then(|index| self.view.messages.get(index))
-            .is_none_or(|message| message.id.0 <= 0)
+            .active_chat
+            .and_then(|index| self.view.chats.get(index))
+            .is_some_and(|chat| chat.can_pin_messages)
+            || self
+                .view
+                .active_message
+                .and_then(|index| self.view.messages.get(index))
+                .is_none_or(|message| message.id.0 <= 0)
         {
             actions.retain(|action| *action != Action::TogglePin);
         }

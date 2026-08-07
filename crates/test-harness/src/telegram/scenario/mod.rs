@@ -27,7 +27,10 @@ pub(crate) struct ObservedSend {
 }
 
 pub(crate) enum HistoryResult {
-    Loaded(Vec<MessageView>),
+    Loaded {
+        messages: Vec<MessageView>,
+        pinned_messages: Vec<MessageView>,
+    },
     Failed(String),
 }
 
@@ -66,9 +69,31 @@ impl TelegramScenario {
         chat: i64,
         messages: impl IntoIterator<Item = MessageView>,
     ) -> Self {
+        let messages = messages.into_iter().collect::<Vec<_>>();
+        let pinned_messages = messages
+            .iter()
+            .filter(|message| message.details.pinned)
+            .cloned()
+            .collect();
+        self.expected.push_back(ExpectedCommand::LoadHistory {
+            chat: ChatId(chat),
+            messages,
+            pinned_messages,
+        });
+        self
+    }
+
+    #[must_use]
+    pub fn expect_load_history_with_pins(
+        mut self,
+        chat: i64,
+        messages: impl IntoIterator<Item = MessageView>,
+        pinned_messages: impl IntoIterator<Item = MessageView>,
+    ) -> Self {
         self.expected.push_back(ExpectedCommand::LoadHistory {
             chat: ChatId(chat),
             messages: messages.into_iter().collect(),
+            pinned_messages: pinned_messages.into_iter().collect(),
         });
         self
     }

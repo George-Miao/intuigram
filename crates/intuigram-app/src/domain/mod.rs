@@ -110,6 +110,9 @@ pub struct ChatView {
     /// Whether Telegram pins this Chat.
     pub pinned: bool,
 
+    /// Whether current Telegram rights permit pinning Messages in this Chat.
+    pub can_pin_messages: bool,
+
     /// Normalized cloud Chat category.
     pub kind: ChatKind,
 

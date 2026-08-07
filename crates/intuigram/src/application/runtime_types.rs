@@ -1,7 +1,7 @@
 pub(super) struct BackendCompletion<B> {
     pub(super) backend: B,
     pub(super) effect: AdapterEffect,
-    pub(super) result: Result<Option<AdapterEvent>>,
+    pub(super) result: Result<BackendOutput>,
 }
 
 pub(super) type PendingEffect<B> = Pin<Box<dyn Future<Output = BackendCompletion<B>>>>;

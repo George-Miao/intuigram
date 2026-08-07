@@ -63,8 +63,8 @@ pub(crate) use dialog_normalization::contains_login_token_update;
 pub use dialog_normalization::normalize_serialized_peer_kind;
 use dialog_normalization::take_login_token_update;
 pub(crate) use dialog_normalization::{
-    chat_traits, dialog_filter_id, dialog_folder_membership, normalize_dialog_folders,
-    set_dialog_filter_membership,
+    chat_traits, cloud_chat_can_pin, dialog_filter_id, dialog_folder_membership,
+    normalize_dialog_folders, set_dialog_filter_membership,
 };
 use entity_conversion::serialize_entities;
 use error::*;

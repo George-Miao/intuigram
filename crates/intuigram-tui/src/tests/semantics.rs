@@ -7,6 +7,7 @@ fn semantic_nodes_are_generated_with_the_cells_they_describe() {
         preview: "hello".to_owned(),
         unread: 0,
         pinned: false,
+        can_pin_messages: true,
         kind: ChatKind::Private,
         folders: vec![0],
     }];
@@ -75,6 +76,7 @@ fn folder_membership_overlay_shows_selection_and_current_membership() {
         preview: String::new(),
         unread: 0,
         pinned: false,
+        can_pin_messages: true,
         kind: ChatKind::Private,
         folders: vec![0, 2],
     }];
@@ -108,6 +110,7 @@ fn chat_list_scroll_keeps_the_active_chat_near_one_third_height() {
             preview: format!("Preview {index}"),
             unread: 0,
             pinned: false,
+            can_pin_messages: true,
             kind: ChatKind::Private,
             folders: vec![0],
         })
@@ -136,6 +139,7 @@ fn transcript_scroll_keeps_the_active_message_visible() {
         preview: String::new(),
         unread: 0,
         pinned: false,
+        can_pin_messages: true,
         kind: ChatKind::Private,
         folders: vec![0],
     }];
@@ -175,6 +179,7 @@ fn transcript_scroll_preserves_an_inactive_anchor() {
         preview: String::new(),
         unread: 0,
         pinned: false,
+        can_pin_messages: true,
         kind: ChatKind::Private,
         folders: vec![0],
     }];

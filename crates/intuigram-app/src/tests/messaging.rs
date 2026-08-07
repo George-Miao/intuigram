@@ -62,6 +62,7 @@ fn thread_navigation_preserves_parent_history_and_an_independent_draft() {
         Input::Adapter(AdapterEvent::ChatLoaded {
             chat: ChatId(10),
             messages: bootstrap().messages,
+            pinned_messages: Vec::new(),
         }),
     );
     apply(
@@ -130,6 +131,7 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
         Input::Adapter(AdapterEvent::ChatLoaded {
             chat: ChatId(20),
             messages: Vec::new(),
+            pinned_messages: Vec::new(),
         }),
     );
     let opened = app.transition(Input::Intent(Intent::Action(Action::Open)));
@@ -140,6 +142,7 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
         Input::Adapter(AdapterEvent::ChatLoaded {
             chat: ChatId(10),
             messages: hierarchy_bootstrap().messages,
+            pinned_messages: Vec::new(),
         }),
     );
     apply(
@@ -188,6 +191,7 @@ fn revisiting_a_loaded_chat_renders_cached_history_while_refreshing() {
     let loaded = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
         chat: ChatId(20),
         messages: second_history.clone(),
+        pinned_messages: Vec::new(),
     }));
     assert_eq!(loaded.view.messages, second_history);
 
@@ -209,6 +213,7 @@ fn revisiting_a_loaded_chat_renders_cached_history_while_refreshing() {
     let refreshed_view = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
         chat: ChatId(10),
         messages: refreshed.clone(),
+        pinned_messages: Vec::new(),
     }));
     assert_eq!(refreshed_view.view.messages, refreshed);
 }

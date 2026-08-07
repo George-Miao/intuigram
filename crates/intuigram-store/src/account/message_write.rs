@@ -8,6 +8,56 @@ pub(super) fn save_messages(connection: &Connection, messages: Vec<StoredMessage
     transaction.commit().context(SaveMessagesSnafu)
 }
 
+pub(super) fn save_chat_history(
+    connection: &Connection,
+    chat: i64,
+    messages: Vec<StoredMessage>,
+    pinned_messages: Vec<StoredMessage>,
+) -> Result<()> {
+    let transaction = connection
+        .unchecked_transaction()
+        .context(SaveMessagesSnafu)?;
+    let recent_ids = messages
+        .iter()
+        .map(|message| message.id)
+        .collect::<Vec<_>>();
+    for message in messages.iter().chain(&pinned_messages) {
+        upsert_message(&transaction, message).context(SaveMessagesSnafu)?;
+    }
+    for id in &recent_ids {
+        transaction
+            .execute(
+                "DELETE FROM message_projections WHERE chat_id = ?1 AND message_id = ?2",
+                params![chat, id],
+            )
+            .context(SaveMessagesSnafu)?;
+    }
+    transaction
+        .execute(
+            "DELETE FROM pinned_message_projection WHERE chat_id = ?1",
+            [chat],
+        )
+        .context(SaveMessagesSnafu)?;
+    for message in pinned_messages {
+        transaction
+            .execute(
+                "INSERT INTO pinned_message_projection(chat_id, message_id) VALUES (?1, ?2)",
+                params![chat, message.id],
+            )
+            .context(SaveMessagesSnafu)?;
+        if !recent_ids.contains(&message.id) {
+            transaction
+                .execute(
+                    "INSERT OR IGNORE INTO message_projections(chat_id, message_id) VALUES (?1, \
+                     ?2)",
+                    params![chat, message.id],
+                )
+                .context(SaveMessagesSnafu)?;
+        }
+    }
+    transaction.commit().context(SaveMessagesSnafu)
+}
+
 pub(super) fn delete_messages(
     connection: &Connection,
     chat: Option<i64>,

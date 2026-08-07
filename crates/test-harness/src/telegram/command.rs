@@ -5,6 +5,7 @@ pub(super) enum ExpectedCommand {
     LoadHistory {
         chat: ChatId,
         messages: Vec<MessageView>,
+        pinned_messages: Vec<MessageView>,
     },
 
     FailLoadHistory {

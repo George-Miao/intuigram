@@ -95,15 +95,28 @@ impl Backend {
             .context(AccountDatabaseSnafu)
     }
 
-    pub(super) async fn load_chat(&mut self, chat: ChatId) -> Result<Vec<MessageView>> {
+    pub(super) async fn load_chat(
+        &mut self,
+        chat: ChatId,
+    ) -> Result<(Vec<MessageView>, Vec<MessageView>)> {
         let messages = self
             .client
             .history(chat, 100)
             .await
             .context(TelegramSnafu)?;
+        let pinned_messages = self
+            .client
+            .pinned_messages(chat, 100)
+            .await
+            .context(TelegramSnafu)?;
         self.store
-            .save_messages(
+            .save_chat_history(
+                chat.0,
                 messages
+                    .iter()
+                    .map(|message| encode_stored_message(chat, message))
+                    .collect(),
+                pinned_messages
                     .iter()
                     .map(|message| encode_stored_message(chat, message))
                     .collect(),
@@ -111,7 +124,7 @@ impl Backend {
             .context(AccountDatabaseSnafu)?
             .await
             .context(AccountDatabaseSnafu)?;
-        Ok(messages)
+        Ok((messages, pinned_messages))
     }
 
     pub(super) async fn load_thread(

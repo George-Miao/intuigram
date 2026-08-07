@@ -1,3 +1,5 @@
+use grammers_tl_types::Serializable as _;
+
 impl Client {
     /// Replaces the text of one existing outgoing Message.
     pub async fn edit_text(
@@ -139,12 +141,13 @@ impl Client {
         chat: ChatId,
         message: MessageId,
         pinned: bool,
-    ) -> Result<()> {
+    ) -> Result<LiveEvent> {
         let peer = self.peers.resolve(chat)?;
         let id = i32::try_from(message.0).map_err(|_| Error::InvalidMessageId {
             message_id: message.0,
         })?;
-        self.connection
+        let response = self
+            .connection
             .invoke(&tl::functions::messages::UpdatePinnedMessage {
                 silent: false,
                 unpin: !pinned,
@@ -154,7 +157,13 @@ impl Client {
             })
             .await
             .context(InvokeSnafu)?;
-        Ok(())
+        let normalized = normalize_live_update(&response.to_bytes(), &mut self.names)?;
+        self.peers.merge(normalized.peers.clone());
+        Ok(LiveEvent {
+            events: normalized.events,
+            cursors: normalized.cursors,
+            peers: normalized.peers,
+        })
     }
 }
 use super::*;

@@ -27,7 +27,9 @@ mod worker;
 use cache_read::load_cache;
 pub use database::AccountDatabase;
 use filesystem::{prepare_data_directory, promote_without_replace, protect_path, run_worker};
-use message_write::{delete_messages, save_draft, save_messages, upsert_message};
+use message_write::{
+    delete_messages, save_chat_history, save_draft, save_messages, upsert_message,
+};
 pub(crate) use migration::open_and_migrate;
 use migration::read_account_id;
 pub use model::{

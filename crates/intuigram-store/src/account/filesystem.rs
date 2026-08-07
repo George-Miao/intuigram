@@ -102,6 +102,17 @@ pub(super) fn run_worker(
             Command::SaveMessagesAsync { messages, reply } => {
                 reply.finish(save_messages(&connection, messages));
             }
+            Command::SaveChatHistoryAsync {
+                chat,
+                messages,
+                pinned_messages,
+                reply,
+            } => reply.finish(save_chat_history(
+                &connection,
+                chat,
+                messages,
+                pinned_messages,
+            )),
             Command::DeleteMessagesAsync {
                 chat,
                 messages,

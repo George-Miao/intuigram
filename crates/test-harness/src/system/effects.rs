@@ -5,6 +5,7 @@ use intuigram_app::{
     AdapterEvent, ConnectionState, DownloadId, DownloadView, Effect, MediaKind, MediaPreviewView,
 };
 use intuigram_store::StoredDraft;
+use intuigram_telegram::{LiveEvent, UpdateCursor, UpdateScope};
 use snafu::ResultExt;
 
 use super::TestSystem;
@@ -34,13 +35,18 @@ impl TestSystem {
                         .telegram
                         .load_history(chat)
                         .map_err(|error| self.scenario_error(error))?;
-                    if let HistoryResult::Loaded(messages) = &result {
+                    if let HistoryResult::Loaded {
+                        messages,
+                        pinned_messages,
+                    } = &result
+                    {
                         let request = self
                             .database
                             .store()
                             .save_messages(
                                 messages
                                     .iter()
+                                    .chain(pinned_messages)
                                     .map(|message| encode_stored_message(chat, message))
                                     .collect(),
                             )
@@ -48,9 +54,14 @@ impl TestSystem {
                         block_on(request).context(StoreSnafu)?;
                     }
                     self.application.handle_adapter(match result {
-                        HistoryResult::Loaded(messages) => {
-                            AdapterEvent::ChatLoaded { chat, messages }
-                        }
+                        HistoryResult::Loaded {
+                            messages,
+                            pinned_messages,
+                        } => AdapterEvent::ChatLoaded {
+                            chat,
+                            messages,
+                            pinned_messages,
+                        },
                         HistoryResult::Failed(reason) => AdapterEvent::HistoryLoadFailed {
                             chat,
                             thread_root: None,
@@ -217,19 +228,37 @@ impl TestSystem {
                 } => {
                     let updated = self
                         .telegram
-                        .set_message_pinned(chat, message.id, pinned)
+                        .set_message_pinned(chat, message, pinned)
                         .map_err(|error| self.scenario_error(error))?;
-                    let request = self
-                        .database
-                        .store()
-                        .save_messages(vec![encode_stored_message(chat, &updated)])
-                        .context(StoreSnafu)?;
-                    block_on(request).context(StoreSnafu)?;
-                    self.application
-                        .handle_adapter(AdapterEvent::MessageUpdated {
-                            chat,
-                            message: Box::new(updated),
+                    if updated.details.pinned != pinned {
+                        return Err(Error::Expectation {
+                            expectation: format!("Telegram pin result is {pinned}"),
+                            actual: format!("{}", updated.details.pinned),
+                            artifact: self.trace.borrow().persist(),
                         });
+                    }
+                    self.next_update_pts = self.next_update_pts.saturating_add(1);
+                    let commit = self
+                        .updates
+                        .commit(LiveEvent {
+                            events: vec![AdapterEvent::MessagesPinChanged {
+                                chat,
+                                ids: vec![message],
+                                pinned,
+                            }],
+                            cursors: vec![UpdateCursor {
+                                scope: UpdateScope::Account,
+                                pts: Some(self.next_update_pts),
+                                pts_count: 1,
+                                ..UpdateCursor::default()
+                            }],
+                            peers: intuigram_telegram::PeerDirectory::default(),
+                        })
+                        .context(crate::error::SyncSnafu)?;
+                    let committed = block_on(commit).context(crate::error::SyncSnafu)?;
+                    for event in committed.events {
+                        self.application.handle_adapter(event);
+                    }
                 }
                 Effect::VotePoll {
                     chat,

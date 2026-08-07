@@ -373,37 +373,3 @@ const fn binding(key: KeyChord, label: &'static str, action: Action, primary: bo
 
 /// Effective bindings for the active configuration.
 pub struct EffectiveKeymap;
-
-impl EffectiveKeymap {
-    /// Creates the built-in keymap.
-    #[must_use]
-    pub const fn defaults() -> Self {
-        Self
-    }
-
-    /// Resolves a key only when its action is valid in the current view.
-    #[must_use]
-    pub fn resolve(&self, view: &View, key: KeyChord) -> Option<Action> {
-        self.help(view)
-            .find(|binding| binding.key == key)
-            .map(|binding| binding.action)
-    }
-
-    /// Produces compact Action Bar bindings.
-    pub fn action_bar<'a>(&'a self, view: &'a View) -> impl Iterator<Item = &'static Binding> + 'a {
-        self.help(view).filter(|binding| binding.primary)
-    }
-
-    /// Produces exhaustive context Help from the same bindings used for input.
-    pub fn help<'a>(&'a self, view: &'a View) -> impl Iterator<Item = &'static Binding> + 'a {
-        BINDINGS
-            .iter()
-            .filter(|binding| view.actions.contains(&binding.action))
-    }
-}
-
-impl Default for EffectiveKeymap {
-    fn default() -> Self {
-        Self::defaults()
-    }
-}

@@ -34,6 +34,7 @@ pub struct TestSystem {
     _root: TempDir,
     download_root: PathBuf,
     next_download_id: u64,
+    next_update_pts: i32,
     downloaded_paths: Vec<PathBuf>,
     opened_links: Vec<String>,
     opened_downloads: Vec<(DownloadId, bool)>,

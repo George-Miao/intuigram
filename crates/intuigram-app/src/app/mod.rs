@@ -4,6 +4,8 @@ pub struct App {
     all_chats: Vec<ChatView>,
     drafts: HashMap<HistoryKey, ComposerView>,
     histories: HashMap<HistoryKey, Vec<MessageView>>,
+    pinned_histories: HashMap<ChatId, Vec<MessageView>>,
+    projected_pin: bool,
     transcript_anchors: HashMap<HistoryKey, MessageId>,
     history_loads: HistoryLoads,
     media_preview_loads: MediaPreviewLoads,
@@ -17,46 +19,7 @@ impl App {
     /// Creates an application waiting for initial adapter data.
     #[must_use]
     pub fn new() -> Self {
-        let mut app = Self {
-            view: View {
-                connection: ConnectionState::Connecting,
-                account_name: "Intuigram".to_owned(),
-                folders: Vec::new(),
-                active_folder: 0,
-                chats: Vec::new(),
-                active_chat: None,
-                messages: Vec::new(),
-                active_message: None,
-                active_thread: None,
-                transcript_anchor: None,
-                focus: Focus::Chats,
-                composer: ComposerView::default(),
-                search: None,
-                has_newer_messages: false,
-                help_open: false,
-                folder_picker: None,
-                delete_confirmation: None,
-                forward_picker: None,
-                reaction_picker: None,
-                poll_vote: None,
-                link_confirmation: None,
-                downloads: Vec::new(),
-                media_previews: Vec::new(),
-                poll_composer: false,
-                notice: None,
-                actions: Vec::new(),
-            },
-            all_chats: Vec::new(),
-            drafts: HashMap::new(),
-            histories: HashMap::new(),
-            transcript_anchors: HashMap::new(),
-            history_loads: HistoryLoads::default(),
-            media_preview_loads: MediaPreviewLoads::default(),
-            next_local_message_id: 0,
-            pending_drafts: HashMap::new(),
-            saved_poll_draft: None,
-            pending_polls: HashMap::new(),
-        };
+        let mut app = Self::empty();
         app.refresh_actions();
         app
     }
@@ -182,8 +145,7 @@ impl App {
                 None
             }
             Input::Adapter(AdapterEvent::MessagesPinChanged { chat, ids, pinned }) => {
-                self.apply_message_pins(chat, &ids, pinned);
-                None
+                self.reconcile_message_pins(chat, &ids, pinned)
             }
             Input::Adapter(AdapterEvent::MessageEditFailed {
                 chat,
@@ -211,8 +173,17 @@ impl App {
             Input::Adapter(AdapterEvent::ChatArchiveChanged { chat, archived }) => {
                 self.apply_folder_membership(chat, -1, archived)
             }
-            Input::Adapter(AdapterEvent::ChatLoaded { chat, messages }) => {
+            Input::Adapter(AdapterEvent::ChatPinPermissionChanged {
+                chat,
+                can_pin_messages,
+            }) => self.apply_chat_pin_permission(chat, can_pin_messages),
+            Input::Adapter(AdapterEvent::ChatLoaded {
+                chat,
+                messages,
+                pinned_messages,
+            }) => {
                 let key = HistoryKey { chat, thread: None };
+                self.store_loaded_pins(chat, pinned_messages);
                 self.store_loaded_history(key, messages);
                 if self.active_history_key() == Some(key) {
                     self.queue_active_media_previews();

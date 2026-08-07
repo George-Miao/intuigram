@@ -46,6 +46,7 @@ impl AccountFixture {
             ],
             chats: self.chats,
             messages: Vec::new(),
+            pinned_messages: Vec::new(),
             drafts: self.drafts,
             histories: Vec::new(),
         }
@@ -69,6 +70,7 @@ pub fn chat(id: i64, title: impl Into<String>) -> ChatView {
         preview: String::new(),
         unread: 0,
         pinned: false,
+        can_pin_messages: true,
         kind: ChatKind::Private,
         folders: vec![0],
     }

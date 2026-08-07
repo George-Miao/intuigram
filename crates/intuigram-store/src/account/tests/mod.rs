@@ -1,5 +1,6 @@
 use std::fs;
 
+use refinery::Target;
 use rusqlite::Connection;
 use tempfile::tempdir;
 
@@ -8,6 +9,8 @@ use super::{
     SyncBatch, SyncCursor,
 };
 use crate::{AccountId, StoreLayout};
+
+mod pinned;
 
 #[test]
 fn pending_login_is_promoted_to_a_persistent_account_database() {
@@ -117,6 +120,49 @@ fn an_existing_unmigrated_database_is_backed_up_before_migration() {
 }
 
 #[test]
+fn version_three_chats_receive_safe_pin_permission_defaults() {
+    let temporary = tempdir().expect("temporary directory should be created");
+    let layout = StoreLayout::new(temporary.path().join("intuigram"));
+    fs::create_dir_all(layout.data_directory()).expect("data directory should be created");
+    let mut connection =
+        Connection::open(layout.pending_database()).expect("fixture database should open");
+    super::migrations::migrations::runner()
+        .set_target(Target::Version(3))
+        .run(&mut connection)
+        .expect("released version three schema should install");
+    connection
+        .execute(
+            "INSERT INTO chats(chat_id, kind, title, preview, unread_count, pinned) VALUES (1, \
+             'private', 'Ada', '', 0, 0), (2, 'supergroup', 'Rust', '', 0, 0)",
+            [],
+        )
+        .expect("version three Chat fixtures should insert");
+    drop(connection);
+
+    let database = AccountDatabase::begin_login(&layout)
+        .expect("version three database should migrate to the current schema");
+    let chats = database
+        .cached_account()
+        .expect("migrated Chats should load")
+        .chats;
+
+    assert!(
+        chats
+            .iter()
+            .find(|chat| chat.id == 1)
+            .expect("private Chat fixture should remain")
+            .can_pin_messages
+    );
+    assert!(
+        !chats
+            .iter()
+            .find(|chat| chat.id == 2)
+            .expect("supergroup Chat fixture should remain")
+            .can_pin_messages
+    );
+}
+
+#[test]
 fn normalized_records_and_cursor_commit_or_roll_back_together() {
     let temporary = tempdir().expect("temporary directory should be created");
     let layout = StoreLayout::new(temporary.path().join("intuigram"));
@@ -202,6 +248,7 @@ fn sync_batch() -> SyncBatch {
             preview: "hello".to_owned(),
             unread: 1,
             pinned: false,
+            can_pin_messages: true,
             folders: vec![0],
         }],
         messages: vec![StoredMessage {

@@ -72,7 +72,7 @@ use login::{
 };
 use poll::PollPersistence;
 use runtime_adapters::{
-    AdapterBatch, ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents,
+    AdapterBatch, ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents, BackendOutput,
 };
 use runtime_loop::{run_application, run_application_state};
 use runtime_types::{
@@ -158,6 +158,7 @@ struct BackendEvents {
     committer: UpdateCommitter,
     pending: Option<UpdateCommit>,
     pending_events: VecDeque<AdapterEvent>,
+    submitted_updates: VecDeque<intuigram_telegram::LiveEvent>,
 }
 
 enum QrAuthorization {
@@ -229,6 +230,9 @@ enum Error {
 
     #[snafu(display("Telegram update stream stopped"))]
     TelegramUpdatesClosed,
+
+    #[snafu(display("Message pin effect bypassed the typed Telegram update path"))]
+    MisroutedPinEffect,
 
     #[snafu(display("native Clipboard Paste failed"))]
     Clipboard { source: rich_clipboard::Error },

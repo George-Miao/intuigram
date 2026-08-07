@@ -55,6 +55,7 @@ fn view(actions: Vec<Action>) -> View {
         chats: Vec::new(),
         active_chat: None,
         messages: Vec::new(),
+        pinned_messages: Vec::new(),
         active_message: None,
         active_thread: None,
         transcript_anchor: None,

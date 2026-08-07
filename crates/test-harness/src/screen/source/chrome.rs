@@ -90,6 +90,23 @@ impl ActionLocator {
         }
         Ok(())
     }
+
+    pub fn expect_unavailable(&self) -> Result<()> {
+        if self
+            .state
+            .borrow()
+            .semantics
+            .iter()
+            .any(|node| node.role == SemanticRole::Action && node.action == Some(self.action))
+        {
+            return Err(Error::Expectation {
+                expectation: format!("action {:?} is unavailable", self.action),
+                actual: "action is displayed".to_owned(),
+                artifact: self.trace.borrow().persist(),
+            });
+        }
+        Ok(())
+    }
 }
 
 pub(crate) fn rows(buffer: &Buffer) -> Vec<String> {

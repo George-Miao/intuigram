@@ -5,7 +5,28 @@ pub(super) trait ApplicationBackend: Sized + 'static {
         &mut self,
         effect: AdapterEffect,
         peers: intuigram_telegram::PeerDirectory,
-    ) -> Result<Option<AdapterEvent>>;
+    ) -> Result<BackendOutput>;
+}
+
+pub(super) struct BackendOutput {
+    pub(super) event: Option<AdapterEvent>,
+    pub(super) telegram_update: Option<intuigram_telegram::LiveEvent>,
+}
+
+impl BackendOutput {
+    pub(super) const fn event(event: Option<AdapterEvent>) -> Self {
+        Self {
+            event,
+            telegram_update: None,
+        }
+    }
+
+    pub(super) fn telegram_update(update: intuigram_telegram::LiveEvent) -> Self {
+        Self {
+            event: None,
+            telegram_update: Some(update),
+        }
+    }
 }
 
 impl ApplicationBackend for Backend {
@@ -13,9 +34,19 @@ impl ApplicationBackend for Backend {
         &mut self,
         effect: AdapterEffect,
         peers: intuigram_telegram::PeerDirectory,
-    ) -> Result<Option<AdapterEvent>> {
+    ) -> Result<BackendOutput> {
         self.client.merge_peers(peers);
-        Self::execute(self, effect).await
+        let AdapterEffect { effect, random_id } = effect;
+        match effect {
+            Effect::SetMessagePinned {
+                chat,
+                message,
+                pinned,
+            } => self.set_message_pinned(chat, message, pinned).await,
+            effect => Self::execute(self, AdapterEffect { effect, random_id })
+                .await
+                .map(BackendOutput::event),
+        }
     }
 }
 
@@ -38,6 +69,10 @@ impl ApplicationEvents for TerminalEvents {
 pub(super) trait ApplicationAdapterEvents {
     fn poll_adapter_event(&mut self, cx: &mut std::task::Context<'_>)
     -> Poll<Result<AdapterBatch>>;
+
+    fn submit_update(&mut self, _update: intuigram_telegram::LiveEvent) {
+        panic!("this adapter event source cannot commit an RPC-returned Telegram update")
+    }
 }
 
 pub(super) struct AdapterBatch {
@@ -46,6 +81,10 @@ pub(super) struct AdapterBatch {
 }
 
 impl ApplicationAdapterEvents for BackendEvents {
+    fn submit_update(&mut self, update: intuigram_telegram::LiveEvent) {
+        self.submitted_updates.push_back(update);
+    }
+
     fn poll_adapter_event(
         &mut self,
         cx: &mut std::task::Context<'_>,
@@ -75,6 +114,15 @@ impl ApplicationAdapterEvents for BackendEvents {
                     }
                     Poll::Pending => return Poll::Pending,
                 }
+            }
+            if let Some(update) = self.submitted_updates.pop_front() {
+                match self.committer.commit(update) {
+                    Ok(request) => self.pending = Some(request),
+                    Err(source) => {
+                        return Poll::Ready(Err(Error::CommitTelegramUpdate { source }));
+                    }
+                }
+                continue;
             }
             match Pin::new(&mut self.updates).poll_next(cx) {
                 Poll::Ready(Some(Ok(event))) => match self.committer.commit(event) {

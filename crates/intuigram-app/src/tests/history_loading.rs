@@ -23,6 +23,7 @@ fn background_refresh_does_not_replace_a_transcript_being_read() {
     let loaded = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
         chat: ChatId(20),
         messages: refreshed.clone(),
+        pinned_messages: Vec::new(),
     }));
 
     assert_eq!(loaded.view.messages, vec![cached]);
@@ -51,12 +52,14 @@ fn rapid_navigation_does_not_drop_an_inactive_background_history() {
     let latest = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
         chat: ChatId(20),
         messages: Vec::new(),
+        pinned_messages: Vec::new(),
     }));
     assert_eq!(latest.effect, Some(load_chat(40)));
 
     let resumed_background = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
         chat: ChatId(40),
         messages: Vec::new(),
+        pinned_messages: Vec::new(),
     }));
     assert_eq!(resumed_background.effect, Some(load_chat(30)));
 }
@@ -79,6 +82,7 @@ fn background_thread_refresh_does_not_replace_a_transcript_being_read() {
         Input::Adapter(AdapterEvent::ChatLoaded {
             chat: ChatId(10),
             messages: root_messages,
+            pinned_messages: Vec::new(),
         }),
     );
     apply(&mut app, Input::Intent(Intent::Action(Action::JumpLatest)));
@@ -125,6 +129,7 @@ fn thread_read_is_emitted_after_remaining_background_history() {
     let foreground = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
         chat: ChatId(20),
         messages: Vec::new(),
+        pinned_messages: Vec::new(),
     }));
     assert_eq!(
         foreground.effect,
@@ -144,6 +149,7 @@ fn thread_read_is_emitted_after_remaining_background_history() {
     let read = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
         chat: ChatId(30),
         messages: Vec::new(),
+        pinned_messages: Vec::new(),
     }));
     assert_eq!(
         read.effect,

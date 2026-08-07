@@ -161,8 +161,8 @@ pub enum Effect {
         /// Chat containing the Message.
         chat: ChatId,
 
-        /// Complete normalized Message after the requested change.
-        message: Box<MessageView>,
+        /// Telegram Message to change.
+        message: MessageId,
 
         /// New pinned state.
         pinned: bool,
@@ -240,6 +240,10 @@ pub struct View {
 
     /// Loaded messages for the active Chat.
     pub messages: Vec<MessageView>,
+
+    /// Pinned Messages in the Active Chat, independently of the visible history
+    /// window.
+    pub pinned_messages: Vec<MessageView>,
 
     /// Active Message index.
     pub active_message: Option<usize>,

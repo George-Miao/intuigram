@@ -48,6 +48,7 @@ fn dialog_filters_include_custom_and_shared_folders_in_server_order() {
             preview: String::new(),
             unread: 5,
             pinned: false,
+            can_pin_messages: true,
             kind: ChatKind::Private,
             folders: vec![0, 2],
         },
@@ -57,6 +58,7 @@ fn dialog_filters_include_custom_and_shared_folders_in_server_order() {
             preview: String::new(),
             unread: 2,
             pinned: false,
+            can_pin_messages: true,
             kind: ChatKind::Supergroup,
             folders: vec![-1, 3],
         },
@@ -198,6 +200,7 @@ fn live_update_exposes_operation_peers_for_new_root_chats() {
     let mut live_channel = channel(false, false);
     live_channel.id = 1_195_461_650;
     live_channel.access_hash = Some(12);
+    live_channel.creator = true;
     let update = tl::enums::Updates::Updates(tl::types::Updates {
         updates: Vec::new(),
         users: vec![live_user.into()],
@@ -212,6 +215,106 @@ fn live_update_exposes_operation_peers_for_new_root_chats() {
 
     assert!(normalized.peers.resolve(channel_id).is_ok());
     assert!(normalized.peers.resolve(user_id).is_ok());
+    assert!(normalized.events.iter().any(|event| matches!(
+        event,
+        AdapterEvent::ChatPinPermissionChanged {
+            chat,
+            can_pin_messages: true,
+        } if *chat == channel_id
+    )));
+}
+
+#[test]
+fn minimal_channel_does_not_overwrite_cached_pin_permission() {
+    let channel_id = ChatId(-1_000_000_000_006);
+    let mut partial = channel(false, false);
+    partial.min = true;
+    partial.admin_rights = None;
+    partial.default_banned_rights = None;
+    let update = tl::enums::Updates::Updates(tl::types::Updates {
+        updates: Vec::new(),
+        users: Vec::new(),
+        chats: vec![partial.into()],
+        date: 1_700_000_000,
+        seq: 1,
+    });
+    let mut names = HashMap::new();
+
+    let normalized = normalize_live_update(&update.to_bytes(), &mut names)
+        .expect("partial Channel update should normalize");
+
+    assert!(!normalized.events.iter().any(|event| matches!(
+        event,
+        AdapterEvent::ChatPinPermissionChanged { chat, .. } if *chat == channel_id
+    )));
+}
+
+#[test]
+fn chat_traits_preserve_message_pin_permission() {
+    let denied = channel(true, false);
+    let denied_id = ChatId(-1_000_000_000_000 - denied.id);
+    let mut creator = channel(true, false);
+    creator.id = 8;
+    creator.creator = true;
+    let creator_id = ChatId(-1_000_000_000_000 - creator.id);
+    let mut allowed_group = channel(false, false);
+    allowed_group.id = 7;
+    let allowed_group_id = ChatId(-1_000_000_000_000 - allowed_group.id);
+    let mut denied_group = channel(false, false);
+    denied_group.id = 9;
+    denied_group.default_banned_rights = Some(banned_pin_rights().into());
+    let denied_group_id = ChatId(-1_000_000_000_000 - denied_group.id);
+    let mut minimal_group = channel(false, false);
+    minimal_group.id = 10;
+    minimal_group.min = true;
+    let minimal_group_id = ChatId(-1_000_000_000_000 - minimal_group.id);
+
+    let traits = chat_traits(
+        &[
+            denied.into(),
+            creator.into(),
+            allowed_group.into(),
+            denied_group.into(),
+            minimal_group.into(),
+        ],
+        &[user(7, false, false).into()],
+        None,
+    );
+
+    assert!(!traits[&denied_id].can_pin_messages);
+    assert!(traits[&creator_id].can_pin_messages);
+    assert!(traits[&allowed_group_id].can_pin_messages);
+    assert!(!traits[&denied_group_id].can_pin_messages);
+    assert!(!traits[&minimal_group_id].can_pin_messages);
+    assert!(traits[&ChatId(7)].can_pin_messages);
+}
+
+fn banned_pin_rights() -> tl::types::ChatBannedRights {
+    tl::types::ChatBannedRights {
+        view_messages: false,
+        send_messages: false,
+        send_media: false,
+        send_stickers: false,
+        send_gifs: false,
+        send_games: false,
+        send_inline: false,
+        embed_links: false,
+        send_polls: false,
+        change_info: false,
+        invite_users: false,
+        pin_messages: true,
+        manage_topics: false,
+        send_photos: false,
+        send_videos: false,
+        send_roundvideos: false,
+        send_audios: false,
+        send_voices: false,
+        send_docs: false,
+        send_plain: false,
+        edit_rank: false,
+        send_reactions: false,
+        until_date: 0,
+    }
 }
 
 use super::*;

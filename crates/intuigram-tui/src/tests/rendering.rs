@@ -7,6 +7,7 @@ fn transcript_keeps_media_card_fallback_visible_beside_a_caption() {
         preview: String::new(),
         unread: 0,
         pinned: false,
+        can_pin_messages: true,
         kind: ChatKind::Private,
         folders: vec![0],
     }];
@@ -72,6 +73,7 @@ fn redrawing_shorter_chat_text_clears_the_previous_frame() {
         preview: "A preview with stale trailing characters".to_owned(),
         unread: 0,
         pinned: false,
+        can_pin_messages: true,
         kind: ChatKind::Private,
         folders: vec![0],
     }];
@@ -112,6 +114,7 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
         preview: "daily driver".to_owned(),
         unread: 1,
         pinned: true,
+        can_pin_messages: true,
         kind: ChatKind::Supergroup,
         folders: vec![0],
     }];
@@ -197,6 +200,7 @@ fn composer_focus_renders_the_terminal_cursor_after_the_draft() {
         preview: String::new(),
         unread: 0,
         pinned: false,
+        can_pin_messages: true,
         kind: ChatKind::Private,
         folders: vec![0],
     }];
@@ -241,6 +245,7 @@ fn transcript_renders_rich_metadata_album_and_quiz_fallbacks() {
         preview: String::new(),
         unread: 0,
         pinned: false,
+        can_pin_messages: true,
         kind: ChatKind::Private,
         folders: vec![0],
     }];

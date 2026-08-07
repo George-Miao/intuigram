@@ -8,6 +8,7 @@ pub(super) fn cached_bootstrap(account_name: String, cached: CachedAccount) -> B
             preview: chat.preview,
             unread: chat.unread,
             pinned: chat.pinned,
+            can_pin_messages: chat.can_pin_messages,
             kind: stored_chat_kind(&chat.kind),
             folders: chat.folders,
         })
@@ -27,6 +28,21 @@ pub(super) fn cached_bootstrap(account_name: String, cached: CachedAccount) -> B
             messages,
         })
         .collect::<Vec<_>>();
+    let mut grouped_pins = BTreeMap::<i64, Vec<MessageView>>::new();
+    for message in cached.pinned_messages {
+        grouped_pins
+            .entry(message.chat_id)
+            .or_default()
+            .push(decode_stored_message(message));
+    }
+    let pinned_messages = grouped_pins
+        .into_iter()
+        .map(|(chat, messages)| HistoryView {
+            chat: ChatId(chat),
+            thread_root: None,
+            messages,
+        })
+        .collect();
     let messages = chats.first().map_or_else(Vec::new, |active| {
         histories
             .iter()
@@ -47,6 +63,7 @@ pub(super) fn cached_bootstrap(account_name: String, cached: CachedAccount) -> B
             .collect(),
         chats,
         messages,
+        pinned_messages,
         drafts: cached
             .drafts
             .into_iter()

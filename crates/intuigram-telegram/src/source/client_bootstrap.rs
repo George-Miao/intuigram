@@ -53,6 +53,9 @@ impl Client {
                         preview,
                         unread: u32::try_from(dialog.unread_count.max(0)).unwrap_or(0),
                         pinned: dialog.pinned,
+                        can_pin_messages: traits
+                            .get(&chat_id)
+                            .is_some_and(|traits| traits.can_pin_messages),
                         kind: traits
                             .get(&chat_id)
                             .map_or(ChatKind::Inaccessible, |traits| traits.kind),
@@ -81,6 +84,7 @@ impl Client {
             folders,
             chats: chat_views,
             messages: initial_messages,
+            pinned_messages: Vec::new(),
             drafts: Vec::new(),
             histories: Vec::new(),
         })

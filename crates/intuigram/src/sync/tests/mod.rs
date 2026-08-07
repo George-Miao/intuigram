@@ -5,8 +5,8 @@ use std::task::{Context, Poll, Wake, Waker};
 use std::thread;
 
 use intuigram_app::{
-    AdapterEvent, ChatId, DeliveryState, MediaCard, MediaKind, MessageDetails, MessageDirection,
-    MessageId, MessageView, PollOptionView, PollView,
+    AdapterEvent, App, ChatId, DeliveryState, Input, MediaCard, MediaKind, MessageDetails,
+    MessageDirection, MessageId, MessageView, PollOptionView, PollView,
 };
 use intuigram_store::{AccountDatabase, StoreLayout, SyncCursor};
 use intuigram_telegram::{LiveEvent, UpdateCursor, UpdateScope};
@@ -105,6 +105,57 @@ fn message_update_for_an_uncached_chat_is_committed_with_its_cursor() {
     assert_eq!(cached.cursors[0].pts, 9);
     assert_eq!(cached.chats[0].id, 77);
     assert_eq!(cached.messages[0].chat_id, 77);
+}
+
+#[test]
+fn uncached_chat_discovery_carries_live_pin_permission_into_the_app() {
+    let temporary = tempdir().expect("temporary data directory should be created");
+    let layout = StoreLayout::new(temporary.path().join("intuigram"));
+    let database =
+        AccountDatabase::begin_login(&layout).expect("Account database should be created");
+    let mut committer = UpdateCommitter::new(database.store(), Vec::new(), []);
+    let chat = ChatId(-1_000_000_000_077);
+    let update = LiveEvent {
+        events: vec![
+            AdapterEvent::ChatPinPermissionChanged {
+                chat,
+                can_pin_messages: true,
+            },
+            AdapterEvent::MessageAdded {
+                chat,
+                message: Box::new(MessageView {
+                    id: MessageId(42),
+                    sender: "Ada".to_owned(),
+                    body: "hello".to_owned(),
+                    timestamp: "12:00".to_owned(),
+                    direction: MessageDirection::Incoming,
+                    delivery: DeliveryState::Sent,
+                    reply_to: None,
+                    details: MessageDetails::default(),
+                }),
+            },
+        ],
+        cursors: Vec::new(),
+        peers: intuigram_telegram::PeerDirectory::default(),
+    };
+
+    let committed = block_on(
+        committer
+            .commit(update)
+            .expect("unknown Chat update should be accepted"),
+    )
+    .expect("unknown Chat update should commit");
+    assert!(committed.events.iter().any(|event| matches!(
+        event,
+        AdapterEvent::ChatDiscovered { chat: discovered }
+            if discovered.id == chat && discovered.can_pin_messages
+    )));
+
+    let mut app = App::new();
+    for event in committed.events {
+        drop(app.transition(Input::Adapter(event)));
+    }
+    assert!(app.view().chats[0].can_pin_messages);
 }
 
 #[test]

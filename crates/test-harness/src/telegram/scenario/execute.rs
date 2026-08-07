@@ -12,7 +12,11 @@ impl TelegramScenario {
             ExpectedCommand::LoadHistory {
                 chat: expected_chat,
                 messages,
-            } if expected_chat == chat => Ok(HistoryResult::Loaded(messages)),
+                pinned_messages,
+            } if expected_chat == chat => Ok(HistoryResult::Loaded {
+                messages,
+                pinned_messages,
+            }),
             ExpectedCommand::FailLoadHistory {
                 chat: expected_chat,
                 reason,

@@ -135,11 +135,16 @@ where
                 active_effect = None;
                 backend = Some(completion.backend);
                 match completion.result {
-                    Ok(Some(event)) => update = app.transition(Input::Adapter(event)),
-                    Ok(None) => {
-                        update = Update {
-                            view: app.view(),
-                            effect: None,
+                    Ok(output) => {
+                        if let Some(returned) = output.telegram_update {
+                            adapter_events.submit_update(returned);
+                        }
+                        update = match output.event {
+                            Some(event) => app.transition(Input::Adapter(event)),
+                            None => Update {
+                                view: app.view(),
+                                effect: None,
+                            },
                         };
                     }
                     Err(error) => {

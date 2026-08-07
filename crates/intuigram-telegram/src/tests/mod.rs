@@ -9,7 +9,7 @@ use intuigram_app::{
 
 use crate::UpdateScope;
 use crate::source::{
-    Error, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginErrorAction,
+    Error, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginErrorAction, chat_traits,
     contains_login_token_update, direct_data_centers, ensure_production_environment,
     flood_wait_delay, login_error_action, normalize_code_delivery, normalize_code_delivery_method,
     normalize_dialog_folders, normalize_live_update, normalize_serialized_media,
@@ -242,6 +242,35 @@ fn pinned_message_deltas_are_normalized_with_their_chat_and_state() {
             ids,
             pinned: true,
         } if ids == &vec![MessageId(40), MessageId(42)]
+    ));
+
+    let channel_update = tl::enums::Updates::UpdateShort(tl::types::UpdateShort {
+        update: tl::types::UpdatePinnedChannelMessages {
+            pinned: false,
+            channel_id: 99,
+            messages: vec![42],
+            pts: 10,
+            pts_count: 1,
+        }
+        .into(),
+        date: 1_700_000_001,
+    });
+    let channel = normalize_live_update(&channel_update.to_bytes(), &mut names)
+        .expect("serialized channel unpin update should normalize");
+    let marked_channel = ChatId(-1_000_000_000_099);
+
+    assert_eq!(
+        channel.cursors[0].scope,
+        UpdateScope::Channel(marked_channel)
+    );
+    assert_eq!(channel.cursors[0].pts, Some(10));
+    assert!(matches!(
+        &channel.events[0],
+        AdapterEvent::MessagesPinChanged {
+            chat,
+            ids,
+            pinned: false,
+        } if *chat == marked_channel && ids == &vec![MessageId(42)]
     ));
 }
 

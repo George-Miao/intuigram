@@ -1,4 +1,50 @@
 impl App {
+    pub(super) fn empty() -> Self {
+        Self {
+            view: View {
+                connection: ConnectionState::Connecting,
+                account_name: "Intuigram".to_owned(),
+                folders: Vec::new(),
+                active_folder: 0,
+                chats: Vec::new(),
+                active_chat: None,
+                messages: Vec::new(),
+                pinned_messages: Vec::new(),
+                active_message: None,
+                active_thread: None,
+                transcript_anchor: None,
+                focus: Focus::Chats,
+                composer: ComposerView::default(),
+                search: None,
+                has_newer_messages: false,
+                help_open: false,
+                folder_picker: None,
+                delete_confirmation: None,
+                forward_picker: None,
+                reaction_picker: None,
+                poll_vote: None,
+                link_confirmation: None,
+                downloads: Vec::new(),
+                media_previews: Vec::new(),
+                poll_composer: false,
+                notice: None,
+                actions: Vec::new(),
+            },
+            all_chats: Vec::new(),
+            drafts: HashMap::new(),
+            histories: HashMap::new(),
+            pinned_histories: HashMap::new(),
+            projected_pin: false,
+            transcript_anchors: HashMap::new(),
+            history_loads: HistoryLoads::default(),
+            media_preview_loads: MediaPreviewLoads::default(),
+            next_local_message_id: 0,
+            pending_drafts: HashMap::new(),
+            saved_poll_draft: None,
+            pending_polls: HashMap::new(),
+        }
+    }
+
     pub(super) fn apply_intent(&mut self, intent: Intent) -> Option<Effect> {
         match intent {
             Intent::Insert(text) => {
@@ -60,6 +106,25 @@ impl App {
                 )
             })
             .collect();
+        self.pinned_histories = self
+            .histories
+            .iter()
+            .filter(|(key, _)| key.thread.is_none())
+            .map(|(key, messages)| {
+                (
+                    key.chat,
+                    messages
+                        .iter()
+                        .filter(|message| message.details.pinned)
+                        .cloned()
+                        .collect(),
+                )
+            })
+            .collect();
+        for projection in bootstrap.pinned_messages {
+            self.pinned_histories
+                .insert(projection.chat, projection.messages);
+        }
         self.transcript_anchors.clear();
         if let Some(chat) = self.active_chat_id() {
             self.histories
@@ -93,6 +158,7 @@ impl App {
         let focus = self.view.focus;
         let drafts = std::mem::take(&mut self.drafts);
         let histories = std::mem::take(&mut self.histories);
+        let pinned_histories = std::mem::take(&mut self.pinned_histories);
 
         self.replace_bootstrap(bootstrap);
 
@@ -112,6 +178,7 @@ impl App {
                 restored.push(message);
             }
         }
+        self.pinned_histories.extend(pinned_histories);
         if let Some(folder) = active_folder
             && let Some(index) = self
                 .view

@@ -47,6 +47,17 @@ impl App {
         self.request_history_load(HistoryKey { chat, thread: None })
     }
 
+    pub(super) fn force_chat_load(&mut self, chat: ChatId) -> Option<Effect> {
+        let key = HistoryKey { chat, thread: None };
+        self.history_loads.refreshed_chats.remove(&chat);
+        if self.history_loads.active == Some(key) {
+            self.history_loads.queued = Some(key);
+            None
+        } else {
+            self.start_history_load(key)
+        }
+    }
+
     pub(super) fn request_history_load(&mut self, key: HistoryKey) -> Option<Effect> {
         if self.history_was_refreshed(key) {
             return None;
@@ -113,7 +124,7 @@ impl App {
             .history_loads
             .queued
             .take()
-            .filter(|queued| *queued != key && !self.history_was_refreshed(*queued))
+            .filter(|queued| !self.history_was_refreshed(*queued))
             .and_then(|queued| self.start_history_load(queued));
         foreground
             .or_else(|| self.request_next_media_preview())
@@ -211,39 +222,6 @@ impl App {
         self.view.focus = Focus::Transcript;
     }
 
-    pub(super) fn navigate_pinned(&mut self) {
-        if self.view.active_thread.is_some() {
-            return;
-        }
-        let current = self.view.active_message.filter(|index| {
-            self.view
-                .messages
-                .get(*index)
-                .is_some_and(|message| message.details.pinned)
-        });
-        let target = self
-            .view
-            .messages
-            .iter()
-            .enumerate()
-            .rev()
-            .filter(|(_, message)| message.details.pinned)
-            .map(|(index, _)| index)
-            .find(|index| current.is_none_or(|current| *index < current))
-            .or_else(|| {
-                self.view
-                    .messages
-                    .iter()
-                    .rposition(|message| message.details.pinned)
-            });
-        if let Some(target) = target {
-            self.save_active_draft();
-            self.view.active_message = Some(target);
-            self.view.transcript_anchor = Some(target);
-            self.view.focus = Focus::Transcript;
-        }
-    }
-
     pub(super) fn open_thread(&mut self) -> Option<Effect> {
         let chat = self.active_chat_id()?;
         let root = self.active_message_id()?;
@@ -287,10 +265,8 @@ impl App {
             self.view.active_message = Some(index + 1);
             self.view.transcript_anchor = self.view.active_message;
         } else {
-            self.view.active_message = None;
-            self.view.transcript_anchor = self.view.messages.len().checked_sub(1);
+            self.focus_composer_at_anchor();
             self.view.has_newer_messages = false;
-            self.view.focus = Focus::Composer;
         }
     }
 
@@ -304,6 +280,7 @@ impl App {
     }
 
     pub(super) fn focus_composer_at_anchor(&mut self) {
+        self.restore_recent_history_from_pin_projection();
         if self.view.active_message.is_some() {
             self.view.transcript_anchor = self.view.active_message;
         }
@@ -340,10 +317,12 @@ impl App {
         active_message: Option<MessageId>,
         transcript_anchor: Option<MessageId>,
     ) {
+        self.projected_pin = false;
         self.view.messages = self
             .active_history_key()
             .and_then(|key| self.histories.get(&key).cloned())
             .unwrap_or_default();
+        self.refresh_pinned_projection();
         self.view.active_message =
             active_message.and_then(|message| self.history_position(message));
         self.view.transcript_anchor =

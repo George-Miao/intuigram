@@ -14,7 +14,7 @@ use intuigram_store::{CachedAccount, StoredChat, StoredDraft, StoredFolder};
 use intuigram_telegram::{LoginCodeDelivery, LoginCodeDeliveryMethod};
 use intuigram_tui::UiEvent;
 
-use super::runtime_adapters::AdapterBatch;
+use super::runtime_adapters::{AdapterBatch, BackendOutput};
 use super::{
     AdapterEffect, ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents,
     ApplicationExit, ApplicationState, ApplicationUi, AttachmentPayload, AttachmentStore,
@@ -56,6 +56,10 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
             ..MessageDetails::default()
         },
     };
+    let mut old_pin = message.clone();
+    old_pin.id = MessageId(5);
+    old_pin.details.thread_root = None;
+    old_pin.details.pinned = true;
     let cached = CachedAccount {
         cursors: Vec::new(),
         folders: vec![StoredFolder {
@@ -70,9 +74,11 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
             preview: "cached caption".to_owned(),
             unread: 1,
             pinned: false,
+            can_pin_messages: true,
             folders: vec![0],
         }],
         messages: vec![encode_stored_message(ChatId(7), &message)],
+        pinned_messages: vec![encode_stored_message(ChatId(7), &old_pin)],
         drafts: vec![StoredDraft {
             chat_id: 7,
             thread_root: Some(41),
@@ -87,6 +93,7 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
     assert_eq!(bootstrap.chats[0].kind, ChatKind::Private);
     assert_eq!(bootstrap.histories[0].thread_root, Some(MessageId(41)));
     assert_eq!(bootstrap.histories[0].messages, vec![message]);
+    assert_eq!(bootstrap.pinned_messages[0].messages, vec![old_pin]);
     assert_eq!(bootstrap.drafts[0].text, "cached Draft");
 }
 
@@ -95,9 +102,9 @@ impl ApplicationBackend for PendingHistoryBackend {
         &mut self,
         effect: AdapterEffect,
         _peers: intuigram_telegram::PeerDirectory,
-    ) -> Result<Option<AdapterEvent>> {
+    ) -> Result<BackendOutput> {
         let Effect::LoadChat { chat } = effect.effect else {
-            return Ok(None);
+            return Ok(BackendOutput::event(None));
         };
         std::future::poll_fn(|cx| {
             let polls = self.polls.get();
@@ -110,10 +117,11 @@ impl ApplicationBackend for PendingHistoryBackend {
             }
         })
         .await;
-        Ok(Some(AdapterEvent::ChatLoaded {
+        Ok(BackendOutput::event(Some(AdapterEvent::ChatLoaded {
             chat,
             messages: Vec::new(),
-        }))
+            pinned_messages: Vec::new(),
+        })))
     }
 }
 
@@ -192,15 +200,16 @@ impl ApplicationBackend for PeerAwareBackend {
         &mut self,
         effect: AdapterEffect,
         peers: intuigram_telegram::PeerDirectory,
-    ) -> Result<Option<AdapterEvent>> {
+    ) -> Result<BackendOutput> {
         let Effect::LoadChat { chat } = effect.effect else {
-            return Ok(None);
+            return Ok(BackendOutput::event(None));
         };
         self.resolved.set(chat == self.chat && peers.contains(chat));
-        Ok(Some(AdapterEvent::ChatLoaded {
+        Ok(BackendOutput::event(Some(AdapterEvent::ChatLoaded {
             chat,
             messages: Vec::new(),
-        }))
+            pinned_messages: Vec::new(),
+        })))
     }
 }
 
@@ -221,7 +230,7 @@ impl ApplicationBackend for FailingConnectionBackend {
         &mut self,
         effect: AdapterEffect,
         _peers: intuigram_telegram::PeerDirectory,
-    ) -> Result<Option<AdapterEvent>> {
+    ) -> Result<BackendOutput> {
         self.observed.borrow_mut().push(effect);
         Err(Error::TelegramUpdatesClosed)
     }

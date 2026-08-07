@@ -105,6 +105,9 @@ pub struct StoredChat {
     /// Telegram pin state.
     pub pinned: bool,
 
+    /// Whether current server rights permit pinning Messages.
+    pub can_pin_messages: bool,
+
     /// Folder IDs in which the Chat appears.
     pub folders: Vec<i32>,
 }
@@ -149,6 +152,15 @@ pub struct StoredMessage {
 /// Normalized durable mutation applied with an update cursor.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StoredMutation {
+    /// Change whether the Account may pin Messages in one Chat.
+    SetChatPinPermission {
+        /// Owning Chat.
+        chat_id: i64,
+
+        /// Current effective permission.
+        can_pin_messages: bool,
+    },
+
     /// Change pinned state for Message IDs in one Chat.
     SetMessagesPinned {
         /// Owning Chat.
@@ -247,6 +259,9 @@ pub struct CachedAccount {
 
     /// Cached Messages.
     pub messages: Vec<StoredMessage>,
+
+    /// Pinned Message projection, independently of contiguous recent history.
+    pub pinned_messages: Vec<StoredMessage>,
 
     /// Current durable Drafts.
     pub drafts: Vec<StoredDraft>,

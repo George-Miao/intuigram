@@ -36,6 +36,12 @@ pub(super) enum Command {
         messages: Vec<StoredMessage>,
         reply: AsyncReply<()>,
     },
+    SaveChatHistoryAsync {
+        chat: i64,
+        messages: Vec<StoredMessage>,
+        pinned_messages: Vec<StoredMessage>,
+        reply: AsyncReply<()>,
+    },
     DeleteMessagesAsync {
         chat: Option<i64>,
         messages: Vec<i64>,
@@ -135,6 +141,25 @@ impl AccountStore {
         let (reply, request) = async_response();
         self.commands
             .try_send(Command::SaveMessagesAsync { messages, reply })
+            .map_err(map_try_send_error)?;
+        Ok(request)
+    }
+
+    /// Atomically saves recent history and its independent pinned projection.
+    pub fn save_chat_history(
+        &self,
+        chat: i64,
+        messages: Vec<StoredMessage>,
+        pinned_messages: Vec<StoredMessage>,
+    ) -> Result<DatabaseRequest<()>> {
+        let (reply, request) = async_response();
+        self.commands
+            .try_send(Command::SaveChatHistoryAsync {
+                chat,
+                messages,
+                pinned_messages,
+                reply,
+            })
             .map_err(map_try_send_error)?;
         Ok(request)
     }

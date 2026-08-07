@@ -19,6 +19,7 @@ fn bootstrap() -> Bootstrap {
             preview: "daily driver".to_owned(),
             unread: 2,
             pinned: true,
+            can_pin_messages: true,
             kind: ChatKind::Supergroup,
             folders: vec![0],
         }],
@@ -34,6 +35,7 @@ fn bootstrap() -> Bootstrap {
                 details: super::MessageDetails::default(),
             })
             .collect(),
+        pinned_messages: Vec::new(),
         drafts: Vec::new(),
         histories: Vec::new(),
     }
@@ -52,6 +54,7 @@ fn hierarchy_bootstrap() -> Bootstrap {
         preview: "owned buffers".to_owned(),
         unread: 0,
         pinned: false,
+        can_pin_messages: true,
         kind: ChatKind::Supergroup,
         folders: vec![0, 1],
     });

@@ -111,6 +111,9 @@ pub struct Bootstrap {
     /// Messages for the initially active Chat.
     pub messages: Vec<MessageView>,
 
+    /// Cached pinned-Message projections by Chat.
+    pub pinned_messages: Vec<HistoryView>,
+
     /// Durable root and Thread Drafts for cached Chats.
     pub drafts: Vec<DraftView>,
 
@@ -234,12 +237,25 @@ pub enum AdapterEvent {
         /// Whether the Chat is now archived.
         archived: bool,
     },
+
+    /// Telegram changed whether the Account may pin Messages in a Chat.
+    ChatPinPermissionChanged {
+        /// Chat whose effective rights changed.
+        chat: ChatId,
+
+        /// Whether Message pinning is currently permitted.
+        can_pin_messages: bool,
+    },
     /// A requested Chat history became available.
     ChatLoaded {
         /// Chat whose history was loaded.
         chat: ChatId,
+
         /// Chronological loaded history.
         messages: Vec<MessageView>,
+
+        /// Bounded pinned-Message projection, independent of recent history.
+        pinned_messages: Vec<MessageView>,
     },
 
     /// A requested root or Thread history could not be refreshed.

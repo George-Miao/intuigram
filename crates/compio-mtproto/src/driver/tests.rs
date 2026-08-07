@@ -110,11 +110,15 @@ fn rpc_results_complete_only_the_correlated_invocation() {
     let mut second = pin!(handle.invoke_raw(vec![5, 6, 7, 8]).expect("request fits"));
     let mut driver = Box::pin(driver);
     poll_driver(&mut driver);
-    let ids = driver.in_flight.keys().copied().collect::<Vec<_>>();
-    assert_eq!(ids.len(), 2);
+    assert_eq!(driver.in_flight.len(), 2);
+    let second_id = driver
+        .in_flight
+        .iter()
+        .find_map(|(id, request)| (request.body == [5, 6, 7, 8]).then_some(*id))
+        .expect("second request should be in flight");
 
     driver.process_result(Deserialization::RpcResult(RpcResult {
-        msg_id: ids[1],
+        msg_id: second_id,
         body: vec![9, 10, 11, 12],
     }));
 
