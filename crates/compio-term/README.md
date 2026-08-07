@@ -24,5 +24,5 @@ Current boundaries:
 - `SIGWINCH` uses a signal-hook self-pipe as a Compio wake source while
   Crossterm remains responsible for producing the resize event;
 - Windows console key, mouse, focus, paste, and resize records wake the same
-  persistent stream through Compio's IOCP driver;
+  persistent stream through the crate's small, documented Compio IOCP boundary;
 - Crossterm still owns parsing, raw mode, and output commands;
