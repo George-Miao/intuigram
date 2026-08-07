@@ -59,8 +59,7 @@ fn editing_with_markup_replaces_text_and_entities_together() -> Result<()> {
         .start()?;
 
     app.press(key::ENTER)?;
-    app.press(key::ALT_UP)?;
-    app.press(key::ALT_EDIT)?;
+    app.press(key::UP)?;
     for _ in 0..3 {
         app.press(key::BACKSPACE)?;
     }

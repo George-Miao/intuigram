@@ -239,34 +239,6 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
 }
 
 #[test]
-fn composer_focus_renders_the_terminal_cursor_after_the_draft() {
-    let mut current = view(Vec::new());
-    current.chats = vec![ChatView {
-        id: ChatId(10),
-        title: "Intuigram".to_owned(),
-        preview: String::new(),
-        unread: 0,
-        pinned: false,
-        can_pin_messages: true,
-        kind: ChatKind::Private,
-        folders: vec![0],
-    }];
-    current.active_chat = Some(0);
-    current.focus = Focus::Composer;
-    current.composer.text = "hi".to_owned();
-    current.composer.cursor = current.composer.text.len();
-
-    let backend = TestBackend::new(100, 24);
-    let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
-    terminal
-        .draw(|frame| render(frame, &current, &EffectiveKeymap::defaults()))
-        .expect("Composer should render");
-
-    assert!(terminal.backend().cursor_visible());
-    assert_eq!(terminal.backend().cursor_position(), (43, 17).into());
-}
-
-#[test]
 fn wide_layout_does_not_render_empty_details() {
     let backend = TestBackend::new(140, 30);
     let mut terminal = Terminal::new(backend).expect("test terminal should initialize");

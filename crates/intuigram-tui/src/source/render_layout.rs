@@ -171,7 +171,7 @@ pub(super) fn render_active_chat(
     mode: ViewMode,
     semantics: &mut Vec<SemanticNode>,
 ) {
-    let composer_height = if view.active_chat.is_some() { 3 } else { 0 };
+    let composer_height = composer_height(area, view);
     let rows = Layout::vertical([
         Constraint::Length(2),
         Constraint::Min(1),

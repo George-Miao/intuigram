@@ -63,6 +63,27 @@ pub(super) fn render_rich_text(message: &MessageView) -> Vec<Span<'static>> {
     result
 }
 
+pub(super) fn render_rich_text_lines(message: &MessageView) -> Vec<Vec<Span<'static>>> {
+    let mut lines = vec![Vec::new()];
+    for span in render_rich_text(message) {
+        let style = span.style;
+        let parts = span.content.split('\n').collect::<Vec<_>>();
+        let last = parts.len().saturating_sub(1);
+        for (index, part) in parts.into_iter().enumerate() {
+            if !part.is_empty() {
+                lines
+                    .last_mut()
+                    .expect("rich text always has a current line")
+                    .push(Span::styled(part.to_owned(), style));
+            }
+            if index < last {
+                lines.push(Vec::new());
+            }
+        }
+    }
+    lines
+}
+
 fn message_span(message: &MessageView, text: String, style: Style) -> Span<'static> {
     if message.details.service.is_some() {
         Span::styled(text, style.fg(MUTED_TEXT).add_modifier(Modifier::ITALIC))

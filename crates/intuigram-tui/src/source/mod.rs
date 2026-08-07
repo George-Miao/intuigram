@@ -32,11 +32,13 @@ use snafu::{OptionExt, ResultExt, Snafu};
 
 use crate::recovery::{self, RecoveryView};
 
+mod composer_wrap;
 mod events;
 mod key_chord;
 pub(crate) mod qr_render;
 mod qr_session;
 mod render_chrome;
+mod render_composer;
 pub(crate) mod render_layout;
 mod render_overlays;
 mod render_transcript;
@@ -47,9 +49,10 @@ pub use events::*;
 use qr_render::{chord_from_crossterm, qr_login_symbols, render_qr_login};
 pub use qr_session::*;
 use render_chrome::{
-    anchored_window, centered_rect, render_actions, render_composer, render_folder_picker,
-    render_folders, render_help, render_status, selection_rule, surface_style,
+    anchored_window, centered_rect, render_actions, render_folder_picker, render_folders,
+    render_help, render_status, selection_rule, surface_style,
 };
+use render_composer::{composer_height, render_composer};
 use render_layout::{render_with_mode, render_with_semantics};
 use render_overlays::{
     render_delete_confirmation, render_forward_picker, render_link_confirmation, render_poll_vote,

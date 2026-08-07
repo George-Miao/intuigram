@@ -289,5 +289,6 @@ fn terminal_events_resolve_against_the_current_view() {
     );
 }
 mod density;
+mod multiline;
 mod rendering;
 mod semantics;

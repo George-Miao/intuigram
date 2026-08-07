@@ -4,7 +4,7 @@ mod media;
 mod rich_text;
 
 use media::{media_line_count, render_media};
-use rich_text::{message_metadata, render_rich_text};
+use rich_text::{message_metadata, render_rich_text_lines};
 
 pub(super) fn render_transcript(
     frame: &mut Frame<'_>,
@@ -71,10 +71,19 @@ fn message_lines(
             Style::default().fg(MUTED_TEXT),
         ),
     ]);
-    let mut body = vec![selection_rule(selected)];
-    body.extend(render_rich_text(message));
-    body.extend(message_metadata(message));
-    let mut lines = vec![header, Line::from(body)];
+    let mut body_lines = render_rich_text_lines(message);
+    body_lines
+        .last_mut()
+        .expect("Message text always has at least one line")
+        .extend(message_metadata(message));
+    let mut lines = vec![header];
+    lines.extend(body_lines.into_iter().map(|body| {
+        Line::from(
+            std::iter::once(selection_rule(selected))
+                .chain(body)
+                .collect::<Vec<_>>(),
+        )
+    }));
     if let Some(media) = &message.details.media {
         let preview = media_preview(view, message.id);
         lines.extend(render_media(
@@ -146,12 +155,16 @@ fn message_height(
     mode: ViewMode,
     preview: Option<&intuigram_app::InlineImage>,
 ) -> u16 {
+    let body_height = u16::try_from(message.body.split('\n').count()).unwrap_or(u16::MAX);
+    let media_height = message
+        .details
+        .media
+        .as_ref()
+        .map_or(0, |media| media_line_count(media, preview));
     mode.item_height(
-        2 + message
-            .details
-            .media
-            .as_ref()
-            .map_or(0, |media| media_line_count(media, preview)),
+        1_u16
+            .saturating_add(body_height)
+            .saturating_add(media_height),
     )
 }
 
