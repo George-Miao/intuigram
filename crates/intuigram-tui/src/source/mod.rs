@@ -31,6 +31,7 @@ use snafu::{OptionExt, ResultExt, Snafu};
 
 use crate::recovery::{self, RecoveryView};
 
+mod avatar;
 mod composer_wrap;
 mod effort;
 mod events;
@@ -46,6 +47,7 @@ mod render_transcript;
 pub(crate) mod terminal;
 mod view_mode;
 
+use avatar::avatar_badge;
 use effort::effort_spans;
 pub use events::*;
 use qr_render::{chord_from_crossterm, qr_login_symbols, render_qr_login};

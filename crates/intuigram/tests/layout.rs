@@ -31,7 +31,7 @@ fn default_view_separates_chats_and_messages_and_uses_a_three_line_folder_bar() 
     let second = row_within(&rows, "second message", 31, 100);
 
     assert_eq!(telegram.saturating_sub(rust), 3);
-    assert_eq!(second.saturating_sub(first), 3);
+    assert_eq!(second.saturating_sub(first), 1);
     assert!(rows[19].trim().is_empty());
     assert!(rows[20].contains("All"));
     assert!(rows[21].trim().is_empty());
@@ -82,7 +82,7 @@ fn chat_list_and_transcript_have_one_cell_internal_padding() -> Result<()> {
     let title_row = row_within(&rows, "Rust", 0, 30);
     let message_row = row_within(&rows, "hello", 31, 100);
 
-    assert_eq!(row_segment(&rows, title_row, 0, 7), " │ Rust");
+    assert_eq!(row_segment(&rows, title_row, 0, 7), " │ [RU]");
     assert!(row_segment(&rows, 4, 31, 100).trim().is_empty());
     assert_eq!(row_segment(&rows, message_row, 31, 35), "   h");
     assert!(rows[20].starts_with(' '));

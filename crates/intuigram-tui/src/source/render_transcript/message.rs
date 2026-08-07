@@ -86,6 +86,7 @@ fn message_heading(
         };
         lines.push(Line::from(vec![
             selection_rule(selected),
+            avatar_badge(&message.sender),
             Span::styled(
                 format!("{direction} {}", message.sender),
                 Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),

@@ -14,7 +14,6 @@
 - [ ] **p-core:** Add responsive TUI layouts for narrow, normal, and wide terminals, including stacked hierarchy navigation and preservation of the Active Chat, Active Message, Message Selection, anchored history, Draft, and interaction target across resize.
 - [ ] **p-core:** Restore the last Active Folder and Active Chat when an Account is reopened. Validate both against current synchronized state; if either no longer exists, clear the Active Chat and return to the default Folder.
 - [ ] **p-core:** Add click support for activating Chats and Messages, switching Folders, and focusing the Composer without replacing the keyboard hierarchy or terminal-native text selection.
-- [ ] **p-core:** Render useful avatar representations in the Chat list, Active-Chat header, and Transcript, with deterministic initials or another text fallback when an image is absent or terminal graphics are unavailable.
 - [ ] **p-core:** Implement the Windows console-input backend for `compio-term` behind its existing `EventStream(sys::EventStream)` boundary, including key, mouse, focus, paste, and resize events without timer polling or a helper thread.
 - [ ] **p-core:** Add `Save As` and destination selection for media and file downloads; never overwrite an existing path silently.
 - [ ] **p-core:** Add an optional Local Lock that encrypts both the Account cache and Telegram authorization material, unlocked through an OS keyring or passphrase.

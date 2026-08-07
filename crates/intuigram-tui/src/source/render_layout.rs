@@ -140,6 +140,7 @@ pub(super) fn render_chats(
             let mut lines = vec![
                 Line::from(vec![
                     selection_rule(selected),
+                    avatar_badge(&chat.title),
                     Span::styled(
                         chat.title.clone(),
                         Style::default().add_modifier(Modifier::BOLD),

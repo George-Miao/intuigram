@@ -75,7 +75,7 @@ fn expect_divider_before(app: &TestSystem, body: &str) {
         .find(|(_, row)| row.contains(body))
         .map(|(index, _)| index)
         .expect("boundary Message should be visible");
-    assert_eq!(divider + 2, message);
+    assert_eq!(divider + 1, message);
 }
 
 fn cursor(pts: i32) -> UpdateCursor {

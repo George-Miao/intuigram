@@ -87,10 +87,13 @@ fn title_and_status(view: &View) -> (Line<'static>, Line<'static>) {
                     }
                 };
                 (
-                    Line::from(Span::styled(
-                        chat.title.clone(),
-                        Style::default().add_modifier(Modifier::BOLD),
-                    )),
+                    Line::from(vec![
+                        avatar_badge(&chat.title),
+                        Span::styled(
+                            chat.title.clone(),
+                            Style::default().add_modifier(Modifier::BOLD),
+                        ),
+                    ]),
                     status,
                 )
             },

@@ -140,7 +140,11 @@ fn redrawing_shorter_chat_text_clears_the_previous_frame() {
         .expect("short view should render");
     let buffer = terminal.backend().buffer();
 
-    assert!((4..30).all(|x| buffer[(x, 4)].symbol() == " "));
+    let title_row = (0..30).map(|x| buffer[(x, 4)].symbol()).collect::<String>();
+    assert!(
+        (8..30).all(|x| buffer[(x, 4)].symbol() == " "),
+        "stale title row: {title_row:?}"
+    );
     assert!((3..30).all(|x| buffer[(x, 5)].symbol() == " "));
 }
 
