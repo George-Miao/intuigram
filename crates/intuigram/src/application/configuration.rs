@@ -106,6 +106,16 @@ pub(super) fn parse_arguments(arguments: impl IntoIterator<Item = String>) -> Re
             });
             continue;
         }
+        if argument.starts_with("--folder-") {
+            if parsed.maintenance.is_some() {
+                return ConflictingMaintenanceSnafu.fail();
+            }
+            let account =
+                parse_account_argument(&argument, next_argument(&mut arguments, &argument)?)?;
+            let command = parse_folder_maintenance(&mut arguments, &argument)?;
+            parsed.maintenance = Some(Maintenance::Folder(account, command));
+            continue;
+        }
         let destination = match argument.as_str() {
             "-h" | "--help" => {
                 parsed.help = true;
@@ -191,6 +201,18 @@ pub(super) fn print_help() {
            --clear-account-data ID Clear local records, authorization, and media after confirmation\n\
            --remove-account ID     Remove local data; server authorization may remain active\n\
            --logout ID             Revoke Telegram authorization, then remove local Account data\n\
+           --folder-create ID TITLE RULES\n\
+                                   Create a Folder; RULES is a comma-separated rule list\n\
+           --folder-rename ID FOLDER TITLE\n\
+                                   Rename a custom Folder\n\
+           --folder-reorder ID FOLDER POSITION\n\
+                                   Move a custom Folder to a zero-based position\n\
+           --folder-share ID FOLDER\n\
+                                   Export a share link for explicitly included Chats\n\
+           --folder-delete ID FOLDER\n\
+                                   Delete a Folder without deleting its Chats\n\
+           --folder-rules ID FOLDER RULES\n\
+                                   Replace inclusion/exclusion category rules\n\
            -h, --help              Print this help\n\n\
          Configure telegram.api_id and telegram.api_hash in config.toml, YAML, JSON, or the\n\
          INTUIGRAM_TELEGRAM__API_ID and INTUIGRAM_TELEGRAM__API_HASH environment variables."
@@ -242,7 +264,7 @@ pub(super) fn derived_random_id(base: i64, index: usize, domain: u64) -> i64 {
 
 #[cfg(test)]
 mod argument_tests {
-    use super::{Maintenance, parse_arguments};
+    use super::{FolderMaintenance, Maintenance, parse_arguments};
 
     #[test]
     fn storage_maintenance_requires_one_positive_account_id() {
@@ -273,6 +295,34 @@ mod argument_tests {
                 "--account".to_owned(),
                 "42".to_owned(),
                 "--add-account".to_owned(),
+            ])
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn folder_commands_parse_rules_and_reject_built_in_ids() {
+        let parsed = parse_arguments([
+            "--folder-create".to_owned(),
+            "42".to_owned(),
+            "Work".to_owned(),
+            "contacts,groups,exclude-muted".to_owned(),
+        ])
+        .expect("valid Folder creation should parse");
+        let Some(Maintenance::Folder(account, FolderMaintenance::Create { title, rules })) =
+            parsed.maintenance
+        else {
+            panic!("Folder creation should retain its typed command");
+        };
+        assert_eq!(account.get(), 42);
+        assert_eq!(title, "Work");
+        assert!(rules.contacts && rules.groups && rules.exclude_muted);
+
+        assert!(
+            parse_arguments([
+                "--folder-delete".to_owned(),
+                "42".to_owned(),
+                "0".to_owned(),
             ])
             .is_err()
         );

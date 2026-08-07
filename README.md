@@ -125,6 +125,13 @@ The active Account is remembered. Each Account reopens its own Folder, Chat,
 Transcript position, Drafts, synchronized records, Media Cache, Local Lock key,
 and displayed identity.
 
+Custom Telegram Folders can be administered without opening the TUI. For
+example, `intuigram --folder-create 123456 "Work" groups,contacts,exclude-muted`
+creates a rule-based Folder for Account `123456`. The related
+`--folder-rename`, `--folder-reorder`, `--folder-share`, `--folder-delete`, and
+`--folder-rules` commands are listed by `intuigram --help`; the in-TUI Folder
+membership picker provides explicit per-Chat inclusion and exclusion overrides.
+
 Account files always use owner-only filesystem permissions. Optional Local Lock
 also encrypts the complete Account database, including Telegram authorization
 and synchronized Message text. Configure either a hidden passphrase prompt or

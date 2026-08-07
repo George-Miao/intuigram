@@ -29,8 +29,8 @@ use intuigram_store::{
     CachedAccount, GlobalDatabase, SessionMaterial, StoreLayout,
 };
 use intuigram_telegram::{
-    ApplicationCredentials, AuthorizedUser, Client, CodeRequest, CodeSignIn, LiveUpdates,
-    LoginCodeDelivery, LoginCodeDeliveryMethod, LoginCodeToken, QrLogin, Session,
+    ApplicationCredentials, AuthorizedUser, Client, CodeRequest, CodeSignIn, FolderRules,
+    LiveUpdates, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginCodeToken, QrLogin, Session,
 };
 use intuigram_tui::{
     QrLoginAction, QrLoginUi, TerminalEvents, TerminalUi, UiEvent, ViewMode as TuiViewMode,
@@ -45,9 +45,11 @@ mod backend_pins;
 mod cache;
 mod configuration;
 mod fixtures;
+mod folder_arguments;
 mod history_failure;
 mod local_lock;
 mod login;
+mod maintenance;
 mod poll;
 mod runtime_adapters;
 mod runtime_loop;
@@ -64,6 +66,7 @@ use configuration::{
 };
 #[cfg(test)]
 use fixtures::application_fixture;
+use folder_arguments::{next_argument, parse_folder_maintenance};
 use history_failure::history_failure_event;
 use local_lock::{delete_local_lock_key, unlock_local_lock};
 #[cfg(test)]
@@ -72,6 +75,7 @@ use login::{
     request_code_with_migration, seconds_until, sign_in_with_delivered_code, sign_in_with_password,
     unix_timestamp,
 };
+use maintenance::{run_folder_maintenance, run_logout, run_maintenance};
 use poll::PollPersistence;
 use runtime_adapters::{
     AdapterBatch, ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents, BackendOutput,
@@ -103,12 +107,23 @@ struct Arguments {
     help: bool,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 enum Maintenance {
     MediaUsage(AccountId),
     ClearMedia(AccountId),
     ClearAccount(AccountId),
     Logout(AccountId),
+    Folder(AccountId, FolderMaintenance),
+}
+
+#[derive(Clone)]
+enum FolderMaintenance {
+    Create { title: String, rules: FolderRules },
+    Rename { folder: i32, title: String },
+    Reorder { folder: i32, position: usize },
+    Share { folder: i32 },
+    Delete { folder: i32 },
+    Rules { folder: i32, rules: FolderRules },
 }
 
 struct Backend {

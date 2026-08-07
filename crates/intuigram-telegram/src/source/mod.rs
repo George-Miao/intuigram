@@ -31,6 +31,7 @@ mod client_bootstrap;
 mod client_connection;
 mod client_dialogs;
 mod client_download;
+mod client_folders;
 mod client_history;
 mod client_initialize;
 mod client_links;
@@ -55,6 +56,7 @@ mod session_types;
 
 use authorization::{normalize_authorization, password_parameters};
 use client_dialogs::DialogBatch;
+pub use client_folders::FolderRules;
 pub use client_send::{TextSend, UploadSend};
 use connection::Connection;
 #[cfg(test)]

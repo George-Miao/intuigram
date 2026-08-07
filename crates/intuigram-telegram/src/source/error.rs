@@ -97,6 +97,17 @@ pub enum Error {
     #[snafu(display("Telegram declined the Folder membership change"))]
     FolderUpdateRejected,
 
+    /// A built-in or shared Folder cannot use ordinary inclusion rules.
+    #[snafu(display("Telegram Folder {folder_id} does not support editable inclusion rules"))]
+    FolderRulesUnavailable {
+        /// Folder whose rules cannot be edited.
+        folder_id: i32,
+    },
+
+    /// Telegram has no free identifier for another custom Folder.
+    #[snafu(display("Telegram has no available custom Folder slot"))]
+    FolderLimitReached,
+
     /// A Intuigram Message ID could not be represented by Telegram's API.
     #[snafu(display("Message ID {message_id} is outside Telegram's signed 32-bit domain"))]
     InvalidMessageId {
