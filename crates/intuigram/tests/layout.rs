@@ -63,6 +63,28 @@ fn composer_is_one_continuous_bar_with_internal_padding() -> Result<()> {
     app.expect_no_unhandled_work()
 }
 
+#[test]
+fn chat_titles_start_immediately_after_the_interaction_rule() -> Result<()> {
+    let mut rust = chat(10, "Rust");
+    rust.preview = "owned buffers".to_owned();
+    let mut app = TestSystem::builder()
+        .name("layout-chat-title-alignment")
+        .terminal(100, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(rust))
+                .expect_load_history(10, []),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    let rows = app.screen().rows();
+    let title_row = row_within(&rows, "Rust", 0, 30);
+
+    assert_eq!(row_segment(&rows, title_row, 0, 6), "│ Rust");
+    app.expect_no_unhandled_work()
+}
+
 fn row_within(rows: &[String], text: &str, start: usize, end: usize) -> usize {
     rows.iter()
         .position(|row| {

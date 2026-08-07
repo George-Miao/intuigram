@@ -20,7 +20,6 @@
 - [ ] **p-core:** Show an unread-message divider at the read boundary in the Transcript. Keep it stable while older history or live Messages arrive, and remove it once Read State advances past the boundary.
 - [ ] **p-core:** Give every visual region consistent one-cell internal padding, including the Chat list and Transcript, without adding rectangular borders or breaking Compact view density.
 - [ ] **p-core:** Make the Chat-list and Active-Chat headers tall enough for one line of internal padding around their content. Give the Active-Chat header a second status line for loading state or stable Chat metadata.
-- [ ] **p-core:** Remove the unintended extra indentation before Chat titles while preserving a clear Active Chat and Chat-list interaction indicator.
 - [ ] **p-core:** Emphasize the Active Folder with bold underlined text instead of a left selection rule, while keeping inactive Folders visually restrained.
 - [ ] **p-core:** Add a shared animated effort treatment for connecting, synchronizing, sending, and other pending work. Text states use a restrained left-to-right moving highlight, and animation must remain responsive, respect reduced-motion configuration when introduced, and stop immediately when work completes or fails.
 - [ ] **p-core:** Show an animated placeholder in an image's final layout space while its preview loads. Replace it in place without moving the Transcript anchor, and retain the Media Card fallback when inline graphics are unavailable or fail.

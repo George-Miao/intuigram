@@ -134,7 +134,7 @@ pub(super) fn render_chats(
         .enumerate()
         .map(|(offset, chat)| {
             let index = range.start + offset;
-            let marker = if chat.pinned { "●" } else { " " };
+            let marker = if chat.pinned { " ●" } else { "" };
             let unread = if chat.unread > 0 {
                 format!(" {}", chat.unread)
             } else {
@@ -145,9 +145,10 @@ pub(super) fn render_chats(
                 Line::from(vec![
                     selection_rule(selected),
                     Span::styled(
-                        format!("{marker} {}", chat.title),
+                        chat.title.clone(),
                         Style::default().add_modifier(Modifier::BOLD),
                     ),
+                    Span::styled(marker, Style::default().fg(MUTED_TEXT)),
                     Span::styled(unread, Style::default().fg(PRIMARY)),
                 ]),
                 Line::from(vec![
