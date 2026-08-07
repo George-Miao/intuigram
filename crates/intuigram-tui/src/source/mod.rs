@@ -247,10 +247,16 @@ const BINDINGS: &[Binding] = &[
         true,
     ),
     binding(
+        KeyChord::control(Key::Char('o')),
+        "Attach",
+        Action::Paste,
+        true,
+    ),
+    binding(
         KeyChord::control(Key::Char('v')),
         "Paste",
         Action::Paste,
-        true,
+        false,
     ),
     binding(
         KeyChord::control(Key::Char('p')),

@@ -124,7 +124,7 @@ fn displayed_action_bar_and_help_bindings_are_the_bindings_input_resolves() {
         Some(Action::JumpLatest)
     );
 
-    let composer = view(vec![Action::Send, Action::Newline]);
+    let composer = view(vec![Action::Send, Action::Newline, Action::Paste]);
     assert_eq!(
         keymap.resolve(&composer, KeyChord::control(Key::Char('s'))),
         Some(Action::Send)
@@ -139,6 +139,21 @@ fn displayed_action_bar_and_help_bindings_are_the_bindings_input_resolves() {
     assert_eq!(
         keymap.resolve(&composer, KeyChord::shift(Key::Enter)),
         Some(Action::Newline)
+    );
+    assert_eq!(
+        keymap.resolve(&composer, KeyChord::control(Key::Char('o'))),
+        Some(Action::Paste)
+    );
+    assert_eq!(
+        keymap
+            .action_bar(&composer)
+            .find(|binding| binding.action == Action::Paste)
+            .map(|binding| (binding.key, binding.label)),
+        Some((KeyChord::control(Key::Char('o')), "Attach"))
+    );
+    assert_eq!(
+        keymap.resolve(&composer, KeyChord::control(Key::Char('v'))),
+        Some(Action::Paste)
     );
     assert_eq!(
         keymap

@@ -23,7 +23,6 @@
 - [ ] **p-core:** Record and send voice and video notes; browse and send stickers, GIFs, and custom emoji; and share contacts.
 - [ ] **p-core:** Manage Scheduled Messages per Chat: schedule for an explicitly zoned local date and time, send when online where Telegram permits it, and view, edit, reschedule, delete, or send now. Keep scheduled state distinct from Drafts and Pending Actions; delivery remains server-side and survives Intuigram exiting.
 - [ ] **p-core:** Add SOCKS5, HTTP CONNECT, and MTProxy transports, including secret parsing, proxy authentication, explicit DNS behavior, connection testing, and automatic fallback.
-- [ ] **p-core:** Add `Ctrl+O` as the default attachment-selection shortcut, generated through the configurable keymap and shown in the Action Bar when available.
 
 - [ ] **p-high:** Support mouse scrolling in the Transcript, Composer cursor positioning, and visible-action invocation after click selection is stable. Preserve access to terminal-native text selection.
 - [ ] **p-high:** Add first-class forum Topics. Opening a forum Chat shows its Topic list; each Topic keeps independent unread state, Draft, pin state, and position; General remains visible; and Channel replies open in Details or the narrow-screen navigation stack.
