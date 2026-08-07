@@ -89,6 +89,7 @@ impl Client {
                 || "telegram:pending".to_owned(),
                 |identity| format!("telegram:{}", identity.id),
             ),
+            accounts: Vec::new(),
             restored_selection: None,
             transcript_anchors: Vec::new(),
             folders,

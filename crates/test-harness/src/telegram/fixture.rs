@@ -1,16 +1,35 @@
 use intuigram_app::{
-    Bootstrap, ChatId, ChatKind, ChatView, ConnectionState, DeliveryState, DraftView, FolderView,
-    MessageDetails, MessageDirection, MessageId, MessageView,
+    AccountKey, AccountView, Bootstrap, ChatId, ChatKind, ChatView, ConnectionState, DeliveryState,
+    DraftView, FolderView, MessageDetails, MessageDirection, MessageId, MessageView,
 };
 
 #[derive(Clone, Debug)]
 pub struct AccountFixture {
     name: String,
+    id: AccountKey,
+    accounts: Vec<AccountView>,
     chats: Vec<ChatView>,
     drafts: Vec<DraftView>,
 }
 
 impl AccountFixture {
+    #[must_use]
+    pub fn with_identity(mut self, id: i64) -> Self {
+        self.id = AccountKey(id);
+        self.accounts[0].id = self.id;
+        self
+    }
+
+    #[must_use]
+    pub fn with_registered_account(mut self, id: i64, name: impl Into<String>) -> Self {
+        self.accounts.push(AccountView {
+            id: AccountKey(id),
+            display_name: name.into(),
+            active: false,
+        });
+        self
+    }
+
     #[must_use]
     pub fn with_chat(mut self, chat: ChatView) -> Self {
         self.chats.push(chat);
@@ -33,6 +52,7 @@ impl AccountFixture {
             connection: ConnectionState::Connected,
             account_name: self.name,
             notification_identity: "telegram:test".to_owned(),
+            accounts: self.accounts,
             restored_selection: None,
             transcript_anchors: Vec::new(),
             folders: vec![
@@ -58,8 +78,15 @@ impl AccountFixture {
 
 #[must_use]
 pub fn account(name: impl Into<String>) -> AccountFixture {
+    let name = name.into();
     AccountFixture {
-        name: name.into(),
+        name: name.clone(),
+        id: AccountKey(1),
+        accounts: vec![AccountView {
+            id: AccountKey(1),
+            display_name: name,
+            active: true,
+        }],
         chats: Vec::new(),
         drafts: Vec::new(),
     }

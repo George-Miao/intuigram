@@ -6,6 +6,18 @@ impl Backend {
     pub(super) async fn execute(&mut self, effect: AdapterEffect) -> Result<Option<AdapterEvent>> {
         let AdapterEffect { effect, random_id } = effect;
         match effect {
+            Effect::AccountLifecycle { request } => {
+                if matches!(request, AccountLifecycle::Logout(_)) {
+                    return Ok(Some(match self.client.log_out().await {
+                        Ok(()) => AdapterEvent::AccountLifecycleReady(request),
+                        Err(error) => AdapterEvent::OperationFailed(format!(
+                            "Telegram did not confirm logout; local Account data was preserved: \
+                             {error}"
+                        )),
+                    }));
+                }
+                Ok(Some(AdapterEvent::AccountLifecycleReady(request)))
+            }
             Effect::Notify { .. } => {
                 compio::runtime::spawn_blocking(|| -> io::Result<()> {
                     let mut stderr = io::stderr().lock();

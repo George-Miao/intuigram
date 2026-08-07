@@ -141,9 +141,12 @@ impl EffectiveKeymap {
 
     /// Produces exhaustive context Help from the same bindings used for input.
     pub fn help<'a>(&'a self, view: &'a View) -> impl Iterator<Item = &'static Binding> + 'a {
-        BINDINGS.iter().filter(|binding| {
-            view.actions.contains(&binding.action) && binding_matches_context(view, binding)
-        })
+        BINDINGS
+            .iter()
+            .chain(render_accounts::ACCOUNT_BINDINGS)
+            .filter(|binding| {
+                view.actions.contains(&binding.action) && binding_matches_context(view, binding)
+            })
     }
 }
 

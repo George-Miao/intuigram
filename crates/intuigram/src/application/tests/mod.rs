@@ -15,6 +15,7 @@ use super::{
     run_application, run_application_state,
 };
 
+mod accounts;
 mod cached;
 mod misc;
 

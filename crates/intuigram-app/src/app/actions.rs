@@ -1,5 +1,11 @@
 impl App {
     pub(super) fn apply_action(&mut self, action: Action) -> Option<Effect> {
+        if self.view.account_confirmation.is_some() && action != Action::Quit {
+            return self.apply_account_confirmation(action);
+        }
+        if self.view.account_picker.is_some() && action != Action::Quit {
+            return self.apply_account_picker_action(action);
+        }
         if self.view.save_as.is_some() && action != Action::Quit {
             return self.apply_save_as_action(action);
         }
@@ -58,6 +64,14 @@ impl App {
                 self.open_folder_picker();
                 None
             }
+            Action::ManageAccounts => {
+                self.open_account_picker();
+                None
+            }
+            Action::ConfirmAccount
+            | Action::LogoutAccount
+            | Action::RemoveAccountLocally
+            | Action::ConfirmAccountOperation => None,
             Action::ToggleFolderMembership => None,
             Action::Open => {
                 if let Some(chat) = self.active_chat_id() {

@@ -1,20 +1,11 @@
-/// Ordered inputs to the state owner.
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[allow(
-    clippy::large_enum_variant,
-    reason = "adapter batches enter the synchronous reducer once; boxing every input would add \
-              allocation to all terminal actions"
-)]
-pub enum Input {
-    /// An action from the active user interface.
-    Intent(Intent),
-    /// A result from an external adapter.
-    Adapter(AdapterEvent),
-}
-
 /// Side effects requested from adapters.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Effect {
+    /// Ask the composition root to change the active Account lifecycle.
+    AccountLifecycle {
+        /// Requested switch, authorization, or removal operation.
+        request: AccountLifecycle,
+    },
     /// Alert the user about an incoming Message outside the visibly read Chat.
     Notify {
         /// Stable Account-scoped replacement identity.
@@ -277,6 +268,9 @@ pub struct View {
     /// Stable Account-scoped notification replacement identity.
     pub notification_identity: String,
 
+    /// Registered Accounts available to the Account picker.
+    pub accounts: Vec<AccountView>,
+
     /// Synchronized Telegram Folders.
     pub folders: Vec<FolderView>,
 
@@ -337,6 +331,12 @@ pub struct View {
 
     /// Selected index in the Folder membership overlay, when open.
     pub folder_picker: Option<usize>,
+
+    /// Selected index in the Account picker; the final index is Add Account.
+    pub account_picker: Option<usize>,
+
+    /// Destructive Account operation awaiting explicit confirmation.
+    pub account_confirmation: Option<AccountConfirmationView>,
 
     /// Messages awaiting explicit destructive-action confirmation.
     pub delete_confirmation: Option<Vec<MessageId>>,

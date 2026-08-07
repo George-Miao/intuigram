@@ -37,7 +37,11 @@ pub(super) fn render_with_semantics(
     render_folders(frame, rows[1], view, mode, semantics);
     render_actions(frame, rows[2], view, keymap, mode, semantics);
     render_status(frame, rows[3], view, mode);
-    if view.help_open {
+    if view.account_confirmation.is_some() {
+        render_account_confirmation(frame, area, view);
+    } else if view.account_picker.is_some() {
+        render_account_picker(frame, area, view);
+    } else if view.help_open {
         render_help(frame, area, view, keymap);
     } else if view.attachment_path.is_some() {
         render_attachment_path(frame, area, view);

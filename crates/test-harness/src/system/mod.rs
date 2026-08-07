@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use intuigram::{Application, UpdateCommitter};
-use intuigram_app::DownloadId;
+use intuigram_app::{AccountLifecycle, DownloadId};
 use intuigram_store::AccountDatabase;
 use intuigram_tui::{render_test_frame, resolve_test_event};
 use tempfile::TempDir;
@@ -39,6 +39,7 @@ pub struct TestSystem {
     downloaded_paths: Vec<PathBuf>,
     opened_links: Vec<String>,
     opened_downloads: Vec<(DownloadId, bool)>,
+    account_lifecycle: Vec<AccountLifecycle>,
     terminal: (u16, u16),
     trace: Rc<RefCell<Trace>>,
     state: Rc<RefCell<RenderedState>>,
@@ -107,10 +108,27 @@ impl TestSystem {
         &self.opened_downloads
     }
 
+    pub fn expect_account_lifecycle(&mut self, expected: AccountLifecycle) -> Result<()> {
+        let actual = self.account_lifecycle.first().copied();
+        if actual == Some(expected) {
+            self.account_lifecycle.remove(0);
+            Ok(())
+        } else {
+            Err(Error::Expectation {
+                expectation: format!("Account lifecycle request {expected:?}"),
+                actual: format!("{actual:?}"),
+                artifact: self.trace.borrow().persist(),
+            })
+        }
+    }
+
     pub fn expect_no_unhandled_work(&mut self) -> Result<()> {
         let mut pending = self.telegram.pending();
         if self.application.has_pending_effects() {
             pending.push("application adapter effects".to_owned());
+        }
+        if !self.account_lifecycle.is_empty() {
+            pending.push("unobserved Account lifecycle requests".to_owned());
         }
         self.trace.borrow_mut().set_pending(pending.clone());
         if pending.is_empty() {

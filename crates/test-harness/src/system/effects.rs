@@ -28,6 +28,9 @@ impl TestSystem {
                 self.application.revision(),
             );
             match effect {
+                Effect::AccountLifecycle { request } => {
+                    self.account_lifecycle.push(request);
+                }
                 Effect::Notify { .. } => {}
                 Effect::LoadChat {
                     chat,

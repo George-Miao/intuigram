@@ -1,8 +1,10 @@
+mod account;
 mod formatting;
 mod links;
 mod media;
 mod message;
 
+pub use account::*;
 pub(crate) use formatting::format_markdown;
 pub(crate) use links::active_link;
 pub use media::*;

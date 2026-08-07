@@ -51,7 +51,7 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
         }
         return Ok(());
     }
-    let active_account = if arguments.add_account {
+    let mut requested_account = if arguments.add_account {
         None
     } else if let Some(requested) = arguments.account {
         let selected = accounts
@@ -67,42 +67,64 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
                 ..selected.clone()
             })
             .context(UpdateAccountRegistrySnafu)?;
-        Some(selected)
+        Some(selected.id)
     } else {
-        accounts.iter().find(|account| account.active).cloned()
+        accounts
+            .iter()
+            .find(|account| account.active)
+            .map(|account| account.id)
     };
+    drop(global);
     let credentials = resolve_telegram_credentials(&config, &config_directory)?;
-    let initializing_lock = config.local_lock.enabled
-        && active_account
-            .as_ref()
-            .is_none_or(|account| !intuigram_store::local_lock_is_enabled(&layout, account.id));
-    let mut unlock = unlock_local_lock(
-        &config,
-        active_account.as_ref().map(|account| account.id),
-        initializing_lock,
-    )
-    .context(LocalLockSnafu)?;
     let view_mode = match config.view.mode {
         ConfigViewMode::Default => TuiViewMode::Default,
         ConfigViewMode::Compact => TuiViewMode::Compact,
     };
-    let mut terminal = TerminalUi::enter_with_mode(view_mode).context(TerminalSnafu)?;
-    let mut events = TerminalEvents::new().context(TerminalSnafu)?;
-    if let Some(account) = active_account {
-        if unlock.cipher().is_encrypted() {
-            intuigram_store::enable_local_lock(&layout, account.id, &unlock.cipher())
-                .context(EnableLocalLockSnafu)?;
+    loop {
+        let global = GlobalDatabase::open(&layout).context(OpenAccountRegistrySnafu)?;
+        let accounts = global.accounts().context(ReadAccountRegistrySnafu)?;
+        let active_account = requested_account.and_then(|requested| {
+            accounts
+                .iter()
+                .find(|account| account.id == requested)
+                .cloned()
+        });
+        if let Some(account) = &active_account {
+            global
+                .register(AccountRecord {
+                    active: true,
+                    ..account.clone()
+                })
+                .context(UpdateAccountRegistrySnafu)?;
         }
-        let database = match AccountDatabase::open_recoverable_with_cipher(
-            &layout,
-            account.id,
-            unlock.cipher(),
+        let registered_accounts =
+            account_views(&accounts, active_account.as_ref().map(|item| item.id));
+        let initializing_lock = config.local_lock.enabled
+            && active_account
+                .as_ref()
+                .is_none_or(|account| !intuigram_store::local_lock_is_enabled(&layout, account.id));
+        let mut unlock = unlock_local_lock(
+            &config,
+            active_account.as_ref().map(|account| account.id),
+            initializing_lock,
         )
-        .context(AccountDatabaseSnafu)?
-        {
-            AccountOpen::Ready(database) => database,
-            AccountOpen::Recovery(recovery) => {
-                match crate::recovery::run(
+        .context(LocalLockSnafu)?;
+        let mut terminal = TerminalUi::enter_with_mode(view_mode).context(TerminalSnafu)?;
+        let mut events = TerminalEvents::new().context(TerminalSnafu)?;
+        let outcome = if let Some(account) = active_account {
+            if unlock.cipher().is_encrypted() {
+                intuigram_store::enable_local_lock(&layout, account.id, &unlock.cipher())
+                    .context(EnableLocalLockSnafu)?;
+            }
+            let database = match AccountDatabase::open_recoverable_with_cipher(
+                &layout,
+                account.id,
+                unlock.cipher(),
+            )
+            .context(AccountDatabaseSnafu)?
+            {
+                AccountOpen::Ready(database) => database,
+                AccountOpen::Recovery(recovery) => match crate::recovery::run(
                     &mut terminal,
                     &mut events,
                     recovery,
@@ -113,190 +135,117 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
                 {
                     crate::recovery::Outcome::Ready(database) => database,
                     crate::recovery::Outcome::Cancelled => return Ok(()),
+                },
+            };
+            let cached = database.cached_account().context(AccountDatabaseSnafu)?;
+            drop(database);
+            unlock
+                .promote(&config, account.id)
+                .context(LocalLockSnafu)?;
+            run_cached_account(
+                &mut terminal,
+                &mut events,
+                CachedSession {
+                    credentials: credentials.clone(),
+                    layout: layout.clone(),
+                    account: account.clone(),
+                    bootstrap: cached_bootstrap(
+                        account.display_name.clone(),
+                        account.notification_identity.clone(),
+                        cached,
+                    ),
+                    accounts: registered_accounts,
+                    storage: AdapterStorage {
+                        downloads: config.paths.downloads.clone(),
+                        cache_root: config.paths.cache.clone(),
+                        cache_limit: config.media.cache_bytes,
+                        cipher: unlock.cipher(),
+                        route: telegram_route(&config)?,
+                    },
+                },
+            )
+            .await?
+        } else {
+            let (backend, mut backend_events, peers, mut bootstrap) =
+                authorize_new_account(&credentials, &config, &layout, &global, unlock.cipher())
+                    .await?;
+            let account = backend
+                ._database
+                .account_id()
+                .context(AccountDatabaseSnafu)?
+                .expect("an authorized backend always has a persisted Account identity");
+            unlock.promote(&config, account).context(LocalLockSnafu)?;
+            bootstrap.accounts = account_views(
+                &global.accounts().context(ReadAccountRegistrySnafu)?,
+                Some(account),
+            );
+            match run_application(
+                &mut terminal,
+                &mut events,
+                &mut backend_events,
+                backend,
+                peers,
+                bootstrap,
+            )
+            .await?
+            {
+                ApplicationExit::Quit => AccountSessionExit::Quit,
+                ApplicationExit::Lifecycle { request, backend } => {
+                    drop(backend);
+                    AccountSessionExit::Lifecycle(request)
+                }
+                ApplicationExit::Disconnected(_) => {
+                    requested_account = Some(account);
+                    continue;
                 }
             }
         };
-        let cached = database.cached_account().context(AccountDatabaseSnafu)?;
-        drop(database);
-        unlock
-            .promote(&config, account.id)
-            .context(LocalLockSnafu)?;
-        let route = telegram_route(&config)?;
-        return run_cached_account(
-            &mut terminal,
-            &mut events,
-            credentials,
-            layout,
-            account.clone(),
-            cached_bootstrap(account.display_name, account.notification_identity, cached),
-            AdapterStorage {
-                downloads: config.paths.downloads,
-                cache_root: config.paths.cache,
-                cache_limit: config.media.cache_bytes,
-                cipher: unlock.cipher(),
-                route,
-            },
-        )
-        .await;
+        drop(events);
+        drop(terminal);
+        match outcome {
+            AccountSessionExit::Quit => return Ok(()),
+            AccountSessionExit::Lifecycle(AccountLifecycle::Add) => requested_account = None,
+            AccountSessionExit::Lifecycle(AccountLifecycle::Switch(key)) => {
+                requested_account = Some(account_id(key)?);
+            }
+            AccountSessionExit::Lifecycle(
+                AccountLifecycle::Logout(key) | AccountLifecycle::RemoveLocal(key),
+            ) => {
+                let account = account_id(key)?;
+                let fallback = accounts
+                    .iter()
+                    .find(|candidate| candidate.id != account)
+                    .map(|candidate| candidate.id);
+                let record = accounts
+                    .iter()
+                    .find(|candidate| candidate.id == account)
+                    .context(UnknownAccountSnafu {
+                        account: account.get(),
+                    })?;
+                remove_local_account(
+                    &config,
+                    layout.clone(),
+                    global,
+                    account,
+                    &record.display_name,
+                )?;
+                requested_account = fallback;
+            }
+        }
     }
-    let (backend, mut backend_events, peers, bootstrap) =
-        authorize_new_account(&credentials, &config, &layout, &global, unlock.cipher()).await?;
-    let account = backend
-        ._database
-        .account_id()
-        .context(AccountDatabaseSnafu)?
-        .expect("an authorized backend always has a persisted Account identity");
-    unlock.promote(&config, account).context(LocalLockSnafu)?;
-    run_application(
-        &mut terminal,
-        &mut events,
-        &mut backend_events,
-        backend,
-        peers,
-        bootstrap,
-    )
-    .await
 }
 
-pub(super) async fn run_cached_account<U, E>(
-    terminal: &mut U,
-    events: &mut E,
-    credentials: ApplicationCredentials,
-    layout: StoreLayout,
-    account: AccountRecord,
-    bootstrap: Bootstrap,
-    storage: AdapterStorage,
-) -> Result<()>
-where
-    U: ApplicationUi,
-    E: ApplicationEvents,
-{
-    let mut app = App::new();
-    let mut update = app.transition(Input::Adapter(AdapterEvent::Bootstrap(bootstrap)));
-    let mut pending_effects = VecDeque::with_capacity(EFFECT_CAPACITY);
-    let mut retained_attachments = AttachmentStore::default();
-    let mut retained_downloads = DownloadStore::default();
-    let mut attempt = Some(Box::pin(resume_account(
-        credentials.clone(),
-        &layout,
-        &account,
-        storage.clone(),
-    )));
+fn account_id(key: AccountKey) -> Result<AccountId> {
+    AccountId::new(key.0).context(InvalidAccountIdSnafu { value: key.0 })
+}
 
-    loop {
-        terminal.draw(&update.view).context(TerminalSnafu)?;
-        if let Some(effect) = update.effect.take() {
-            match effect {
-                Effect::Quit => return Ok(()),
-                Effect::Reconnect if attempt.is_none() => {
-                    attempt = Some(Box::pin(resume_account(
-                        credentials.clone(),
-                        &layout,
-                        &account,
-                        storage.clone(),
-                    )));
-                }
-                Effect::Reconnect => {}
-                effect => {
-                    enqueue_effect::<Backend>(&mut pending_effects, &None, Some(effect))?;
-                }
-            }
-        }
-
-        enum Wake<T> {
-            Terminal(T),
-            Connected(
-                Box<
-                    Result<(
-                        Backend,
-                        BackendEvents,
-                        intuigram_telegram::PeerDirectory,
-                        Bootstrap,
-                    )>,
-                >,
-            ),
-        }
-        let wake = poll_fn(|cx| {
-            if let Poll::Ready(event) = events.poll_next_event(cx) {
-                return Poll::Ready(Wake::Terminal(event));
-            }
-            if let Some(connection) = &mut attempt
-                && let Poll::Ready(result) = connection.as_mut().poll(cx)
-            {
-                return Poll::Ready(Wake::Connected(Box::new(result)));
-            }
-            Poll::Pending
+fn account_views(accounts: &[AccountRecord], active: Option<AccountId>) -> Vec<AccountView> {
+    accounts
+        .iter()
+        .map(|account| AccountView {
+            id: AccountKey(account.id.get()),
+            display_name: account.display_name.clone(),
+            active: Some(account.id) == active,
         })
-        .await;
-
-        match wake {
-            Wake::Terminal(event) => {
-                let event = event.context(TerminalSnafu)?;
-                let Some(event) = terminal.resolve_event(&update.view, event) else {
-                    continue;
-                };
-                match event {
-                    UiEvent::Redraw => {}
-                    UiEvent::Intent(intent) => update = app.transition(Input::Intent(intent)),
-                }
-            }
-            Wake::Connected(result) if result.is_ok() => {
-                let Ok((mut backend, mut adapter_events, peers, bootstrap)) = *result else {
-                    unreachable!("successful connection result was checked")
-                };
-                backend
-                    .attachments
-                    .merge(std::mem::take(&mut retained_attachments));
-                backend
-                    .downloaded
-                    .merge(std::mem::take(&mut retained_downloads));
-                update =
-                    app.transition(Input::Adapter(AdapterEvent::ConnectionRestored(bootstrap)));
-                match run_application_state(
-                    terminal,
-                    events,
-                    &mut adapter_events,
-                    backend,
-                    ApplicationState {
-                        app,
-                        update,
-                        pending_effects,
-                        peers,
-                    },
-                )
-                .await?
-                {
-                    ApplicationExit::Quit => return Ok(()),
-                    ApplicationExit::Disconnected(state) => {
-                        let DisconnectedApplication {
-                            app: disconnected_app,
-                            backend: disconnected_backend,
-                            pending_effects: disconnected_effects,
-                        } = *state;
-                        retained_attachments.merge(disconnected_backend.attachments);
-                        retained_downloads.merge(disconnected_backend.downloaded);
-                        app = disconnected_app;
-                        pending_effects = disconnected_effects;
-                        update = app.transition(Input::Adapter(AdapterEvent::ConnectionChanged(
-                            ConnectionState::Connecting,
-                        )));
-                        attempt = Some(Box::pin(resume_account(
-                            credentials.clone(),
-                            &layout,
-                            &account,
-                            storage.clone(),
-                        )));
-                    }
-                }
-            }
-            Wake::Connected(result) => {
-                let Err(error) = *result else {
-                    unreachable!("failed connection result was checked")
-                };
-                attempt = None;
-                let reason = error_lines(&error).join(": ");
-                update = app.transition(Input::Adapter(AdapterEvent::ConnectionFailed(reason)));
-            }
-        }
-    }
+        .collect()
 }

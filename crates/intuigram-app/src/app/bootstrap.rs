@@ -5,6 +5,7 @@ impl App {
                 connection: ConnectionState::Connecting,
                 account_name: "Intuigram".to_owned(),
                 notification_identity: "telegram:unknown".to_owned(),
+                accounts: Vec::new(),
                 folders: Vec::new(),
                 active_folder: 0,
                 chats: Vec::new(),
@@ -25,6 +26,8 @@ impl App {
                 has_newer_messages: false,
                 help_open: false,
                 folder_picker: None,
+                account_picker: None,
+                account_confirmation: None,
                 delete_confirmation: None,
                 forward_picker: None,
                 reaction_picker: None,
@@ -106,6 +109,7 @@ impl App {
         self.view.connection = bootstrap.connection;
         self.view.account_name = bootstrap.account_name;
         self.view.notification_identity = bootstrap.notification_identity;
+        self.view.accounts = bootstrap.accounts;
         self.view.folders = bootstrap.folders;
         self.all_chats = bootstrap.chats;
         self.drafts = bootstrap
@@ -215,6 +219,8 @@ impl App {
         self.view.active_message = None;
         self.view.selected_messages.clear();
         self.view.delete_confirmation = None;
+        self.view.account_picker = None;
+        self.view.account_confirmation = None;
         self.view.forward_picker = None;
         self.view.reaction_picker = None;
         self.view.poll_vote = None;

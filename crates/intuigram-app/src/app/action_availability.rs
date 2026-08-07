@@ -16,6 +16,35 @@ impl App {
             self.view.actions = vec![Action::Quit, Action::ConfirmAttachment, Action::Cancel];
             return;
         }
+        if self.view.account_confirmation.is_some() {
+            self.view.actions = vec![
+                Action::Quit,
+                Action::ConfirmAccountOperation,
+                Action::Cancel,
+            ];
+            return;
+        }
+        if self.view.account_picker.is_some() {
+            let mut picker_actions = vec![
+                Action::Quit,
+                Action::MoveUp,
+                Action::MoveDown,
+                Action::ConfirmAccount,
+                Action::RemoveAccountLocally,
+                Action::Cancel,
+            ];
+            let selected = self
+                .view
+                .account_picker
+                .and_then(|index| self.view.accounts.get(index));
+            if self.view.connection == ConnectionState::Connected
+                && selected.is_some_and(|account| account.active)
+            {
+                picker_actions.push(Action::LogoutAccount);
+            }
+            self.view.actions = picker_actions;
+            return;
+        }
         if self.view.folder_picker.is_some() {
             self.view.actions = vec![
                 Action::Quit,
@@ -73,6 +102,7 @@ impl App {
                     Action::PreviousFolder,
                     Action::NextFolder,
                     Action::ManageFolders,
+                    Action::ManageAccounts,
                     Action::Open,
                     Action::NavigatePinned,
                     Action::Search,

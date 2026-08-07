@@ -17,6 +17,16 @@ pub enum Action {
     NextFolder,
     /// Open Folder membership for the Active Chat.
     ManageFolders,
+    /// Open the Account picker from Chat-list navigation.
+    ManageAccounts,
+    /// Confirm the selected Account or Add Account entry.
+    ConfirmAccount,
+    /// Ask to revoke and remove the selected active Account.
+    LogoutAccount,
+    /// Ask to remove the selected Account's local data only.
+    RemoveAccountLocally,
+    /// Confirm the pending destructive Account operation.
+    ConfirmAccountOperation,
     /// Toggle the selected Folder membership for the Active Chat.
     ToggleFolderMembership,
     /// Enter the Active Chat with its Composer focused.

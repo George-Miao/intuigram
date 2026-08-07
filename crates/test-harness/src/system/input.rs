@@ -30,6 +30,9 @@ pub mod key {
     pub const CTRL_LINK: TestKey = TestKey::ControlLink;
     pub const CTRL_DOWNLOAD: TestKey = TestKey::ControlDownload;
     pub const CTRL_OPEN: TestKey = TestKey::ControlOpen;
+    pub const ACCOUNTS: TestKey = TestKey::Accounts;
+    pub const ALT_LOGOUT: TestKey = TestKey::AltLogout;
+    pub const ALT_REMOVE_LOCAL: TestKey = TestKey::AltRemoveLocal;
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -59,6 +62,9 @@ pub enum TestKey {
     ControlLink,
     ControlDownload,
     ControlOpen,
+    Accounts,
+    AltLogout,
+    AltRemoveLocal,
 }
 
 impl TestKey {
@@ -89,6 +95,9 @@ impl TestKey {
             Self::ControlLink => (KeyCode::Char('l'), KeyModifiers::CONTROL),
             Self::ControlDownload => (KeyCode::Char('d'), KeyModifiers::CONTROL),
             Self::ControlOpen => (KeyCode::Char('o'), KeyModifiers::CONTROL),
+            Self::Accounts => (KeyCode::Char('a'), KeyModifiers::NONE),
+            Self::AltLogout => (KeyCode::Char('l'), KeyModifiers::ALT),
+            Self::AltRemoveLocal => (KeyCode::Char('d'), KeyModifiers::ALT),
         };
         Event::Key(KeyEvent::new_with_kind(
             code,

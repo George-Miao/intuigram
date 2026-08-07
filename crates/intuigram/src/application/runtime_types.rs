@@ -21,7 +21,16 @@ pub(super) struct DisconnectedApplication<B> {
 
 pub(super) enum ApplicationExit<B> {
     Quit,
+    Lifecycle {
+        request: AccountLifecycle,
+        backend: B,
+    },
     Disconnected(Box<DisconnectedApplication<B>>),
+}
+
+pub(super) enum AccountSessionExit {
+    Quit,
+    Lifecycle(AccountLifecycle),
 }
 
 pub(super) struct ApplicationState {

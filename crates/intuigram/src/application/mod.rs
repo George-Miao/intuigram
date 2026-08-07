@@ -15,11 +15,11 @@ use intuigram::{
     encode_stored_message, store_cursor,
 };
 use intuigram_app::{
-    AdapterEvent, App, AttachmentId, AttachmentKind, AttachmentView, Bootstrap, ChatId, ChatKind,
-    ChatView, ConnectionState, DeliveryState, DownloadId, DownloadView, DraftView, Effect,
-    FolderView, HistoryView, InlineImage, Input, Intent, MediaCard, MediaKind, MediaPreviewView,
-    MessageDetails, MessageDirection, MessageId, MessageView, PollOptionView, PollView,
-    SelectionView, TextEntity, TranscriptAnchorView, Update,
+    AccountKey, AccountLifecycle, AccountView, AdapterEvent, App, AttachmentId, AttachmentKind,
+    AttachmentView, Bootstrap, ChatId, ChatKind, ChatView, ConnectionState, DeliveryState,
+    DownloadId, DownloadView, DraftView, Effect, FolderView, HistoryView, InlineImage, Input,
+    Intent, MediaCard, MediaKind, MediaPreviewView, MessageDetails, MessageDirection, MessageId,
+    MessageView, PollOptionView, PollView, SelectionView, TextEntity, TranscriptAnchorView, Update,
 };
 use intuigram_config::{
     Config, ConfigLoader, Overrides, PlatformDefaults, ViewMode as ConfigViewMode,
@@ -45,6 +45,7 @@ mod backend_effects;
 mod backend_message_actions;
 mod backend_pins;
 mod cache;
+mod cached_session;
 mod configuration;
 #[cfg(test)]
 mod configuration_tests;
@@ -68,6 +69,7 @@ mod ui;
 use authorization::{authorize_new_account, resume_account};
 use backend::{MessageSend, OutgoingRecord};
 use cache::cached_bootstrap;
+use cached_session::{CachedSession, run_cached_account};
 use configuration::{
     derived_random_id, mime_type_for_path, parse_arguments, platform_defaults, print_help, prompt,
     resolve_telegram_credentials, store_session, telegram_session,
@@ -84,8 +86,8 @@ use login::{
     unix_timestamp,
 };
 use maintenance::{
-    run_folder_maintenance, run_logout, run_maintenance, run_rich_media_maintenance,
-    run_scheduled_maintenance,
+    remove_local_account, run_folder_maintenance, run_logout, run_maintenance,
+    run_rich_media_maintenance, run_scheduled_maintenance,
 };
 use media_arguments::parse_media_maintenance;
 use poll::PollPersistence;
@@ -95,8 +97,9 @@ use runtime_adapters::{
 };
 use runtime_loop::{run_application, run_application_state};
 use runtime_types::{
-    AdapterEffect, ApplicationExit, ApplicationState, ApplicationWake, DisconnectedApplication,
-    PendingEffect, connection_failure_reason, enqueue_effect, start_effect,
+    AccountSessionExit, AdapterEffect, ApplicationExit, ApplicationState, ApplicationWake,
+    DisconnectedApplication, PendingEffect, connection_failure_reason, enqueue_effect,
+    start_effect,
 };
 use schedule_arguments::parse_scheduled_maintenance;
 use startup::run_async;

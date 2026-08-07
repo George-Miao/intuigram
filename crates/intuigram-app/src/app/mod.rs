@@ -79,6 +79,7 @@ impl App {
                 self.view.notice = Some(reason);
                 None
             }
+            Input::Adapter(AdapterEvent::AccountLifecycleReady(_)) => None,
             Input::Adapter(AdapterEvent::OperationCompleted(message)) => {
                 self.view.notice = Some(message);
                 None
@@ -358,6 +359,7 @@ use crate::domain::*;
 use crate::history::reconcile_refresh;
 use crate::protocol::*;
 
+mod account_management;
 mod action_availability;
 mod actions;
 mod bootstrap;

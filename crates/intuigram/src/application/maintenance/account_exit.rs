@@ -70,7 +70,7 @@ fn after_verified_revocation<T, E>(
     remove()
 }
 
-pub(super) fn remove_local_account(
+pub(crate) fn remove_local_account(
     config: &Config,
     layout: StoreLayout,
     global: GlobalDatabase,

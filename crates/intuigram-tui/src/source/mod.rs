@@ -40,6 +40,7 @@ mod events;
 mod key_chord;
 pub(crate) mod qr_render;
 mod qr_session;
+mod render_accounts;
 mod render_chrome;
 mod render_composer;
 mod render_headers;
@@ -55,6 +56,7 @@ pub use events::*;
 pub use key_chord::{Binding, Key, KeyChord};
 use qr_render::{chord_from_crossterm, qr_login_symbols, render_qr_login};
 pub use qr_session::*;
+use render_accounts::{render_account_confirmation, render_account_picker};
 use render_chrome::{
     anchored_window, centered_rect, interaction_rule, render_actions, render_folder_picker,
     render_folders, render_help, render_status, selection_rule, surface_style,

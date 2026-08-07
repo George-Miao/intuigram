@@ -5,7 +5,7 @@ pub(super) async fn run_application<U, E, A, B>(
     backend: B,
     peers: intuigram_telegram::PeerDirectory,
     bootstrap: Bootstrap,
-) -> Result<()>
+) -> Result<ApplicationExit<B>>
 where
     U: ApplicationUi,
     E: ApplicationEvents,
@@ -13,7 +13,7 @@ where
     B: ApplicationBackend,
 {
     let (app, update) = Application::new(bootstrap).into_parts();
-    match run_application_state(
+    run_application_state(
         terminal,
         events,
         adapter_events,
@@ -25,11 +25,7 @@ where
             peers,
         },
     )
-    .await?
-    {
-        ApplicationExit::Quit => Ok(()),
-        ApplicationExit::Disconnected(_) => TelegramUpdatesClosedSnafu.fail(),
-    }
+    .await
 }
 
 pub(super) async fn run_application_state<U, E, A, B>(
@@ -152,6 +148,16 @@ where
                     Ok(output) => {
                         if let Some(returned) = output.telegram_update {
                             adapter_events.submit_update(returned);
+                        }
+                        if let Some(AdapterEvent::AccountLifecycleReady(request)) =
+                            output.event.as_ref()
+                        {
+                            return Ok(ApplicationExit::Lifecycle {
+                                request: *request,
+                                backend: backend
+                                    .take()
+                                    .expect("the completed lifecycle effect returned its backend"),
+                            });
                         }
                         update = match output.event {
                             Some(event) => app.transition(Input::Adapter(event)),

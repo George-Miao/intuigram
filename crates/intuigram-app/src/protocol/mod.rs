@@ -10,6 +10,9 @@ pub struct Bootstrap {
     /// Stable Account-scoped identity for notification replacement.
     pub notification_identity: String,
 
+    /// Registered Accounts available without restarting Intuigram.
+    pub accounts: Vec<AccountView>,
+
     /// Last durable Folder and Chat selection, when one has been saved.
     pub restored_selection: Option<SelectionView>,
 
@@ -62,6 +65,9 @@ pub enum AdapterEvent {
 
     /// A nonfatal Telegram operation failed.
     OperationFailed(String),
+
+    /// The backend is quiescent and the composition root may change Accounts.
+    AccountLifecycleReady(AccountLifecycle),
 
     /// A platform or Telegram action completed with a visible result.
     OperationCompleted(String),
@@ -283,7 +289,9 @@ pub enum AdapterEvent {
 use crate::domain::*;
 
 mod effects;
+mod input;
 mod intents;
 
 pub use effects::*;
+pub use input::*;
 pub use intents::*;

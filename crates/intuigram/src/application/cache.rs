@@ -98,6 +98,7 @@ pub(super) fn cached_bootstrap(
         connection: intuigram_app::ConnectionState::Connecting,
         account_name,
         notification_identity,
+        accounts: Vec::new(),
         restored_selection,
         transcript_anchors,
         folders,

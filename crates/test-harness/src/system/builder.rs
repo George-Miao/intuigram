@@ -123,6 +123,7 @@ impl TestSystemBuilder {
             downloaded_paths: Vec::new(),
             opened_links: Vec::new(),
             opened_downloads: Vec::new(),
+            account_lifecycle: Vec::new(),
             terminal: self.terminal,
             trace,
             state,
