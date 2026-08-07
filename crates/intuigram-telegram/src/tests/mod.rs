@@ -35,6 +35,25 @@ fn every_flood_wait_is_retried_after_the_server_delay() {
 }
 
 #[test]
+fn invalid_peer_rpc_requests_one_directory_refresh() {
+    let invalid = Error::Invoke {
+        source: InvocationError::Rpc {
+            code: 400,
+            message: "CHANNEL_INVALID".to_owned(),
+        },
+    };
+    let unrelated = Error::Invoke {
+        source: InvocationError::Rpc {
+            code: 400,
+            message: "MESSAGE_ID_INVALID".to_owned(),
+        },
+    };
+
+    assert!(invalid.requires_peer_refresh());
+    assert!(!unrelated.requires_peer_refresh());
+}
+
+#[test]
 fn qr_login_routes_session_password_needed_to_2fa() {
     let error = InvocationError::Rpc {
         code: 401,

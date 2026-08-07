@@ -10,6 +10,11 @@ pub(super) struct DialogBatch {
 }
 
 impl Client {
+    /// Refreshes operation addresses for every currently visible Telegram Chat.
+    pub async fn refresh_peer_directory(&mut self) -> Result<()> {
+        self.load_all_dialogs(MAX_DIALOG_PAGE).await.map(|_| ())
+    }
+
     pub(super) async fn load_all_dialogs(&mut self, requested_page: i32) -> Result<DialogBatch> {
         let page_size = requested_page.clamp(1, MAX_DIALOG_PAGE);
         let mut request = tl::functions::messages::GetDialogs {

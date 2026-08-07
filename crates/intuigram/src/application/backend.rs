@@ -118,7 +118,7 @@ impl Backend {
     ) -> Result<(Vec<MessageView>, Vec<MessageView>)> {
         let messages = self
             .client
-            .history(chat, 100)
+            .complete_history(chat, 100)
             .await
             .context(TelegramSnafu)?;
         let pinned_messages = self

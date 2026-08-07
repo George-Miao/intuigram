@@ -79,6 +79,10 @@ pub enum Error {
     #[snafu(display("Telegram dialog page has no usable pagination offset"))]
     DialogOffsetUnavailable,
 
+    /// Telegram returned a full history page without a usable older offset.
+    #[snafu(display("Telegram history pagination made no progress for Chat {chat_id}"))]
+    HistoryOffsetUnavailable { chat_id: i64 },
+
     /// The requested Chat is not present in the current Telegram peer cache.
     #[snafu(display("Telegram peer for Chat {chat_id} is unavailable"))]
     PeerUnavailable {
@@ -174,6 +178,21 @@ pub enum Error {
     /// Intuigram connected to Telegram's isolated test environment.
     #[snafu(display("connected to a Telegram test data center instead of production"))]
     TestDataCenter,
+}
+
+impl Error {
+    pub(crate) fn requires_peer_refresh(&self) -> bool {
+        match self {
+            Self::PeerUnavailable { .. } => true,
+            Self::Invoke {
+                source: InvocationError::Rpc { message, .. },
+            } => matches!(
+                message.as_str(),
+                "CHANNEL_INVALID" | "CHANNEL_PRIVATE" | "PEER_ID_INVALID"
+            ),
+            _ => false,
+        }
+    }
 }
 
 /// Result returned by Telegram operations.
