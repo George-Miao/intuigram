@@ -1,6 +1,7 @@
 use super::*;
 
 mod media;
+mod media_image;
 mod message;
 mod rich_text;
 mod window;
@@ -15,6 +16,7 @@ pub(super) fn render_transcript(
     focused: bool,
     mode: ViewMode,
     semantics: &mut Vec<SemanticNode>,
+    graphics: &mut GraphicsFrame,
 ) {
     frame.render_widget(Paragraph::new("").style(surface_style(focused)), area);
     let area = mode.padded(area);
@@ -51,6 +53,7 @@ pub(super) fn render_transcript(
                             previous.details.date_label != message.details.date_label
                         }),
                 },
+                graphics,
             )
         })
         .collect::<Vec<_>>();

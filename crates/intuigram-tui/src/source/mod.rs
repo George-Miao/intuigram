@@ -37,6 +37,7 @@ mod avatar;
 mod composer_wrap;
 mod effort;
 mod events;
+pub(crate) mod graphics;
 mod key_chord;
 mod palette;
 pub(crate) mod qr_render;
@@ -57,6 +58,7 @@ mod view_mode;
 use avatar::avatar_badge;
 use effort::effort_spans;
 pub use events::*;
+use graphics::{GraphicsFrame, GraphicsProtocol, GraphicsRequest, GraphicsState, image_id};
 pub use key_chord::{Binding, Key, KeyChord};
 pub(crate) use palette::*;
 use qr_render::{chord_from_crossterm, qr_login_symbols, render_qr_login};
@@ -69,7 +71,7 @@ use render_chrome::{
 use render_composer::{composer_height, render_composer};
 use render_folder_manager::render_folder_manager;
 use render_headers::{render_active_chat_header, render_chat_list_header};
-use render_layout::render_with_semantics;
+use render_layout::render_with_graphics;
 use render_overlays::{
     render_attachment_path, render_delete_confirmation, render_forward_picker,
     render_link_confirmation, render_poll_vote, render_reaction_picker, render_save_as,

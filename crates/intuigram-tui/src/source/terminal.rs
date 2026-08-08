@@ -4,6 +4,8 @@ pub struct TerminalUi {
     keymap: EffectiveKeymap,
     view_mode: ViewMode,
     semantics: Vec<SemanticNode>,
+    graphics_protocol: GraphicsProtocol,
+    graphics: GraphicsState,
 }
 
 impl TerminalUi {
@@ -19,6 +21,8 @@ impl TerminalUi {
             keymap: EffectiveKeymap::defaults(),
             view_mode,
             semantics: Vec::new(),
+            graphics_protocol: GraphicsProtocol::from_env(),
+            graphics: GraphicsState::default(),
         })
     }
 
@@ -26,12 +30,26 @@ impl TerminalUi {
     pub fn draw(&mut self, view: &View) -> Result<()> {
         let keymap = &self.keymap;
         let view_mode = self.view_mode;
+        let graphics_protocol = self.graphics_protocol;
         let mut semantics = Vec::new();
+        let mut graphics = GraphicsFrame::new(graphics_protocol);
         self.terminal
             .draw(|frame| {
-                render_with_semantics(frame, view, keymap, view_mode, &mut semantics);
+                render_with_graphics(
+                    frame,
+                    view,
+                    keymap,
+                    view_mode,
+                    &mut semantics,
+                    &mut graphics,
+                );
             })
             .context(DrawSnafu)?;
+        if graphics_protocol == GraphicsProtocol::KittyUnicode {
+            self.graphics
+                .sync(self.terminal.backend_mut(), graphics.requests())
+                .context(DrawSnafu)?;
+        }
         self.semantics = semantics;
         Ok(())
     }
@@ -40,6 +58,9 @@ impl TerminalUi {
     /// terminal session.
     pub fn draw_recovery(&mut self, view: &RecoveryView) -> Result<()> {
         self.semantics.clear();
+        self.graphics
+            .clear(self.terminal.backend_mut())
+            .context(DrawSnafu)?;
         self.terminal
             .draw(|frame| recovery::render(frame, view))
             .context(DrawSnafu)?;
@@ -87,25 +108,50 @@ pub fn render_test_frame_with_mode(
     height: u16,
     view_mode: ViewMode,
 ) -> TestFrame {
+    render_test_frame_for_protocol(view, width, height, GraphicsProtocol::Text, view_mode).0
+}
+
+#[cfg(test)]
+pub(crate) fn render_test_frame_with_graphics(
+    view: &View,
+    width: u16,
+    height: u16,
+    protocol: GraphicsProtocol,
+) -> (TestFrame, GraphicsFrame) {
+    render_test_frame_for_protocol(view, width, height, protocol, ViewMode::Default)
+}
+
+fn render_test_frame_for_protocol(
+    view: &View,
+    width: u16,
+    height: u16,
+    protocol: GraphicsProtocol,
+    view_mode: ViewMode,
+) -> (TestFrame, GraphicsFrame) {
     let backend = TestBackend::new(width, height);
     let mut terminal =
         Terminal::new(backend).expect("Ratatui's in-memory TestBackend cannot fail initialization");
     let mut semantics = Vec::new();
+    let mut graphics = GraphicsFrame::new(protocol);
     terminal
         .draw(|frame| {
-            render_with_semantics(
+            render_with_graphics(
                 frame,
                 view,
                 &EffectiveKeymap::defaults(),
                 view_mode,
                 &mut semantics,
+                &mut graphics,
             );
         })
         .expect("Ratatui's in-memory TestBackend cannot fail a draw");
-    TestFrame {
-        buffer: terminal.backend().buffer().clone(),
-        semantics,
-    }
+    (
+        TestFrame {
+            buffer: terminal.backend().buffer().clone(),
+            semantics,
+        },
+        graphics,
+    )
 }
 
 /// Persistent Compio-driven terminal input source.
@@ -145,6 +191,7 @@ impl TerminalEvents {
 
 impl Drop for TerminalUi {
     fn drop(&mut self) {
+        let _ = self.graphics.clear(self.terminal.backend_mut());
         restore_terminal(&mut self.terminal);
     }
 }

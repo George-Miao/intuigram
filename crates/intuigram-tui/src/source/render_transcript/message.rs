@@ -25,6 +25,7 @@ pub(super) fn message_lines(
     index: usize,
     message: &MessageView,
     layout: MessageLayout,
+    graphics: &mut GraphicsFrame,
 ) -> Vec<Line<'static>> {
     let state = MessageState {
         active: view.active_message == Some(index),
@@ -49,7 +50,7 @@ pub(super) fn message_lines(
         ));
         lines.push(Line::from(spans));
     }
-    append_content(view, index, message, &layout, state, &mut lines);
+    append_content(view, index, message, &layout, state, &mut lines, graphics);
     append_message_metadata(
         &mut lines,
         message,
@@ -112,6 +113,7 @@ fn append_content(
     layout: &MessageLayout,
     state: MessageState,
     lines: &mut Vec<Line<'static>>,
+    graphics: &mut GraphicsFrame,
 ) {
     let preview = media_preview(view, message.id);
     let loading = media_preview_is_loading(view, message.id);
@@ -134,6 +136,8 @@ fn append_content(
                     animation_frame: view.animation_frame,
                     max_height: layout.available_height.saturating_sub(3).max(1),
                 },
+                active_chat(view).map(|chat| image_id(chat, message.id)),
+                graphics,
             )
         });
     let body_lines = render_rich_text_lines(message).into_iter().map(|body| {

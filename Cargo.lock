@@ -1785,6 +1785,7 @@ dependencies = [
 name = "intuigram-tui"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "compio-term",
  "crossterm",
  "futures-util",

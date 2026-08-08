@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+base64.workspace = true
 compio-term.workspace = true
 intuigram-app.workspace = true
 crossterm = { workspace = true, features = ["bracketed-paste"] }
