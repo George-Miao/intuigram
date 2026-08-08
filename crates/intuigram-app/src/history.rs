@@ -10,7 +10,21 @@ pub(crate) fn reconcile_refresh(
     cached: Option<&[MessageView]>,
     refreshed: Vec<MessageView>,
 ) -> Vec<MessageView> {
-    let mut merged = refreshed;
+    let mut merged: Vec<MessageView> = Vec::with_capacity(
+        refreshed
+            .len()
+            .saturating_add(cached.map_or(0, <[MessageView]>::len)),
+    );
+    for message in refreshed {
+        if let Some(existing) = merged
+            .iter_mut()
+            .find(|candidate| candidate.id == message.id)
+        {
+            existing.clone_from(&message);
+        } else {
+            merged.push(message);
+        }
+    }
     if let Some(cached) = cached {
         for message in cached {
             if !merged.iter().any(|candidate| candidate.id == message.id) {

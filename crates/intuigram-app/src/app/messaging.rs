@@ -4,6 +4,14 @@ impl App {
         chat: ChatId,
         message: MessageView,
     ) -> Option<Effect> {
+        let already_present = self.histories.iter().any(|(key, history)| {
+            key.chat == chat && history.iter().any(|candidate| candidate.id == message.id)
+        });
+        if already_present {
+            self.replace_message(chat, message);
+            return None;
+        }
+
         let incoming = message.direction == MessageDirection::Incoming;
         let message_thread = message.details.thread_root;
         let active = self.active_chat_id() == Some(chat);

@@ -65,6 +65,40 @@ fn background_refresh_does_not_replace_a_transcript_being_read() {
 }
 
 #[test]
+fn a_live_message_already_returned_by_history_is_not_added_twice() {
+    let mut app = App::new();
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
+    );
+    let loaded = message(20, "one server message");
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::ChatLoaded {
+            chat: ChatId(20),
+            messages: vec![loaded.clone()],
+            pinned_messages: Vec::new(),
+        }),
+    );
+
+    let duplicate = app.transition(Input::Adapter(AdapterEvent::MessageAdded {
+        chat: ChatId(20),
+        message: Box::new(loaded),
+    }));
+
+    assert_eq!(duplicate.effect, None);
+    apply(&mut app, Input::Intent(Intent::Action(Action::MoveDown)));
+    assert_eq!(
+        app.view()
+            .messages
+            .iter()
+            .filter(|message| message.id == MessageId(20))
+            .count(),
+        1
+    );
+}
+
+#[test]
 fn rapid_navigation_does_not_drop_an_inactive_background_history() {
     let mut fixture = hierarchy_bootstrap();
     let mut third = fixture.chats[1].clone();

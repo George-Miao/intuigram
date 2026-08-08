@@ -34,6 +34,36 @@ fn live_message_is_committed_with_its_cursor_before_it_is_rendered() -> Result<(
 }
 
 #[test]
+fn a_replayed_live_update_does_not_duplicate_loaded_history() -> Result<()> {
+    let loaded = incoming(52, "Lin", "loaded once");
+    let mut app = TestSystem::builder()
+        .name("synchronization-replayed-message")
+        .terminal(100, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, [loaded.clone()]),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.telegram().inject_update(
+        UpdateCursor {
+            pts: Some(19),
+            pts_count: 1,
+            ..UpdateCursor::default()
+        },
+        AdapterEvent::MessageAdded {
+            chat: ChatId(10),
+            message: Box::new(loaded),
+        },
+    )?;
+
+    app.screen().message(52).expect_sender("Lin")?;
+    app.expect_no_unhandled_work()
+}
+
+#[test]
 fn a_chat_discovered_live_can_immediately_load_history() -> Result<()> {
     let discovered = 206_899_663;
     let mut app = TestSystem::builder()

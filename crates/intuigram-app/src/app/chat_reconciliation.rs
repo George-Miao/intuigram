@@ -53,36 +53,22 @@ impl App {
         let transcript_anchor = (self.active_chat_id() == Some(chat))
             .then(|| self.transcript_anchor_id())
             .flatten();
-        let mut replaced = false;
-        for (key, history) in self
-            .histories
-            .iter_mut()
-            .filter(|(key, _)| key.chat == chat)
-        {
-            if let Some(existing) = history
-                .iter_mut()
-                .find(|candidate| candidate.id == message.id)
-            {
-                existing.clone_from(&message);
-                replaced = true;
-            } else if key.thread == message.details.thread_root {
-                history.push(message.clone());
-            }
+        let root_key = HistoryKey { chat, thread: None };
+        upsert_history_message(self.histories.entry(root_key).or_default(), &message);
+        if let Some(root) = message.details.thread_root {
+            let thread_key = HistoryKey {
+                chat,
+                thread: Some(root),
+            };
+            upsert_history_message(self.histories.entry(thread_key).or_default(), &message);
         }
-        if !replaced {
-            self.histories
-                .entry(HistoryKey { chat, thread: None })
-                .or_default()
-                .push(message.clone());
-            if let Some(root) = message.details.thread_root {
-                self.histories
-                    .entry(HistoryKey {
-                        chat,
-                        thread: Some(root),
-                    })
-                    .or_default()
-                    .push(message.clone());
-            }
+        for (_, history) in self.histories.iter_mut().filter(|(key, history)| {
+            key.chat == chat
+                && key.thread != message.details.thread_root
+                && key.thread.is_some()
+                && history.iter().any(|candidate| candidate.id == message.id)
+        }) {
+            upsert_history_message(history, &message);
         }
         for chat_view in self
             .all_chats
@@ -155,5 +141,23 @@ impl App {
                 .filter(|chat| chat.folders.contains(&folder.id))
                 .fold(0_u32, |total, chat| total.saturating_add(chat.unread));
         }
+    }
+}
+
+fn upsert_history_message(history: &mut Vec<MessageView>, message: &MessageView) {
+    let mut found = false;
+    history.retain_mut(|candidate| {
+        if candidate.id != message.id {
+            return true;
+        }
+        if found {
+            return false;
+        }
+        candidate.clone_from(message);
+        found = true;
+        true
+    });
+    if !found {
+        history.push(message.clone());
     }
 }
