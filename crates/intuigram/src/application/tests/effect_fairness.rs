@@ -11,11 +11,10 @@ use intuigram_app::{
     MessageView,
 };
 
-use super::super::runtime_adapters::{AdapterBatch, BackendOutput};
+use super::super::runtime::{AdapterBatch, BackendOutput, notification_key};
 use super::super::{
     AdapterEffect, ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents,
-    EFFECT_CAPACITY, Result, application_fixture, enqueue_effect, notification_key,
-    run_application,
+    EFFECT_CAPACITY, Result, application_fixture, enqueue_effect, run_application,
 };
 use super::{RecordingUi, key};
 
@@ -175,6 +174,7 @@ impl ApplicationBackend for StalledHistoryBackend {
                 .await;
                 Ok(BackendOutput::event(Some(AdapterEvent::ChatLoaded {
                     chat,
+                    status: None,
                     messages: Vec::new(),
                     pinned_messages: Vec::new(),
                 })))
@@ -257,6 +257,7 @@ impl ApplicationBackend for NotificationUnblocksHistoryBackend {
                 .await;
                 Ok(BackendOutput::event(Some(AdapterEvent::ChatLoaded {
                     chat,
+                    status: None,
                     messages: Vec::new(),
                     pinned_messages: Vec::new(),
                 })))

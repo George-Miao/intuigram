@@ -1,3 +1,19 @@
+use super::*;
+
+mod download;
+mod effects;
+mod folders;
+mod history_failure;
+mod message_actions;
+mod pins;
+mod poll;
+mod rich_media;
+mod scheduled;
+
+use history_failure::history_failure_event;
+use poll::PollPersistence;
+pub(super) use rich_media::upload_kind;
+
 pub(super) struct MessageSend {
     pub(super) chat: ChatId,
     pub(super) text: String,
@@ -124,7 +140,8 @@ impl Backend {
     pub(super) async fn load_chat(
         &mut self,
         chat: ChatId,
-    ) -> Result<(Vec<MessageView>, Vec<MessageView>)> {
+        refresh_status: bool,
+    ) -> Result<(Vec<MessageView>, Vec<MessageView>, Option<String>)> {
         let messages = self
             .client
             .history(chat, 100)
@@ -135,6 +152,11 @@ impl Backend {
             .pinned_messages(chat, 100)
             .await
             .context(TelegramSnafu)?;
+        let status = if refresh_status {
+            self.client.chat_status(chat).await.ok().flatten()
+        } else {
+            None
+        };
         self.store
             .save_chat_history(
                 chat.0,
@@ -146,11 +168,12 @@ impl Backend {
                     .iter()
                     .map(|message| encode_stored_message(chat, message))
                     .collect(),
+                status.clone(),
             )
             .context(AccountDatabaseSnafu)?
             .await
             .context(AccountDatabaseSnafu)?;
-        Ok((messages, pinned_messages))
+        Ok((messages, pinned_messages, status))
     }
 
     pub(super) async fn load_selected_chat(
@@ -159,6 +182,7 @@ impl Backend {
         selection: Option<SelectionView>,
         transcript_anchors: Vec<TranscriptAnchorView>,
     ) -> Result<Option<AdapterEvent>> {
+        let refresh_status = selection.is_some();
         if let Some(selection) = selection {
             self.save_selection(
                 selection.folder,
@@ -168,9 +192,10 @@ impl Backend {
             )
             .await?;
         }
-        match self.load_chat(chat).await {
-            Ok((messages, pinned_messages)) => Ok(Some(AdapterEvent::ChatLoaded {
+        match self.load_chat(chat, refresh_status).await {
+            Ok((messages, pinned_messages, status)) => Ok(Some(AdapterEvent::ChatLoaded {
                 chat,
+                status,
                 messages,
                 pinned_messages,
             })),
@@ -366,5 +391,3 @@ fn outgoing_message(
         },
     }
 }
-
-use super::*;

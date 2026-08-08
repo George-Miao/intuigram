@@ -160,6 +160,7 @@ fn acknowledged_rich_media_is_replaced_by_its_normalized_server_message() {
         &mut app,
         Input::Adapter(AdapterEvent::ChatLoaded {
             chat: ChatId(10),
+            status: None,
             messages: vec![normalized],
             pinned_messages: Vec::new(),
         }),

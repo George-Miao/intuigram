@@ -3,7 +3,10 @@ use compio::runtime::ResumeUnwind;
 use super::*;
 
 impl Backend {
-    pub(super) async fn execute(&mut self, effect: AdapterEffect) -> Result<Option<AdapterEvent>> {
+    pub(in crate::application) async fn execute(
+        &mut self,
+        effect: AdapterEffect,
+    ) -> Result<Option<AdapterEvent>> {
         let AdapterEffect { effect, random_id } = effect;
         match effect {
             effect @ (Effect::BrowseRichMedia { .. }

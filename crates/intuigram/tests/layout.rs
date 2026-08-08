@@ -1,3 +1,4 @@
+use intuigram_app::ChatKind;
 use test_harness::{Result, TelegramScenario, TestSystem, account, chat, incoming, key};
 
 #[test]
@@ -195,6 +196,31 @@ fn headers_have_vertical_padding_and_an_active_chat_status_row() -> Result<()> {
     assert!(row_segment(&rows, 1, 31, 100).contains("Rust"));
     assert!(row_segment(&rows, 2, 31, 100).contains("last seen recently"));
     assert!(row_segment(&rows, 3, 31, 100).trim().is_empty());
+    app.expect_no_unhandled_work()
+}
+
+#[test]
+fn opening_a_group_replaces_generic_metadata_with_member_presence() -> Result<()> {
+    let mut group = chat(-1_000_000_000_010, "compio-rs");
+    group.kind = ChatKind::Supergroup;
+    group.status = "group".to_owned();
+    let mut app = TestSystem::builder()
+        .name("layout-group-presence-metadata")
+        .terminal(100, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(group))
+                .expect_load_history_with_status(-1_000_000_000_010, "240 members, 31 online", []),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    assert!(
+        app.screen()
+            .rows()
+            .iter()
+            .any(|row| row.contains("240 members, 31 online"))
+    );
     app.expect_no_unhandled_work()
 }
 

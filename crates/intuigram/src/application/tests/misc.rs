@@ -3,10 +3,10 @@ use std::path::PathBuf;
 
 use intuigram_telegram::{LoginCodeDelivery, LoginCodeDeliveryMethod};
 
+use super::super::runtime::connection_failure_reason;
 use super::super::{
-    Error, PRIMARY_DC_ENDPOINT, connection_failure_reason, error_lines,
-    login_code_delivery_message, login_code_delivery_method_name, parse_arguments,
-    seconds_until_at,
+    Error, PRIMARY_DC_ENDPOINT, error_lines, login_code_delivery_message,
+    login_code_delivery_method_name, parse_arguments, seconds_until_at,
 };
 
 #[test]

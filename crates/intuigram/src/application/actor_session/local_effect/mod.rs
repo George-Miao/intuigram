@@ -3,8 +3,8 @@ use std::cell::RefCell;
 use intuigram_app::{AdapterEvent, Effect};
 use intuigram_store::AccountStore;
 
-use super::super::{AttachmentStore, BackendOutput, DownloadStore, Result, effect_route};
-use crate::application::effect_route::EffectRoute;
+use super::super::{AttachmentStore, BackendOutput, DownloadStore, Result};
+use crate::application::runtime::{EffectRoute, effect_route};
 
 mod media;
 mod platform;

@@ -48,7 +48,7 @@ fn refreshed_projection_does_not_join_recent_history_after_restart() {
     let (temporary, database, recent, _) = history_with_old_pin();
     let request = database
         .store()
-        .save_chat_history(7, vec![recent.clone()], Vec::new())
+        .save_chat_history(7, vec![recent.clone()], Vec::new(), None)
         .expect("history refresh should enqueue");
 
     block_on(request).expect("history refresh should persist");
@@ -57,6 +57,30 @@ fn refreshed_projection_does_not_join_recent_history_after_restart() {
     let cached = reopened.cached_account().expect("cache should reload");
     assert_eq!(cached.messages, vec![recent]);
     assert!(cached.pinned_messages.is_empty());
+}
+
+#[test]
+fn history_refresh_persists_richer_chat_status_with_the_messages() {
+    let (temporary, database, recent, old_pin) = history_with_old_pin();
+    let refresh = database
+        .store()
+        .save_chat_history(
+            7,
+            vec![recent],
+            vec![old_pin],
+            Some("240 members, 31 online".to_owned()),
+        )
+        .expect("metadata refresh should enqueue");
+    block_on(refresh).expect("metadata refresh should persist");
+
+    let reopened = reopen(&temporary, database);
+    let cached = reopened.cached_account().expect("cache should reload");
+    let chat = cached
+        .chats
+        .iter()
+        .find(|chat| chat.id == 7)
+        .expect("parent Chat should remain");
+    assert_eq!(chat.status, "240 members, 31 online");
 }
 
 #[test]
@@ -74,7 +98,7 @@ fn refreshed_history_prunes_stale_acknowledged_rows_only_from_its_recent_window(
     let newest = stored_message(102, "newest");
     let refresh = database
         .store()
-        .save_chat_history(7, vec![recent.clone(), newest.clone()], vec![old_pin])
+        .save_chat_history(7, vec![recent.clone(), newest.clone()], vec![old_pin], None)
         .expect("history refresh should enqueue");
     block_on(refresh).expect("history refresh should persist");
 
@@ -128,7 +152,7 @@ fn history_with_old_pin() -> (TempDir, AccountDatabase, StoredMessage, StoredMes
     let old_pin = stored_message(5, "old pin");
     let request = database
         .store()
-        .save_chat_history(7, vec![recent.clone()], vec![old_pin.clone()])
+        .save_chat_history(7, vec![recent.clone()], vec![old_pin.clone()], None)
         .expect("history save should enqueue");
     block_on(request).expect("history projection should persist");
     (temporary, database, recent, old_pin)

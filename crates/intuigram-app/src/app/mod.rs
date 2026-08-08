@@ -159,10 +159,14 @@ impl App {
             }) => self.apply_chat_pin_permission(chat, can_pin_messages),
             Input::Adapter(AdapterEvent::ChatLoaded {
                 chat,
+                status,
                 messages,
                 pinned_messages,
             }) => {
                 let key = HistoryKey { chat, thread: None };
+                if let Some(status) = status {
+                    self.apply_chat_status(chat, status);
+                }
                 self.store_loaded_pins(chat, pinned_messages);
                 self.store_loaded_history(key, messages);
                 if self.active_history_key() == Some(key) {

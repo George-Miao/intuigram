@@ -11,9 +11,11 @@ impl TelegramScenario {
         match expected {
             ExpectedCommand::LoadHistory {
                 chat: expected_chat,
+                status,
                 messages,
                 pinned_messages,
             } if expected_chat == chat => Ok(HistoryResult::Loaded {
+                status,
                 messages,
                 pinned_messages,
             }),

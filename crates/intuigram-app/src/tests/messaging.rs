@@ -61,6 +61,7 @@ fn thread_navigation_preserves_parent_history_and_an_independent_draft() {
         &mut app,
         Input::Adapter(AdapterEvent::ChatLoaded {
             chat: ChatId(10),
+            status: None,
             messages: bootstrap().messages,
             pinned_messages: Vec::new(),
         }),
@@ -134,6 +135,7 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
         &mut app,
         Input::Adapter(AdapterEvent::ChatLoaded {
             chat: ChatId(20),
+            status: None,
             messages: Vec::new(),
             pinned_messages: Vec::new(),
         }),
@@ -156,6 +158,7 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
         &mut app,
         Input::Adapter(AdapterEvent::ChatLoaded {
             chat: ChatId(10),
+            status: None,
             messages: hierarchy_bootstrap().messages,
             pinned_messages: Vec::new(),
         }),
@@ -233,6 +236,7 @@ fn revisiting_a_loaded_chat_renders_cached_history_while_refreshing() {
     }];
     let loaded = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
         chat: ChatId(20),
+        status: None,
         messages: second_history.clone(),
         pinned_messages: Vec::new(),
     }));
@@ -266,6 +270,7 @@ fn revisiting_a_loaded_chat_renders_cached_history_while_refreshing() {
     });
     let refreshed_view = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
         chat: ChatId(10),
+        status: None,
         messages: refreshed.clone(),
         pinned_messages: Vec::new(),
     }));
@@ -346,6 +351,7 @@ fn animation_frames_advance_only_while_effort_is_pending() {
         &mut app,
         Input::Adapter(AdapterEvent::ChatLoaded {
             chat: ChatId(10),
+            status: None,
             messages,
             pinned_messages: Vec::new(),
         }),

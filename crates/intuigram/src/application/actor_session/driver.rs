@@ -6,7 +6,7 @@ use std::task::Poll;
 
 use futures_util::{Future, Stream};
 
-use super::super::runtime_adapters::WorkerAdapterEvents;
+use super::super::runtime::WorkerAdapterEvents;
 use super::super::{AdapterBatch, ApplicationAdapterEvents, Error, Result};
 
 pub(crate) struct ActorEvents {

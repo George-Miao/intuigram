@@ -1,6 +1,17 @@
 use super::*;
 
 impl App {
+    pub(super) fn apply_chat_status(&mut self, chat: ChatId, status: String) {
+        for chat_view in self
+            .all_chats
+            .iter_mut()
+            .chain(self.view.chats.iter_mut())
+            .filter(|candidate| candidate.id == chat)
+        {
+            chat_view.status.clone_from(&status);
+        }
+    }
+
     pub(super) fn apply_folder_membership(
         &mut self,
         chat: ChatId,

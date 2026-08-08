@@ -8,7 +8,7 @@ use compio_actor::mailbox::DeliverError;
 use compio_actor::{Actor, ActorExit, Cluster, Handler, Mailbox};
 use compio_dispatcher::DispatcherBuilder;
 
-use super::super::runtime_adapters::{WorkerAdapterEvents, WorkerBatch};
+use super::super::runtime::{WorkerAdapterEvents, WorkerBatch};
 use super::super::{AdapterBatch, Error, Result};
 use super::cancellation::{ActorCancellation, until_cancelled};
 use super::driver::{DriverStop, SessionEvent, run_driver};

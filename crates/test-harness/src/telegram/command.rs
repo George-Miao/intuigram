@@ -4,6 +4,7 @@ use intuigram_app::{ChatId, MessageId, MessageView, TextEntity};
 pub(super) enum ExpectedCommand {
     LoadHistory {
         chat: ChatId,
+        status: Option<String>,
         messages: Vec<MessageView>,
         pinned_messages: Vec<MessageView>,
     },

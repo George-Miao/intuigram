@@ -1,6 +1,8 @@
 use super::*;
 
-pub(super) trait ApplicationBackend: Clone + 'static {
+pub(in crate::application) trait ApplicationBackend:
+    Clone + 'static
+{
     async fn execute(
         &self,
         effect: AdapterEffect,
@@ -14,14 +16,14 @@ pub(super) trait ApplicationBackend: Clone + 'static {
     }
 }
 
-pub(super) struct BackendOutput {
-    pub(super) event: Option<AdapterEvent>,
-    pub(super) telegram_update: Option<intuigram_telegram::LiveEvent>,
-    pub(super) peers: intuigram_telegram::PeerDirectory,
+pub(in crate::application) struct BackendOutput {
+    pub(in crate::application) event: Option<AdapterEvent>,
+    pub(in crate::application) telegram_update: Option<intuigram_telegram::LiveEvent>,
+    pub(in crate::application) peers: intuigram_telegram::PeerDirectory,
 }
 
 impl BackendOutput {
-    pub(super) fn event(event: Option<AdapterEvent>) -> Self {
+    pub(in crate::application) fn event(event: Option<AdapterEvent>) -> Self {
         Self {
             event,
             telegram_update: None,
@@ -29,7 +31,7 @@ impl BackendOutput {
         }
     }
 
-    pub(super) fn telegram_update(update: intuigram_telegram::LiveEvent) -> Self {
+    pub(in crate::application) fn telegram_update(update: intuigram_telegram::LiveEvent) -> Self {
         Self {
             event: None,
             telegram_update: Some(update),
@@ -39,7 +41,7 @@ impl BackendOutput {
 }
 
 impl Backend {
-    pub(super) async fn execute_with_peers(
+    pub(in crate::application) async fn execute_with_peers(
         &mut self,
         effect: AdapterEffect,
         peers: intuigram_telegram::PeerDirectory,
@@ -77,7 +79,7 @@ impl ApplicationBackend for ActorSession {
     }
 }
 
-pub(super) trait ApplicationEvents {
+pub(in crate::application) trait ApplicationEvents {
     fn poll_next_event(
         &mut self,
         cx: &mut std::task::Context<'_>,
@@ -93,7 +95,7 @@ impl ApplicationEvents for TerminalEvents {
     }
 }
 
-pub(super) trait ApplicationAdapterEvents {
+pub(in crate::application) trait ApplicationAdapterEvents {
     fn poll_adapter_event(&mut self, cx: &mut std::task::Context<'_>)
     -> Poll<Result<AdapterBatch>>;
 
@@ -102,20 +104,20 @@ pub(super) trait ApplicationAdapterEvents {
     }
 }
 
-pub(super) trait WorkerAdapterEvents {
+pub(in crate::application) trait WorkerAdapterEvents {
     fn poll_worker_event(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<WorkerBatch>>;
 
     fn close(&mut self);
 }
 
-pub(super) struct AdapterBatch {
-    pub(super) event: Option<AdapterEvent>,
-    pub(super) peers: intuigram_telegram::PeerDirectory,
+pub(in crate::application) struct AdapterBatch {
+    pub(in crate::application) event: Option<AdapterEvent>,
+    pub(in crate::application) peers: intuigram_telegram::PeerDirectory,
 }
 
-pub(super) struct WorkerBatch {
-    pub(super) batch: AdapterBatch,
-    pub(super) delivered: Option<SubmissionCompletion>,
+pub(in crate::application) struct WorkerBatch {
+    pub(in crate::application) batch: AdapterBatch,
+    pub(in crate::application) delivered: Option<SubmissionCompletion>,
 }
 
 impl WorkerAdapterEvents for BackendEvents {

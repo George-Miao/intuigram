@@ -4,8 +4,8 @@ use intuigram_app::{AttachmentId, Effect};
 use snafu::ResultExt;
 
 use super::super::super::{
-    AttachmentPayload, PreparedRichMedia, ReadAttachmentSnafu, Result, backend_rich_media,
-    mime_type_for_path, record_media,
+    AttachmentPayload, PreparedRichMedia, ReadAttachmentSnafu, Result, backend, mime_type_for_path,
+    record_media,
 };
 use super::State;
 
@@ -62,7 +62,7 @@ pub(in crate::application::actor_session) async fn prepare_rich_media(
             device,
             ..
         } => (
-            record_media(backend_rich_media::upload_kind(*kind), *seconds, device).await?,
+            record_media(backend::upload_kind(*kind), *seconds, device).await?,
             *kind,
             true,
         ),

@@ -1,7 +1,7 @@
 use super::*;
 
 impl Backend {
-    pub(super) async fn set_message_pinned(
+    pub(in crate::application) async fn set_message_pinned(
         &mut self,
         chat: ChatId,
         message: MessageId,

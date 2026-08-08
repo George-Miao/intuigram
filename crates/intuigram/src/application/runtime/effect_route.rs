@@ -1,14 +1,14 @@
 use intuigram_app::Effect;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum EffectRoute {
+pub(in crate::application) enum EffectRoute {
     Telegram,
     LocalOrdered,
     LocalIndependent,
 }
 
 impl EffectRoute {
-    pub(super) const fn is_local(self) -> bool {
+    pub(in crate::application) const fn is_local(self) -> bool {
         !matches!(self, Self::Telegram)
     }
 
@@ -18,7 +18,7 @@ impl EffectRoute {
     }
 }
 
-pub(super) const fn effect_route(effect: &Effect) -> EffectRoute {
+pub(in crate::application) const fn effect_route(effect: &Effect) -> EffectRoute {
     match effect {
         Effect::Notify { .. }
         | Effect::OpenExternalLink { .. }

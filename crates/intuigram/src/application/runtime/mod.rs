@@ -1,3 +1,26 @@
+use super::*;
+
+mod adapters;
+mod effect_route;
+mod types;
+mod wake_poll;
+
+#[cfg(test)]
+pub(super) use adapters::WorkerBatch;
+pub(super) use adapters::{
+    AdapterBatch, ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents, BackendOutput,
+    WorkerAdapterEvents,
+};
+pub(super) use effect_route::{EffectRoute, effect_route};
+#[cfg(test)]
+pub(super) use types::PendingEffect;
+pub(super) use types::{
+    AccountSessionExit, AdapterEffect, ApplicationExit, ApplicationState, ApplicationWake,
+    DisconnectedApplication, connection_failure_reason, enqueue_effect, notification_key,
+    start_effect,
+};
+use wake_poll::{WakePolicy, WakePoller};
+
 #[cfg(test)]
 pub(super) async fn run_application<U, E, A, B>(
     terminal: &mut U,
@@ -263,4 +286,3 @@ enum RequestedExit {
     Quit,
     Lifecycle(AccountLifecycle),
 }
-use super::*;

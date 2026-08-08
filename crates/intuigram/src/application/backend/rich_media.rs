@@ -64,7 +64,7 @@ impl Backend {
         }
     }
 
-    pub(super) async fn execute_prepared_rich_media(
+    pub(in crate::application) async fn execute_prepared_rich_media(
         &mut self,
         effect: Effect,
         random_id: Option<i64>,
@@ -310,7 +310,7 @@ fn library_kind(kind: RichMediaLibraryKind) -> MediaLibraryKind {
     }
 }
 
-pub(super) fn upload_kind(kind: RichMediaUploadKind) -> UploadKind {
+pub(in crate::application) fn upload_kind(kind: RichMediaUploadKind) -> UploadKind {
     match kind {
         RichMediaUploadKind::Photo => UploadKind::Photo,
         RichMediaUploadKind::Video => UploadKind::Video,

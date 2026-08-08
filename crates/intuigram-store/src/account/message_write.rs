@@ -34,6 +34,7 @@ pub(super) fn save_chat_history(
     chat: i64,
     messages: Vec<StoredMessage>,
     pinned_messages: Vec<StoredMessage>,
+    status: Option<String>,
 ) -> Result<()> {
     let transaction = connection
         .unchecked_transaction()
@@ -43,6 +44,14 @@ pub(super) fn save_chat_history(
         .map(|message| message.id)
         .collect::<Vec<_>>();
     let oldest_recent_id = recent_ids.iter().copied().filter(|id| *id > 0).min();
+    if let Some(status) = status {
+        transaction
+            .execute(
+                "UPDATE chats SET status = ?2 WHERE chat_id = ?1",
+                params![chat, status],
+            )
+            .context(SaveMessagesSnafu)?;
+    }
     for message in messages.iter().chain(&pinned_messages) {
         upsert_message(&transaction, message).context(SaveMessagesSnafu)?;
     }

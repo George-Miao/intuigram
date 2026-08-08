@@ -258,6 +258,9 @@ pub enum AdapterEvent {
         /// Chat whose history was loaded.
         chat: ChatId,
 
+        /// Fresher Active-Chat metadata, when Telegram supplied it.
+        status: Option<String>,
+
         /// Chronological loaded history.
         messages: Vec<MessageView>,
 

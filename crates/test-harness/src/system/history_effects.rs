@@ -39,6 +39,7 @@ impl TestSystem {
             .load_history(chat)
             .map_err(|error| self.scenario_error(error))?;
         if let HistoryResult::Loaded {
+            status,
             messages,
             pinned_messages,
         } = &result
@@ -56,16 +57,19 @@ impl TestSystem {
                         .iter()
                         .map(|message| encode_stored_message(chat, message))
                         .collect(),
+                    status.clone(),
                 )
                 .context(StoreSnafu)?;
             block_on(request).context(StoreSnafu)?;
         }
         self.application.handle_adapter(match result {
             HistoryResult::Loaded {
+                status,
                 messages,
                 pinned_messages,
             } => AdapterEvent::ChatLoaded {
                 chat,
+                status,
                 messages,
                 pinned_messages,
             },

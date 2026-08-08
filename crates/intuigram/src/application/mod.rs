@@ -46,51 +46,35 @@ use snafu::{OptionExt, ResultExt, Snafu};
 mod actor_session;
 mod authorization;
 mod backend;
-mod backend_download;
-mod backend_effects;
-mod backend_folders;
-mod backend_message_actions;
-mod backend_pins;
-mod backend_rich_media;
-mod backend_scheduled;
 mod cache;
 mod cached_session;
 mod configuration;
 #[cfg(test)]
 mod configuration_tests;
-mod effect_route;
 mod fixtures;
 mod folder_arguments;
-mod history_failure;
 mod local_lock;
 mod login;
 mod maintenance;
 mod media_arguments;
-mod poll;
 mod proxy;
-mod runtime_adapters;
-mod runtime_loop;
-mod runtime_types;
+mod runtime;
 mod schedule_arguments;
 mod startup;
 mod types;
 mod ui;
-mod wake_poll;
 
 use actor_session::{ActorConnection, ActorSession, ConnectedActorSession};
 use authorization::{authorize_new_account, resume_account};
-use backend::{MessageSend, OutgoingRecord};
 use cache::cached_bootstrap;
 use cached_session::{CachedSession, run_cached_account};
 use configuration::{
     derived_random_id, mime_type_for_path, parse_arguments, platform_defaults, print_help, prompt,
     resolve_telegram_credentials, store_session, telegram_session,
 };
-use effect_route::{EffectRoute, effect_route};
 #[cfg(test)]
 use fixtures::application_fixture;
 use folder_arguments::{next_argument, parse_folder_maintenance};
-use history_failure::history_failure_event;
 use local_lock::{delete_local_lock_key, unlock_local_lock};
 #[cfg(test)]
 use login::{login_code_delivery_message, login_code_delivery_method_name, seconds_until_at};
@@ -103,25 +87,19 @@ use maintenance::{
     run_rich_media_maintenance, run_scheduled_maintenance,
 };
 use media_arguments::parse_media_maintenance;
-use poll::PollPersistence;
 use proxy::telegram_route;
-use runtime_adapters::{
-    AdapterBatch, ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents, BackendOutput,
+use runtime::{
+    AccountSessionExit, AdapterBatch, AdapterEffect, ApplicationAdapterEvents, ApplicationEvents,
+    ApplicationExit, ApplicationState, BackendOutput, DisconnectedApplication, enqueue_effect,
+    run_application_state,
 };
 #[cfg(test)]
-use runtime_loop::run_application;
-use runtime_loop::run_application_state;
-use runtime_types::{
-    AccountSessionExit, AdapterEffect, ApplicationExit, ApplicationState, ApplicationWake,
-    DisconnectedApplication, connection_failure_reason, enqueue_effect, notification_key,
-    start_effect,
-};
+use runtime::{ApplicationBackend, run_application};
 use schedule_arguments::parse_scheduled_maintenance;
 use startup::run_async;
 use types::*;
 pub(super) use ui::main;
 use ui::{ApplicationUi, error_lines};
-use wake_poll::{WakePolicy, WakePoller};
 
 const PRIMARY_DC_ID: i32 = 2;
 const PRIMARY_DC_ENDPOINT: SocketAddr =

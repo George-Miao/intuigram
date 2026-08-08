@@ -151,6 +151,10 @@ Enforce owner-only permissions for authorization and Account data. Never log aut
 - Keep public interfaces small. Accept dependencies rather than constructing hidden globals, and return observable results rather than producing untestable side effects.
 - Keep each handwritten source file below a soft limit of 200 lines and a hard limit of 400 lines. Crossing 200 lines should trigger a deliberate review for cohesive module seams; never cross 400 lines. Keep `main.rs` and `lib.rs` especially small: they should declare modules, re-export the intentional interface, and perform only top-level composition. Split by behavior and ownership, not arbitrary line ranges. Generated sources and embedded schema fixtures are exempt.
 - When a Rust module owns child modules, use the directory form with `xxx/mod.rs`; do not pair `xxx.rs` with an `xxx/` directory.
+- Group logically related source files beneath a directory module with one
+  cohesive interface. Prefer `backend/mod.rs` with private children over flat
+  filename families such as `backend_*.rs`, and apply the same rule whenever
+  sibling files share a domain owner.
 - Never use `include!` to splice Rust source files together. Use ordinary `mod` declarations, explicit imports and re-exports, and real module privacy boundaries.
 - Document public items and non-obvious invariants. Do not add decorative section-divider comments.
 - When any field in a struct has an attribute or comment, leave a blank line between every field in that struct. When any enum variant has an attribute, leave a blank line between every variant in that enum.

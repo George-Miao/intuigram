@@ -54,6 +54,7 @@ pub(super) enum Command {
         chat: i64,
         messages: Vec<StoredMessage>,
         pinned_messages: Vec<StoredMessage>,
+        status: Option<String>,
         reply: AsyncReply<()>,
     },
     DeleteMessagesAsync {
@@ -195,6 +196,7 @@ impl AccountStore {
         chat: i64,
         messages: Vec<StoredMessage>,
         pinned_messages: Vec<StoredMessage>,
+        status: Option<String>,
     ) -> Result<DatabaseRequest<()>> {
         let (reply, request) = async_response();
         self.commands
@@ -202,6 +204,7 @@ impl AccountStore {
                 chat,
                 messages,
                 pinned_messages,
+                status,
                 reply,
             })
             .map_err(map_try_send_error)?;

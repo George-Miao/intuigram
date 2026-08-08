@@ -5,8 +5,8 @@ use std::task::{Context, Poll};
 use futures_util::StreamExt;
 use futures_util::stream::FuturesUnordered;
 
-use super::runtime_adapters::{ApplicationAdapterEvents, ApplicationEvents};
-use super::runtime_types::{ApplicationWake, PendingEffect};
+use super::adapters::{ApplicationAdapterEvents, ApplicationEvents};
+use super::types::{ApplicationWake, PendingEffect};
 
 #[derive(Clone, Copy)]
 #[repr(usize)]

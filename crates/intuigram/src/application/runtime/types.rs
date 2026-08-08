@@ -1,24 +1,24 @@
-pub(super) struct BackendCompletion {
-    pub(super) effect: AdapterEffect,
-    pub(super) result: Result<BackendOutput>,
+pub(in crate::application) struct BackendCompletion {
+    pub(in crate::application) effect: AdapterEffect,
+    pub(in crate::application) result: Result<BackendOutput>,
 }
 
-pub(super) type PendingEffect = Pin<Box<dyn Future<Output = BackendCompletion>>>;
+pub(in crate::application) type PendingEffect = Pin<Box<dyn Future<Output = BackendCompletion>>>;
 
-pub(super) enum ApplicationWake {
+pub(in crate::application) enum ApplicationWake {
     Terminal(intuigram_tui::Result<crossterm::event::Event>),
     Adapter(Box<Result<AdapterBatch>>),
     Backend(Box<BackendCompletion>),
     Animation,
 }
 
-pub(super) struct DisconnectedApplication<B> {
-    pub(super) app: App,
-    pub(super) backend: B,
-    pub(super) pending_effects: VecDeque<AdapterEffect>,
+pub(in crate::application) struct DisconnectedApplication<B> {
+    pub(in crate::application) app: App,
+    pub(in crate::application) backend: B,
+    pub(in crate::application) pending_effects: VecDeque<AdapterEffect>,
 }
 
-pub(super) enum ApplicationExit<B> {
+pub(in crate::application) enum ApplicationExit<B> {
     Quit,
     Lifecycle {
         request: AccountLifecycle,
@@ -27,19 +27,19 @@ pub(super) enum ApplicationExit<B> {
     Disconnected(Box<DisconnectedApplication<B>>),
 }
 
-pub(super) enum AccountSessionExit {
+pub(in crate::application) enum AccountSessionExit {
     Quit,
     Lifecycle(AccountLifecycle),
 }
 
-pub(super) struct ApplicationState {
-    pub(super) app: App,
-    pub(super) update: Update,
-    pub(super) pending_effects: VecDeque<AdapterEffect>,
-    pub(super) peers: intuigram_telegram::PeerDirectory,
+pub(in crate::application) struct ApplicationState {
+    pub(in crate::application) app: App,
+    pub(in crate::application) update: Update,
+    pub(in crate::application) pending_effects: VecDeque<AdapterEffect>,
+    pub(in crate::application) peers: intuigram_telegram::PeerDirectory,
 }
 
-pub(super) fn connection_failure_reason(error: &Error) -> Option<String> {
+pub(in crate::application) fn connection_failure_reason(error: &Error) -> Option<String> {
     match error {
         Error::Telegram { source } if source.is_connection_failure() => {
             Some(error_lines(error).join(": "))
@@ -53,19 +53,19 @@ pub(super) fn connection_failure_reason(error: &Error) -> Option<String> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(super) struct AdapterEffect {
-    pub(super) effect: Effect,
-    pub(super) random_id: Option<i64>,
+pub(in crate::application) struct AdapterEffect {
+    pub(in crate::application) effect: Effect,
+    pub(in crate::application) random_id: Option<i64>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(super) struct NotificationKey {
+pub(in crate::application) struct NotificationKey {
     identity: String,
     chat: ChatId,
 }
 
 impl AdapterEffect {
-    pub(super) fn new(effect: Effect) -> Result<Self> {
+    pub(in crate::application) fn new(effect: Effect) -> Result<Self> {
         let random_id = if matches!(
             effect,
             Effect::SendMessage { .. }
@@ -87,7 +87,7 @@ impl AdapterEffect {
     }
 }
 
-pub(super) fn notification_key(effect: &Effect) -> Option<NotificationKey> {
+pub(in crate::application) fn notification_key(effect: &Effect) -> Option<NotificationKey> {
     match effect {
         Effect::Notify { identity, chat } => Some(NotificationKey {
             identity: identity.clone(),
@@ -97,7 +97,7 @@ pub(super) fn notification_key(effect: &Effect) -> Option<NotificationKey> {
     }
 }
 
-pub(super) fn start_effect<B: ApplicationBackend>(
+pub(in crate::application) fn start_effect<B: ApplicationBackend>(
     backend: B,
     effect: AdapterEffect,
     peers: intuigram_telegram::PeerDirectory,
@@ -112,7 +112,7 @@ pub(super) fn start_effect<B: ApplicationBackend>(
     })
 }
 
-pub(super) fn enqueue_effect(
+pub(in crate::application) fn enqueue_effect(
     pending: &mut VecDeque<AdapterEffect>,
     active: &futures_util::stream::FuturesUnordered<PendingEffect>,
     active_notifications: &[NotificationKey],

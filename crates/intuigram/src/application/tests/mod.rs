@@ -7,8 +7,7 @@ use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use intuigram_app::{Action, AdapterEvent, ChatId, Effect, Intent, MessageId};
 use intuigram_tui::UiEvent;
 
-use super::runtime_adapters::{AdapterBatch, BackendOutput};
-use super::runtime_types::PendingEffect;
+use super::runtime::{AdapterBatch, BackendOutput, PendingEffect};
 use super::{
     AdapterEffect, ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents,
     ApplicationExit, ApplicationState, ApplicationUi, AttachmentPayload, AttachmentStore,
@@ -48,6 +47,7 @@ impl ApplicationBackend for PendingHistoryBackend {
         .await;
         Ok(BackendOutput::event(Some(AdapterEvent::ChatLoaded {
             chat,
+            status: None,
             messages: Vec::new(),
             pinned_messages: Vec::new(),
         })))
@@ -137,6 +137,7 @@ impl ApplicationBackend for PeerAwareBackend {
         self.resolved.set(chat == self.chat && peers.contains(chat));
         Ok(BackendOutput::event(Some(AdapterEvent::ChatLoaded {
             chat,
+            status: None,
             messages: Vec::new(),
             pinned_messages: Vec::new(),
         })))

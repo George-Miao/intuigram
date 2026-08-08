@@ -121,12 +121,14 @@ pub(super) fn run_worker(
                 chat,
                 messages,
                 pinned_messages,
+                status,
                 reply,
             } => reply.finish(save_chat_history(
                 &connection,
                 chat,
                 messages,
                 pinned_messages,
+                status,
             )),
             Command::DeleteMessagesAsync {
                 chat,

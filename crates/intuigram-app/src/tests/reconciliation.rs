@@ -390,6 +390,7 @@ fn unread_boundary_is_stable_across_history_and_live_updates_until_read() {
         &mut app,
         Input::Adapter(AdapterEvent::ChatLoaded {
             chat: ChatId(10),
+            status: None,
             messages: refreshed,
             pinned_messages: Vec::new(),
         }),
