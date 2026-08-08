@@ -323,7 +323,7 @@ impl App {
 use std::collections::{HashMap, HashSet};
 
 use crate::domain::*;
-use crate::history::reconcile_refresh;
+use crate::history::{RefreshScope, reconcile_refresh};
 use crate::protocol::*;
 
 mod account_management;

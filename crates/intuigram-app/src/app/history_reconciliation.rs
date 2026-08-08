@@ -57,6 +57,11 @@ impl App {
             self.histories.get(&key).map(Vec::as_slice),
             refreshed,
             self.history_request_baseline(key),
+            if key.thread.is_some() {
+                RefreshScope::Thread
+            } else {
+                RefreshScope::Root
+            },
         );
         self.ensure_unread_boundary(key, &messages);
         if self.active_history_key() != Some(key) {

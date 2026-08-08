@@ -5,18 +5,30 @@ use std::collections::HashSet;
 
 use crate::{DeliveryState, MessageId, MessageView};
 
+#[derive(Clone, Copy)]
+pub(crate) enum RefreshScope {
+    Root,
+    Thread,
+}
+
 /// Merges an authoritative refresh with cached entries that the request may
 /// not have observed, such as concurrent live updates and optimistic sends.
 pub(crate) fn reconcile_refresh(
     cached: Option<&[MessageView]>,
     refreshed: Vec<MessageView>,
     request_baseline: Option<&HashSet<MessageId>>,
+    scope: RefreshScope,
 ) -> Vec<MessageView> {
     let oldest_refreshed = refreshed
         .iter()
         .filter(|message| !message.id.0.is_negative())
         .map(|message| message.id)
         .min();
+    let newest_refreshed = refreshed
+        .iter()
+        .filter(|message| !message.id.0.is_negative())
+        .map(|message| message.id)
+        .max();
     let mut merged: Vec<MessageView> = Vec::with_capacity(
         refreshed
             .len()
@@ -35,7 +47,13 @@ pub(crate) fn reconcile_refresh(
     if let Some(cached) = cached {
         for message in cached {
             if !merged.iter().any(|candidate| candidate.id == message.id)
-                && should_retain_cached(message, request_baseline, oldest_refreshed)
+                && should_retain_cached(
+                    message,
+                    request_baseline,
+                    oldest_refreshed,
+                    newest_refreshed,
+                    scope,
+                )
             {
                 merged.push(message.clone());
             }
@@ -49,6 +67,8 @@ fn should_retain_cached(
     message: &MessageView,
     request_baseline: Option<&HashSet<MessageId>>,
     oldest_refreshed: Option<MessageId>,
+    newest_refreshed: Option<MessageId>,
+    scope: RefreshScope,
 ) -> bool {
     matches!(
         message.delivery,
@@ -56,6 +76,8 @@ fn should_retain_cached(
     ) || message.id.0.is_negative()
         || request_baseline.is_none_or(|baseline| !baseline.contains(&message.id))
         || oldest_refreshed.is_some_and(|oldest| message.id < oldest)
+        || (matches!(scope, RefreshScope::Thread)
+            && newest_refreshed.is_none_or(|newest| message.id > newest))
 }
 
 fn message_order(left: &MessageView, right: &MessageView) -> Ordering {
@@ -69,7 +91,7 @@ fn message_order(left: &MessageView, right: &MessageView) -> Ordering {
 
 #[cfg(test)]
 mod tests {
-    use super::reconcile_refresh;
+    use super::{RefreshScope, reconcile_refresh};
     use crate::{DeliveryState, MessageDetails, MessageDirection, MessageId, MessageView};
 
     fn message(id: i64, body: &str) -> MessageView {
@@ -101,6 +123,7 @@ mod tests {
             Some(&cached),
             vec![message(1, "refreshed"), message(2, "new")],
             Some(&baseline),
+            RefreshScope::Root,
         );
 
         assert_eq!(
@@ -131,6 +154,7 @@ mod tests {
             Some(&cached),
             vec![message(7, "fresh"), message(10, "latest")],
             Some(&baseline),
+            RefreshScope::Root,
         );
 
         assert_eq!(
@@ -139,6 +163,27 @@ mod tests {
                 .map(|message| message.id.0)
                 .collect::<Vec<_>>(),
             vec![1, 7, 10, 11]
+        );
+    }
+
+    #[test]
+    fn thread_refresh_keeps_a_newer_message_missing_from_the_loaded_page() {
+        let cached = vec![message(41, "loaded"), message(42, "live")];
+        let baseline = [MessageId(41), MessageId(42)].into_iter().collect();
+
+        let merged = reconcile_refresh(
+            Some(&cached),
+            vec![message(41, "refreshed")],
+            Some(&baseline),
+            RefreshScope::Thread,
+        );
+
+        assert_eq!(
+            merged
+                .iter()
+                .map(|message| message.id.0)
+                .collect::<Vec<_>>(),
+            vec![41, 42]
         );
     }
 }
