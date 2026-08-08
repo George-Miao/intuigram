@@ -285,6 +285,36 @@ fn a_full_effect_queue_fails_instead_of_blocking_terminal_input() {
 }
 
 #[test]
+fn rapid_selection_saves_keep_only_the_latest_request() {
+    let active = futures_util::stream::FuturesUnordered::<PendingEffect>::new();
+    let mut pending = VecDeque::new();
+
+    for chat in 1..=(EFFECT_CAPACITY as i64 + 1) {
+        enqueue_effect(
+            &mut pending,
+            &active,
+            &[],
+            Some(Effect::SaveSelection {
+                folder: 0,
+                chat: Some(ChatId(chat)),
+                message: None,
+                transcript_anchors: Vec::new(),
+            }),
+        )
+        .expect("rapid Chat navigation should coalesce durable selection writes");
+    }
+
+    assert_eq!(pending.len(), 1);
+    assert!(matches!(
+        &pending[0].effect,
+        Effect::SaveSelection {
+            chat: Some(ChatId(chat)),
+            ..
+        } if *chat == EFFECT_CAPACITY as i64 + 1
+    ));
+}
+
+#[test]
 fn connection_failure_returns_the_same_send_for_retry() {
     let views = Rc::new(RefCell::new(Vec::new()));
     let observed = Rc::new(RefCell::new(Vec::new()));

@@ -139,6 +139,9 @@ pub(in crate::application) fn enqueue_effect(
             )
         });
     }
+    if matches!(effect, Effect::SaveSelection { .. }) {
+        pending.retain(|pending| !matches!(pending.effect, Effect::SaveSelection { .. }));
+    }
     if let Effect::Notify { identity, chat } = &effect {
         if active_notifications
             .iter()
