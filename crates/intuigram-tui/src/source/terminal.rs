@@ -28,29 +28,15 @@ impl TerminalUi {
 
     /// Draws one immutable application view.
     pub fn draw(&mut self, view: &View) -> Result<()> {
-        let keymap = &self.keymap;
-        let view_mode = self.view_mode;
-        let graphics_protocol = self.graphics_protocol;
-        let mut semantics = Vec::new();
-        let mut graphics = GraphicsFrame::new(graphics_protocol);
-        self.terminal
-            .draw(|frame| {
-                render_with_graphics(
-                    frame,
-                    view,
-                    keymap,
-                    view_mode,
-                    &mut semantics,
-                    &mut graphics,
-                );
-            })
-            .context(DrawSnafu)?;
-        if graphics_protocol == GraphicsProtocol::KittyUnicode {
-            self.graphics
-                .sync(self.terminal.backend_mut(), graphics.requests())
-                .context(DrawSnafu)?;
-        }
-        self.semantics = semantics;
+        self.semantics = draw_terminal_view(
+            &mut self.terminal,
+            &mut self.graphics,
+            &self.keymap,
+            self.view_mode,
+            self.graphics_protocol,
+            view,
+        )
+        .context(DrawSnafu)?;
         Ok(())
     }
 
@@ -108,7 +94,15 @@ pub fn render_test_frame_with_mode(
     height: u16,
     view_mode: ViewMode,
 ) -> TestFrame {
-    render_test_frame_for_protocol(view, width, height, GraphicsProtocol::Text, view_mode).0
+    render_test_frame_for_protocol(
+        view,
+        width,
+        height,
+        GraphicsProtocol::Text,
+        view_mode,
+        &EffectiveKeymap::defaults(),
+    )
+    .0
 }
 
 #[cfg(test)]
@@ -118,7 +112,14 @@ pub(crate) fn render_test_frame_with_graphics(
     height: u16,
     protocol: GraphicsProtocol,
 ) -> (TestFrame, GraphicsFrame) {
-    render_test_frame_for_protocol(view, width, height, protocol, ViewMode::Default)
+    render_test_frame_for_protocol(
+        view,
+        width,
+        height,
+        protocol,
+        ViewMode::Default,
+        &EffectiveKeymap::defaults(),
+    )
 }
 
 fn render_test_frame_for_protocol(
@@ -127,6 +128,7 @@ fn render_test_frame_for_protocol(
     height: u16,
     protocol: GraphicsProtocol,
     view_mode: ViewMode,
+    keymap: &EffectiveKeymap,
 ) -> (TestFrame, GraphicsFrame) {
     let backend = TestBackend::new(width, height);
     let mut terminal =
@@ -138,7 +140,7 @@ fn render_test_frame_for_protocol(
             render_with_graphics(
                 frame,
                 view,
-                &EffectiveKeymap::defaults(),
+                keymap,
                 view_mode,
                 &mut semantics,
                 &mut graphics,
@@ -152,6 +154,44 @@ fn render_test_frame_for_protocol(
         },
         graphics,
     )
+}
+
+pub(crate) fn draw_terminal_view<W: io::Write>(
+    terminal: &mut Terminal<CrosstermBackend<W>>,
+    state: &mut GraphicsState,
+    keymap: &EffectiveKeymap,
+    view_mode: ViewMode,
+    protocol: GraphicsProtocol,
+    view: &View,
+) -> io::Result<Vec<SemanticNode>> {
+    if protocol == GraphicsProtocol::KittyUnicode {
+        let area = terminal.get_frame().area();
+        let (_, graphics) = render_test_frame_for_protocol(
+            view,
+            area.width,
+            area.height,
+            protocol,
+            view_mode,
+            keymap,
+        );
+        // A Unicode placeholder only resolves if its virtual placement exists
+        // before the terminal receives the placeholder cells.
+        state.sync(terminal.backend_mut(), graphics.requests())?;
+    }
+
+    let mut semantics = Vec::new();
+    let mut graphics = GraphicsFrame::new(protocol);
+    terminal.draw(|frame| {
+        render_with_graphics(
+            frame,
+            view,
+            keymap,
+            view_mode,
+            &mut semantics,
+            &mut graphics,
+        );
+    })?;
+    Ok(semantics)
 }
 
 /// Persistent Compio-driven terminal input source.

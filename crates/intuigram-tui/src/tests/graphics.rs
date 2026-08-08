@@ -1,7 +1,12 @@
 use std::ffi::OsStr;
 
+use ratatui::backend::CrosstermBackend;
+use ratatui::layout::Rect;
+use ratatui::{TerminalOptions, Viewport};
+
 use super::*;
 use crate::source::graphics::{GraphicsProtocol, GraphicsRequest, GraphicsState, encode_upload};
+use crate::source::terminal::draw_terminal_view;
 
 #[test]
 fn ghostty_selects_kitty_unicode_graphics() {
@@ -29,7 +34,7 @@ fn kitty_upload_is_quiet_rgba_with_a_virtual_placement() {
 }
 
 #[test]
-fn kitty_render_uses_unicode_placeholders_and_retains_text_fallback_metadata() {
+fn kitty_render_uses_unicode_placeholders_without_redundant_media_metadata() {
     let mut current = image_message_view();
     current.media_previews = vec![intuigram_app::MediaPreviewView {
         chat: ChatId(10),
@@ -45,9 +50,46 @@ fn kitty_render_uses_unicode_placeholders_and_retains_text_fallback_metadata() {
     assert!(text.contains('\u{10eeee}'));
     assert!(!text.contains('▀'));
     assert!(text.contains("caption"));
+    assert!(!text.contains("1280 × 720"));
+    assert!(!text.contains("2 MB"));
     assert_eq!(graphics.requests().len(), 1);
     assert_eq!(graphics.requests()[0].columns, 32);
     assert_eq!(graphics.requests()[0].rows, 6);
+}
+
+#[test]
+fn kitty_upload_precedes_its_unicode_placeholder() {
+    let mut current = image_message_view();
+    current.media_previews = vec![intuigram_app::MediaPreviewView {
+        chat: ChatId(10),
+        message: MessageId(40),
+        image: intuigram_app::InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
+            .expect("fixture pixels should match their dimensions"),
+    }];
+    let mut output = Vec::new();
+    {
+        let backend = CrosstermBackend::new(&mut output);
+        let options = TerminalOptions {
+            viewport: Viewport::Fixed(Rect::new(0, 0, 100, 40)),
+        };
+        let mut terminal = Terminal::with_options(backend, options)
+            .expect("fixed memory terminal should initialize");
+        let mut graphics = GraphicsState::default();
+
+        draw_terminal_view(
+            &mut terminal,
+            &mut graphics,
+            &EffectiveKeymap::defaults(),
+            ViewMode::Default,
+            GraphicsProtocol::KittyUnicode,
+            &current,
+        )
+        .expect("memory terminal should render an image");
+    }
+
+    let upload = byte_offset(&output, b"\x1b_Ga=T");
+    let placeholder = byte_offset(&output, "\u{10eeee}".as_bytes());
+    assert!(upload < placeholder);
 }
 
 #[test]
@@ -128,7 +170,7 @@ fn image_message_view() -> View {
                 kind: MediaKind::Photo,
                 title: "Photo".to_owned(),
                 description: "image".to_owned(),
-                details: Vec::new(),
+                details: vec!["1280 × 720".to_owned(), "2 MB".to_owned()],
                 poll: None,
                 remote_id: Some("42".to_owned()),
             }),
@@ -140,4 +182,11 @@ fn image_message_view() -> View {
 
 fn symbols(buffer: &ratatui::buffer::Buffer) -> String {
     buffer.content.iter().map(|cell| cell.symbol()).collect()
+}
+
+fn byte_offset(haystack: &[u8], needle: &[u8]) -> usize {
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
+        .expect("terminal output should contain the requested sequence")
 }

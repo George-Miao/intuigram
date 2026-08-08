@@ -96,14 +96,16 @@ pub(super) fn render_media(
         ]);
         lines.push(Line::from(card));
     }
-    lines.extend(media.details.iter().map(|detail| {
-        let mut spans = content_prefix(active, selected, forwarded);
-        spans.push(Span::styled(
-            format!("  {detail}"),
-            Style::default().fg(MUTED_TEXT),
-        ));
-        Line::from(spans)
-    }));
+    if preview.is_none() && !loading {
+        lines.extend(media.details.iter().map(|detail| {
+            let mut spans = content_prefix(active, selected, forwarded);
+            spans.push(Span::styled(
+                format!("  {detail}"),
+                Style::default().fg(MUTED_TEXT),
+            ));
+            Line::from(spans)
+        }));
+    }
     if let Some(poll) = &media.poll {
         lines.extend(
             poll.options
