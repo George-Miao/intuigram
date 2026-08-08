@@ -35,6 +35,7 @@ mod client_folders;
 mod client_history;
 mod client_initialize;
 mod client_links;
+mod client_notifications;
 mod client_phone;
 mod client_poll;
 mod client_qr;
@@ -53,6 +54,7 @@ mod login_normalization;
 mod media_normalization;
 mod message_normalization;
 mod message_operations;
+mod notifications;
 mod peer_directory;
 mod sent_message;
 mod session_types;
@@ -73,8 +75,7 @@ pub use dialog_normalization::normalize_serialized_peer_kind;
 use dialog_normalization::take_login_token_update;
 pub(crate) use dialog_normalization::{
     chat_traits, cloud_chat_can_pin, dialog_filter_id, dialog_folder_membership,
-    normalize_dialog_folder_details, normalize_dialog_folders, notifications_muted_at,
-    set_dialog_filter_membership,
+    normalize_dialog_folder_details, normalize_dialog_folders, set_dialog_filter_membership,
 };
 use dialog_status::{cloud_chat_status, user_status};
 use entity_conversion::serialize_entities;
@@ -95,6 +96,7 @@ use message_normalization::{
     mark_channel_id, marked_peer_id, message_body, message_chat_id, message_parts,
     normalize_entities, normalize_message, reply_message_id, text_with_entities,
 };
+pub(crate) use notifications::{NotificationDefaults, notifications_muted_at};
 pub use peer_directory::{PeerAddress, PeerDirectory};
 use sent_message::sent_message_id;
 pub use session_types::{

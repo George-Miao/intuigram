@@ -6,14 +6,14 @@ fn muted_chats_do_not_emit_notifications() -> Result<()> {
     let mut app = TestSystem::builder()
         .name("notifications-respect-chat-mute")
         .telegram(
-            TelegramScenario::new().bootstrap(account("Ada").with_chat(chat(10, "Quiet Chat"))),
+            TelegramScenario::new().bootstrap(
+                account("Ada")
+                    .with_chat(chat(10, "Quiet Chat"))
+                    .with_muted_chat(10),
+            ),
         )
         .start()?;
 
-    app.telegram().inject(AdapterEvent::ChatMuteChanged {
-        chat: ChatId(10),
-        muted: true,
-    })?;
     app.telegram().inject(AdapterEvent::MessageAdded {
         chat: ChatId(10),
         message: Box::new(incoming(40, "Lin", "quiet update")),

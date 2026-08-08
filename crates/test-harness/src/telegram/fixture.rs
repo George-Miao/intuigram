@@ -14,6 +14,7 @@ pub struct AccountFixture {
     chats: Vec<ChatView>,
     messages: Vec<MessageView>,
     drafts: Vec<DraftView>,
+    muted_chats: Vec<ChatId>,
 }
 
 impl AccountFixture {
@@ -74,6 +75,12 @@ impl AccountFixture {
         self
     }
 
+    #[must_use]
+    pub fn with_muted_chat(mut self, chat: i64) -> Self {
+        self.muted_chats.push(ChatId(chat));
+        self
+    }
+
     /// Seeds the recent history for the first Chat in this Account fixture.
     #[must_use]
     pub fn with_history(mut self, messages: impl IntoIterator<Item = MessageView>) -> Self {
@@ -86,7 +93,7 @@ impl AccountFixture {
             connection: ConnectionState::Connected,
             account_name: self.name,
             notification_identity: "telegram:test".to_owned(),
-            muted_chats: Vec::new(),
+            muted_chats: self.muted_chats,
             accounts: self.accounts,
             folder_details: self.folder_details,
             restored_selection: None,
@@ -128,6 +135,7 @@ pub fn account(name: impl Into<String>) -> AccountFixture {
         chats: Vec::new(),
         messages: Vec::new(),
         drafts: Vec::new(),
+        muted_chats: Vec::new(),
     }
 }
 

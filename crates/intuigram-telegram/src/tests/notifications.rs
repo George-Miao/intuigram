@@ -1,4 +1,5 @@
 use super::*;
+use crate::source::NotificationDefaults;
 
 #[test]
 fn live_peer_mute_updates_normalize_into_chat_notification_state() {
@@ -28,15 +29,42 @@ fn expired_or_inherited_notification_settings_are_not_muted() {
     assert!(crate::source::notifications_muted_at(
         &notification_settings(Some(101)),
         100,
+        false,
     ));
     assert!(!crate::source::notifications_muted_at(
         &notification_settings(Some(100)),
         100,
+        false,
     ));
     assert!(!crate::source::notifications_muted_at(
         &notification_settings(None),
         100,
+        false,
     ));
+}
+
+#[test]
+fn inherited_peer_settings_use_the_category_mute_default() {
+    assert!(crate::source::notifications_muted_at(
+        &notification_settings(None),
+        100,
+        true,
+    ));
+    assert!(!crate::source::notifications_muted_at(
+        &notification_settings(Some(0)),
+        100,
+        true,
+    ));
+}
+
+#[test]
+fn notification_defaults_follow_telegram_chat_categories() {
+    let defaults = NotificationDefaults::new(true, false, true);
+
+    assert!(defaults.muted(ChatKind::Private));
+    assert!(defaults.muted(ChatKind::Bot));
+    assert!(!defaults.muted(ChatKind::Supergroup));
+    assert!(defaults.muted(ChatKind::Channel));
 }
 
 fn notification_settings(mute_until: Option<i32>) -> tl::enums::PeerNotifySettings {

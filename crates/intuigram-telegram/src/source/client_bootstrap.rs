@@ -35,13 +35,18 @@ impl Client {
             .map(|message| ((message_chat_id(message), message.id()), message))
             .collect();
         let unix_time = time::OffsetDateTime::now_utc().unix_timestamp();
+        let notification_defaults = self.notification_defaults(unix_time).await?;
         let muted_chats = dialogs
             .iter()
             .filter_map(|dialog| {
                 let tl::enums::Dialog::Dialog(dialog) = dialog else {
                     return None;
                 };
-                notifications_muted_at(&dialog.notify_settings, unix_time)
+                let chat = marked_peer_id(&dialog.peer);
+                let inherited = traits
+                    .get(&chat)
+                    .is_some_and(|traits| notification_defaults.muted(traits.kind));
+                notifications_muted_at(&dialog.notify_settings, unix_time, inherited)
                     .then(|| marked_peer_id(&dialog.peer))
             })
             .collect();

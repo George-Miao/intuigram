@@ -244,6 +244,7 @@ pub(crate) fn normalize_update(
                 muted: notifications_muted_at(
                     &update.notify_settings,
                     time::OffsetDateTime::now_utc().unix_timestamp(),
+                    false,
                 ),
             }]
         }
