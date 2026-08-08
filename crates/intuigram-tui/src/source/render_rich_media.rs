@@ -149,10 +149,18 @@ fn render_cursor(frame: &mut Frame<'_>, popup: Rect, composer: &RichMediaCompose
         _ => None,
     };
     let Some(value) = value else { return };
-    let x = popup
+    let content = render_overlays::popup_content_area(popup);
+    if content.width == 0 || content.height == 0 {
+        return;
+    }
+    let x = content
         .x
         .saturating_add(14)
         .saturating_add(u16::try_from(value.chars().count()).unwrap_or(u16::MAX))
-        .min(popup.right().saturating_sub(1));
-    frame.set_cursor_position((x, popup.y.saturating_add(2 + composer.selected as u16)));
+        .min(content.right().saturating_sub(1));
+    let y = content
+        .y
+        .saturating_add(2 + composer.selected as u16)
+        .min(content.bottom().saturating_sub(1));
+    frame.set_cursor_position((x, y));
 }

@@ -217,13 +217,7 @@ pub(super) fn render_help(
             Span::raw(format!("  {}", binding.label)),
         ])
     }));
-    frame.render_widget(Clear, popup);
-    frame.render_widget(
-        Paragraph::new(lines.collect::<Vec<_>>())
-            .style(surface_style(true))
-            .wrap(Wrap { trim: false }),
-        popup,
-    );
+    render_overlays::render_overlay(frame, popup, lines.collect());
 }
 
 pub(super) fn render_folder_picker(frame: &mut Frame<'_>, area: Rect, view: &View) {
@@ -263,13 +257,7 @@ pub(super) fn render_folder_picker(frame: &mut Frame<'_>, area: Rect, view: &Vie
                 ])
             }),
     );
-    frame.render_widget(Clear, popup);
-    frame.render_widget(
-        Paragraph::new(lines.collect::<Vec<_>>())
-            .style(surface_style(true))
-            .wrap(Wrap { trim: false }),
-        popup,
-    );
+    render_overlays::render_overlay(frame, popup, lines.collect());
 }
 
 pub(super) fn selection_rule(selected: bool) -> Span<'static> {

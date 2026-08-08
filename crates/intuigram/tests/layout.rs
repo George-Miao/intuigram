@@ -143,6 +143,35 @@ fn bottom_chrome_combines_status_and_context_actions() -> Result<()> {
 }
 
 #[test]
+fn popups_have_one_cell_padding_and_clip_safely_on_narrow_terminals() -> Result<()> {
+    let mut app = TestSystem::builder()
+        .name("layout-popup-padding")
+        .terminal(100, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, [test_harness::sent_message(41, "popup target")]),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.press(key::ALT_UP)?;
+    app.type_text("a")?;
+    let rows = app.screen().rows();
+    let title_row = rows
+        .iter()
+        .position(|row| row.contains("Message Actions"))
+        .expect("Message Actions popup should render");
+
+    assert_eq!(row_segment(&rows, title_row, 29, 45), " Message Actions");
+    assert!(row_segment(&rows, title_row - 1, 29, 71).trim().is_empty());
+
+    app.resize(12, 5)?;
+    assert_eq!(app.screen().rows().len(), 5);
+    app.expect_no_unhandled_work()
+}
+
+#[test]
 fn only_the_focused_block_uses_a_surface_background() -> Result<()> {
     let mut app = TestSystem::builder()
         .name("layout-focused-surface")

@@ -191,11 +191,19 @@ fn render_folder_editor(frame: &mut Frame<'_>, popup: Rect, editor: &FolderEdito
     }
     render_overlays::render_overlay(frame, popup, lines);
     if editor.selected == 0 {
-        let cursor = popup
+        let content = render_overlays::popup_content_area(popup);
+        if content.width == 0 || content.height == 0 {
+            return;
+        }
+        let cursor = content
             .x
             .saturating_add(9)
             .saturating_add(u16::try_from(editor.title.chars().count()).unwrap_or(u16::MAX))
-            .min(popup.right().saturating_sub(1));
-        frame.set_cursor_position((cursor, popup.y.saturating_add(2)));
+            .min(content.right().saturating_sub(1));
+        let row = content
+            .y
+            .saturating_add(2)
+            .min(content.bottom().saturating_sub(1));
+        frame.set_cursor_position((cursor, row));
     }
 }

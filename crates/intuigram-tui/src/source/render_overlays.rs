@@ -179,12 +179,26 @@ pub(super) fn render_poll_vote(frame: &mut Frame<'_>, area: Rect, view: &View) {
 
 pub(super) fn render_overlay(frame: &mut Frame<'_>, area: Rect, lines: Vec<Line<'_>>) {
     frame.render_widget(Clear, area);
+    frame.render_widget(Paragraph::new("").style(surface_style(true)), area);
     frame.render_widget(
         Paragraph::new(lines)
             .style(surface_style(true))
             .wrap(Wrap { trim: false }),
-        area,
+        popup_content_area(area),
     );
+}
+
+pub(super) const fn popup_content_area(area: Rect) -> Rect {
+    if area.width > 2 && area.height > 2 {
+        Rect::new(
+            area.x.saturating_add(1),
+            area.y.saturating_add(1),
+            area.width.saturating_sub(2),
+            area.height.saturating_sub(2),
+        )
+    } else {
+        area
+    }
 }
 use super::*;
 
@@ -210,12 +224,20 @@ pub(super) fn render_attachment_path(frame: &mut Frame<'_>, area: Rect, view: &V
         )),
     ];
     render_overlay(frame, popup, lines);
-    let cursor_x = popup
+    let content = popup_content_area(popup);
+    if content.width == 0 || content.height == 0 {
+        return;
+    }
+    let cursor_x = content
         .x
         .saturating_add(2)
         .saturating_add(u16::try_from(attachment.path.chars().count()).unwrap_or(u16::MAX))
-        .min(popup.right().saturating_sub(1));
-    frame.set_cursor_position((cursor_x, popup.y.saturating_add(2)));
+        .min(content.right().saturating_sub(1));
+    let cursor_y = content
+        .y
+        .saturating_add(2)
+        .min(content.bottom().saturating_sub(1));
+    frame.set_cursor_position((cursor_x, cursor_y));
 }
 
 pub(super) fn render_save_as(frame: &mut Frame<'_>, area: Rect, view: &View) {
@@ -240,10 +262,18 @@ pub(super) fn render_save_as(frame: &mut Frame<'_>, area: Rect, view: &View) {
         )),
     ];
     render_overlay(frame, popup, lines);
-    let cursor_x = popup
+    let content = popup_content_area(popup);
+    if content.width == 0 || content.height == 0 {
+        return;
+    }
+    let cursor_x = content
         .x
         .saturating_add(2)
         .saturating_add(u16::try_from(save_as.destination.chars().count()).unwrap_or(u16::MAX))
-        .min(popup.right().saturating_sub(1));
-    frame.set_cursor_position((cursor_x, popup.y.saturating_add(2)));
+        .min(content.right().saturating_sub(1));
+    let cursor_y = content
+        .y
+        .saturating_add(2)
+        .min(content.bottom().saturating_sub(1));
+    frame.set_cursor_position((cursor_x, cursor_y));
 }
