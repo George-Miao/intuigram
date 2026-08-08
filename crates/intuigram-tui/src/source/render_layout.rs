@@ -110,14 +110,14 @@ pub(super) fn render_main(
     }
     let columns = if area.width >= 140 {
         Layout::horizontal([
-            Constraint::Length(38),
+            Constraint::Length(40),
             Constraint::Length(1),
             Constraint::Min(48),
         ])
         .split(area)
     } else {
         Layout::horizontal([
-            Constraint::Length(30),
+            Constraint::Length(32),
             Constraint::Length(1),
             Constraint::Min(40),
         ])

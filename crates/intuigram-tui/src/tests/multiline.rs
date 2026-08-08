@@ -10,7 +10,7 @@ fn composer_focus_renders_the_terminal_cursor_after_the_text() {
         .expect("Composer should render");
 
     assert!(terminal.backend().cursor_visible());
-    assert_eq!(terminal.backend().cursor_position(), (36, 20).into());
+    assert_eq!(terminal.backend().cursor_position(), (38, 20).into());
 }
 
 #[test]
@@ -29,7 +29,7 @@ fn multiline_composer_grows_to_a_cap_and_scrolls_with_the_cursor() {
     let buffer = terminal.backend().buffer();
 
     assert_eq!(buffer[(40, 13)].bg, Color::Rgb(230, 226, 204));
-    assert_eq!(terminal.backend().cursor_position(), (41, 20).into());
+    assert_eq!(terminal.backend().cursor_position(), (43, 20).into());
     assert!(row_text(buffer, 20).contains("line 10"));
     assert!(!row_text(buffer, 14).contains("line 1"));
 

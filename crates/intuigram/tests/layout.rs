@@ -76,7 +76,7 @@ fn composer_is_one_continuous_bar_with_internal_padding() -> Result<()> {
 
 #[test]
 fn chat_list_uses_dense_left_edge_while_transcript_and_chrome_stay_padded() -> Result<()> {
-    let mut rust = chat(10, "Rust");
+    let mut rust = chat(10, "abcdefghijklmnopqrstuvwxy");
     rust.preview = "owned buffers keep terminal input responsive".to_owned();
     let mut app = TestSystem::builder()
         .name("layout-chat-title-alignment")
@@ -90,14 +90,15 @@ fn chat_list_uses_dense_left_edge_while_transcript_and_chrome_stay_padded() -> R
 
     app.press(key::ENTER)?;
     let rows = app.screen().rows();
-    let title_row = row_within(&rows, "Rust", 0, 30);
-    let preview_row = row_within(&rows, "owned buffers", 0, 30);
-    let message_row = row_within(&rows, "hello", 31, 100);
+    let title_row = row_within(&rows, "abcdefghijkl", 0, 32);
+    let preview_row = row_within(&rows, "owned buffers", 0, 32);
+    let message_row = row_within(&rows, "hello", 33, 100);
 
-    assert_eq!(row_segment(&rows, title_row, 0, 6), "│ [RU]");
-    assert_eq!(row_segment(&rows, preview_row, 28, 30), "  ");
-    assert!(row_segment(&rows, 4, 31, 100).trim().is_empty());
-    assert_eq!(row_segment(&rows, message_row, 31, 35), "   h");
+    assert_eq!(row_segment(&rows, title_row, 0, 6), "│ [AB]");
+    assert_eq!(row_segment(&rows, title_row, 29, 30), "w");
+    assert_eq!(row_segment(&rows, preview_row, 30, 32), "  ");
+    assert!(row_segment(&rows, 4, 33, 100).trim().is_empty());
+    assert_eq!(row_segment(&rows, message_row, 33, 37), "   h");
     let folder = rows
         .iter()
         .position(|row| row.contains("All"))
@@ -183,13 +184,13 @@ fn only_the_focused_block_uses_a_surface_background() -> Result<()> {
         )
         .start()?;
 
-    let canvas = app.screen().background_at(30, 6);
+    let canvas = app.screen().background_at(32, 6);
     assert_ne!(app.screen().background_at(5, 6), canvas);
     assert_eq!(app.screen().background_at(40, 6), canvas);
 
     app.press(key::ENTER)?;
     let rows = app.screen().rows();
-    let composer = row_within(&rows, "Type or paste a message…", 31, 100);
+    let composer = row_within(&rows, "Type or paste a message…", 33, 100);
 
     assert_eq!(app.screen().background_at(5, 6), canvas);
     assert_eq!(app.screen().background_at(40, 6), canvas);

@@ -60,7 +60,7 @@ fn everforest_light_palette_is_used_for_the_terminal_surface() {
         .expect("view should render");
     let buffer = terminal.backend().buffer();
 
-    assert_eq!(buffer[(30, 5)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(32, 5)].bg, Color::Rgb(253, 246, 227));
     assert_eq!(buffer[(5, 5)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(buffer[(5, 5)].fg, Color::Rgb(92, 106, 114));
 }
@@ -200,22 +200,22 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
         .expect("the active Message should have matching semantics");
 
     assert_eq!(buffer[(0, 4)].symbol(), "│");
-    assert_eq!(buffer[(32, message.bounds.top())].symbol(), "│");
-    assert_eq!(buffer[(34, message.bounds.top() + 1)].symbol(), "│");
+    assert_eq!(buffer[(34, message.bounds.top())].symbol(), "│");
+    assert_eq!(buffer[(36, message.bounds.top() + 1)].symbol(), "│");
     assert_eq!(
-        buffer[(34, message.bounds.top() + 1)].fg,
+        buffer[(36, message.bounds.top() + 1)].fg,
         Color::Rgb(58, 148, 197)
     );
-    assert_eq!(buffer[(32, 20)].symbol(), "│");
-    assert_eq!(buffer[(34, 20)].symbol(), "T");
+    assert_eq!(buffer[(34, 20)].symbol(), "│");
+    assert_eq!(buffer[(36, 20)].symbol(), "T");
     assert_eq!(buffer[(5, 5)].bg, Color::Rgb(253, 246, 227));
     assert_eq!(buffer[(40, 5)].bg, Color::Rgb(253, 246, 227));
     assert_eq!(buffer[(40, 19)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(buffer[(40, 20)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(buffer[(40, 21)].bg, Color::Rgb(230, 226, 204));
-    assert_eq!(buffer[(31, 19)].bg, Color::Rgb(230, 226, 204));
+    assert_eq!(buffer[(33, 19)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(buffer[(99, 21)].bg, Color::Rgb(230, 226, 204));
-    assert_eq!(buffer[(30, 5)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(32, 5)].bg, Color::Rgb(253, 246, 227));
     assert_eq!(buffer[(5, 21)].bg, Color::Rgb(253, 246, 227));
     assert_eq!(buffer[(5, 22)].bg, Color::Rgb(253, 246, 227));
     assert_eq!(buffer[(5, 23)].bg, Color::Rgb(253, 246, 227));

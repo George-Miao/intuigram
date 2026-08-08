@@ -170,8 +170,8 @@ fn transcript_scroll_keeps_the_active_message_visible() {
         .find(|node| node.role == SemanticRole::Message && node.domain_id == Some(10))
         .expect("active Message should remain visible");
 
-    assert_eq!(rendered.buffer[(32, active.bounds.y)].symbol(), "│");
-    assert_eq!(rendered.buffer[(34, active.bounds.y)].symbol(), "M");
+    assert_eq!(rendered.buffer[(34, active.bounds.y)].symbol(), "│");
+    assert_eq!(rendered.buffer[(36, active.bounds.y)].symbol(), "M");
 }
 
 #[test]
@@ -211,8 +211,8 @@ fn transcript_scroll_preserves_an_inactive_anchor() {
         .expect("view should render");
     let buffer = terminal.backend().buffer();
 
-    assert_eq!(buffer[(32, 11)].symbol(), " ");
-    assert_eq!(buffer[(34, 12)].symbol(), "M");
+    assert_eq!(buffer[(34, 11)].symbol(), " ");
+    assert_eq!(buffer[(36, 12)].symbol(), "M");
 }
 
 #[test]
