@@ -71,13 +71,13 @@ fn message_heading(
 ) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
     if layout.unread {
-        lines.push(Line::from(vec![
-            Span::raw("  "),
-            Span::styled(
+        lines.push(
+            Line::from(Span::styled(
                 "Unread messages",
                 Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
-            ),
-        ]));
+            ))
+            .alignment(Alignment::Center),
+        );
     }
     if layout.date_boundary {
         lines.push(

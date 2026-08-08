@@ -28,15 +28,11 @@ fn unread_divider_is_rendered_immediately_before_the_boundary_message() {
         })
         .collect();
 
-    let mut terminal =
-        Terminal::new(TestBackend::new(100, 24)).expect("test terminal should initialize");
-    terminal
-        .draw(|frame| render(frame, &current, &EffectiveKeymap::defaults()))
-        .expect("Transcript should render");
+    let frame = render_test_frame(&current, 100, 24);
     let rows = (0..24)
         .map(|row| {
             (0..100)
-                .map(|column| terminal.backend().buffer()[(column, row)].symbol())
+                .map(|column| frame.buffer[(column, row)].symbol())
                 .collect::<String>()
         })
         .collect::<Vec<_>>();
@@ -50,6 +46,19 @@ fn unread_divider_is_rendered_immediately_before_the_boundary_message() {
         .expect("boundary Message should render");
 
     assert_eq!(divider + 1, unread);
+    let transcript = frame
+        .semantics
+        .iter()
+        .find(|node| node.role == SemanticRole::Transcript)
+        .expect("Transcript semantics should expose its padded bounds");
+    let divider_column = rows[divider]
+        .find("Unread messages")
+        .expect("divider text should have a cell position");
+    assert_eq!(
+        divider_column,
+        usize::from(transcript.bounds.x)
+            + usize::from(transcript.bounds.width).saturating_sub("Unread messages".len()) / 2,
+    );
 }
 
 use super::*;
