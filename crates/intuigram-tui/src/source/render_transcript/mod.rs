@@ -116,19 +116,65 @@ fn bottom_aligned_area(area: Rect, range: std::ops::Range<usize>, heights: &[u16
 }
 
 fn render_fresh_loading(frame: &mut Frame<'_>, area: Rect, view: &View, focused: bool) {
-    let line = Line::from(effort_spans("loading", view.animation_frame));
+    let lines = fresh_loading_lines(area, view.animation_frame);
+    let height = u16::try_from(lines.len())
+        .unwrap_or(u16::MAX)
+        .min(area.height);
     let centered = Rect::new(
         area.x,
-        area.y.saturating_add(area.height.saturating_sub(1) / 2),
+        area.y
+            .saturating_add(area.height.saturating_sub(height) / 2),
         area.width,
-        1.min(area.height),
+        height,
     );
     frame.render_widget(
-        Paragraph::new(line)
+        Paragraph::new(lines)
             .alignment(Alignment::Center)
             .style(surface_style(focused)),
         centered,
     );
+}
+
+fn fresh_loading_lines(area: Rect, frame: u8) -> Vec<Line<'static>> {
+    if area.width < 40 {
+        return vec![Line::from(effort_spans("loading", frame))];
+    }
+
+    let progress = loading_progress(frame);
+    match area.height {
+        0 => Vec::new(),
+        1 => vec![progress],
+        2 => vec![progress, Line::from(effort_spans("syncing chat", frame))],
+        _ => vec![
+            Line::styled(
+                "INTUIGRAM",
+                Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
+            ),
+            progress,
+            Line::from(effort_spans("syncing chat", frame)),
+        ],
+    }
+}
+
+fn loading_progress(frame: u8) -> Line<'static> {
+    const TRACK: usize = 12;
+    let plane = usize::from(frame) % TRACK;
+    let mut spans = Vec::with_capacity(TRACK + 2);
+    spans.push(Span::styled("[", Style::default().fg(MUTED_TEXT)));
+    for position in 0..TRACK {
+        if position == plane {
+            spans.push(Span::styled(
+                ">",
+                Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
+            ));
+        } else if position < plane {
+            spans.push(Span::styled("-", Style::default().fg(PRIMARY)));
+        } else {
+            spans.push(Span::styled(".", Style::default().fg(MUTED_TEXT)));
+        }
+    }
+    spans.push(Span::styled("]", Style::default().fg(MUTED_TEXT)));
+    Line::from(spans)
 }
 
 fn render_semantics(
