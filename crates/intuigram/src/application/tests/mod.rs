@@ -17,6 +17,7 @@ use super::{
 
 mod accounts;
 mod cached;
+mod effect_fairness;
 mod misc;
 
 struct PendingHistoryBackend {

@@ -71,6 +71,7 @@ mod schedule_arguments;
 mod startup;
 mod types;
 mod ui;
+mod wake_poll;
 
 use authorization::{authorize_new_account, resume_account};
 use backend::{MessageSend, OutgoingRecord};
@@ -112,6 +113,7 @@ use startup::run_async;
 use types::*;
 pub(super) use ui::main;
 use ui::{ApplicationUi, error_lines};
+use wake_poll::WakePoller;
 
 const PRIMARY_DC_ID: i32 = 2;
 const PRIMARY_DC_ENDPOINT: SocketAddr =
