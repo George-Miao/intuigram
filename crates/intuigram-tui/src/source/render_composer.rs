@@ -10,7 +10,7 @@ pub(super) fn composer_height(area: Rect, view: &View) -> u16 {
         return 0;
     }
     let label = composer_label(view);
-    let width = content_width(area.width, &label);
+    let width = content_width(area.width, label.as_deref());
     let wrapped = wrap_text(&view.composer.text, view.composer.cursor, width);
     let desired = u16::try_from(wrapped.rows.len())
         .unwrap_or(u16::MAX)
@@ -43,9 +43,8 @@ pub(super) fn render_composer(
         bounds: area,
     });
     let label = composer_label(view);
-    let label_width = Line::from(label.as_str()).width();
-    let prefix_width = label_width.saturating_add(5);
-    let width = content_width(area.width, &label);
+    let prefix_width = composer_prefix_width(label.as_deref());
+    let width = content_width(area.width, label.as_deref());
     let wrapped = wrap_text(&view.composer.text, view.composer.cursor, width);
     let visible_height = usize::from(area.height.saturating_sub(2).max(1));
     let scroll = wrapped
@@ -55,7 +54,7 @@ pub(super) fn render_composer(
     let lines = composer_lines(
         view,
         focused,
-        &label,
+        label.as_deref(),
         prefix_width,
         &wrapped,
         scroll,
@@ -67,7 +66,7 @@ pub(super) fn render_composer(
             .x
             .saturating_add(u16::try_from(prefix_width).unwrap_or(u16::MAX))
             .saturating_add(u16::try_from(wrapped.cursor_column).unwrap_or(u16::MAX))
-            .min(area.right().saturating_sub(1));
+            .min(area.right().saturating_sub(2));
         let y = area
             .y
             .saturating_add(1)
@@ -80,7 +79,7 @@ pub(super) fn render_composer(
 fn composer_lines(
     view: &View,
     focused: bool,
-    label: &str,
+    label: Option<&str>,
     prefix_width: usize,
     wrapped: &WrappedText,
     scroll: usize,
@@ -95,12 +94,15 @@ fn composer_lines(
         .enumerate()
     {
         let prefix = if visible_index == 0 {
-            vec![
-                Span::raw(" "),
-                interaction_rule(focused),
-                Span::styled(label.to_owned(), Style::default().fg(MUTED_TEXT)),
-                Span::raw("  "),
-            ]
+            let mut prefix = vec![Span::raw(" "), interaction_rule(focused)];
+            if let Some(label) = label {
+                prefix.push(Span::styled(
+                    label.to_owned(),
+                    Style::default().fg(MUTED_TEXT),
+                ));
+                prefix.push(Span::raw("  "));
+            }
+            prefix
         } else {
             vec![Span::raw(" ".repeat(prefix_width))]
         };
@@ -120,32 +122,41 @@ fn composer_lines(
     lines
 }
 
-fn composer_label(view: &View) -> String {
+fn composer_label(view: &View) -> Option<String> {
     let label = if view.poll_composer {
-        "Poll · question first, then one option per line".to_owned()
+        Some("Poll · question first, then one option per line".to_owned())
     } else {
         view.composer.editing.map_or_else(
             || {
                 view.composer
                     .reply_to
-                    .map_or_else(|| "Draft".to_owned(), |id| format!("Reply to {}", id.0))
+                    .map(|id| format!("Reply to {}", id.0))
             },
-            |id| format!("Edit Message {}", id.0),
+            |id| Some(format!("Edit Message {}", id.0)),
         )
     };
     if view.composer.attachments.is_empty() {
         label
     } else {
-        format!(
-            "{label} · {} attachment(s)",
-            view.composer.attachments.len()
-        )
+        Some(label.map_or_else(
+            || format!("{} attachment(s)", view.composer.attachments.len()),
+            |label| {
+                format!(
+                    "{label} · {} attachment(s)",
+                    view.composer.attachments.len()
+                )
+            },
+        ))
     }
 }
 
-fn content_width(area_width: u16, label: &str) -> usize {
+fn composer_prefix_width(label: Option<&str>) -> usize {
+    label.map_or(3, |label| Line::from(label).width().saturating_add(5))
+}
+
+fn content_width(area_width: u16, label: Option<&str>) -> usize {
     usize::from(area_width)
-        .saturating_sub(Line::from(label).width().saturating_add(5))
+        .saturating_sub(composer_prefix_width(label).saturating_add(1))
         .max(1)
 }
 

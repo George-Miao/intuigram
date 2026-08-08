@@ -1,5 +1,5 @@
 #[test]
-fn composer_focus_renders_the_terminal_cursor_after_the_draft() {
+fn composer_focus_renders_the_terminal_cursor_after_the_text() {
     let mut current = active_chat_view();
     current.composer.text = "hi".to_owned();
     current.composer.cursor = current.composer.text.len();
@@ -10,7 +10,7 @@ fn composer_focus_renders_the_terminal_cursor_after_the_draft() {
         .expect("Composer should render");
 
     assert!(terminal.backend().cursor_visible());
-    assert_eq!(terminal.backend().cursor_position(), (43, 17).into());
+    assert_eq!(terminal.backend().cursor_position(), (36, 17).into());
 }
 
 #[test]
@@ -29,7 +29,7 @@ fn multiline_composer_grows_to_a_cap_and_scrolls_with_the_cursor() {
     let buffer = terminal.backend().buffer();
 
     assert_eq!(buffer[(40, 10)].bg, Color::Rgb(230, 226, 204));
-    assert_eq!(terminal.backend().cursor_position(), (48, 17).into());
+    assert_eq!(terminal.backend().cursor_position(), (41, 17).into());
     assert!(row_text(buffer, 17).contains("line 10"));
     assert!(!row_text(buffer, 11).contains("line 1"));
 

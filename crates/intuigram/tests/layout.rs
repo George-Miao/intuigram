@@ -55,14 +55,21 @@ fn composer_is_one_continuous_bar_with_internal_padding() -> Result<()> {
 
     app.press(key::ENTER)?;
     let rows = app.screen().rows();
-    let draft = row_within(&rows, "Draft", 31, 100);
     let placeholder = row_within(&rows, "Type or paste a message…", 31, 100);
 
-    assert_eq!(draft, placeholder);
-    assert!(row_segment(&rows, draft - 1, 31, 100).trim().is_empty());
-    assert!(row_segment(&rows, draft + 1, 31, 100).trim().is_empty());
-    assert_eq!(row_segment(&rows, draft, 31, 32), " ");
-    assert_eq!(row_segment(&rows, draft, 99, 100), " ");
+    assert!(!row_segment(&rows, placeholder, 31, 100).contains("Draft"));
+    assert!(
+        row_segment(&rows, placeholder - 1, 31, 100)
+            .trim()
+            .is_empty()
+    );
+    assert!(
+        row_segment(&rows, placeholder + 1, 31, 100)
+            .trim()
+            .is_empty()
+    );
+    assert_eq!(row_segment(&rows, placeholder, 31, 32), " ");
+    assert_eq!(row_segment(&rows, placeholder, 99, 100), " ");
     app.expect_no_unhandled_work()
 }
 
