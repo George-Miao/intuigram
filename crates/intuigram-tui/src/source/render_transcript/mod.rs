@@ -45,7 +45,6 @@ pub(super) fn render_transcript(
             let previous = index
                 .checked_sub(1)
                 .and_then(|previous| view.messages.get(previous));
-            let next = view.messages.get(index + 1);
             message_lines(
                 view,
                 index,
@@ -58,8 +57,6 @@ pub(super) fn render_transcript(
                     available_height: area.height,
                     grouped_with_previous: mode == ViewMode::Default
                         && previous.is_some_and(|previous| messages_group(previous, message)),
-                    grouped_with_next: mode == ViewMode::Default
-                        && next.is_some_and(|next| messages_group(message, next)),
                     date_boundary: !message.details.date_label.is_empty()
                         && previous.is_none_or(|previous| {
                             previous.details.date_label != message.details.date_label

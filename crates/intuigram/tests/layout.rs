@@ -31,7 +31,7 @@ fn default_view_separates_chats_and_messages_and_uses_a_three_line_folder_bar() 
     let second = row_within(&rows, "second message", 31, 100);
 
     assert_eq!(telegram.saturating_sub(rust), 3);
-    assert_eq!(second.saturating_sub(first), 1);
+    assert_eq!(second.saturating_sub(first), 2);
     let folder = rows
         .iter()
         .position(|row| row.contains("All"))
@@ -112,6 +112,39 @@ fn chat_list_and_transcript_have_one_cell_internal_padding() -> Result<()> {
     assert!(rows[folder].starts_with(' '));
     assert!(rows[action].starts_with(' '));
     assert!(rows[status].starts_with(' '));
+    app.expect_no_unhandled_work()
+}
+
+#[test]
+fn quoted_messages_keep_their_content_inside_one_trailing_blank_row() -> Result<()> {
+    let mut quoted = incoming(41, "Lin", "quoted reply");
+    quoted.reply_to = Some(intuigram_app::MessageId(40));
+    let mut app = TestSystem::builder()
+        .name("layout-quoted-message-spacing")
+        .terminal(100, 28)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(
+                    10,
+                    [
+                        incoming(40, "Lin", "original"),
+                        quoted,
+                        incoming(42, "Ada", "following message"),
+                    ],
+                ),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    let rows = app.screen().rows();
+    let quote = row_within(&rows, "Lin: original", 31, 100);
+    let reply = row_within(&rows, "quoted reply", 31, 100);
+    let following = row_within(&rows, "following message", 31, 100);
+
+    assert!(quote < reply);
+    assert!(row_segment(&rows, reply + 1, 31, 100).trim().is_empty());
+    assert!(following >= reply + 2);
     app.expect_no_unhandled_work()
 }
 

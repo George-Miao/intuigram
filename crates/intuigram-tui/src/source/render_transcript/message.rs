@@ -9,7 +9,6 @@ pub(super) struct MessageLayout {
     pub(super) width: u16,
     pub(super) available_height: u16,
     pub(super) grouped_with_previous: bool,
-    pub(super) grouped_with_next: bool,
     pub(super) date_boundary: bool,
 }
 
@@ -59,7 +58,7 @@ pub(super) fn message_lines(
         layout.width,
         state,
     );
-    if layout.mode == ViewMode::Default && !layout.grouped_with_next {
+    if layout.mode == ViewMode::Default {
         lines.push(Line::from(""));
     }
     lines

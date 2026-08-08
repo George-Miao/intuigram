@@ -163,15 +163,15 @@ fn transcript_scroll_keeps_the_active_message_visible() {
     view.active_message = Some(10);
     view.focus = Focus::Transcript;
 
-    let backend = TestBackend::new(100, 28);
-    let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
-    terminal
-        .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
-        .expect("view should render");
-    let buffer = terminal.backend().buffer();
+    let rendered = render_test_frame(&view, 100, 28);
+    let active = rendered
+        .semantics
+        .iter()
+        .find(|node| node.role == SemanticRole::Message && node.domain_id == Some(10))
+        .expect("active Message should remain visible");
 
-    assert_eq!(buffer[(32, 8)].symbol(), "│");
-    assert_eq!(buffer[(34, 9)].symbol(), "M");
+    assert_eq!(rendered.buffer[(32, active.bounds.y)].symbol(), "│");
+    assert_eq!(rendered.buffer[(34, active.bounds.y)].symbol(), "M");
 }
 
 #[test]
