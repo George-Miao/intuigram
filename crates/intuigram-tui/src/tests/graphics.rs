@@ -11,11 +11,19 @@ use crate::source::terminal::draw_terminal_view;
 #[test]
 fn ghostty_selects_kitty_unicode_graphics() {
     assert_eq!(
-        GraphicsProtocol::detect(Some(OsStr::new("xterm-ghostty"))),
+        GraphicsProtocol::detect(Some(OsStr::new("xterm-ghostty")), None),
         GraphicsProtocol::KittyUnicode
     );
     assert_eq!(
-        GraphicsProtocol::detect(Some(OsStr::new("xterm-256color"))),
+        GraphicsProtocol::detect(Some(OsStr::new("xterm-256color")), None),
+        GraphicsProtocol::Text
+    );
+}
+
+#[test]
+fn ghostty_inside_zellij_uses_the_text_image_fallback() {
+    assert_eq!(
+        GraphicsProtocol::detect(Some(OsStr::new("xterm-ghostty")), Some(OsStr::new("0")),),
         GraphicsProtocol::Text
     );
 }

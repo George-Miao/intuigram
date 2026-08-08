@@ -55,10 +55,16 @@ impl GraphicsFrame {
 
 impl GraphicsProtocol {
     pub(crate) fn from_env() -> Self {
-        Self::detect(std::env::var_os("TERM").as_deref())
+        Self::detect(
+            std::env::var_os("TERM").as_deref(),
+            std::env::var_os("ZELLIJ").as_deref(),
+        )
     }
 
-    pub(crate) fn detect(term: Option<&OsStr>) -> Self {
+    pub(crate) fn detect(term: Option<&OsStr>, zellij: Option<&OsStr>) -> Self {
+        if zellij.is_some() {
+            return Self::Text;
+        }
         match term.and_then(OsStr::to_str) {
             Some("xterm-ghostty") => Self::KittyUnicode,
             _ => Self::Text,
