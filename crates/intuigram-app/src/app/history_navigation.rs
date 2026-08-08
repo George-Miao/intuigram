@@ -1,6 +1,7 @@
 #[derive(Default)]
 pub(super) struct HistoryLoads {
     active: Option<HistoryKey>,
+    active_baseline: HashSet<MessageId>,
     queued: Option<HistoryKey>,
     background_cursor: usize,
     background_remaining: usize,
@@ -68,6 +69,7 @@ impl App {
 
     pub(super) fn reset_background_history(&mut self) {
         self.history_loads.active = None;
+        self.history_loads.active_baseline.clear();
         self.history_loads.queued = None;
         self.history_loads.refreshed_chats.clear();
         self.history_loads.thread_read_pending = false;
@@ -98,6 +100,13 @@ impl App {
         match self.history_loads.active {
             None => {
                 self.history_loads.active = Some(key);
+                self.history_loads.active_baseline = self
+                    .histories
+                    .get(&key)
+                    .into_iter()
+                    .flatten()
+                    .map(|message| message.id)
+                    .collect();
                 Some(match key.thread {
                     Some(root) => Effect::LoadThread {
                         chat: key.chat,
@@ -122,6 +131,10 @@ impl App {
         }
     }
 
+    pub(super) fn history_request_baseline(&self, key: HistoryKey) -> Option<&HashSet<MessageId>> {
+        (self.history_loads.active == Some(key)).then_some(&self.history_loads.active_baseline)
+    }
+
     pub(super) fn complete_history_load(
         &mut self,
         key: HistoryKey,
@@ -137,6 +150,7 @@ impl App {
             self.view.chat_loading = ChatLoadingState::Idle;
         }
         self.history_loads.active = None;
+        self.history_loads.active_baseline.clear();
         let foreground = self
             .history_loads
             .queued

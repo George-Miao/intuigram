@@ -22,6 +22,7 @@ mod builder;
 mod downloads;
 mod effects;
 mod folder_effects;
+mod history_effects;
 mod input;
 mod pointer;
 mod rich_media_effects;

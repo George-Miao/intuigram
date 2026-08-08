@@ -42,6 +42,7 @@ pub(super) fn save_chat_history(
         .iter()
         .map(|message| message.id)
         .collect::<Vec<_>>();
+    let oldest_recent_id = recent_ids.iter().copied().filter(|id| *id > 0).min();
     for message in messages.iter().chain(&pinned_messages) {
         upsert_message(&transaction, message).context(SaveMessagesSnafu)?;
     }
@@ -75,6 +76,29 @@ pub(super) fn save_chat_history(
                 )
                 .context(SaveMessagesSnafu)?;
         }
+    }
+    let stale_ids = super::cache_read::query_messages(&transaction)
+        .context(SaveMessagesSnafu)?
+        .into_iter()
+        .filter(|message| {
+            message.chat_id == chat
+                && message.thread_root.is_none()
+                && message.id > 0
+                && matches!(message.delivery.as_str(), "sent" | "read")
+                && !recent_ids.contains(&message.id)
+                && oldest_recent_id.is_none_or(|oldest| message.id >= oldest)
+        })
+        .map(|message| message.id)
+        .collect::<Vec<_>>();
+    if !stale_ids.is_empty() {
+        apply_sync_mutation(
+            &transaction,
+            StoredMutation::DeleteMessages {
+                chat_id: Some(chat),
+                ids: stale_ids,
+            },
+        )
+        .context(SaveMessagesSnafu)?;
     }
     transaction.commit().context(SaveMessagesSnafu)
 }

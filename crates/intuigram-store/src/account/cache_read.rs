@@ -126,14 +126,16 @@ pub(super) fn load_chats(connection: &Connection) -> Result<Vec<StoredChat>> {
 }
 
 pub(super) fn load_messages(connection: &Connection) -> Result<Vec<StoredMessage>> {
-    let mut statement = connection
-        .prepare(
-            "SELECT chat_id, message_id, sender, body, timestamp, direction, delivery, \
-             reply_to_message_id, thread_root_message_id, content_kind, metadata FROM messages m \
-             WHERE NOT EXISTS (SELECT 1 FROM message_projections p WHERE p.chat_id = m.chat_id \
-             AND p.message_id = m.message_id) ORDER BY m.chat_id, m.message_id",
-        )
-        .context(LoadCacheSnafu)?;
+    query_messages(connection).context(LoadCacheSnafu)
+}
+
+pub(super) fn query_messages(connection: &Connection) -> rusqlite::Result<Vec<StoredMessage>> {
+    let mut statement = connection.prepare(
+        "SELECT chat_id, message_id, sender, body, timestamp, direction, delivery, \
+         reply_to_message_id, thread_root_message_id, content_kind, metadata FROM messages m \
+         WHERE NOT EXISTS (SELECT 1 FROM message_projections p WHERE p.chat_id = m.chat_id AND \
+         p.message_id = m.message_id) ORDER BY m.chat_id, m.message_id",
+    )?;
     statement
         .query_map([], |row| {
             Ok(StoredMessage {
@@ -149,10 +151,8 @@ pub(super) fn load_messages(connection: &Connection) -> Result<Vec<StoredMessage
                 content_kind: row.get(9)?,
                 metadata: row.get(10)?,
             })
-        })
-        .context(LoadCacheSnafu)?
-        .collect::<std::result::Result<_, _>>()
-        .context(LoadCacheSnafu)
+        })?
+        .collect()
 }
 
 pub(super) fn load_pinned_messages(connection: &Connection) -> Result<Vec<StoredMessage>> {

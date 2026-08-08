@@ -64,6 +64,41 @@ fn a_replayed_live_update_does_not_duplicate_loaded_history() -> Result<()> {
 }
 
 #[test]
+fn a_refresh_removes_stale_acknowledged_messages_from_screen_and_storage() -> Result<()> {
+    let older = incoming(1, "Lin", "older retained history");
+    let stale = incoming(8, "You", "deleted elsewhere");
+    let mut app = TestSystem::builder()
+        .name("synchronization-prunes-stale-history")
+        .terminal(100, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(
+                    account("Ada")
+                        .with_chat(chat(10, "Rust"))
+                        .with_history([older.clone(), stale]),
+                )
+                .expect_load_history(
+                    10,
+                    [
+                        older,
+                        incoming(7, "Lin", "fresh history"),
+                        incoming(10, "Lin", "latest"),
+                    ],
+                ),
+        )
+        .start()?;
+
+    app.screen()
+        .message_text("deleted elsewhere")
+        .expect_sender("You")?;
+    app.press(key::ENTER)?;
+
+    app.screen().message(8).expect_absent()?;
+    app.expect_no_durable_message(10, 8)?;
+    app.expect_no_unhandled_work()
+}
+
+#[test]
 fn a_chat_discovered_live_can_immediately_load_history() -> Result<()> {
     let discovered = 206_899_663;
     let mut app = TestSystem::builder()

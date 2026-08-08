@@ -60,6 +60,34 @@ fn refreshed_projection_does_not_join_recent_history_after_restart() {
 }
 
 #[test]
+fn refreshed_history_prunes_stale_acknowledged_rows_only_from_its_recent_window() {
+    let (temporary, database, recent, old_pin) = history_with_old_pin();
+    let older = stored_message(50, "older history");
+    let stale = stored_message(101, "deleted on Telegram");
+    let mut pending = stored_message(-1, "pending send");
+    pending.delivery = "pending".to_owned();
+    let save = database
+        .store()
+        .save_messages(vec![older.clone(), stale.clone(), pending.clone()])
+        .expect("cached Messages should enqueue");
+    block_on(save).expect("cached Messages should persist");
+    let newest = stored_message(102, "newest");
+    let refresh = database
+        .store()
+        .save_chat_history(7, vec![recent.clone(), newest.clone()], vec![old_pin])
+        .expect("history refresh should enqueue");
+    block_on(refresh).expect("history refresh should persist");
+
+    let reopened = reopen(&temporary, database);
+    let cached = reopened.cached_account().expect("cache should reload");
+    assert!(cached.messages.contains(&older));
+    assert!(cached.messages.contains(&recent));
+    assert!(cached.messages.contains(&newest));
+    assert!(cached.messages.contains(&pending));
+    assert!(!cached.messages.contains(&stale));
+}
+
+#[test]
 fn server_acknowledgement_replaces_the_optimistic_row_across_restart() {
     let (temporary, database, ..) = history_with_old_pin();
     let mut local = stored_message(-1, "optimistic media");

@@ -99,6 +99,61 @@ fn a_live_message_already_returned_by_history_is_not_added_twice() {
 }
 
 #[test]
+fn refresh_prunes_stale_cache_without_losing_older_live_or_pending_messages() {
+    let mut fixture = hierarchy_bootstrap();
+    let mut pending = message(-1, "pending send");
+    pending.direction = MessageDirection::Outgoing;
+    pending.delivery = DeliveryState::Pending;
+    fixture.histories.push(HistoryView {
+        chat: ChatId(20),
+        thread_root: None,
+        messages: vec![
+            message(1, "older history"),
+            message(8, "stale cache"),
+            pending.clone(),
+        ],
+    });
+    let mut app = App::new();
+
+    let bootstrap = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    assert_eq!(bootstrap.effect, Some(load_chat(20, None)));
+    let mut live = message(11, "concurrent live update");
+    live.direction = MessageDirection::Outgoing;
+    live.delivery = DeliveryState::Sent;
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::MessageAdded {
+            chat: ChatId(20),
+            message: Box::new(live.clone()),
+        }),
+    );
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::ChatLoaded {
+            chat: ChatId(20),
+            messages: vec![message(7, "fresh"), message(10, "latest")],
+            pinned_messages: Vec::new(),
+        }),
+    );
+
+    apply(&mut app, Input::Intent(Intent::Action(Action::MoveDown)));
+    assert_eq!(
+        app.view()
+            .messages
+            .iter()
+            .map(|message| (message.id, message.body.as_str()))
+            .collect::<Vec<_>>(),
+        vec![
+            (MessageId(1), "older history"),
+            (MessageId(7), "fresh"),
+            (MessageId(10), "latest"),
+            (MessageId(11), "concurrent live update"),
+            (MessageId(-1), "pending send"),
+        ]
+    );
+}
+
+#[test]
 fn rapid_navigation_does_not_drop_an_inactive_background_history() {
     let mut fixture = hierarchy_bootstrap();
     let mut third = fixture.chats[1].clone();

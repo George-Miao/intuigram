@@ -12,6 +12,7 @@ pub struct AccountFixture {
     folders: Vec<FolderView>,
     folder_details: Vec<FolderDetailsView>,
     chats: Vec<ChatView>,
+    messages: Vec<MessageView>,
     drafts: Vec<DraftView>,
 }
 
@@ -73,6 +74,13 @@ impl AccountFixture {
         self
     }
 
+    /// Seeds the recent history for the first Chat in this Account fixture.
+    #[must_use]
+    pub fn with_history(mut self, messages: impl IntoIterator<Item = MessageView>) -> Self {
+        self.messages = messages.into_iter().collect();
+        self
+    }
+
     pub(crate) fn into_bootstrap(self) -> Bootstrap {
         Bootstrap {
             connection: ConnectionState::Connected,
@@ -85,7 +93,7 @@ impl AccountFixture {
             transcript_anchors: Vec::new(),
             folders: self.folders,
             chats: self.chats,
-            messages: Vec::new(),
+            messages: self.messages,
             pinned_messages: Vec::new(),
             drafts: self.drafts,
             histories: Vec::new(),
@@ -118,6 +126,7 @@ pub fn account(name: impl Into<String>) -> AccountFixture {
         ],
         folder_details: Vec::new(),
         chats: Vec::new(),
+        messages: Vec::new(),
         drafts: Vec::new(),
     }
 }

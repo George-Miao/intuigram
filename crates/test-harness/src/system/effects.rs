@@ -10,7 +10,7 @@ use super::TestSystem;
 use super::downloads::ONE_PIXEL_PNG;
 use super::telegram_control::block_on;
 use crate::error::{Error, Result, StoreSnafu};
-use crate::telegram::{HistoryResult, ObservedSend, ScenarioMismatch};
+use crate::telegram::{ObservedSend, ScenarioMismatch};
 
 impl TestSystem {
     pub(super) fn drain_effects(&mut self) -> Result<()> {
@@ -44,62 +44,7 @@ impl TestSystem {
                     chat,
                     selection,
                     transcript_anchors,
-                } => {
-                    if let Some(selection) = selection {
-                        self.database
-                            .save_selection(StoredSelection {
-                                folder_id: selection.folder,
-                                chat_id: selection.chat.map(|chat| chat.0),
-                                anchor_message_id: selection.message.map(|message| message.0),
-                                transcript_anchors: transcript_anchors
-                                    .into_iter()
-                                    .map(|anchor| intuigram_store::StoredTranscriptAnchor {
-                                        chat_id: anchor.chat.0,
-                                        thread_root: anchor.thread.map(|message| message.0),
-                                        message_id: anchor.message.0,
-                                    })
-                                    .collect(),
-                            })
-                            .context(StoreSnafu)?;
-                    }
-                    let result = self
-                        .telegram
-                        .load_history(chat)
-                        .map_err(|error| self.scenario_error(error))?;
-                    if let HistoryResult::Loaded {
-                        messages,
-                        pinned_messages,
-                    } = &result
-                    {
-                        let request = self
-                            .database
-                            .store()
-                            .save_messages(
-                                messages
-                                    .iter()
-                                    .chain(pinned_messages)
-                                    .map(|message| encode_stored_message(chat, message))
-                                    .collect(),
-                            )
-                            .context(StoreSnafu)?;
-                        block_on(request).context(StoreSnafu)?;
-                    }
-                    self.application.handle_adapter(match result {
-                        HistoryResult::Loaded {
-                            messages,
-                            pinned_messages,
-                        } => AdapterEvent::ChatLoaded {
-                            chat,
-                            messages,
-                            pinned_messages,
-                        },
-                        HistoryResult::Failed(reason) => AdapterEvent::HistoryLoadFailed {
-                            chat,
-                            thread_root: None,
-                            reason,
-                        },
-                    });
-                }
+                } => self.handle_history_load(chat, selection, transcript_anchors)?,
                 Effect::SaveSelection {
                     folder,
                     chat,
@@ -388,7 +333,7 @@ impl TestSystem {
         Ok(())
     }
 
-    fn scenario_error(&self, error: ScenarioMismatch) -> Error {
+    pub(super) fn scenario_error(&self, error: ScenarioMismatch) -> Error {
         Error::TelegramMismatch {
             expected: error.expected,
             observed: error.observed,
