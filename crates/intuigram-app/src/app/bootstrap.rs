@@ -46,6 +46,7 @@ impl App {
                 actions: Vec::new(),
             },
             all_chats: Vec::new(),
+            muted_chats: HashSet::new(),
             drafts: HashMap::new(),
             histories: HashMap::new(),
             pinned_histories: HashMap::new(),
@@ -144,6 +145,7 @@ impl App {
         self.view.connection = bootstrap.connection;
         self.view.account_name = bootstrap.account_name;
         self.view.notification_identity = bootstrap.notification_identity;
+        self.muted_chats = bootstrap.muted_chats.into_iter().collect();
         self.view.accounts = bootstrap.accounts;
         self.view.folders = bootstrap.folders;
         self.view.folder_details = bootstrap.folder_details;

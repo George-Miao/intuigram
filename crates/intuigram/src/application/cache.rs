@@ -98,6 +98,7 @@ pub(super) fn cached_bootstrap(
         connection: intuigram_app::ConnectionState::Connecting,
         account_name,
         notification_identity,
+        muted_chats: Vec::new(),
         accounts: Vec::new(),
         folder_details: Vec::new(),
         restored_selection,

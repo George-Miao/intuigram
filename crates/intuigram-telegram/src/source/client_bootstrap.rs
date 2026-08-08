@@ -34,6 +34,17 @@ impl Client {
             .iter()
             .map(|message| ((message_chat_id(message), message.id()), message))
             .collect();
+        let unix_time = time::OffsetDateTime::now_utc().unix_timestamp();
+        let muted_chats = dialogs
+            .iter()
+            .filter_map(|dialog| {
+                let tl::enums::Dialog::Dialog(dialog) = dialog else {
+                    return None;
+                };
+                notifications_muted_at(&dialog.notify_settings, unix_time)
+                    .then(|| marked_peer_id(&dialog.peer))
+            })
+            .collect();
         let chat_views = dialogs
             .iter()
             .filter_map(|dialog| match dialog {
@@ -90,6 +101,7 @@ impl Client {
                 || "telegram:pending".to_owned(),
                 |identity| format!("telegram:{}", identity.id),
             ),
+            muted_chats,
             accounts: Vec::new(),
             restored_selection: None,
             transcript_anchors: Vec::new(),

@@ -235,6 +235,18 @@ pub(crate) fn normalize_update(
                 }
             })
             .collect(),
+        tl::enums::Update::NotifySettings(update) => {
+            let tl::enums::NotifyPeer::Peer(peer) = update.peer else {
+                return Vec::new();
+            };
+            vec![AdapterEvent::ChatMuteChanged {
+                chat: marked_peer_id(&peer.peer),
+                muted: notifications_muted_at(
+                    &update.notify_settings,
+                    time::OffsetDateTime::now_utc().unix_timestamp(),
+                ),
+            }]
+        }
         _ => Vec::new(),
     }
 }

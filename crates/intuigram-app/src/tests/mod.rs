@@ -10,6 +10,7 @@ fn bootstrap() -> Bootstrap {
         connection: ConnectionState::Connected,
         account_name: "Ada".to_owned(),
         notification_identity: "telegram:10".to_owned(),
+        muted_chats: Vec::new(),
         accounts: Vec::new(),
         folder_details: Vec::new(),
         restored_selection: None,

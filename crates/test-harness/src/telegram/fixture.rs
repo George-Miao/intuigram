@@ -78,6 +78,7 @@ impl AccountFixture {
             connection: ConnectionState::Connected,
             account_name: self.name,
             notification_identity: "telegram:test".to_owned(),
+            muted_chats: Vec::new(),
             accounts: self.accounts,
             folder_details: self.folder_details,
             restored_selection: None,

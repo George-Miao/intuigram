@@ -53,9 +53,11 @@ impl App {
             .then(|| self.active_thread_read_effect())
             .flatten();
         read_effect.or_else(|| {
-            (incoming && !visibly_read).then(|| Effect::Notify {
-                identity: self.view.notification_identity.clone(),
-                chat,
+            (incoming && !visibly_read && !self.muted_chats.contains(&chat)).then(|| {
+                Effect::Notify {
+                    identity: self.view.notification_identity.clone(),
+                    chat,
+                }
             })
         })
     }

@@ -2,6 +2,7 @@
 pub struct App {
     view: View,
     all_chats: Vec<ChatView>,
+    muted_chats: HashSet<ChatId>,
     drafts: HashMap<HistoryKey, ComposerView>,
     histories: HashMap<HistoryKey, Vec<MessageView>>,
     pinned_histories: HashMap<ChatId, Vec<MessageView>>,
@@ -64,6 +65,14 @@ impl App {
             Input::Adapter(AdapterEvent::ConnectionFailed(reason)) => {
                 self.view.connection = ConnectionState::ReconnectCooldown;
                 self.view.notice = Some(reason);
+                None
+            }
+            Input::Adapter(AdapterEvent::ChatMuteChanged { chat, muted }) => {
+                if muted {
+                    self.muted_chats.insert(chat);
+                } else {
+                    self.muted_chats.remove(&chat);
+                }
                 None
             }
             Input::Adapter(

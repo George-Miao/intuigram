@@ -380,5 +380,6 @@ fn direct_data_center_selection_ignores_incompatible_endpoints() {
 }
 mod dialogs_and_peers;
 mod media_fixtures;
+mod notifications;
 
 use media_fixtures::{basic_group, channel, dc_option, user};

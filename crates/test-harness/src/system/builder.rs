@@ -123,6 +123,7 @@ impl TestSystemBuilder {
             downloaded_paths: Vec::new(),
             opened_links: Vec::new(),
             opened_downloads: Vec::new(),
+            notifications: Vec::new(),
             account_lifecycle: Vec::new(),
             scheduled_messages: std::collections::HashMap::new(),
             next_scheduled_id: 0,

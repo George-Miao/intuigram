@@ -125,6 +125,16 @@ pub(crate) fn folder_unread(chats: &[ChatView], folder: i32) -> u32 {
         .fold(0_u32, |total, chat| total.saturating_add(chat.unread))
 }
 
+pub(crate) fn notifications_muted_at(
+    settings: &tl::enums::PeerNotifySettings,
+    unix_time: i64,
+) -> bool {
+    let tl::enums::PeerNotifySettings::Settings(settings) = settings;
+    settings
+        .mute_until
+        .is_some_and(|until| i64::from(until) > unix_time)
+}
+
 pub(crate) fn dialog_filter_id(filter: &tl::enums::DialogFilter) -> Option<i32> {
     match filter {
         tl::enums::DialogFilter::Default => None,

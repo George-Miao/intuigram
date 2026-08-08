@@ -39,7 +39,7 @@ impl TestSystem {
                 Effect::AccountLifecycle { request } => {
                     self.account_lifecycle.push(request);
                 }
-                Effect::Notify { .. } => {}
+                Effect::Notify { chat, .. } => self.notifications.push(chat),
                 Effect::LoadChat {
                     chat,
                     selection,

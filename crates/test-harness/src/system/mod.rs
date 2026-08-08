@@ -44,6 +44,7 @@ pub struct TestSystem {
     downloaded_paths: Vec<PathBuf>,
     opened_links: Vec<String>,
     opened_downloads: Vec<(DownloadId, bool)>,
+    notifications: Vec<ChatId>,
     account_lifecycle: Vec<AccountLifecycle>,
     scheduled_messages: HashMap<ChatId, Vec<ScheduledMessageView>>,
     next_scheduled_id: i32,
@@ -113,6 +114,11 @@ impl TestSystem {
     #[must_use]
     pub fn opened_downloads(&self) -> &[(DownloadId, bool)] {
         &self.opened_downloads
+    }
+
+    #[must_use]
+    pub fn notifications(&self) -> &[ChatId] {
+        &self.notifications
     }
 
     pub fn expect_account_lifecycle(&mut self, expected: AccountLifecycle) -> Result<()> {

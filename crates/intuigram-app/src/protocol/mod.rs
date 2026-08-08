@@ -10,6 +10,9 @@ pub struct Bootstrap {
     /// Stable Account-scoped identity for notification replacement.
     pub notification_identity: String,
 
+    /// Chats whose effective Telegram notification setting is muted.
+    pub muted_chats: Vec<ChatId>,
+
     /// Registered Accounts available without restarting Intuigram.
     pub accounts: Vec<AccountView>,
 
@@ -55,6 +58,15 @@ pub enum AdapterEvent {
 
     /// Automatic connection attempts entered cooldown after a failure.
     ConnectionFailed(String),
+
+    /// Telegram changed one Chat's effective notification mute state.
+    ChatMuteChanged {
+        /// Chat whose notification setting changed.
+        chat: ChatId,
+
+        /// Whether incoming Messages should suppress platform notifications.
+        muted: bool,
+    },
 
     /// A requested Chat Folder membership change was acknowledged.
     FolderMembershipChanged {
