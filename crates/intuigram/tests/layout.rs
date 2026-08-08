@@ -116,6 +116,32 @@ fn chat_list_and_transcript_have_one_cell_internal_padding() -> Result<()> {
 }
 
 #[test]
+fn only_the_focused_block_uses_a_surface_background() -> Result<()> {
+    let mut app = TestSystem::builder()
+        .name("layout-focused-surface")
+        .terminal(100, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, [incoming(40, "Lin", "hello")]),
+        )
+        .start()?;
+
+    let canvas = app.screen().background_at(30, 6);
+    assert_ne!(app.screen().background_at(5, 6), canvas);
+    assert_eq!(app.screen().background_at(40, 6), canvas);
+
+    app.press(key::ENTER)?;
+    let rows = app.screen().rows();
+    let composer = row_within(&rows, "Type or paste a message…", 31, 100);
+
+    assert_eq!(app.screen().background_at(5, 6), canvas);
+    assert_eq!(app.screen().background_at(40, 6), canvas);
+    assert_ne!(app.screen().background_at(40, composer as u16), canvas);
+    app.expect_no_unhandled_work()
+}
+
+#[test]
 fn quoted_messages_keep_their_content_inside_one_trailing_blank_row() -> Result<()> {
     let mut quoted = incoming(41, "Lin", "quoted reply");
     quoted.reply_to = Some(intuigram_app::MessageId(40));

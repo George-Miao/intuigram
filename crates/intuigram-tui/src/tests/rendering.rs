@@ -208,18 +208,18 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
     );
     assert_eq!(buffer[(32, 17)].symbol(), "│");
     assert_eq!(buffer[(34, 17)].symbol(), "T");
-    assert_eq!(buffer[(5, 5)].bg, Color::Rgb(244, 240, 217));
-    assert_eq!(buffer[(40, 5)].bg, Color::Rgb(244, 240, 217));
+    assert_eq!(buffer[(5, 5)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(40, 5)].bg, Color::Rgb(253, 246, 227));
     assert_eq!(buffer[(40, 16)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(buffer[(40, 17)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(buffer[(40, 18)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(buffer[(31, 16)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(buffer[(99, 18)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(buffer[(30, 5)].bg, Color::Rgb(253, 246, 227));
-    assert_eq!(buffer[(5, 21)].bg, Color::Rgb(244, 240, 217));
-    assert_eq!(buffer[(5, 22)].bg, Color::Rgb(244, 240, 217));
-    assert_eq!(buffer[(5, 23)].bg, Color::Rgb(244, 240, 217));
-    assert_eq!(buffer[(5, 26)].bg, Color::Rgb(239, 235, 212));
+    assert_eq!(buffer[(5, 21)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(5, 22)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(5, 23)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(5, 26)].bg, Color::Rgb(253, 246, 227));
     assert!(
         buffer
             .content
@@ -233,8 +233,8 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
         .expect("Chat-list focus should render");
     let buffer = terminal.backend().buffer();
     assert_eq!(buffer[(5, 5)].bg, Color::Rgb(230, 226, 204));
-    assert_eq!(buffer[(40, 16)].bg, Color::Rgb(244, 240, 217));
-    assert_eq!(buffer[(40, 18)].bg, Color::Rgb(244, 240, 217));
+    assert_eq!(buffer[(40, 16)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(40, 18)].bg, Color::Rgb(253, 246, 227));
 
     view.focus = Focus::Transcript;
     terminal
@@ -242,8 +242,8 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
         .expect("Transcript focus should render");
     let buffer = terminal.backend().buffer();
     assert_eq!(buffer[(40, 5)].bg, Color::Rgb(230, 226, 204));
-    assert_eq!(buffer[(40, 16)].bg, Color::Rgb(244, 240, 217));
-    assert_eq!(buffer[(40, 18)].bg, Color::Rgb(244, 240, 217));
+    assert_eq!(buffer[(40, 16)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(40, 18)].bg, Color::Rgb(253, 246, 227));
 
     view.focus = Focus::Search;
     terminal

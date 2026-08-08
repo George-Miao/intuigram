@@ -158,7 +158,7 @@ pub(super) fn render_status(frame: &mut Frame<'_>, area: Rect, view: &View, mode
     let style = if view.focus == Focus::Search {
         surface_style(true)
     } else {
-        Style::default().fg(MUTED_TEXT).bg(CHROME_BACKGROUND)
+        Style::default().fg(MUTED_TEXT)
     };
     frame.render_widget(Paragraph::new("").style(style), area);
     frame.render_widget(
@@ -260,11 +260,12 @@ pub(super) fn interaction_rule(active: bool) -> Span<'static> {
 }
 
 pub(super) fn surface_style(focused: bool) -> Style {
-    Style::default().fg(TEXT).bg(if focused {
-        FOCUSED_SURFACE_BACKGROUND
+    let style = Style::default().fg(TEXT);
+    if focused {
+        style.bg(FOCUSED_SURFACE_BACKGROUND)
     } else {
-        SURFACE_BACKGROUND
-    })
+        style
+    }
 }
 
 pub(super) fn anchored_window(

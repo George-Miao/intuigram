@@ -4,6 +4,7 @@ use std::rc::Rc;
 use intuigram_app::{Action, ConnectionState, DeliveryState, MessageId, View};
 use intuigram_tui::{SemanticNode, SemanticRole};
 use ratatui::buffer::Buffer;
+use ratatui::style::Color;
 
 use crate::error::{Error, Result};
 use crate::trace::Trace;
@@ -112,6 +113,12 @@ impl Screen {
     #[must_use]
     pub fn rows(&self) -> Vec<String> {
         rows(&self.state.borrow().buffer)
+    }
+
+    /// Returns the exact rendered background color at one terminal cell.
+    #[must_use]
+    pub fn background_at(&self, x: u16, y: u16) -> Color {
+        self.state.borrow().buffer[(x, y)].bg
     }
 
     #[must_use]
