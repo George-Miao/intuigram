@@ -143,6 +143,15 @@ pub(super) fn render_chats(
     render_chat_list_header(frame, rows[0], view, mode, focused);
     frame.render_widget(Paragraph::new("").style(surface_style(focused)), rows[1]);
     let list_area = mode.padded(rows[1]);
+    let items_area = match mode {
+        ViewMode::Default if list_area.width > 1 => Rect::new(
+            list_area.x,
+            list_area.y,
+            list_area.width.saturating_sub(1),
+            list_area.height,
+        ),
+        ViewMode::Default | ViewMode::Compact => list_area,
+    };
     semantics.push(SemanticNode {
         role: SemanticRole::ChatList,
         name: "Chats".to_owned(),
@@ -173,13 +182,13 @@ pub(super) fn render_chats(
                 selected: false,
                 focused,
                 bounds: Rect::new(
-                    list_area.x,
-                    list_area
+                    items_area.x,
+                    items_area
                         .y
                         .saturating_add((offset as u16).saturating_mul(item_height)),
-                    list_area.width,
+                    items_area.width,
                     item_height.min(
-                        list_area
+                        items_area
                             .height
                             .saturating_sub((offset as u16).saturating_mul(item_height)),
                     ),
@@ -219,7 +228,7 @@ pub(super) fn render_chats(
             }
             ListItem::new(lines)
         });
-    frame.render_widget(List::new(items).style(surface_style(focused)), list_area);
+    frame.render_widget(List::new(items).style(surface_style(focused)), items_area);
 }
 
 pub(super) fn render_active_chat(

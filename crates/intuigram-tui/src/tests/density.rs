@@ -136,9 +136,9 @@ fn normal_and_wide_layouts_keep_both_columns_with_adaptive_proportions() {
         .find(|node| node.role == SemanticRole::Message)
         .expect("wide layout should show Messages");
 
-    assert_eq!(normal_chat.bounds.width, 28);
+    assert_eq!(normal_chat.bounds.width, 27);
     assert_eq!(normal_message.bounds.x, 32);
-    assert_eq!(wide_chat.bounds.width, 36);
+    assert_eq!(wide_chat.bounds.width, 35);
     assert_eq!(wide_message.bounds.x, 40);
 }
 
