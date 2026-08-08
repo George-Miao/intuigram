@@ -46,7 +46,7 @@ fn disguised_links_are_confirmed_and_launchable_downloads_are_only_revealed() ->
     app.choose_action("Download")?;
     app.screen()
         .action(Action::OpenDownload)
-        .expect_available()?;
+        .expect_unavailable()?;
     assert_eq!(app.downloaded_paths().len(), 1);
     app.choose_action("Open Download")?;
     assert_eq!(app.opened_downloads().len(), 1);

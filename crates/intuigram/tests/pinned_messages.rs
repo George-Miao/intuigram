@@ -1,4 +1,4 @@
-use intuigram_app::{Action, AdapterEvent, ChatId, MessageId};
+use intuigram_app::{AdapterEvent, ChatId, MessageId};
 use intuigram_telegram::{UpdateCursor, UpdateScope};
 use test_harness::{Result, TelegramScenario, TestSystem, account, chat, incoming, key};
 
@@ -112,9 +112,14 @@ fn pin_action_is_hidden_without_current_telegram_permission() -> Result<()> {
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    app.screen()
-        .action(Action::TogglePin)
-        .expect_unavailable()?;
+    app.type_text("a")?;
+    assert!(
+        !app.screen()
+            .rows()
+            .iter()
+            .any(|row| row.contains("Pin / Unpin"))
+    );
+    app.press(key::ESCAPE)?;
     app.telegram().inject_update(
         UpdateCursor {
             scope: UpdateScope::Account,
@@ -127,7 +132,14 @@ fn pin_action_is_hidden_without_current_telegram_permission() -> Result<()> {
             can_pin_messages: true,
         },
     )?;
-    app.screen().action(Action::TogglePin).expect_available()?;
+    app.type_text("a")?;
+    assert!(
+        app.screen()
+            .rows()
+            .iter()
+            .any(|row| row.contains("Pin / Unpin"))
+    );
+    app.press(key::ESCAPE)?;
     app.expect_no_unhandled_work()
 }
 
