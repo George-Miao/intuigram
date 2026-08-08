@@ -168,6 +168,26 @@ impl TelegramScenario {
     }
 
     #[must_use]
+    pub fn expect_read_history(mut self, chat: i64, max_id: i64) -> Self {
+        self.expected.push_back(ExpectedCommand::ReadHistory {
+            chat: ChatId(chat),
+            max_id: MessageId(max_id),
+            acknowledge: true,
+        });
+        self
+    }
+
+    #[must_use]
+    pub fn hold_read_history(mut self, chat: i64, max_id: i64) -> Self {
+        self.expected.push_back(ExpectedCommand::ReadHistory {
+            chat: ChatId(chat),
+            max_id: MessageId(max_id),
+            acknowledge: false,
+        });
+        self
+    }
+
+    #[must_use]
     pub fn hold_send_text(
         self,
         label: impl Into<String>,

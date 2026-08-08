@@ -179,6 +179,14 @@ pub enum Effect {
         /// Highest visible incoming Message.
         max_id: MessageId,
     },
+    /// Advance read state for visible root Chat history.
+    ReadHistory {
+        /// Chat whose root history is visible.
+        chat: ChatId,
+
+        /// Highest visible incoming Message.
+        max_id: MessageId,
+    },
     /// Query the native clipboard without blocking terminal input.
     ReadClipboard {
         /// Chat whose Composer requested the paste.

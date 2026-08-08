@@ -86,6 +86,23 @@ impl TelegramScenario {
         }
     }
 
+    pub fn read_history(
+        &mut self,
+        chat: ChatId,
+        max_id: MessageId,
+    ) -> Result<bool, ScenarioMismatch> {
+        let observed = format!("read Chat {} through Message {}", chat.0, max_id.0);
+        let expected = self.next_expected(&observed)?;
+        match expected {
+            ExpectedCommand::ReadHistory {
+                chat: expected_chat,
+                max_id: expected_max_id,
+                acknowledge,
+            } if expected_chat == chat && expected_max_id == max_id => Ok(acknowledge),
+            expected => Err(mismatch(expected, observed)),
+        }
+    }
+
     pub(crate) fn hold_send(
         &mut self,
         observed_send: ObservedSend,

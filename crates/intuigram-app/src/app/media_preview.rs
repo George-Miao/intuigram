@@ -103,10 +103,12 @@ impl App {
         self.view
             .media_preview_loads
             .retain(|loading| loading.chat != key.chat || loading.message != key.message);
-        self.request_next_media_preview().or_else(|| {
-            (!self.history_load_is_active())
-                .then(|| self.request_next_background_history())
-                .flatten()
-        })
+        self.request_next_media_preview()
+            .or_else(|| {
+                (!self.history_load_is_active())
+                    .then(|| self.request_next_background_history())
+                    .flatten()
+            })
+            .or_else(|| self.take_pending_read())
     }
 }

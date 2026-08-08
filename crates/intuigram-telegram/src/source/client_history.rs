@@ -123,6 +123,33 @@ impl Client {
             .context(InvokeSnafu)?;
         Ok(())
     }
+
+    /// Acknowledges incoming Messages visible in root Chat history.
+    pub async fn read_history(&mut self, chat: ChatId, max_id: MessageId) -> Result<()> {
+        let peer = self.peers.resolve(chat)?;
+        let max_id = i32::try_from(max_id.0).map_err(|_| Error::InvalidMessageId {
+            message_id: max_id.0,
+        })?;
+        if let tl::enums::InputPeer::Channel(channel) = peer {
+            self.connection
+                .invoke(&tl::functions::channels::ReadHistory {
+                    channel: tl::types::InputChannel {
+                        channel_id: channel.channel_id,
+                        access_hash: channel.access_hash,
+                    }
+                    .into(),
+                    max_id,
+                })
+                .await
+                .context(InvokeSnafu)?;
+        } else {
+            self.connection
+                .invoke(&tl::functions::messages::ReadHistory { peer, max_id })
+                .await
+                .context(InvokeSnafu)?;
+        }
+        Ok(())
+    }
 }
 
 use super::*;

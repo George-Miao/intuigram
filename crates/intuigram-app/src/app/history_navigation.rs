@@ -6,7 +6,7 @@ pub(super) struct HistoryLoads {
     background_cursor: usize,
     background_remaining: usize,
     refreshed_chats: HashSet<ChatId>,
-    thread_read_pending: bool,
+    read_pending: bool,
 }
 
 impl App {
@@ -14,8 +14,16 @@ impl App {
         self.history_loads.active.is_some()
     }
 
-    pub(super) fn defer_active_thread_read(&mut self) {
-        self.history_loads.thread_read_pending |= self.active_thread_read_effect().is_some();
+    pub(super) fn defer_active_read(&mut self) {
+        self.history_loads.read_pending |= self.active_read_effect().is_some();
+    }
+
+    pub(super) fn take_pending_read(&mut self) -> Option<Effect> {
+        if !self.history_loads.read_pending {
+            return None;
+        }
+        self.history_loads.read_pending = false;
+        self.active_read_effect()
     }
 
     pub(super) fn move_chat(&mut self, forward: bool) -> Option<Effect> {
@@ -72,7 +80,7 @@ impl App {
         self.history_loads.active_baseline.clear();
         self.history_loads.queued = None;
         self.history_loads.refreshed_chats.clear();
-        self.history_loads.thread_read_pending = false;
+        self.history_loads.read_pending = false;
         self.view.chat_loading = ChatLoadingState::Idle;
         let active = self.active_chat_id();
         self.history_loads.background_cursor = active
@@ -162,10 +170,10 @@ impl App {
             .or_else(|| self.request_next_background_history())
             .or_else(|| {
                 self.history_loads
-                    .thread_read_pending
+                    .read_pending
                     .then(|| {
-                        self.history_loads.thread_read_pending = false;
-                        self.active_thread_read_effect()
+                        self.history_loads.read_pending = false;
+                        self.active_read_effect()
                     })
                     .flatten()
             })
@@ -372,26 +380,6 @@ impl App {
             .active_message
             .or(self.view.transcript_anchor)
             .is_none_or(|index| Some(index) == self.view.messages.len().checked_sub(1))
-    }
-
-    pub(super) fn active_thread_read_effect(&self) -> Option<Effect> {
-        let key = self.active_history_key()?;
-        let root = key.thread?;
-        if self.view.focus == Focus::Chats || !self.at_latest() {
-            return None;
-        }
-        let max_id = self
-            .view
-            .messages
-            .iter()
-            .filter(|message| message.direction == MessageDirection::Incoming && message.id.0 > 0)
-            .map(|message| message.id)
-            .max()?;
-        Some(Effect::ReadThread {
-            chat: key.chat,
-            root,
-            max_id,
-        })
     }
 }
 use super::*;

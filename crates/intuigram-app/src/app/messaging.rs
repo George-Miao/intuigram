@@ -13,12 +13,16 @@ impl App {
         }
 
         let incoming = message.direction == MessageDirection::Incoming;
+        let message_id = message.id;
         let message_thread = message.details.thread_root;
         let active = self.active_chat_id() == Some(chat);
         let was_latest = active && self.at_latest();
         let active_message = active.then(|| self.active_message_id()).flatten();
         let transcript_anchor = active.then(|| self.transcript_anchor_id()).flatten();
-        let visibly_read = active && self.view.focus != Focus::Chats && was_latest;
+        let visibly_read = active
+            && self.view.active_thread == message_thread
+            && self.view.focus != Focus::Chats
+            && was_latest;
         let unread_increment = u32::from(incoming && !visibly_read);
         if unread_increment > 0 && message_thread.is_none() {
             self.unread_boundaries
@@ -54,12 +58,17 @@ impl App {
             self.refresh_active_history_at(active_message, transcript_anchor);
             self.view.has_newer_messages = !was_latest;
         }
-        let read_effect = (incoming
-            && visibly_read
-            && message_thread.is_some()
-            && self.view.active_thread == message_thread)
-            .then(|| self.active_thread_read_effect())
-            .flatten();
+        let read_effect = (incoming && visibly_read).then_some(match message_thread {
+            Some(root) => Effect::ReadThread {
+                chat,
+                root,
+                max_id: message_id,
+            },
+            None => Effect::ReadHistory {
+                chat,
+                max_id: message_id,
+            },
+        });
         read_effect.or_else(|| {
             (incoming && !visibly_read && !self.muted_chats.contains(&chat)).then(|| {
                 Effect::Notify {

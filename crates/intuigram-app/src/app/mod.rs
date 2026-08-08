@@ -171,6 +171,7 @@ impl App {
                 self.store_loaded_history(key, messages);
                 if self.active_history_key() == Some(key) {
                     self.queue_active_media_previews();
+                    self.defer_active_read();
                 }
                 self.complete_history_load(key, true)
             }
@@ -200,7 +201,7 @@ impl App {
                 self.store_loaded_history(key, messages);
                 if self.active_history_key() == Some(key) {
                     self.queue_active_media_previews();
-                    self.defer_active_thread_read();
+                    self.defer_active_read();
                 }
                 self.complete_history_load(key, true)
             }

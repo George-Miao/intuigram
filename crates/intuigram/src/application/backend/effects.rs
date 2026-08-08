@@ -100,6 +100,20 @@ impl Backend {
                     Err(error) => Ok(Some(AdapterEvent::OperationFailed(error.to_string()))),
                 }
             }
+            Effect::ReadHistory { chat, max_id } => {
+                match self.client.read_history(chat, max_id).await {
+                    Ok(()) => Ok(Some(AdapterEvent::HistoryRead {
+                        chat,
+                        max_id,
+                        outgoing: false,
+                        unread: Some(0),
+                    })),
+                    Err(source) if source.is_connection_failure() => {
+                        Err(Error::Telegram { source })
+                    }
+                    Err(error) => Ok(Some(AdapterEvent::OperationFailed(error.to_string()))),
+                }
+            }
             Effect::ReadClipboard { chat, thread_root } => {
                 Ok(Some(match self.read_clipboard(chat, thread_root).await {
                     Ok(event) => event,

@@ -83,6 +83,20 @@ impl TestSystem {
                         .read_thread(chat, root, max_id)
                         .map_err(|error| self.scenario_error(error))?;
                 }
+                Effect::ReadHistory { chat, max_id } => {
+                    let acknowledge = self
+                        .telegram
+                        .read_history(chat, max_id)
+                        .map_err(|error| self.scenario_error(error))?;
+                    if acknowledge {
+                        self.application.handle_adapter(AdapterEvent::HistoryRead {
+                            chat,
+                            max_id,
+                            outgoing: false,
+                            unread: Some(0),
+                        });
+                    }
+                }
                 Effect::SaveDraft {
                     chat,
                     thread_root,

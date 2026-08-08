@@ -1,6 +1,34 @@
 use super::*;
 
 impl App {
+    pub(super) fn active_read_effect(&self) -> Option<Effect> {
+        let key = self.active_history_key()?;
+        if self.view.focus == Focus::Chats || !self.at_latest() {
+            return None;
+        }
+        if key.thread.is_none() && self.chat_unread(key.chat) == 0 {
+            return None;
+        }
+        let max_id = self
+            .view
+            .messages
+            .iter()
+            .filter(|message| message.direction == MessageDirection::Incoming && message.id.0 > 0)
+            .map(|message| message.id)
+            .max()?;
+        Some(match key.thread {
+            Some(root) => Effect::ReadThread {
+                chat: key.chat,
+                root,
+                max_id,
+            },
+            None => Effect::ReadHistory {
+                chat: key.chat,
+                max_id,
+            },
+        })
+    }
+
     pub(super) fn rebuild_unread_boundaries(&mut self) {
         self.unread_boundaries.clear();
         let boundaries = self
@@ -47,7 +75,7 @@ impl App {
         }
     }
 
-    fn chat_unread(&self, chat: ChatId) -> u32 {
+    pub(super) fn chat_unread(&self, chat: ChatId) -> u32 {
         self.all_chats
             .iter()
             .find(|candidate| candidate.id == chat)

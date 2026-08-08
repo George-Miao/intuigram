@@ -31,6 +31,12 @@ pub(super) enum ExpectedCommand {
         max_id: MessageId,
     },
 
+    ReadHistory {
+        chat: ChatId,
+        max_id: MessageId,
+        acknowledge: bool,
+    },
+
     SendText {
         label: String,
         chat: ChatId,
@@ -112,6 +118,9 @@ impl ExpectedCommand {
                 "read Thread {} in Chat {} through Message {}",
                 root.0, chat.0, max_id.0
             ),
+            Self::ReadHistory { chat, max_id, .. } => {
+                format!("read Chat {} through Message {}", chat.0, max_id.0)
+            }
             Self::SendText {
                 chat,
                 text,

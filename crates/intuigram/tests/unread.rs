@@ -3,6 +3,32 @@ use intuigram_telegram::{UpdateCursor, UpdateScope};
 use test_harness::{Result, TelegramScenario, TestSystem, account, chat, incoming, key};
 
 #[test]
+fn opening_a_chat_reads_visible_root_history_through_the_newest_message() -> Result<()> {
+    let mut room = chat(10, "Rust");
+    room.unread = 2;
+    let mut app = TestSystem::builder()
+        .name("read-visible-root-history")
+        .terminal(100, 30)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(room))
+                .expect_load_history(
+                    10,
+                    [
+                        incoming(40, "Lin", "read"),
+                        incoming(41, "Lin", "first unread"),
+                        incoming(42, "Lin", "second unread"),
+                    ],
+                )
+                .expect_read_history(10, 42),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.expect_no_unhandled_work()
+}
+
+#[test]
 fn unread_divider_survives_live_updates_and_clears_when_read_state_advances() -> Result<()> {
     let mut room = chat(10, "Rust");
     room.unread = 2;
@@ -19,7 +45,9 @@ fn unread_divider_survives_live_updates_and_clears_when_read_state_advances() ->
                         incoming(41, "Lin", "first unread"),
                         incoming(42, "Lin", "second unread"),
                     ],
-                ),
+                )
+                .hold_read_history(10, 42)
+                .hold_read_history(10, 43),
         )
         .start()?;
 
