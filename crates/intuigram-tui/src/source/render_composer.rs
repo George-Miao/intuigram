@@ -12,14 +12,16 @@ pub(super) fn composer_height(area: Rect, view: &View) -> u16 {
     let label = composer_label(view);
     let width = content_width(area.width, label.as_deref());
     let wrapped = wrap_text(&view.composer.text, view.composer.cursor, width);
+    let context_height = u16::from(editing_preview(view).is_some());
     let desired = u16::try_from(wrapped.rows.len())
         .unwrap_or(u16::MAX)
         .saturating_add(2)
-        .max(3);
+        .saturating_add(context_height)
+        .max(3_u16.saturating_add(context_height));
     let cap = area
         .height
         .saturating_sub(2 + RESERVED_TRANSCRIPT_HEIGHT)
-        .clamp(3, MAX_COMPOSER_HEIGHT);
+        .clamp(3_u16.saturating_add(context_height), MAX_COMPOSER_HEIGHT);
     desired.min(cap)
 }
 
@@ -43,24 +45,36 @@ pub(super) fn render_composer(
         bounds: area,
     });
     let label = composer_label(view);
+    let edit_preview = editing_preview(view);
+    let context_height = usize::from(edit_preview.is_some());
     let prefix_width = composer_prefix_width(label.as_deref());
     let width = content_width(area.width, label.as_deref());
     let wrapped = wrap_text(&view.composer.text, view.composer.cursor, width);
-    let visible_height = usize::from(area.height.saturating_sub(2).max(1));
+    let visible_height = usize::from(
+        area.height
+            .saturating_sub(2)
+            .saturating_sub(u16::try_from(context_height).unwrap_or(u16::MAX))
+            .max(1),
+    );
     let scroll = wrapped
         .cursor_row
         .saturating_add(1)
         .saturating_sub(visible_height);
     let lines = composer_lines(
-        view,
         focused,
         label.as_deref(),
+        edit_preview.as_deref(),
+        view.composer.text.is_empty(),
         prefix_width,
         &wrapped,
-        scroll,
-        visible_height,
+        scroll..scroll.saturating_add(visible_height),
     );
-    frame.render_widget(Paragraph::new(lines).style(surface_style(focused)), area);
+    frame.render_widget(Paragraph::new("").style(surface_style(focused)), area);
+    let content_area = Rect::new(area.x, area.y, area.width.saturating_sub(1), area.height);
+    frame.render_widget(
+        Paragraph::new(lines).style(surface_style(focused)),
+        content_area,
+    );
     if focused && !overlay_open(view) {
         let x = area
             .x
@@ -70,6 +84,7 @@ pub(super) fn render_composer(
         let y = area
             .y
             .saturating_add(1)
+            .saturating_add(u16::try_from(context_height).unwrap_or(u16::MAX))
             .saturating_add(u16::try_from(wrapped.cursor_row - scroll).unwrap_or(u16::MAX))
             .min(area.bottom().saturating_sub(2));
         frame.set_cursor_position((x, y));
@@ -77,20 +92,28 @@ pub(super) fn render_composer(
 }
 
 fn composer_lines(
-    view: &View,
     focused: bool,
     label: Option<&str>,
+    edit_preview: Option<&str>,
+    composer_is_empty: bool,
     prefix_width: usize,
     wrapped: &WrappedText,
-    scroll: usize,
-    visible_height: usize,
+    visible_rows: std::ops::Range<usize>,
 ) -> Vec<Line<'static>> {
     let mut lines = vec![Line::from("")];
+    if let Some(preview) = edit_preview {
+        lines.push(Line::from(vec![
+            Span::raw(" "),
+            interaction_rule(focused),
+            Span::styled("Edit · ", Style::default().fg(MUTED_TEXT)),
+            Span::raw(preview.to_owned()),
+        ]));
+    }
     for (visible_index, row) in wrapped
         .rows
         .iter()
-        .skip(scroll)
-        .take(visible_height)
+        .skip(visible_rows.start)
+        .take(visible_rows.len())
         .enumerate()
     {
         let prefix = if visible_index == 0 {
@@ -106,7 +129,7 @@ fn composer_lines(
         } else {
             vec![Span::raw(" ".repeat(prefix_width))]
         };
-        let content = if view.composer.text.is_empty() {
+        let content = if composer_is_empty {
             Span::styled("Type or paste a message…", Style::default().fg(MUTED_TEXT))
         } else {
             Span::raw(row.clone())
@@ -125,15 +148,12 @@ fn composer_lines(
 fn composer_label(view: &View) -> Option<String> {
     let label = if view.poll_composer {
         Some("Poll · question first, then one option per line".to_owned())
+    } else if view.composer.editing.is_some() {
+        None
     } else {
-        view.composer.editing.map_or_else(
-            || {
-                view.composer
-                    .reply_to
-                    .map(|id| format!("Reply to {}", id.0))
-            },
-            |id| Some(format!("Edit Message {}", id.0)),
-        )
+        view.composer
+            .reply_to
+            .map(|id| format!("Reply to {}", id.0))
     };
     if view.composer.attachments.is_empty() {
         label
@@ -148,6 +168,21 @@ fn composer_label(view: &View) -> Option<String> {
             },
         ))
     }
+}
+
+fn editing_preview(view: &View) -> Option<String> {
+    let editing = view.composer.editing?;
+    let message = view.messages.iter().find(|message| message.id == editing)?;
+    let preview = message
+        .body
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    Some(if preview.is_empty() {
+        "message".to_owned()
+    } else {
+        preview
+    })
 }
 
 fn composer_prefix_width(label: Option<&str>) -> usize {

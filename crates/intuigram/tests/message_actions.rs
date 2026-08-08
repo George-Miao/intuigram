@@ -78,6 +78,18 @@ fn saving_an_edit_returns_to_an_empty_composer() -> Result<()> {
     app.choose_action("Edit")?;
     app.screen().composer().expect_focused()?;
     app.screen().composer().expect_text("old text")?;
+    let editing = app.screen().rows();
+    let preview = editing
+        .iter()
+        .position(|row| row.contains("│ Edit · old text"))
+        .expect("editing should show a one-line quoted preview");
+    assert!(
+        editing[preview - 1]
+            .chars()
+            .skip(33)
+            .all(|cell| cell == ' ')
+    );
+    assert!(!editing.iter().any(|row| row.contains("Edit Message 41")));
     for _ in 0.."old text".chars().count() {
         app.press(key::BACKSPACE)?;
     }
