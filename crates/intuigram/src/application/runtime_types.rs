@@ -124,6 +124,17 @@ pub(super) fn enqueue_effect<B>(
             )
         });
     }
+    if let Effect::Notify { identity, chat } = &effect {
+        pending.retain(|pending| {
+            !matches!(
+                &pending.effect,
+                Effect::Notify {
+                    identity: pending_identity,
+                    chat: pending_chat,
+                } if pending_identity == identity && pending_chat == chat
+            )
+        });
+    }
     if pending.len() + usize::from(active.is_some()) >= EFFECT_CAPACITY {
         return EffectsFullSnafu {
             capacity: EFFECT_CAPACITY,
