@@ -108,6 +108,13 @@ pub(super) struct Backend {
     pub(super) downloaded: DownloadStore,
 }
 
+#[derive(Default)]
+pub(super) struct RetainedBackend {
+    pub(super) attachments: AttachmentStore,
+    pub(super) media_library: MediaLibraryStore,
+    pub(super) downloaded: DownloadStore,
+}
+
 #[derive(Clone)]
 pub(super) struct AdapterStorage {
     pub(super) downloads: PathBuf,
@@ -126,7 +133,7 @@ impl AdapterStorage {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(super) struct AttachmentStore {
     pub(super) next_id: u64,
     pub(super) payloads: HashMap<AttachmentId, AttachmentPayload>,
@@ -134,11 +141,30 @@ pub(super) struct AttachmentStore {
 
 #[derive(Clone)]
 pub(super) enum AttachmentPayload {
-    Image { mime_type: String, bytes: Vec<u8> },
-    File { path: PathBuf, kind: AttachmentKind },
+    Image {
+        mime_type: String,
+        bytes: Vec<u8>,
+    },
+    File {
+        path: PathBuf,
+        kind: AttachmentKind,
+    },
+    PreparedFile {
+        name: String,
+        mime_type: String,
+        bytes: Vec<u8>,
+        kind: AttachmentKind,
+    },
 }
 
-#[derive(Default)]
+pub(super) struct PreparedRichMedia {
+    pub(super) name: String,
+    pub(super) mime_type: String,
+    pub(super) bytes: Vec<u8>,
+    pub(super) kind: RichMediaUploadKind,
+}
+
+#[derive(Clone, Default)]
 pub(super) struct DownloadStore {
     pub(super) next_id: u64,
     pub(super) paths: HashMap<DownloadId, PathBuf>,
@@ -205,11 +231,202 @@ pub(super) struct BackendEvents {
     pub(super) updates: LiveUpdates,
     pub(super) committer: UpdateCommitter,
     pub(super) pending: Option<UpdateCommit>,
+    pub(super) pending_submission: Option<SubmissionCompletion>,
+    pub(super) queued_submission: Option<QueuedSubmission>,
     pub(super) pending_events: VecDeque<AdapterEvent>,
-    pub(super) submitted_updates: VecDeque<intuigram_telegram::LiveEvent>,
+    pub(super) submitted_updates: SubmittedUpdates,
+    pub(super) stopped: bool,
+}
+
+pub(super) type SubmissionResult = std::result::Result<(), Box<Error>>;
+
+#[derive(Clone)]
+pub(super) struct SubmissionCompletion {
+    state: std::rc::Rc<std::cell::RefCell<SubmissionState>>,
+}
+
+pub(super) struct SubmissionReceipt {
+    state: std::rc::Rc<std::cell::RefCell<SubmissionState>>,
+}
+
+#[derive(Default)]
+struct SubmissionState {
+    result: Option<SubmissionResult>,
+    waker: Option<std::task::Waker>,
+}
+
+#[derive(Clone, Default)]
+pub(super) struct SubmittedUpdates {
+    inner: std::rc::Rc<std::cell::RefCell<SubmittedUpdateState>>,
+}
+
+#[derive(Default)]
+struct SubmittedUpdateState {
+    updates: VecDeque<SubmittedUpdate>,
+    waker: Option<std::task::Waker>,
+    closed: bool,
+}
+
+pub(super) struct SubmittedUpdate {
+    pub(super) update: intuigram_telegram::LiveEvent,
+    pub(super) committed: SubmissionCompletion,
+}
+
+pub(super) struct QueuedSubmission {
+    pub(super) submission: SubmittedUpdate,
+    pub(super) preceding_live_updates: usize,
+}
+
+impl QueuedSubmission {
+    pub(super) const fn is_ready(&self) -> bool {
+        self.preceding_live_updates == 0
+    }
+
+    pub(super) fn observe_live_update(&mut self) {
+        self.preceding_live_updates = self.preceding_live_updates.saturating_sub(1);
+    }
+}
+
+impl SubmissionCompletion {
+    pub(super) fn complete(self, result: SubmissionResult) {
+        let mut state = self.state.borrow_mut();
+        state.result = Some(result);
+        if let Some(waker) = state.waker.take() {
+            waker.wake();
+        }
+    }
+}
+
+impl Future for SubmissionReceipt {
+    type Output = SubmissionResult;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+        let mut state = self.state.borrow_mut();
+        if let Some(result) = state.result.take() {
+            return Poll::Ready(result);
+        }
+        if state
+            .waker
+            .as_ref()
+            .is_none_or(|waker| !waker.will_wake(cx.waker()))
+        {
+            state.waker = Some(cx.waker().clone());
+        }
+        Poll::Pending
+    }
+}
+
+impl SubmittedUpdates {
+    pub(super) fn push(&self, update: intuigram_telegram::LiveEvent) -> SubmissionReceipt {
+        let state = std::rc::Rc::new(std::cell::RefCell::new(SubmissionState::default()));
+        let committed = SubmissionCompletion {
+            state: std::rc::Rc::clone(&state),
+        };
+        let receipt = SubmissionReceipt { state };
+        let mut state = self.inner.borrow_mut();
+        if state.closed {
+            committed.complete(Err(Box::new(Error::TelegramActorCancelled)));
+            return receipt;
+        }
+        state
+            .updates
+            .push_back(SubmittedUpdate { update, committed });
+        if let Some(waker) = state.waker.take() {
+            waker.wake();
+        }
+        receipt
+    }
+
+    pub(super) fn poll_pop(
+        &self,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Option<SubmittedUpdate>> {
+        let mut state = self.inner.borrow_mut();
+        match state.updates.pop_front() {
+            Some(update) => Poll::Ready(Some(update)),
+            None => {
+                if state
+                    .waker
+                    .as_ref()
+                    .is_none_or(|waker| !waker.will_wake(cx.waker()))
+                {
+                    state.waker = Some(cx.waker().clone());
+                }
+                Poll::Pending
+            }
+        }
+    }
+
+    pub(super) fn close(&self) {
+        let mut state = self.inner.borrow_mut();
+        state.closed = true;
+        for update in state.updates.drain(..) {
+            update
+                .committed
+                .complete(Err(Box::new(Error::TelegramActorCancelled)));
+        }
+        if let Some(waker) = state.waker.take() {
+            waker.wake();
+        }
+    }
+}
+
+impl Drop for BackendEvents {
+    fn drop(&mut self) {
+        self.submitted_updates.close();
+    }
 }
 
 pub(super) enum QrAuthorization {
     Authorized(Box<(Client, Session, AuthorizedUser)>),
     PhoneLogin(Box<(Client, Session)>),
+}
+
+#[cfg(test)]
+mod submitted_update_tests {
+    use super::*;
+
+    #[test]
+    fn closing_the_driver_wakes_pending_commit_waiters() {
+        let submitted = SubmittedUpdates::default();
+        let committed = submitted.push(intuigram_telegram::LiveEvent {
+            events: Vec::new(),
+            cursors: Vec::new(),
+            peers: intuigram_telegram::PeerDirectory::default(),
+        });
+
+        submitted.close();
+        let runtime = compio::runtime::Runtime::new().expect("test runtime should initialize");
+        let result = runtime.block_on(committed);
+
+        assert!(matches!(
+            result,
+            Err(error) if matches!(*error, Error::TelegramActorCancelled)
+        ));
+    }
+
+    #[test]
+    fn later_live_updates_do_not_extend_a_submission_barrier() {
+        let submitted = SubmittedUpdates::default();
+        let _receipt = submitted.push(intuigram_telegram::LiveEvent {
+            events: Vec::new(),
+            cursors: Vec::new(),
+            peers: intuigram_telegram::PeerDirectory::default(),
+        });
+        let mut context = std::task::Context::from_waker(futures_util::task::noop_waker_ref());
+        let Poll::Ready(Some(submission)) = submitted.poll_pop(&mut context) else {
+            panic!("submission should be queued")
+        };
+        let mut barrier = QueuedSubmission {
+            submission,
+            preceding_live_updates: 2,
+        };
+
+        barrier.observe_live_update();
+        assert!(!barrier.is_ready());
+        barrier.observe_live_update();
+        assert!(barrier.is_ready());
+        barrier.observe_live_update();
+        assert!(barrier.is_ready());
+    }
 }

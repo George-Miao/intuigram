@@ -2,11 +2,12 @@ use intuigram_app::{AccountKey, AccountLifecycle};
 
 use super::*;
 
+#[derive(Clone, Copy)]
 struct LifecycleBackend;
 
 impl ApplicationBackend for LifecycleBackend {
     async fn execute(
-        &mut self,
+        &self,
         effect: AdapterEffect,
         _peers: intuigram_telegram::PeerDirectory,
     ) -> Result<BackendOutput> {

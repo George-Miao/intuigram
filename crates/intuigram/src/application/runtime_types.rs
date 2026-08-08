@@ -1,15 +1,14 @@
-pub(super) struct BackendCompletion<B> {
-    pub(super) backend: B,
+pub(super) struct BackendCompletion {
     pub(super) effect: AdapterEffect,
     pub(super) result: Result<BackendOutput>,
 }
 
-pub(super) type PendingEffect<B> = Pin<Box<dyn Future<Output = BackendCompletion<B>>>>;
+pub(super) type PendingEffect = Pin<Box<dyn Future<Output = BackendCompletion>>>;
 
-pub(super) enum ApplicationWake<B> {
+pub(super) enum ApplicationWake {
     Terminal(intuigram_tui::Result<crossterm::event::Event>),
-    Adapter(Result<AdapterBatch>),
-    Backend(BackendCompletion<B>),
+    Adapter(Box<Result<AdapterBatch>>),
+    Backend(Box<BackendCompletion>),
     Animation,
 }
 
@@ -59,6 +58,12 @@ pub(super) struct AdapterEffect {
     pub(super) random_id: Option<i64>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct NotificationKey {
+    identity: String,
+    chat: ChatId,
+}
+
 impl AdapterEffect {
     pub(super) fn new(effect: Effect) -> Result<Self> {
         let random_id = if matches!(
@@ -82,25 +87,35 @@ impl AdapterEffect {
     }
 }
 
+pub(super) fn notification_key(effect: &Effect) -> Option<NotificationKey> {
+    match effect {
+        Effect::Notify { identity, chat } => Some(NotificationKey {
+            identity: identity.clone(),
+            chat: *chat,
+        }),
+        _ => None,
+    }
+}
+
 pub(super) fn start_effect<B: ApplicationBackend>(
-    mut backend: B,
+    backend: B,
     effect: AdapterEffect,
     peers: intuigram_telegram::PeerDirectory,
-) -> PendingEffect<B> {
+) -> PendingEffect {
     Box::pin(async move {
         let retained = effect.clone();
         let result = backend.execute(effect, peers).await;
         BackendCompletion {
-            backend,
             effect: retained,
             result,
         }
     })
 }
 
-pub(super) fn enqueue_effect<B>(
+pub(super) fn enqueue_effect(
     pending: &mut VecDeque<AdapterEffect>,
-    active: &Option<PendingEffect<B>>,
+    active: &futures_util::stream::FuturesUnordered<PendingEffect>,
+    active_notifications: &[NotificationKey],
     effect: Option<Effect>,
 ) -> Result<bool> {
     let Some(effect) = effect else {
@@ -125,6 +140,12 @@ pub(super) fn enqueue_effect<B>(
         });
     }
     if let Effect::Notify { identity, chat } = &effect {
+        if active_notifications
+            .iter()
+            .any(|active| active.identity == *identity && active.chat == *chat)
+        {
+            return Ok(false);
+        }
         pending.retain(|pending| {
             !matches!(
                 &pending.effect,
@@ -135,7 +156,7 @@ pub(super) fn enqueue_effect<B>(
             )
         });
     }
-    if pending.len() + usize::from(active.is_some()) >= EFFECT_CAPACITY {
+    if pending.len() + active.len() >= EFFECT_CAPACITY {
         return EffectsFullSnafu {
             capacity: EFFECT_CAPACITY,
         }

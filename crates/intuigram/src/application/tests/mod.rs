@@ -8,11 +8,12 @@ use intuigram_app::{Action, AdapterEvent, ChatId, Effect, Intent, MessageId};
 use intuigram_tui::UiEvent;
 
 use super::runtime_adapters::{AdapterBatch, BackendOutput};
+use super::runtime_types::PendingEffect;
 use super::{
     AdapterEffect, ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents,
     ApplicationExit, ApplicationState, ApplicationUi, AttachmentPayload, AttachmentStore,
-    EFFECT_CAPACITY, Error, PendingEffect, Result, application_fixture, enqueue_effect,
-    run_application, run_application_state,
+    EFFECT_CAPACITY, Error, Result, application_fixture, enqueue_effect, run_application,
+    run_application_state,
 };
 
 mod accounts;
@@ -20,13 +21,14 @@ mod cached;
 mod effect_fairness;
 mod misc;
 
+#[derive(Clone)]
 struct PendingHistoryBackend {
     polls: Rc<Cell<usize>>,
 }
 
 impl ApplicationBackend for PendingHistoryBackend {
     async fn execute(
-        &mut self,
+        &self,
         effect: AdapterEffect,
         _peers: intuigram_telegram::PeerDirectory,
     ) -> Result<BackendOutput> {
@@ -117,6 +119,7 @@ impl ApplicationAdapterEvents for OneAdapterBatch {
     }
 }
 
+#[derive(Clone)]
 struct PeerAwareBackend {
     chat: ChatId,
     resolved: Rc<Cell<bool>>,
@@ -124,7 +127,7 @@ struct PeerAwareBackend {
 
 impl ApplicationBackend for PeerAwareBackend {
     async fn execute(
-        &mut self,
+        &self,
         effect: AdapterEffect,
         peers: intuigram_telegram::PeerDirectory,
     ) -> Result<BackendOutput> {
@@ -148,13 +151,14 @@ impl ApplicationEvents for AlwaysPendingEvents {
     }
 }
 
+#[derive(Clone)]
 struct FailingConnectionBackend {
     observed: Rc<RefCell<Vec<AdapterEffect>>>,
 }
 
 impl ApplicationBackend for FailingConnectionBackend {
     async fn execute(
-        &mut self,
+        &self,
         effect: AdapterEffect,
         _peers: intuigram_telegram::PeerDirectory,
     ) -> Result<BackendOutput> {
@@ -271,9 +275,9 @@ fn a_full_effect_queue_fails_instead_of_blocking_terminal_input() {
         };
         EFFECT_CAPACITY
     ]);
-    let active = None::<PendingEffect<PendingHistoryBackend>>;
+    let active = futures_util::stream::FuturesUnordered::<PendingEffect>::new();
 
-    let error = enqueue_effect(&mut pending, &active, Some(Effect::Reconnect))
+    let error = enqueue_effect(&mut pending, &active, &[], Some(Effect::Reconnect))
         .expect_err("a saturated effect queue should be reported");
 
     assert!(matches!(error, Error::EffectsFull { .. }));

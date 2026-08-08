@@ -1,23 +1,31 @@
 use super::*;
 
-pub(super) trait ApplicationBackend: Sized + 'static {
+pub(super) trait ApplicationBackend: Clone + 'static {
     async fn execute(
-        &mut self,
+        &self,
         effect: AdapterEffect,
         peers: intuigram_telegram::PeerDirectory,
     ) -> Result<BackendOutput>;
+
+    fn begin_shutdown(&self) {}
+
+    async fn shutdown(self) -> Result<()> {
+        Ok(())
+    }
 }
 
 pub(super) struct BackendOutput {
     pub(super) event: Option<AdapterEvent>,
     pub(super) telegram_update: Option<intuigram_telegram::LiveEvent>,
+    pub(super) peers: intuigram_telegram::PeerDirectory,
 }
 
 impl BackendOutput {
-    pub(super) const fn event(event: Option<AdapterEvent>) -> Self {
+    pub(super) fn event(event: Option<AdapterEvent>) -> Self {
         Self {
             event,
             telegram_update: None,
+            peers: intuigram_telegram::PeerDirectory::default(),
         }
     }
 
@@ -25,12 +33,13 @@ impl BackendOutput {
         Self {
             event: None,
             telegram_update: Some(update),
+            peers: intuigram_telegram::PeerDirectory::default(),
         }
     }
 }
 
-impl ApplicationBackend for Backend {
-    async fn execute(
+impl Backend {
+    pub(super) async fn execute_with_peers(
         &mut self,
         effect: AdapterEffect,
         peers: intuigram_telegram::PeerDirectory,
@@ -47,6 +56,24 @@ impl ApplicationBackend for Backend {
                 .await
                 .map(BackendOutput::event),
         }
+    }
+}
+
+impl ApplicationBackend for ActorSession {
+    async fn execute(
+        &self,
+        effect: AdapterEffect,
+        peers: intuigram_telegram::PeerDirectory,
+    ) -> Result<BackendOutput> {
+        self.execute(effect, peers).await
+    }
+
+    fn begin_shutdown(&self) {
+        self.begin_shutdown();
+    }
+
+    async fn shutdown(self) -> Result<()> {
+        self.shutdown().await
     }
 }
 
@@ -75,27 +102,45 @@ pub(super) trait ApplicationAdapterEvents {
     }
 }
 
+pub(super) trait WorkerAdapterEvents {
+    fn poll_worker_event(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<WorkerBatch>>;
+
+    fn close(&mut self);
+}
+
 pub(super) struct AdapterBatch {
     pub(super) event: Option<AdapterEvent>,
     pub(super) peers: intuigram_telegram::PeerDirectory,
 }
 
-impl ApplicationAdapterEvents for BackendEvents {
-    fn submit_update(&mut self, update: intuigram_telegram::LiveEvent) {
-        self.submitted_updates.push_back(update);
+pub(super) struct WorkerBatch {
+    pub(super) batch: AdapterBatch,
+    pub(super) delivered: Option<SubmissionCompletion>,
+}
+
+impl WorkerAdapterEvents for BackendEvents {
+    fn close(&mut self) {
+        self.submitted_updates.close();
     }
 
-    fn poll_adapter_event(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> Poll<Result<AdapterBatch>> {
+    fn poll_worker_event(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<WorkerBatch>> {
         loop {
+            if self.stopped {
+                return Poll::Pending;
+            }
             if self.pending.is_none()
                 && let Some(event) = self.pending_events.pop_front()
             {
-                return Poll::Ready(Ok(AdapterBatch {
-                    event: Some(event),
-                    peers: intuigram_telegram::PeerDirectory::default(),
+                return Poll::Ready(Ok(WorkerBatch {
+                    batch: AdapterBatch {
+                        event: Some(event),
+                        peers: intuigram_telegram::PeerDirectory::default(),
+                    },
+                    delivered: self
+                        .pending_events
+                        .is_empty()
+                        .then(|| self.pending_submission.take())
+                        .flatten(),
                 }));
             }
             if let Some(request) = &mut self.pending {
@@ -103,30 +148,75 @@ impl ApplicationAdapterEvents for BackendEvents {
                     Poll::Ready(Ok(update)) => {
                         self.pending = None;
                         self.pending_events.extend(update.events);
-                        return Poll::Ready(Ok(AdapterBatch {
-                            event: self.pending_events.pop_front(),
-                            peers: update.peers,
-                        }));
+                        let batch = WorkerBatch {
+                            batch: AdapterBatch {
+                                event: self.pending_events.pop_front(),
+                                peers: update.peers,
+                            },
+                            delivered: self
+                                .pending_events
+                                .is_empty()
+                                .then(|| self.pending_submission.take())
+                                .flatten(),
+                        };
+                        return Poll::Ready(Ok(batch));
                     }
                     Poll::Ready(Err(source)) => {
                         self.pending = None;
-                        return Poll::Ready(Err(Error::CommitTelegramUpdate { source }));
+                        let error = Error::CommitTelegramUpdate { source };
+                        if let Some(submission) = self.pending_submission.take() {
+                            submission.complete(Err(Box::new(error)));
+                            self.stopped = true;
+                            return Poll::Pending;
+                        }
+                        return Poll::Ready(Err(error));
                     }
                     Poll::Pending => return Poll::Pending,
                 }
             }
-            if let Some(update) = self.submitted_updates.pop_front() {
-                match self.committer.commit(update) {
-                    Ok(request) => self.pending = Some(request),
+            if self.queued_submission.is_none()
+                && let Poll::Ready(Some(submission)) = self.submitted_updates.poll_pop(cx)
+            {
+                self.queued_submission = Some(QueuedSubmission {
+                    submission,
+                    preceding_live_updates: self.updates.buffered_len(),
+                });
+            }
+            if self
+                .queued_submission
+                .as_ref()
+                .is_some_and(QueuedSubmission::is_ready)
+            {
+                let queued = self
+                    .queued_submission
+                    .take()
+                    .expect("a checked queued submission remains present");
+                let submission = queued.submission;
+                match self.committer.commit(submission.update) {
+                    Ok(request) => {
+                        self.pending = Some(request);
+                        self.pending_submission = Some(submission.committed);
+                    }
                     Err(source) => {
-                        return Poll::Ready(Err(Error::CommitTelegramUpdate { source }));
+                        let error = Error::CommitTelegramUpdate { source };
+                        submission.committed.complete(Err(Box::new(error)));
+                        self.stopped = true;
+                        return Poll::Pending;
                     }
                 }
                 continue;
             }
+            // A submission snapshots the already-buffered live update count.
+            // Drain exactly that prefix before the RPC result, so later live
+            // traffic cannot starve the durability acknowledgement.
             match Pin::new(&mut self.updates).poll_next(cx) {
                 Poll::Ready(Some(Ok(event))) => match self.committer.commit(event) {
-                    Ok(request) => self.pending = Some(request),
+                    Ok(request) => {
+                        self.pending = Some(request);
+                        if let Some(queued) = &mut self.queued_submission {
+                            queued.observe_live_update();
+                        }
+                    }
                     Err(source) => {
                         return Poll::Ready(Err(Error::CommitTelegramUpdate { source }));
                     }
@@ -137,8 +227,9 @@ impl ApplicationAdapterEvents for BackendEvents {
                 Poll::Ready(None) => {
                     return Poll::Ready(Err(Error::TelegramUpdatesClosed));
                 }
-                Poll::Pending => return Poll::Pending,
+                Poll::Pending => {}
             }
+            return Poll::Pending;
         }
     }
 }

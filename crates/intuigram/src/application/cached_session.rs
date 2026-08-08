@@ -31,58 +31,56 @@ where
     let mut app = App::new();
     let mut update = app.transition(Input::Adapter(AdapterEvent::Bootstrap(bootstrap)));
     let mut pending_effects = VecDeque::with_capacity(EFFECT_CAPACITY);
-    let mut retained_attachments = AttachmentStore::default();
-    let mut retained_media_library = MediaLibraryStore::default();
-    let mut retained_downloads = DownloadStore::default();
-    let mut attempt = Some(Box::pin(resume_account(
+    let mut retained = RetainedBackend::default();
+    let mut attempt = Some(ActorSession::connection(
         credentials.clone(),
-        &layout,
-        &account,
+        layout.clone(),
+        account.clone(),
         storage.clone(),
-    )));
+    ));
 
     loop {
         terminal.draw(&update.view).context(TerminalSnafu)?;
         if let Some(effect) = update.effect.take() {
             match effect {
-                Effect::Quit => return Ok(AccountSessionExit::Quit),
+                Effect::Quit => {
+                    cancel_connection(&mut attempt).await?;
+                    return Ok(AccountSessionExit::Quit);
+                }
                 Effect::AccountLifecycle { request } => {
+                    cancel_connection(&mut attempt).await?;
                     return Ok(AccountSessionExit::Lifecycle(request));
                 }
                 Effect::Reconnect if attempt.is_none() => {
-                    attempt = Some(Box::pin(resume_account(
+                    attempt = Some(ActorSession::connection(
                         credentials.clone(),
-                        &layout,
-                        &account,
+                        layout.clone(),
+                        account.clone(),
                         storage.clone(),
-                    )));
+                    ));
                 }
                 Effect::Reconnect => {}
                 effect => {
-                    enqueue_effect::<Backend>(&mut pending_effects, &None, Some(effect))?;
+                    enqueue_effect(
+                        &mut pending_effects,
+                        &futures_util::stream::FuturesUnordered::new(),
+                        &[],
+                        Some(effect),
+                    )?;
                 }
             }
         }
 
         enum Wake<T> {
             Terminal(T),
-            Connected(
-                Box<
-                    Result<(
-                        Backend,
-                        BackendEvents,
-                        intuigram_telegram::PeerDirectory,
-                        Bootstrap,
-                    )>,
-                >,
-            ),
+            Connected(Box<Result<ConnectedActorSession>>),
         }
         let wake = poll_fn(|cx| {
             if let Poll::Ready(event) = events.poll_next_event(cx) {
                 return Poll::Ready(Wake::Terminal(event));
             }
             if let Some(connection) = &mut attempt
-                && let Poll::Ready(result) = connection.as_mut().poll(cx)
+                && let Poll::Ready(result) = Pin::new(connection).poll(cx)
             {
                 return Poll::Ready(Wake::Connected(Box::new(result)));
             }
@@ -102,19 +100,17 @@ where
                 }
             }
             Wake::Connected(result) if result.is_ok() => {
-                let Ok((mut backend, mut adapter_events, peers, mut bootstrap)) = *result else {
+                let Ok(ConnectedActorSession {
+                    backend,
+                    events: mut adapter_events,
+                    peers,
+                    mut bootstrap,
+                }) = *result
+                else {
                     unreachable!("successful connection result was checked")
                 };
+                backend.restore_retained(std::mem::take(&mut retained))?;
                 bootstrap.accounts.clone_from(&accounts);
-                backend
-                    .attachments
-                    .merge(std::mem::take(&mut retained_attachments));
-                backend
-                    .media_library
-                    .merge(std::mem::take(&mut retained_media_library));
-                backend
-                    .downloaded
-                    .merge(std::mem::take(&mut retained_downloads));
                 update =
                     app.transition(Input::Adapter(AdapterEvent::ConnectionRestored(bootstrap)));
                 match run_application_state(
@@ -133,7 +129,7 @@ where
                 {
                     ApplicationExit::Quit => return Ok(AccountSessionExit::Quit),
                     ApplicationExit::Lifecycle { request, backend } => {
-                        drop(backend);
+                        backend.shutdown().await?;
                         return Ok(AccountSessionExit::Lifecycle(request));
                     }
                     ApplicationExit::Disconnected(state) => {
@@ -142,31 +138,37 @@ where
                             backend: disconnected_backend,
                             pending_effects: disconnected_effects,
                         } = *state;
-                        retained_attachments.merge(disconnected_backend.attachments);
-                        retained_media_library.merge(disconnected_backend.media_library);
-                        retained_downloads.merge(disconnected_backend.downloaded);
+                        retained = disconnected_backend.take_retained().await?;
+                        disconnected_backend.shutdown().await?;
                         app = disconnected_app;
                         pending_effects = disconnected_effects;
                         update = app.transition(Input::Adapter(AdapterEvent::ConnectionChanged(
                             ConnectionState::Connecting,
                         )));
-                        attempt = Some(Box::pin(resume_account(
+                        attempt = Some(ActorSession::connection(
                             credentials.clone(),
-                            &layout,
-                            &account,
+                            layout.clone(),
+                            account.clone(),
                             storage.clone(),
-                        )));
+                        ));
                     }
                 }
             }
             Wake::Connected(result) => {
+                attempt = None;
                 let Err(error) = *result else {
                     unreachable!("failed connection result was checked")
                 };
-                attempt = None;
                 let reason = error_lines(&error).join(": ");
                 update = app.transition(Input::Adapter(AdapterEvent::ConnectionFailed(reason)));
             }
         }
+    }
+}
+
+async fn cancel_connection(attempt: &mut Option<ActorConnection>) -> Result<()> {
+    match attempt.take() {
+        Some(connection) => connection.cancel().await,
+        None => Ok(()),
     }
 }

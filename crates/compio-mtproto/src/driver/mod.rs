@@ -181,6 +181,13 @@ impl Stream for UpdateStream {
     }
 }
 
+impl UpdateStream {
+    /// Returns the number of updates already buffered for delivery.
+    pub fn buffered_len(&self) -> usize {
+        self.shared.updates.borrow().len()
+    }
+}
+
 /// Persistent single-owner MTProto network driver.
 pub struct ConnectionDriver {
     transport: BoxedTransport,

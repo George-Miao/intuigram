@@ -64,6 +64,13 @@ pub struct LiveUpdates {
     pub(super) terminated: bool,
 }
 
+impl LiveUpdates {
+    /// Returns the number of raw updates already buffered by MTProto.
+    pub fn buffered_len(&self) -> usize {
+        self.updates.buffered_len()
+    }
+}
+
 impl Stream for LiveUpdates {
     type Item = Result<LiveEvent>;
 

@@ -32,6 +32,7 @@ The target is a virtual Cargo workspace. Every package belongs under `crates/`.
 - `crates/intuigram-media`: media transfer, cache policy, and media lifecycle.
 - `crates/intuigram-config`: layered Figment configuration.
 - `crates/compio-mtproto`: reusable Compio-based MTProto connection, session, invocation, and update-stream library.
+- `crates/compio-actor`: vendored experimental Compio actor runtime, kept on the workspace's published Compio dependency generation.
 - `crates/compio-term`: experimental reusable Compio-native terminal event readiness; keep its API explicitly unstable until the Windows backend and cross-platform behavior are resolved.
 - `crates/rich-clipboard`: reusable native clipboard-content library.
 - `crates/test-harness`: dev-only hermetic behavior runner with strict scripted adapters, isolated real storage, semantic locators, and failure traces.
@@ -43,22 +44,35 @@ Dependencies point toward `intuigram-app`; the `intuigram` executable composes a
 ## State and concurrency
 
 - The `intuigram` composition loop runs terminal input, rendering, synchronous
-  `intuigram-app` state reduction, Telegram, and nonblocking adapters on one
-  Compio runtime thread.
+  `intuigram-app` state reduction, result aggregation, and nonblocking platform
+  effects on the main Compio runtime thread.
+- Each live Telegram Account session is constructed and owned by an actor on a
+  dedicated one-worker Compio cluster. Its `LiveUpdates` driver is a retained
+  worker-local task so Telegram invocations and update polling make progress
+  together without moving non-`Send` connection state across threads.
 - `intuigram-app` exclusively owns mutable application state and applies each
   typed input synchronously, returning an immutable view and optional adapter
   effect.
 - The composition loop polls persistent event sources and a bounded set of
-  owned effect futures in place. Do not cancel and recreate an in-flight Compio
-  operation merely because another source wakes, and do not add
-  `async_channel` between tasks on the same runtime thread.
+  correlated effect futures in place. Do not cancel and recreate an in-flight
+  Compio operation merely because another source wakes. Cross-thread actor
+  commands and normalized event output use bounded channels; do not add
+  channels between tasks that remain on the same runtime thread.
 - Terminal input and rendering must remain responsive while adapter effects are pending. Never execute Telegram, database, media, clipboard, notification, or platform work synchronously in the terminal event loop.
 - The TUI renders immutable snapshots or deltas.
 - Blocking SQLite work stays on dedicated database threads. Other long-running
   adapter work remains asynchronous and returns typed results to the
   composition loop.
+- Native clipboard reads, attachment validation and byte reads, media capture,
+  notifications, external-link launches, completed-download launches, media
+  decoding, cache access, and download writes stay outside the Telegram actor.
+  Only Telegram upload/download byte transfer runs with the live client.
 - Do not introduce cross-crate shared mutable state or mutex-protected application state.
 - Make backpressure, cancellation, ordering, and shutdown behavior explicit.
+- On shutdown, stop accepting input, cancel pending Telegram calls through the
+  reserved cancellation path, let already returned Telegram updates finish
+  their durable commit, stop and join the actor and its worker-local update
+  driver, then join the actor cluster.
 
 ## Telegram and runtime
 

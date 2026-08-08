@@ -2,7 +2,10 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use super::runtime_adapters::{ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents};
+use futures_util::StreamExt;
+use futures_util::stream::FuturesUnordered;
+
+use super::runtime_adapters::{ApplicationAdapterEvents, ApplicationEvents};
 use super::runtime_types::{ApplicationWake, PendingEffect};
 
 #[derive(Clone, Copy)]
@@ -31,6 +34,11 @@ pub(super) struct WakePoller {
     next: PollSource,
 }
 
+pub(super) struct WakePolicy {
+    pub(super) poll_adapter: bool,
+    pub(super) poll_interaction: bool,
+}
+
 impl WakePoller {
     pub(super) const fn new() -> Self {
         Self {
@@ -38,38 +46,39 @@ impl WakePoller {
         }
     }
 
-    pub(super) fn poll<E, A, B>(
+    pub(super) fn poll<E, A>(
         &mut self,
         events: &mut E,
         adapter_events: &mut A,
-        active_effect: &mut Option<PendingEffect<B>>,
+        active_effects: &mut FuturesUnordered<PendingEffect>,
         animation_timer: &mut Option<Pin<Box<dyn Future<Output = ()>>>>,
-        disconnected: bool,
+        policy: WakePolicy,
         cx: &mut Context<'_>,
-    ) -> Poll<ApplicationWake<B>>
+    ) -> Poll<ApplicationWake>
     where
         E: ApplicationEvents,
         A: ApplicationAdapterEvents,
-        B: ApplicationBackend,
     {
         for offset in 0..PollSource::ORDER.len() {
             let source = self.next.offset(offset);
             let wake = match source {
-                PollSource::Adapter if !disconnected => {
-                    ready(adapter_events.poll_adapter_event(cx)).map(ApplicationWake::Adapter)
+                PollSource::Adapter if policy.poll_adapter => {
+                    ready(adapter_events.poll_adapter_event(cx))
+                        .map(Box::new)
+                        .map(ApplicationWake::Adapter)
                 }
-                PollSource::Terminal => {
+                PollSource::Terminal if policy.poll_interaction => {
                     ready(events.poll_next_event(cx)).map(ApplicationWake::Terminal)
                 }
-                PollSource::Backend => active_effect
-                    .as_mut()
-                    .and_then(|effect| ready(effect.as_mut().poll(cx)))
+                PollSource::Backend => ready(active_effects.poll_next_unpin(cx))
+                    .flatten()
+                    .map(Box::new)
                     .map(ApplicationWake::Backend),
-                PollSource::Animation => animation_timer
+                PollSource::Animation if policy.poll_interaction => animation_timer
                     .as_mut()
                     .and_then(|timer| ready(timer.as_mut().poll(cx)))
                     .map(|()| ApplicationWake::Animation),
-                PollSource::Adapter => None,
+                PollSource::Adapter | PollSource::Terminal | PollSource::Animation => None,
             };
             if let Some(wake) = wake {
                 self.next = source.offset(1);

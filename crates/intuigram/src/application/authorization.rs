@@ -80,8 +80,11 @@ pub(super) async fn resume_account(
                 bootstrap.chats.iter().map(|chat| chat.id),
             ),
             pending: None,
+            pending_submission: None,
+            queued_submission: None,
             pending_events: VecDeque::new(),
-            submitted_updates: VecDeque::new(),
+            submitted_updates: SubmittedUpdates::default(),
+            stopped: false,
         },
         peers,
         bootstrap,
@@ -94,12 +97,7 @@ pub(super) async fn authorize_new_account(
     layout: &StoreLayout,
     global: &GlobalDatabase,
     cipher: AccountCipher,
-) -> Result<(
-    Backend,
-    BackendEvents,
-    intuigram_telegram::PeerDirectory,
-    Bootstrap,
-)> {
+) -> Result<AccountId> {
     let route = telegram_route(config)?;
     let pending = AccountDatabase::begin_login_with_cipher(layout, cipher.clone())
         .context(AccountDatabaseSnafu)?;
@@ -189,39 +187,9 @@ pub(super) async fn authorize_new_account(
     database
         .commit_sync(bootstrap_sync_batch(&bootstrap, cursors.clone()))
         .context(AccountDatabaseSnafu)?;
-    let store = database.store();
-    let live_capacity = NonZeroUsize::new(EFFECT_CAPACITY)
-        .expect("the constant MTProto request capacity is positive");
-    let (client, updates, peers) = client.into_live(live_capacity);
-    Ok((
-        Backend {
-            client: Box::new(client),
-            _database: database,
-            store: store.clone(),
-            next_local_message_id: 0,
-            attachments: AttachmentStore::default(),
-            media_library: MediaLibraryStore::default(),
-            downloads: intuigram_media::DownloadDirectory::new(config.paths.downloads.clone()),
-            media_cache: intuigram_media::MediaCache::new(
-                config.paths.cache.join(account_id.get().to_string()),
-                config.media.cache_bytes,
-            ),
-            downloaded: DownloadStore::default(),
-        },
-        BackendEvents {
-            updates,
-            committer: UpdateCommitter::new(
-                store,
-                cursors,
-                bootstrap.chats.iter().map(|chat| chat.id),
-            ),
-            pending: None,
-            pending_events: VecDeque::new(),
-            submitted_updates: VecDeque::new(),
-        },
-        peers,
-        bootstrap,
-    ))
+    drop(client);
+    drop(database);
+    Ok(account_id)
 }
 
 pub(super) async fn authorize_with_qr(

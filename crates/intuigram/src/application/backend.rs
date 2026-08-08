@@ -280,15 +280,18 @@ impl Backend {
                                 kind: intuigram_telegram::UploadKind::Photo,
                             }
                         }
-                        AttachmentPayload::File { path, kind } => intuigram_telegram::Upload {
-                            name: path.file_name().map_or_else(
-                                || "attachment".to_owned(),
-                                |name| name.to_string_lossy().into_owned(),
-                            ),
-                            mime_type: mime_type_for_path(path),
-                            bytes: compio::fs::read(path)
-                                .await
-                                .context(ReadAttachmentSnafu { path: path.clone() })?,
+                        AttachmentPayload::File { path, .. } => {
+                            return Err(Error::UnpreparedAttachment { path: path.clone() });
+                        }
+                        AttachmentPayload::PreparedFile {
+                            name,
+                            mime_type,
+                            bytes,
+                            kind,
+                        } => intuigram_telegram::Upload {
+                            name: name.clone(),
+                            mime_type: mime_type.clone(),
+                            bytes: bytes.clone(),
                             kind: match kind {
                                 AttachmentKind::Photo => intuigram_telegram::UploadKind::Photo,
                                 AttachmentKind::Video => intuigram_telegram::UploadKind::Video,

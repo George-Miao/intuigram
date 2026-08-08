@@ -1,3 +1,4 @@
+#[cfg(test)]
 pub(super) async fn run_application<U, E, A, B>(
     terminal: &mut U,
     events: &mut E,
@@ -47,38 +48,84 @@ where
         mut pending_effects,
         mut peers,
     } = state;
-    let mut backend = Some(backend);
-    let mut active_effect: Option<PendingEffect<B>> = None;
+    let mut active_effects = futures_util::stream::FuturesUnordered::new();
     let mut animation_timer: Option<Pin<Box<dyn Future<Output = ()>>>> = None;
     let mut wake_poller = WakePoller::new();
     let mut disconnected = false;
+    let mut telegram_effect_active = false;
+    let mut storage_effect_active = false;
+    let mut active_notifications = Vec::new();
+    let mut requested_exit = None;
+    let mut stopping_error = None;
 
     loop {
         terminal.draw(&update.view).context(TerminalSnafu)?;
-        if enqueue_effect(&mut pending_effects, &active_effect, update.effect.take())? {
-            return Ok(ApplicationExit::Quit);
+        if requested_exit.is_none()
+            && enqueue_effect(
+                &mut pending_effects,
+                &active_effects,
+                &active_notifications,
+                update.effect.take(),
+            )?
+        {
+            requested_exit = Some(RequestedExit::Quit);
+            pending_effects.clear();
+            backend.begin_shutdown();
         }
 
-        if disconnected && active_effect.is_none() {
+        if pending_effects.is_empty()
+            && active_effects.is_empty()
+            && let Some(requested_exit) = requested_exit
+        {
+            if let Some(error) = stopping_error {
+                backend.shutdown().await?;
+                return Err(error);
+            }
+            return match requested_exit {
+                RequestedExit::Quit => {
+                    backend.shutdown().await?;
+                    Ok(ApplicationExit::Quit)
+                }
+                RequestedExit::Lifecycle(request) => {
+                    Ok(ApplicationExit::Lifecycle { request, backend })
+                }
+            };
+        }
+
+        if disconnected && active_effects.is_empty() {
             return Ok(ApplicationExit::Disconnected(Box::new(
                 DisconnectedApplication {
                     app,
-                    backend: backend
-                        .take()
-                        .expect("completed effects return the disconnected backend"),
+                    backend,
                     pending_effects,
                 },
             )));
         }
 
-        if !disconnected
-            && active_effect.is_none()
-            && let Some(effect) = pending_effects.pop_front()
-        {
-            let available = backend
-                .take()
-                .expect("backend is available whenever no effect owns it");
-            active_effect = Some(start_effect(available, effect, peers.clone()));
+        while requested_exit.is_none() && !disconnected && active_effects.len() < EFFECT_CAPACITY {
+            let position =
+                pending_effects
+                    .iter()
+                    .position(|effect| match effect_route(&effect.effect) {
+                        EffectRoute::Telegram => !telegram_effect_active,
+                        EffectRoute::LocalOrdered => !storage_effect_active,
+                        EffectRoute::LocalIndependent => true,
+                    });
+            let Some(position) = position else {
+                break;
+            };
+            let effect = pending_effects
+                .remove(position)
+                .expect("an effect position came from the same pending queue");
+            match effect_route(&effect.effect) {
+                EffectRoute::Telegram => telegram_effect_active = true,
+                EffectRoute::LocalOrdered => storage_effect_active = true,
+                EffectRoute::LocalIndependent => {}
+            }
+            if let Some(key) = notification_key(&effect.effect) {
+                active_notifications.push(key);
+            }
+            active_effects.push(start_effect(backend.clone(), effect, peers.clone()));
         }
 
         if update.view.has_pending_effort() {
@@ -93,9 +140,12 @@ where
             wake_poller.poll(
                 events,
                 adapter_events,
-                &mut active_effect,
+                &mut active_effects,
                 &mut animation_timer,
-                disconnected,
+                WakePolicy {
+                    poll_adapter: !disconnected,
+                    poll_interaction: requested_exit.is_none(),
+                },
                 cx,
             )
         })
@@ -114,7 +164,7 @@ where
                     }
                 }
             }
-            ApplicationWake::Adapter(event) => match event {
+            ApplicationWake::Adapter(event) => match *event {
                 Ok(batch) => {
                     peers.merge(batch.peers);
                     update = match batch.event {
@@ -127,29 +177,41 @@ where
                 }
                 Err(error) => {
                     let Some(reason) = connection_failure_reason(&error) else {
-                        return Err(error);
+                        pending_effects.clear();
+                        requested_exit = Some(RequestedExit::Quit);
+                        stopping_error = Some(error);
+                        backend.begin_shutdown();
+                        continue;
                     };
                     disconnected = true;
+                    backend.begin_shutdown();
                     update = app.transition(Input::Adapter(AdapterEvent::ConnectionFailed(reason)));
                 }
             },
             ApplicationWake::Backend(completion) => {
-                active_effect = None;
-                backend = Some(completion.backend);
+                match effect_route(&completion.effect.effect) {
+                    EffectRoute::Telegram => telegram_effect_active = false,
+                    EffectRoute::LocalOrdered => storage_effect_active = false,
+                    EffectRoute::LocalIndependent => {}
+                }
+                if let Some(key) = notification_key(&completion.effect.effect) {
+                    active_notifications.retain(|active| active != &key);
+                }
                 match completion.result {
                     Ok(output) => {
+                        peers.merge(output.peers);
                         if let Some(returned) = output.telegram_update {
                             adapter_events.submit_update(returned);
                         }
                         if let Some(AdapterEvent::AccountLifecycleReady(request)) =
                             output.event.as_ref()
                         {
-                            return Ok(ApplicationExit::Lifecycle {
-                                request: *request,
-                                backend: backend
-                                    .take()
-                                    .expect("the completed lifecycle effect returned its backend"),
-                            });
+                            pending_effects.clear();
+                            requested_exit = Some(RequestedExit::Lifecycle(*request));
+                            continue;
+                        }
+                        if requested_exit.is_some() {
+                            continue;
                         }
                         update = match output.event {
                             Some(event) => app.transition(Input::Adapter(event)),
@@ -160,11 +222,29 @@ where
                         };
                     }
                     Err(error) => {
+                        if disconnected && matches!(&error, Error::TelegramActorCancelled) {
+                            pending_effects.push_front(completion.effect);
+                            continue;
+                        }
+                        if requested_exit.is_some() {
+                            if !matches!(&error, Error::TelegramActorCancelled)
+                                && connection_failure_reason(&error).is_none()
+                                && stopping_error.is_none()
+                            {
+                                stopping_error = Some(error);
+                            }
+                            continue;
+                        }
                         let Some(reason) = connection_failure_reason(&error) else {
-                            return Err(error);
+                            pending_effects.clear();
+                            requested_exit = Some(RequestedExit::Quit);
+                            stopping_error = Some(error);
+                            backend.begin_shutdown();
+                            continue;
                         };
                         pending_effects.push_front(completion.effect);
                         disconnected = true;
+                        backend.begin_shutdown();
                         update =
                             app.transition(Input::Adapter(AdapterEvent::ConnectionFailed(reason)));
                     }
@@ -176,5 +256,11 @@ where
             }
         }
     }
+}
+
+#[derive(Clone, Copy)]
+enum RequestedExit {
+    Quit,
+    Lifecycle(AccountLifecycle),
 }
 use super::*;

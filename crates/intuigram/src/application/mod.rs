@@ -10,8 +10,10 @@ use std::task::Poll;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use futures_util::Stream;
+#[cfg(test)]
+use intuigram::Application;
 use intuigram::{
-    Application, UpdateCommit, UpdateCommitter, bootstrap_sync_batch, decode_stored_message,
+    UpdateCommit, UpdateCommitter, bootstrap_sync_batch, decode_stored_message,
     encode_stored_message, store_cursor,
 };
 use intuigram_app::{
@@ -41,6 +43,7 @@ use intuigram_tui::{
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 
+mod actor_session;
 mod authorization;
 mod backend;
 mod backend_download;
@@ -55,6 +58,7 @@ mod cached_session;
 mod configuration;
 #[cfg(test)]
 mod configuration_tests;
+mod effect_route;
 mod fixtures;
 mod folder_arguments;
 mod history_failure;
@@ -73,6 +77,7 @@ mod types;
 mod ui;
 mod wake_poll;
 
+use actor_session::{ActorConnection, ActorSession, ConnectedActorSession};
 use authorization::{authorize_new_account, resume_account};
 use backend::{MessageSend, OutgoingRecord};
 use cache::cached_bootstrap;
@@ -81,6 +86,7 @@ use configuration::{
     derived_random_id, mime_type_for_path, parse_arguments, platform_defaults, print_help, prompt,
     resolve_telegram_credentials, store_session, telegram_session,
 };
+use effect_route::{EffectRoute, effect_route};
 #[cfg(test)]
 use fixtures::application_fixture;
 use folder_arguments::{next_argument, parse_folder_maintenance};
@@ -102,10 +108,12 @@ use proxy::telegram_route;
 use runtime_adapters::{
     AdapterBatch, ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents, BackendOutput,
 };
-use runtime_loop::{run_application, run_application_state};
+#[cfg(test)]
+use runtime_loop::run_application;
+use runtime_loop::run_application_state;
 use runtime_types::{
     AccountSessionExit, AdapterEffect, ApplicationExit, ApplicationState, ApplicationWake,
-    DisconnectedApplication, PendingEffect, connection_failure_reason, enqueue_effect,
+    DisconnectedApplication, connection_failure_reason, enqueue_effect, notification_key,
     start_effect,
 };
 use schedule_arguments::parse_scheduled_maintenance;
@@ -113,7 +121,7 @@ use startup::run_async;
 use types::*;
 pub(super) use ui::main;
 use ui::{ApplicationUi, error_lines};
-use wake_poll::WakePoller;
+use wake_poll::{WakePolicy, WakePoller};
 
 const PRIMARY_DC_ID: i32 = 2;
 const PRIMARY_DC_ENDPOINT: SocketAddr =
@@ -218,6 +226,48 @@ enum Error {
     #[snafu(display("failed to initialize the Compio runtime"))]
     Runtime { source: io::Error },
 
+    #[snafu(display("failed to start the Telegram actor cluster"))]
+    StartActorCluster { source: io::Error },
+
+    #[snafu(display("failed to join the Telegram actor cluster"))]
+    JoinActorCluster { source: io::Error },
+
+    #[snafu(display("Telegram actor cluster is unavailable"))]
+    TelegramActorUnavailable,
+
+    #[snafu(display("Telegram actor worker stopped during startup"))]
+    TelegramActorWorkerStopped,
+
+    #[snafu(display("Telegram actor supervisor stopped during startup"))]
+    TelegramActorSupervisorStopped,
+
+    #[snafu(display("Telegram actor name {name:?} is already registered"))]
+    TelegramActorNameTaken { name: String },
+
+    #[snafu(display("Telegram actor startup result channel closed"))]
+    TelegramActorStartupClosed,
+
+    #[snafu(display("Telegram actor mailbox is full"))]
+    TelegramActorMailboxFull,
+
+    #[snafu(display("Telegram actor mailbox is closed"))]
+    TelegramActorMailboxClosed,
+
+    #[snafu(display("Telegram actor did not reply"))]
+    TelegramActorNoReply,
+
+    #[snafu(display("Telegram actor worker stopped before reporting its exit"))]
+    TelegramActorExitClosed,
+
+    #[snafu(display("Telegram event driver was cancelled"))]
+    TelegramActorDriverCancelled,
+
+    #[snafu(display("Telegram actor operation was cancelled for shutdown"))]
+    TelegramActorCancelled,
+
+    #[snafu(display("Telegram actor stopped before committing its returned update"))]
+    TelegramActorCommitClosed,
+
     #[snafu(display("Telegram operation failed"))]
     Telegram { source: intuigram_telegram::Error },
 
@@ -235,6 +285,12 @@ enum Error {
 
     #[snafu(display("failed to read attachment {}", path.display()))]
     ReadAttachment { path: PathBuf, source: io::Error },
+
+    #[snafu(display("attachment {} reached Telegram before local preparation", path.display()))]
+    UnpreparedAttachment { path: PathBuf },
+
+    #[snafu(display("rich media reached Telegram before local preparation"))]
+    UnpreparedRichMedia,
 
     #[snafu(display("failed to run ffmpeg for {kind} recording"))]
     RecordMedia {

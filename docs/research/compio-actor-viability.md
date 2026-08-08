@@ -2,6 +2,19 @@
 
 Research snapshot: 2026-08-08
 
+Implementation note: the subsequent product decision accepted the dedicated
+Telegram actor as the default path without a feature flag. Intuigram vendors
+the evaluated actor source, aligns it with the workspace's published
+`compio-dispatcher` generation, verifies worker runtime identity in a test, and
+keeps the terminal and reducer on the main runtime as recommended below. The
+implementation also gives shutdown a mailbox-independent cancellation path,
+waits for RPC-returned updates to commit before replying, and routes typed
+Draft and selection persistence directly to `AccountStore` on a storage lane
+independent from Telegram commands. Native clipboard, attachment reads, media
+capture, launch, media decoding, cache, and download-write work stays on the
+main runtime; uploads cross as owned bytes, while preview and download RPCs
+return only their Telegram bytes for local processing.
+
 ## Question
 
 Can Intuigram use the experimental `compio-actor` checkout at

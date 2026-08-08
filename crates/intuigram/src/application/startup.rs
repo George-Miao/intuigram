@@ -109,104 +109,70 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
             initializing_lock,
         )
         .context(LocalLockSnafu)?;
-        let authorized = if active_account.is_none() {
-            Some(
+        if active_account.is_none() {
+            let account =
                 authorize_new_account(&credentials, &config, &layout, &global, unlock.cipher())
-                    .await?,
-            )
-        } else {
-            None
-        };
+                    .await?;
+            unlock.promote(&config, account).context(LocalLockSnafu)?;
+            requested_account = Some(account);
+            continue;
+        }
+        let account = active_account.expect("new Account authorization continues the outer loop");
         let mut terminal = TerminalUi::enter_with_mode(view_mode).context(TerminalSnafu)?;
         let mut events = TerminalEvents::new().context(TerminalSnafu)?;
-        let outcome = if let Some(account) = active_account {
-            if unlock.cipher().is_encrypted() {
-                intuigram_store::enable_local_lock(&layout, account.id, &unlock.cipher())
-                    .context(EnableLocalLockSnafu)?;
-            }
-            let database = match AccountDatabase::open_recoverable_with_cipher(
-                &layout,
-                account.id,
-                unlock.cipher(),
-            )
-            .context(AccountDatabaseSnafu)?
-            {
-                AccountOpen::Ready(database) => database,
-                AccountOpen::Recovery(recovery) => match crate::recovery::run(
-                    &mut terminal,
-                    &mut events,
-                    recovery,
-                    account.display_name.clone(),
-                )
-                .await
-                .context(AccountRecoverySnafu)?
-                {
-                    crate::recovery::Outcome::Ready(database) => database,
-                    crate::recovery::Outcome::Cancelled => return Ok(()),
-                },
-            };
-            let cached = database.cached_account().context(AccountDatabaseSnafu)?;
-            drop(database);
-            unlock
-                .promote(&config, account.id)
-                .context(LocalLockSnafu)?;
-            run_cached_account(
+        if unlock.cipher().is_encrypted() {
+            intuigram_store::enable_local_lock(&layout, account.id, &unlock.cipher())
+                .context(EnableLocalLockSnafu)?;
+        }
+        let database = match AccountDatabase::open_recoverable_with_cipher(
+            &layout,
+            account.id,
+            unlock.cipher(),
+        )
+        .context(AccountDatabaseSnafu)?
+        {
+            AccountOpen::Ready(database) => database,
+            AccountOpen::Recovery(recovery) => match crate::recovery::run(
                 &mut terminal,
                 &mut events,
-                CachedSession {
-                    credentials: credentials.clone(),
-                    layout: layout.clone(),
-                    account: account.clone(),
-                    bootstrap: cached_bootstrap(
-                        account.display_name.clone(),
-                        account.notification_identity.clone(),
-                        cached,
-                    ),
-                    accounts: registered_accounts,
-                    storage: AdapterStorage {
-                        downloads: config.paths.downloads.clone(),
-                        cache_root: config.paths.cache.clone(),
-                        cache_limit: config.media.cache_bytes,
-                        cipher: unlock.cipher(),
-                        route: telegram_route(&config)?,
-                    },
-                },
+                recovery,
+                account.display_name.clone(),
             )
-            .await?
-        } else {
-            let (backend, mut backend_events, peers, mut bootstrap) = authorized
-                .expect("new-Account authorization completes before its main terminal opens");
-            let account = backend
-                ._database
-                .account_id()
-                .context(AccountDatabaseSnafu)?
-                .expect("an authorized backend always has a persisted Account identity");
-            unlock.promote(&config, account).context(LocalLockSnafu)?;
-            bootstrap.accounts = account_views(
-                &global.accounts().context(ReadAccountRegistrySnafu)?,
-                Some(account),
-            );
-            match run_application(
-                &mut terminal,
-                &mut events,
-                &mut backend_events,
-                backend,
-                peers,
-                bootstrap,
-            )
-            .await?
+            .await
+            .context(AccountRecoverySnafu)?
             {
-                ApplicationExit::Quit => AccountSessionExit::Quit,
-                ApplicationExit::Lifecycle { request, backend } => {
-                    drop(backend);
-                    AccountSessionExit::Lifecycle(request)
-                }
-                ApplicationExit::Disconnected(_) => {
-                    requested_account = Some(account);
-                    continue;
-                }
-            }
+                crate::recovery::Outcome::Ready(database) => database,
+                crate::recovery::Outcome::Cancelled => return Ok(()),
+            },
         };
+        let cached = database.cached_account().context(AccountDatabaseSnafu)?;
+        drop(database);
+        unlock
+            .promote(&config, account.id)
+            .context(LocalLockSnafu)?;
+        let outcome = run_cached_account(
+            &mut terminal,
+            &mut events,
+            CachedSession {
+                credentials: credentials.clone(),
+                layout: layout.clone(),
+                account: account.clone(),
+                bootstrap: cached_bootstrap(
+                    account.display_name.clone(),
+                    account.notification_identity.clone(),
+                    cached,
+                ),
+                accounts: registered_accounts,
+                storage: AdapterStorage {
+                    downloads: config.paths.downloads.clone(),
+                    cache_root: config.paths.cache.clone(),
+                    cache_limit: config.media.cache_bytes,
+                    cipher: unlock.cipher(),
+                    route: telegram_route(&config)?,
+                },
+            },
+        )
+        .await?;
         drop(events);
         drop(terminal);
         match outcome {

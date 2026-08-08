@@ -33,54 +33,8 @@ impl Backend {
                 })
                 .await
             }
-            Effect::SendRichMediaFile {
-                chat,
-                path,
-                kind,
-                local_id,
-                reply_to,
-                thread_root,
-            } => {
-                let name = PathBuf::from(&path)
-                    .file_name()
-                    .map_or_else(|| path.clone(), |name| name.to_string_lossy().into_owned());
-                self.send_file_rich_media(FileSend {
-                    record: RichMediaRecord {
-                        chat,
-                        local_id,
-                        body: format!("[{kind:?}] {name}"),
-                        reply_to,
-                        thread_root,
-                    },
-                    path,
-                    kind,
-                    random_id: rich_media_random_id(random_id),
-                })
-                .await
-            }
-            Effect::RecordRichMedia {
-                chat,
-                kind,
-                seconds,
-                device,
-                local_id,
-                reply_to,
-                thread_root,
-            } => {
-                self.record_rich_media(RecordingSend {
-                    record: RichMediaRecord {
-                        chat,
-                        local_id,
-                        body: format!("[{kind:?}]"),
-                        reply_to,
-                        thread_root,
-                    },
-                    kind,
-                    seconds,
-                    device,
-                    random_id: rich_media_random_id(random_id),
-                })
-                .await
+            Effect::SendRichMediaFile { .. } | Effect::RecordRichMedia { .. } => {
+                Err(Error::UnpreparedRichMedia)
             }
             Effect::SendContact {
                 chat,
@@ -108,6 +62,58 @@ impl Backend {
             }
             _ => unreachable!("the effect dispatcher only routes rich-media effects"),
         }
+    }
+
+    pub(super) async fn execute_prepared_rich_media(
+        &mut self,
+        effect: Effect,
+        random_id: Option<i64>,
+        prepared: PreparedRichMedia,
+    ) -> Result<Option<AdapterEvent>> {
+        let record = match effect {
+            Effect::SendRichMediaFile {
+                chat,
+                kind,
+                local_id,
+                reply_to,
+                thread_root,
+                ..
+            } => RichMediaRecord {
+                chat,
+                local_id,
+                body: format!("[{kind:?}] {}", prepared.name),
+                reply_to,
+                thread_root,
+            },
+            Effect::RecordRichMedia {
+                chat,
+                kind,
+                local_id,
+                reply_to,
+                thread_root,
+                ..
+            } => RichMediaRecord {
+                chat,
+                local_id,
+                body: format!("[{kind:?}]"),
+                reply_to,
+                thread_root,
+            },
+            _ => return Err(Error::UnpreparedRichMedia),
+        };
+        let event = self
+            .send_file_rich_media(FileSend {
+                record,
+                upload: intuigram_telegram::Upload {
+                    name: prepared.name,
+                    mime_type: prepared.mime_type,
+                    bytes: prepared.bytes,
+                    kind: upload_kind(prepared.kind),
+                },
+                random_id: rich_media_random_id(random_id),
+            })
+            .await?;
+        Ok(Some(event))
     }
 
     pub(super) async fn browse_rich_media(
@@ -159,30 +165,6 @@ impl Backend {
         self.finish_rich_media(request.record, result).await
     }
 
-    pub(super) async fn record_rich_media(
-        &mut self,
-        request: RecordingSend,
-    ) -> Result<AdapterEvent> {
-        self.persist_rich_media(&request.record, DeliveryState::Pending)
-            .await?;
-        let kind = upload_kind(request.kind);
-        let result = match record_media(kind, request.seconds, &request.device).await {
-            Ok(path) => {
-                let file = FileSend {
-                    path: path.to_string_lossy().into_owned(),
-                    kind: request.kind,
-                    random_id: request.random_id,
-                    record: request.record.clone(),
-                };
-                let result = self.upload_rich_media(&file).await;
-                let _ = compio::fs::remove_file(path).await;
-                result
-            }
-            Err(error) => Err(error),
-        };
-        self.finish_rich_media(request.record, result).await
-    }
-
     pub(super) async fn send_contact_rich_media(
         &mut self,
         request: ContactSend,
@@ -206,22 +188,14 @@ impl Backend {
     }
 
     async fn upload_rich_media(&mut self, request: &FileSend) -> Result<MessageId> {
-        let path = PathBuf::from(&request.path);
-        let bytes = compio::fs::read(&path)
-            .await
-            .context(ReadAttachmentSnafu { path: path.clone() })?;
-        let name = path.file_name().map_or_else(
-            || "media".to_owned(),
-            |name| name.to_string_lossy().into_owned(),
-        );
         self.client
             .send_upload(intuigram_telegram::UploadSend {
                 chat: request.record.chat,
                 upload: intuigram_telegram::Upload {
-                    name,
-                    mime_type: mime_type_for_path(&path),
-                    bytes,
-                    kind: upload_kind(request.kind),
+                    name: request.upload.name.clone(),
+                    mime_type: request.upload.mime_type.clone(),
+                    bytes: request.upload.bytes.clone(),
+                    kind: request.upload.kind,
                 },
                 caption: String::new(),
                 entities: Vec::new(),
@@ -316,16 +290,7 @@ pub(super) struct LibrarySend {
 
 pub(super) struct FileSend {
     pub(super) record: RichMediaRecord,
-    pub(super) path: String,
-    pub(super) kind: RichMediaUploadKind,
-    pub(super) random_id: i64,
-}
-
-pub(super) struct RecordingSend {
-    pub(super) record: RichMediaRecord,
-    pub(super) kind: RichMediaUploadKind,
-    pub(super) seconds: u32,
-    pub(super) device: String,
+    pub(super) upload: intuigram_telegram::Upload,
     pub(super) random_id: i64,
 }
 
@@ -345,7 +310,7 @@ fn library_kind(kind: RichMediaLibraryKind) -> MediaLibraryKind {
     }
 }
 
-fn upload_kind(kind: RichMediaUploadKind) -> UploadKind {
+pub(super) fn upload_kind(kind: RichMediaUploadKind) -> UploadKind {
     match kind {
         RichMediaUploadKind::Photo => UploadKind::Photo,
         RichMediaUploadKind::Video => UploadKind::Video,

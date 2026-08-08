@@ -417,6 +417,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "compio-actor"
+version = "0.1.0"
+dependencies = [
+ "compio-dispatcher",
+ "compio-runtime",
+ "flume",
+ "futures-channel",
+ "futures-util",
+ "snafu",
+]
+
+[[package]]
 name = "compio-buf"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -425,6 +437,18 @@ dependencies = [
  "arrayvec",
  "bytes",
  "libc",
+]
+
+[[package]]
+name = "compio-dispatcher"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a68428f31304b81382d2768e88d0f64e5417cc27dc6043c9184d75ad9970044"
+dependencies = [
+ "compio-driver",
+ "compio-runtime",
+ "flume",
+ "futures-channel",
 ]
 
 [[package]]
@@ -1141,6 +1165,8 @@ version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e139bc46ca777eb5efaf62df0ab8cc5fd400866427e56c68b22e414e53bd3be"
 dependencies = [
+ "futures-core",
+ "futures-sink",
  "spin",
 ]
 
@@ -1163,6 +1189,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
 dependencies = [
  "percent-encoding",
+]
+
+[[package]]
+name = "futures-channel"
+version = "0.3.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "262590f4fe6afeb0bc83be1daa64e52657fe185690a958af7f3ad0e92085c5ae"
+dependencies = [
+ "futures-core",
 ]
 
 [[package]]
@@ -1660,9 +1695,12 @@ name = "intuigram"
 version = "0.1.0"
 dependencies = [
  "compio",
+ "compio-actor",
+ "compio-dispatcher",
  "compio-mtproto",
  "crossterm",
  "dirs",
+ "flume",
  "futures-util",
  "getrandom 0.3.4",
  "intuigram-app",
