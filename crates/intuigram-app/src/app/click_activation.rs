@@ -1,6 +1,31 @@
 use super::*;
 
 impl App {
+    pub(super) fn scroll(
+        &mut self,
+        target: ScrollTarget,
+        direction: ScrollDirection,
+    ) -> Option<Effect> {
+        match target {
+            ScrollTarget::Chats => {
+                self.view.focus = Focus::Chats;
+                self.move_chat(direction == ScrollDirection::Down)
+            }
+            ScrollTarget::Transcript => {
+                let previous = (self.view.active_message, self.view.transcript_anchor);
+                if self.view.focus == Focus::Chats {
+                    self.view.focus = Focus::Composer;
+                }
+                match direction {
+                    ScrollDirection::Up => self.target_previous_message(),
+                    ScrollDirection::Down => self.target_next_message(),
+                }
+                (previous != (self.view.active_message, self.view.transcript_anchor))
+                    .then(|| self.selection_effect())
+            }
+        }
+    }
+
     pub(super) fn activate(&mut self, target: ActivationTarget) -> Option<Effect> {
         match target {
             ActivationTarget::Folder(folder) => self.activate_folder(folder),

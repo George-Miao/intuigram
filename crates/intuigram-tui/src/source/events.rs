@@ -10,8 +10,14 @@ pub enum UiEvent {
 /// User-facing role emitted by the renderer for semantic behavior locators.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SemanticRole {
+    /// The scrollable Chat-list region.
+    ChatList,
+
     /// One Chat-list entry.
     Chat,
+
+    /// The scrollable Transcript region.
+    Transcript,
 
     /// One visible Transcript Message.
     Message,

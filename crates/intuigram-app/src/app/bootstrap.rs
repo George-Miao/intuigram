@@ -127,6 +127,7 @@ impl App {
                 None
             }
             Intent::Activate(target) => self.activate(target),
+            Intent::Scroll(target, direction) => self.scroll(target, direction),
             Intent::Animate => {
                 if self.view.has_pending_effort() {
                     self.view.animation_frame = self.view.animation_frame.wrapping_add(1);

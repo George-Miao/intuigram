@@ -9,7 +9,7 @@ use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use intuigram::{Application, UpdateCommitter};
 use intuigram_app::{AccountLifecycle, ChatId, DownloadId, ScheduledMessageView};
 use intuigram_store::AccountDatabase;
-use intuigram_tui::{render_test_frame, resolve_test_event};
+use intuigram_tui::{render_test_frame, resolve_test_frame_event};
 use tempfile::TempDir;
 
 use super::error::{Error, Result};
@@ -23,6 +23,7 @@ mod downloads;
 mod effects;
 mod folder_effects;
 mod input;
+mod pointer;
 mod rich_media_effects;
 mod scheduled_effects;
 mod telegram_control;
@@ -151,7 +152,10 @@ impl TestSystem {
         self.trace
             .borrow_mut()
             .record("input", format!("{event:?}"), self.application.revision());
-        let Some(ui_event) = resolve_test_event(self.application.view(), event.clone()) else {
+        let frame = render_test_frame(self.application.view(), self.terminal.0, self.terminal.1);
+        let Some(ui_event) =
+            resolve_test_frame_event(self.application.view(), &frame, event.clone())
+        else {
             return Err(Error::UnavailableInput {
                 event: format!("{event:?}"),
                 artifact: self.trace.borrow().persist(),

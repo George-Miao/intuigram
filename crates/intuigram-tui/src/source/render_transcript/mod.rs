@@ -20,6 +20,18 @@ pub(super) fn render_transcript(
 ) {
     frame.render_widget(Paragraph::new("").style(surface_style(focused)), area);
     let area = mode.padded(area);
+    semantics.push(SemanticNode {
+        role: SemanticRole::Transcript,
+        name: "Transcript".to_owned(),
+        description: None,
+        domain_id: None,
+        action: None,
+        delivery: None,
+        active: false,
+        selected: false,
+        focused,
+        bounds: area,
+    });
     if view.chat_loading == ChatLoadingState::Fresh && view.messages.is_empty() {
         render_fresh_loading(frame, area, view, focused);
         return;

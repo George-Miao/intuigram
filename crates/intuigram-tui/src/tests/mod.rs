@@ -5,8 +5,8 @@ use crossterm::event::{
 use intuigram_app::{
     Action, ActivationTarget, ChatId, ChatKind, ChatLoadingState, ChatView, ComposerView,
     ConnectionState, DeliveryState, Focus, FolderView, MediaCard, MediaKind, MessageDetails,
-    MessageDirection, MessageId, MessageView, PollOptionView, PollView, ReactionView, SearchView,
-    TextEntity, TextEntityKind, View,
+    MessageDirection, MessageId, MessageView, PollOptionView, PollView, ReactionView,
+    ScrollDirection, ScrollTarget, SearchView, TextEntity, TextEntityKind, View,
 };
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
@@ -304,85 +304,6 @@ fn terminal_events_resolve_against_the_current_view() {
     );
 }
 
-#[test]
-fn primary_clicks_resolve_from_the_matching_rendered_semantics() {
-    let mut current = view(Vec::new());
-    current.folders.push(FolderView {
-        id: 3,
-        title: "Work".to_owned(),
-        unread: 0,
-    });
-    current.chats.push(ChatView {
-        id: ChatId(7),
-        title: "Ada".to_owned(),
-        preview: "hello".to_owned(),
-        status: "online".to_owned(),
-        unread: 0,
-        pinned: false,
-        can_pin_messages: true,
-        kind: ChatKind::Private,
-        folders: vec![3],
-    });
-    current.active_chat = Some(0);
-    current.messages.push(MessageView {
-        id: MessageId(11),
-        sender: "Ada".to_owned(),
-        body: "hello".to_owned(),
-        timestamp: "12:00".to_owned(),
-        direction: MessageDirection::Incoming,
-        delivery: DeliveryState::Read,
-        reply_to: None,
-        details: MessageDetails::default(),
-    });
-    let frame = render_test_frame(&current, 120, 40);
-    let targets = [
-        (SemanticRole::Folder, ActivationTarget::Folder(3)),
-        (SemanticRole::Chat, ActivationTarget::Chat(ChatId(7))),
-        (
-            SemanticRole::Message,
-            ActivationTarget::Message(MessageId(11)),
-        ),
-        (SemanticRole::Composer, ActivationTarget::Composer),
-    ];
-
-    for (role, target) in targets {
-        let node = frame
-            .semantics
-            .iter()
-            .find(|node| node.role == role)
-            .expect("rendered target should have semantic bounds");
-        let event = Event::Mouse(MouseEvent {
-            kind: MouseEventKind::Down(MouseButton::Left),
-            column: node.bounds.x,
-            row: node.bounds.y,
-            modifiers: KeyModifiers::NONE,
-        });
-        assert_eq!(
-            resolve_test_frame_event(&current, &frame, event),
-            Some(UiEvent::Intent(intuigram_app::Intent::Activate(target)))
-        );
-    }
-}
-
-#[test]
-fn modified_clicks_remain_available_to_the_terminal() {
-    let current = view(Vec::new());
-    let frame = render_test_frame(&current, 120, 40);
-
-    assert_eq!(
-        resolve_test_frame_event(
-            &current,
-            &frame,
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Down(MouseButton::Left),
-                column: 0,
-                row: 0,
-                modifiers: KeyModifiers::SHIFT,
-            }),
-        ),
-        None
-    );
-}
 mod accounts;
 mod avatars;
 mod density;
@@ -393,6 +314,7 @@ mod image_loading;
 mod loading;
 mod metadata;
 mod multiline;
+mod pointer;
 mod qr;
 mod rendering;
 mod semantics;

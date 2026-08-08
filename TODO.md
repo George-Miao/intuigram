@@ -9,7 +9,7 @@
 
 ## TODO
 
-- [ ] **p-high:** Support mouse scrolling in the Transcript, Composer cursor positioning, and visible-action invocation after click selection is stable. Preserve access to terminal-native text selection.
+- [ ] **p-high:** Support mouse Composer cursor positioning and visible-action invocation now that click selection and pane scrolling are stable. Preserve access to terminal-native text selection.
 - [ ] **p-high:** Add first-class forum Topics. Opening a forum Chat shows its Topic list; each Topic keeps independent unread state, Draft, pin state, and position; General remains visible; and Channel replies open in Details or the narrow-screen navigation stack.
 - [ ] **p-high:** Add topic-enabled bot Private Chats.
 - [ ] **p-high:** Add Saved Messages 2.0 per-origin dialogs.

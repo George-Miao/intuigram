@@ -1,8 +1,8 @@
 use super::{
     Action, ActivationTarget, AdapterEvent, App, Bootstrap, ChatId, ChatKind, ChatLoadingState,
     ChatView, ConnectionState, DeliveryState, Effect, Focus, FolderView, HistoryView, Input,
-    Intent, MessageDetails, MessageDirection, MessageId, MessageView, SearchScope, SelectionView,
-    TranscriptAnchorView,
+    Intent, MessageDetails, MessageDirection, MessageId, MessageView, ScrollDirection,
+    ScrollTarget, SearchScope, SelectionView, TranscriptAnchorView,
 };
 
 fn bootstrap() -> Bootstrap {

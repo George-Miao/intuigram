@@ -266,19 +266,7 @@ fn resolve_event_with_semantics(
         Event::Resize(..) => Some(UiEvent::Redraw),
         Event::FocusGained | Event::FocusLost => Some(UiEvent::Redraw),
         Event::Paste(text) => Some(UiEvent::Intent(Intent::Insert(text))),
-        Event::Mouse(mouse)
-            if mouse.kind == MouseEventKind::Down(MouseButton::Left)
-                && mouse.modifiers == KeyModifiers::NONE
-                && !overlay_open_for_pointer(view) =>
-        {
-            semantics
-                .iter()
-                .rev()
-                .find(|node| contains(node.bounds, mouse.column, mouse.row))
-                .and_then(activation_target)
-                .map(Intent::Activate)
-                .map(UiEvent::Intent)
-        }
+        Event::Mouse(mouse) => resolve_pointer(view, mouse, semantics),
         Event::Key(key) if matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) => {
             let chord = chord_from_crossterm(key.code, key.modifiers);
             if let Some(chord) = chord
@@ -330,41 +318,4 @@ fn resolve_event_with_semantics(
     }
 }
 
-fn contains(bounds: Rect, column: u16, row: u16) -> bool {
-    column >= bounds.x && column < bounds.right() && row >= bounds.y && row < bounds.bottom()
-}
-
-fn activation_target(node: &SemanticNode) -> Option<ActivationTarget> {
-    match node.role {
-        SemanticRole::Folder => node
-            .domain_id
-            .and_then(|folder| i32::try_from(folder).ok())
-            .map(ActivationTarget::Folder),
-        SemanticRole::Chat => node
-            .domain_id
-            .map(|chat| ActivationTarget::Chat(ChatId(chat))),
-        SemanticRole::Message => node
-            .domain_id
-            .map(|message| ActivationTarget::Message(MessageId(message))),
-        SemanticRole::Composer => Some(ActivationTarget::Composer),
-        SemanticRole::MediaCard | SemanticRole::Action => None,
-    }
-}
-
-fn overlay_open_for_pointer(view: &View) -> bool {
-    view.help_open
-        || view.scheduled.is_some()
-        || view.rich_media.is_some()
-        || view.attachment_path.is_some()
-        || view.save_as.is_some()
-        || view.folder_picker.is_some()
-        || view.folder_manager.is_some()
-        || view.account_picker.is_some()
-        || view.account_confirmation.is_some()
-        || view.delete_confirmation.is_some()
-        || view.forward_picker.is_some()
-        || view.reaction_picker.is_some()
-        || view.poll_vote.is_some()
-        || view.link_confirmation.is_some()
-}
 use super::*;

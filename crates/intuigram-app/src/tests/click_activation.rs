@@ -42,6 +42,50 @@ fn pointer_targets_follow_the_existing_interaction_hierarchy() {
 }
 
 #[test]
+fn pointer_scroll_targets_the_pane_under_the_pointer() {
+    let mut app = App::new();
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
+    );
+
+    apply(
+        &mut app,
+        Input::Intent(Intent::Scroll(ScrollTarget::Chats, ScrollDirection::Down)),
+    );
+    assert_eq!(app.view().active_chat, Some(1));
+    assert_eq!(app.view().focus, Focus::Chats);
+
+    apply(
+        &mut app,
+        Input::Intent(Intent::Activate(ActivationTarget::Chat(ChatId(10)))),
+    );
+    apply(
+        &mut app,
+        Input::Intent(Intent::Activate(ActivationTarget::Composer)),
+    );
+    apply(
+        &mut app,
+        Input::Intent(Intent::Scroll(
+            ScrollTarget::Transcript,
+            ScrollDirection::Up,
+        )),
+    );
+    assert_eq!(app.view().focus, Focus::Transcript);
+    assert_eq!(app.view().active_message, Some(2));
+
+    apply(
+        &mut app,
+        Input::Intent(Intent::Scroll(
+            ScrollTarget::Transcript,
+            ScrollDirection::Down,
+        )),
+    );
+    assert_eq!(app.view().focus, Focus::Composer);
+    assert_eq!(app.view().active_message, None);
+}
+
+#[test]
 fn stale_pointer_targets_do_not_change_the_current_selection() {
     let mut app = App::new();
     apply(

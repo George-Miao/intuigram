@@ -143,6 +143,18 @@ pub(super) fn render_chats(
     render_chat_list_header(frame, rows[0], view, mode, focused);
     frame.render_widget(Paragraph::new("").style(surface_style(focused)), rows[1]);
     let list_area = mode.padded(rows[1]);
+    semantics.push(SemanticNode {
+        role: SemanticRole::ChatList,
+        name: "Chats".to_owned(),
+        description: None,
+        domain_id: None,
+        action: None,
+        delivery: None,
+        active: false,
+        selected: false,
+        focused,
+        bounds: list_area,
+    });
     let item_height = mode.item_height(2);
     let visible_items = usize::from(list_area.height) / usize::from(item_height);
     let range = anchored_window(view.chats.len(), view.active_chat, visible_items, false);

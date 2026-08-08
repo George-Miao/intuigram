@@ -1,4 +1,4 @@
-use crate::domain::{ActivationTarget, ComposerMovement};
+use crate::domain::{ActivationTarget, ComposerMovement, ScrollDirection, ScrollTarget};
 
 /// Context-sensitive actions shown by every user interface.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -164,6 +164,8 @@ pub enum Intent {
     MoveComposerCursor(ComposerMovement),
     /// Activate a semantic region selected by pointer input.
     Activate(ActivationTarget),
+    /// Scroll the application region under the pointer.
+    Scroll(ScrollTarget, ScrollDirection),
     /// Advance one renderer animation frame while pending work remains.
     Animate,
 }

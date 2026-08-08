@@ -131,6 +131,26 @@ pub enum ActivationTarget {
     Composer,
 }
 
+/// Scrollable application region targeted by pointer input.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ScrollTarget {
+    /// The active Folder's Chat list.
+    Chats,
+
+    /// The active Chat's Transcript.
+    Transcript,
+}
+
+/// Direction of one pointer scrolling step.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ScrollDirection {
+    /// Move toward earlier items.
+    Up,
+
+    /// Move toward later items.
+    Down,
+}
+
 /// Telegram cloud Chat category normalized away from TL constructors.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ChatKind {

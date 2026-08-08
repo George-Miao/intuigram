@@ -17,7 +17,7 @@ use futures_util::{Stream, StreamExt};
 use intuigram_app::{
     Action, ActivationTarget, ChatId, ChatKind, ChatLoadingState, ComposerMovement,
     ConnectionState, DeliveryState, Focus, Intent, MessageDirection, MessageId, MessageView,
-    SearchScope, TextEntityKind, View,
+    ScrollDirection, ScrollTarget, SearchScope, TextEntityKind, View,
 };
 use qrcode::render::unicode::Dense1x2;
 use qrcode::types::Color as QrColor;
@@ -40,6 +40,7 @@ mod events;
 pub(crate) mod graphics;
 mod key_chord;
 mod palette;
+mod pointer;
 pub(crate) mod qr_render;
 mod qr_session;
 mod render_accounts;
@@ -61,6 +62,7 @@ pub use events::*;
 use graphics::{GraphicsFrame, GraphicsProtocol, GraphicsRequest, GraphicsState, image_id};
 pub use key_chord::{Binding, Key, KeyChord};
 pub(crate) use palette::*;
+use pointer::resolve_pointer;
 use qr_render::{chord_from_crossterm, qr_login_symbols, render_qr_login};
 pub use qr_session::*;
 use render_accounts::{render_account_confirmation, render_account_picker};

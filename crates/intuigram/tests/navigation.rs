@@ -1,4 +1,4 @@
-use intuigram_app::{AdapterEvent, ChatId};
+use intuigram_app::{AdapterEvent, ChatId, ScrollDirection, ScrollTarget};
 use test_harness::{
     Result, TelegramScenario, TestSystem, account, chat, incoming, key, sent_message,
 };
@@ -84,6 +84,34 @@ fn inactive_chat_history_is_loaded_before_the_chat_is_selected() -> Result<()> {
     app.screen()
         .message_text("already loaded")
         .expect_sender("Mira")?;
+    app.expect_no_unhandled_work()
+}
+
+#[test]
+fn mouse_wheel_scrolls_the_chat_list_and_transcript() -> Result<()> {
+    let mut app = TestSystem::builder()
+        .name("navigation-pointer-scroll")
+        .terminal(100, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(
+                    account("Ada")
+                        .with_chat(chat(10, "Rust"))
+                        .with_chat(chat(20, "Design")),
+                )
+                .expect_load_history(20, [incoming(50, "Mira", "already loaded")]),
+        )
+        .start()?;
+
+    app.expect_no_unhandled_work()?;
+    app.scroll(ScrollTarget::Chats, ScrollDirection::Down)?;
+    app.screen().chat("Design").expect_active()?;
+    app.screen().message(50).expect_sender("Mira")?;
+
+    app.scroll(ScrollTarget::Transcript, ScrollDirection::Up)?;
+    app.screen().message(50).expect_active()?;
+    app.scroll(ScrollTarget::Transcript, ScrollDirection::Down)?;
+    app.screen().composer().expect_focused()?;
     app.expect_no_unhandled_work()
 }
 

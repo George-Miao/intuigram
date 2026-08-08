@@ -6,11 +6,20 @@ pub(super) fn render_folders(
     semantics: &mut Vec<SemanticNode>,
 ) {
     let content_area = mode.horizontally_padded(area);
+    let leading = if mode == ViewMode::Default { "" } else { "  " };
+    let trailing = if mode == ViewMode::Default { "  " } else { " " };
     let mut x = content_area.x;
     for (index, folder) in view.folders.iter().enumerate() {
-        let width = u16::try_from(folder.title.chars().count().saturating_add(3))
-            .unwrap_or(u16::MAX)
-            .min(content_area.right().saturating_sub(x));
+        let unread = if folder.unread > 0 {
+            format!(" {}", folder.unread)
+        } else {
+            String::new()
+        };
+        let width = u16::try_from(
+            Line::from(format!("{leading}{}{unread}{trailing}", folder.title)).width(),
+        )
+        .unwrap_or(u16::MAX)
+        .min(content_area.right().saturating_sub(x));
         semantics.push(SemanticNode {
             role: SemanticRole::Folder,
             name: folder.title.clone(),
@@ -25,8 +34,6 @@ pub(super) fn render_folders(
         });
         x = x.saturating_add(width);
     }
-    let leading = if mode == ViewMode::Default { "" } else { "  " };
-    let trailing = if mode == ViewMode::Default { "  " } else { " " };
     let spans = view.folders.iter().enumerate().flat_map(|(index, folder)| {
         let active = index == view.active_folder;
         let style = if active {
