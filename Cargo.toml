@@ -22,6 +22,7 @@ intuigram-store = { version = "0.1.0", path = "crates/intuigram-store" }
 intuigram-telegram = { version = "0.1.0", path = "crates/intuigram-telegram" }
 intuigram-tui = { version = "0.1.0", path = "crates/intuigram-tui" }
 rich-clipboard = { version = "0.1.0", path = "crates/rich-clipboard" }
+rasterm = { version = "0.1.0", path = "crates/rasterm" }
 test-harness = { version = "0.0.0", path = "crates/test-harness" }
 figment = "0.10.19"
 serde = "1"

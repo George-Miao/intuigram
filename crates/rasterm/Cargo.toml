@@ -1,0 +1,17 @@
+[package]
+name = "rasterm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Terminal raster image protocol selection, encoding, and lifecycle"
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+base64.workspace = true
+image = { workspace = true, features = ["png"] }
+snafu.workspace = true
+
+[lints]
+workspace = true

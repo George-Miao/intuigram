@@ -34,6 +34,7 @@ The target is a virtual Cargo workspace. Every package belongs under `crates/`.
 - `crates/compio-mtproto`: reusable Compio-based MTProto connection, session, invocation, and update-stream library.
 - `crates/compio-actor`: vendored experimental Compio actor runtime, kept on the workspace's published Compio dependency generation.
 - `crates/compio-term`: experimental reusable Compio-native terminal event readiness; keep its API explicitly unstable until the Windows backend and cross-platform behavior are resolved.
+- `crates/rasterm`: reusable terminal raster-image detection, cell geometry, protocol encoding, external-renderer commands, and image lifecycle; keep it free of Ratatui and Intuigram model types.
 - `crates/rich-clipboard`: reusable native clipboard-content library.
 - `crates/test-harness`: dev-only hermetic behavior runner with strict scripted adapters, isolated real storage, semantic locators, and failure traces.
 

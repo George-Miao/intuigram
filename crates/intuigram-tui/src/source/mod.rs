@@ -59,7 +59,7 @@ mod view_mode;
 use avatar::avatar_badge;
 use effort::effort_spans;
 pub use events::*;
-use graphics::{GraphicsFrame, GraphicsProtocol, GraphicsRequest, GraphicsState, image_id};
+use graphics::{GraphicsFrame, GraphicsProtocol, GraphicsState, image_id};
 pub use key_chord::{Binding, Key, KeyChord};
 pub(crate) use palette::*;
 use pointer::resolve_pointer;

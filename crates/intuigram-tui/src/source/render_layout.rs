@@ -27,7 +27,7 @@ fn render_with_semantics(
         keymap,
         mode,
         semantics,
-        &mut GraphicsFrame::new(GraphicsProtocol::Text),
+        &mut GraphicsFrame::new(GraphicsProtocol::Text, rasterm::Multiplexer::None),
     );
 }
 

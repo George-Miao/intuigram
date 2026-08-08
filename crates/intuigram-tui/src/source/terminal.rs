@@ -1,3 +1,5 @@
+use rasterm::Multiplexer;
+
 /// Active alternate-screen terminal session.
 pub struct TerminalUi {
     terminal: Terminal<CrosstermBackend<Stdout>>,
@@ -5,6 +7,7 @@ pub struct TerminalUi {
     view_mode: ViewMode,
     semantics: Vec<SemanticNode>,
     graphics_protocol: GraphicsProtocol,
+    graphics_multiplexer: Multiplexer,
     graphics: GraphicsState,
 }
 
@@ -16,13 +19,15 @@ impl TerminalUi {
 
     /// Enters the terminal using the configured presentation density.
     pub fn enter_with_mode(view_mode: ViewMode) -> Result<Self> {
+        let (graphics_protocol, graphics_multiplexer) = graphics::graphics_environment();
         Ok(Self {
             terminal: enter_terminal()?,
             keymap: EffectiveKeymap::defaults(),
             view_mode,
             semantics: Vec::new(),
-            graphics_protocol: GraphicsProtocol::from_env(),
-            graphics: GraphicsState::default(),
+            graphics_protocol,
+            graphics_multiplexer,
+            graphics: GraphicsState::new(graphics_protocol),
         })
     }
 
@@ -34,6 +39,7 @@ impl TerminalUi {
             &self.keymap,
             self.view_mode,
             self.graphics_protocol,
+            self.graphics_multiplexer,
             view,
         )
         .context(DrawSnafu)?;
@@ -134,7 +140,7 @@ fn render_test_frame_for_protocol(
     let mut terminal =
         Terminal::new(backend).expect("Ratatui's in-memory TestBackend cannot fail initialization");
     let mut semantics = Vec::new();
-    let mut graphics = GraphicsFrame::new(protocol);
+    let mut graphics = GraphicsFrame::new(protocol, Multiplexer::None);
     terminal
         .draw(|frame| {
             render_with_graphics(
@@ -158,11 +164,12 @@ pub(crate) fn draw_terminal_view<W: io::Write>(
     keymap: &EffectiveKeymap,
     view_mode: ViewMode,
     protocol: GraphicsProtocol,
+    multiplexer: Multiplexer,
     view: &View,
 ) -> io::Result<Vec<SemanticNode>> {
-    if protocol == GraphicsProtocol::KittyUnicode {
+    let prepared = if protocol.is_native() {
         let area = terminal.get_frame().area();
-        let (_, graphics) = render_test_frame_for_protocol(
+        let (_, mut graphics) = render_test_frame_for_protocol(
             view,
             area.width,
             area.height,
@@ -170,13 +177,19 @@ pub(crate) fn draw_terminal_view<W: io::Write>(
             view_mode,
             keymap,
         );
+        graphics.set_multiplexer(multiplexer);
         // A Unicode placeholder only resolves if its virtual placement exists
         // before the terminal receives the placeholder cells.
-        state.sync(terminal.backend_mut(), graphics.requests())?;
-    }
+        if protocol.uses_unicode_placeholders() {
+            state.sync(terminal.backend_mut(), graphics.requests())?;
+        }
+        Some(graphics)
+    } else {
+        None
+    };
 
     let mut semantics = Vec::new();
-    let mut graphics = GraphicsFrame::new(protocol);
+    let mut graphics = GraphicsFrame::new(protocol, multiplexer);
     terminal.draw(|frame| {
         render_with_graphics(
             frame,
@@ -187,6 +200,11 @@ pub(crate) fn draw_terminal_view<W: io::Write>(
             &mut graphics,
         );
     })?;
+    if !protocol.uses_unicode_placeholders()
+        && let Some(graphics) = prepared
+    {
+        state.sync(terminal.backend_mut(), graphics.requests())?;
+    }
     Ok(semantics)
 }
 
