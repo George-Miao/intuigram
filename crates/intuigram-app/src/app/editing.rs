@@ -1,12 +1,10 @@
 impl App {
-    pub(super) fn begin_previous_edit(&mut self) {
-        let Some(index) = self.view.messages.iter().rposition(|message| {
+    pub(super) fn begin_previous_edit(&mut self) -> Option<Effect> {
+        let index = self.view.messages.iter().rposition(|message| {
             message.direction == MessageDirection::Outgoing && message.id.0 > 0
-        }) else {
-            return;
-        };
+        })?;
         self.view.active_message = Some(index);
-        self.begin_edit();
+        self.begin_edit()
     }
 
     pub(super) fn open_reaction_picker(&mut self) {
@@ -153,16 +151,15 @@ impl App {
         }
     }
 
-    pub(super) fn begin_edit(&mut self) {
-        let Some(message) = self
+    pub(super) fn begin_edit(&mut self) -> Option<Effect> {
+        let message = self
             .view
             .active_message
             .and_then(|index| self.view.messages.get(index))
             .filter(|message| message.direction == MessageDirection::Outgoing && message.id.0 > 0)
-            .cloned()
-        else {
-            return;
-        };
+            .cloned()?;
+        let key = self.active_history_key()?;
+        self.drafts.remove(&key);
         self.view.transcript_anchor = self.view.active_message;
         self.view.active_message = None;
         self.view.composer = ComposerView {
@@ -172,6 +169,12 @@ impl App {
             ..ComposerView::default()
         };
         self.view.focus = Focus::Composer;
+        Some(Effect::SaveDraft {
+            chat: key.chat,
+            thread_root: key.thread,
+            text: String::new(),
+            reply_to: None,
+        })
     }
 
     pub(super) fn save_edit(&mut self) -> Option<Effect> {
@@ -191,7 +194,7 @@ impl App {
         message.body = formatted.text;
         message.details.entities = formatted.entities;
         message.details.edited = true;
-        self.finish_edit(message_id);
+        self.finish_edit();
         Some(Effect::EditMessage {
             chat,
             message: Box::new(message),
@@ -200,15 +203,16 @@ impl App {
     }
 
     pub(super) fn cancel_edit(&mut self) {
-        if let Some(message) = self.view.composer.editing {
-            self.finish_edit(message);
+        if self.view.composer.editing.is_some() {
+            self.finish_edit();
         }
     }
 
-    pub(super) fn finish_edit(&mut self, message: MessageId) {
-        self.restore_active_draft();
-        self.refresh_active_history_at(Some(message), Some(message));
-        self.view.focus = Focus::Transcript;
+    pub(super) fn finish_edit(&mut self) {
+        self.view.composer = ComposerView::default();
+        self.view.active_message = None;
+        self.view.transcript_anchor = None;
+        self.view.focus = Focus::Composer;
     }
 
     pub(super) fn restore_failed_edit(&mut self, chat: ChatId, message: MessageId, text: String) {

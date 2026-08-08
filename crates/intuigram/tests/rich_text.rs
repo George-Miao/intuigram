@@ -66,6 +66,10 @@ fn editing_with_markup_replaces_text_and_entities_together() -> Result<()> {
     app.type_text("**Hello**")?;
     app.press(key::ENTER)?;
 
-    app.screen().message_text("Hello").expect_active()?;
+    app.screen()
+        .message_text("Hello")
+        .expect_delivery(DeliveryState::Sent)?;
+    app.screen().composer().expect_focused()?;
+    app.screen().composer().expect_text("")?;
     app.expect_no_unhandled_work()
 }

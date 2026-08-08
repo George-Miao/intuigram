@@ -255,8 +255,11 @@ impl App {
 
     pub(super) fn focus_composer_at_anchor(&mut self) {
         self.restore_recent_history_from_pin_projection();
+        let reset_anchor = !self.view.selected_messages.is_empty();
         self.clear_message_selection();
-        if self.view.active_message.is_some() {
+        if reset_anchor {
+            self.view.transcript_anchor = None;
+        } else if self.view.active_message.is_some() {
             self.view.transcript_anchor = self.view.active_message;
         }
         self.view.active_message = None;

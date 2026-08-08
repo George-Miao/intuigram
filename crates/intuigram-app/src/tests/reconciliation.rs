@@ -53,6 +53,35 @@ fn returning_to_the_composer_preserves_the_older_transcript_anchor() {
 }
 
 #[test]
+fn leaving_message_selection_resets_the_transcript_anchor() {
+    let mut app = App::new();
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::Bootstrap(bootstrap())),
+    );
+    apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
+    apply(
+        &mut app,
+        Input::Intent(Intent::Action(Action::TargetPreviousMessage)),
+    );
+    apply(
+        &mut app,
+        Input::Intent(Intent::Action(Action::TargetPreviousMessage)),
+    );
+    apply(
+        &mut app,
+        Input::Intent(Intent::Action(Action::ToggleMessageSelection)),
+    );
+
+    let composer = app.transition(Input::Intent(Intent::Action(Action::Cancel)));
+
+    assert_eq!(composer.view.focus, Focus::Composer);
+    assert_eq!(composer.view.active_message, None);
+    assert!(composer.view.selected_messages.is_empty());
+    assert_eq!(composer.view.transcript_anchor, None);
+}
+
+#[test]
 fn escape_ascends_the_hierarchy_and_folders_change_only_from_chat_list() {
     let mut app = App::new();
     apply(

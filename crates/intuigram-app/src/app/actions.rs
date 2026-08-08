@@ -131,14 +131,8 @@ impl App {
                 }
                 self.draft_effect()
             }
-            Action::Edit => {
-                self.begin_edit();
-                None
-            }
-            Action::EditPrevious => {
-                self.begin_previous_edit();
-                None
-            }
+            Action::Edit => self.begin_edit(),
+            Action::EditPrevious => self.begin_previous_edit(),
             Action::Delete => {
                 let messages = self.selected_message_ids();
                 self.view.delete_confirmation = (!messages.is_empty()).then_some(messages);

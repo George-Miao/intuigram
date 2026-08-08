@@ -1,8 +1,8 @@
-use intuigram_app::ReactionView;
+use intuigram_app::{DeliveryState, ReactionView};
 use test_harness::{Result, TelegramScenario, TestSystem, account, chat, key, sent_message};
 
 #[test]
-fn editing_an_outgoing_message_restores_the_existing_draft() -> Result<()> {
+fn saving_an_edit_returns_to_an_empty_composer() -> Result<()> {
     let mut edited = sent_message(41, "new text");
     edited.details.edited = true;
     let mut app = TestSystem::builder()
@@ -30,9 +30,39 @@ fn editing_an_outgoing_message_restores_the_existing_draft() -> Result<()> {
     app.type_text("new text")?;
     app.press(key::ENTER)?;
 
-    app.screen().message_text("new text").expect_active()?;
-    app.screen().composer().expect_text("unfinished draft")?;
-    app.expect_saved_draft(10, "unfinished draft")?;
+    app.screen()
+        .message_text("new text")
+        .expect_delivery(DeliveryState::Sent)?;
+    app.screen().composer().expect_focused()?;
+    app.screen().composer().expect_text("")?;
+    app.expect_saved_draft(10, "")?;
+    app.expect_no_unhandled_work()
+}
+
+#[test]
+fn cancelling_an_edit_clears_the_stale_draft_without_leaving_the_composer() -> Result<()> {
+    let mut app = TestSystem::builder()
+        .name("message-actions-cancel-edit")
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(
+                    account("Ada")
+                        .with_chat(chat(10, "Rust"))
+                        .with_draft(10, "stale draft"),
+                )
+                .expect_load_history(10, [sent_message(41, "old text")]),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.press(key::ALT_UP)?;
+    app.press(key::ALT_EDIT)?;
+    app.press(key::ESCAPE)?;
+
+    app.screen().composer().expect_focused()?;
+    app.screen().composer().expect_text("")?;
+    app.screen().message_text("stale draft").expect_absent()?;
+    app.expect_saved_draft(10, "")?;
     app.expect_no_unhandled_work()
 }
 
