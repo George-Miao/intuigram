@@ -1,3 +1,23 @@
+pub(super) fn render_action_menu(frame: &mut Frame<'_>, area: Rect, view: &View) {
+    let Some(menu) = &view.action_menu else {
+        return;
+    };
+    let popup = centered_rect(42, 58, area);
+    let lines = std::iter::once(Line::from(Span::styled(
+        menu.title.clone(),
+        Style::default().add_modifier(Modifier::BOLD),
+    )))
+    .chain(std::iter::once(Line::from("")))
+    .chain(menu.items.iter().enumerate().map(|(index, item)| {
+        Line::from(vec![
+            selection_rule(menu.selected == index),
+            Span::raw(item.label.clone()),
+        ])
+    }))
+    .collect();
+    render_overlay(frame, popup, lines);
+}
+
 pub(super) fn render_delete_confirmation(frame: &mut Frame<'_>, area: Rect, view: &View) {
     let Some(messages) = &view.delete_confirmation else {
         return;

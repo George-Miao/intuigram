@@ -128,7 +128,7 @@ fn chat_list_scroll_keeps_the_active_chat_near_one_third_height() {
     let buffer = terminal.backend().buffer();
     let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
 
-    assert_eq!(buffer[(1, 7)].symbol(), "│");
+    assert_eq!(buffer[(0, 7)].symbol(), "│");
     assert!(rendered.contains("Chat 8"));
     assert!(!rendered.contains("Chat 0"));
 }
@@ -211,8 +211,8 @@ fn transcript_scroll_preserves_an_inactive_anchor() {
         .expect("view should render");
     let buffer = terminal.backend().buffer();
 
-    assert_eq!(buffer[(32, 8)].symbol(), " ");
-    assert_eq!(buffer[(34, 9)].symbol(), "M");
+    assert_eq!(buffer[(32, 11)].symbol(), " ");
+    assert_eq!(buffer[(34, 12)].symbol(), "M");
 }
 
 #[test]

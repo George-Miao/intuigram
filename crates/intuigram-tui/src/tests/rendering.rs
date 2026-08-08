@@ -86,7 +86,7 @@ fn active_folder_is_bold_and_underlined_without_a_selection_rule() {
         .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
         .expect("view should render");
     let buffer = terminal.backend().buffer();
-    let folder_row = 20;
+    let folder_row = 23;
     let all_x = (0..20)
         .find(|x| buffer[(*x, folder_row)].symbol() == "A")
         .expect("All Folder should render");
@@ -199,22 +199,22 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
         .find(|node| node.role == SemanticRole::Message)
         .expect("the active Message should have matching semantics");
 
-    assert_eq!(buffer[(1, 4)].symbol(), "│");
+    assert_eq!(buffer[(0, 4)].symbol(), "│");
     assert_eq!(buffer[(32, message.bounds.top())].symbol(), "│");
     assert_eq!(buffer[(34, message.bounds.top() + 1)].symbol(), "│");
     assert_eq!(
         buffer[(34, message.bounds.top() + 1)].fg,
         Color::Rgb(58, 148, 197)
     );
-    assert_eq!(buffer[(32, 17)].symbol(), "│");
-    assert_eq!(buffer[(34, 17)].symbol(), "T");
+    assert_eq!(buffer[(32, 20)].symbol(), "│");
+    assert_eq!(buffer[(34, 20)].symbol(), "T");
     assert_eq!(buffer[(5, 5)].bg, Color::Rgb(253, 246, 227));
     assert_eq!(buffer[(40, 5)].bg, Color::Rgb(253, 246, 227));
-    assert_eq!(buffer[(40, 16)].bg, Color::Rgb(230, 226, 204));
-    assert_eq!(buffer[(40, 17)].bg, Color::Rgb(230, 226, 204));
-    assert_eq!(buffer[(40, 18)].bg, Color::Rgb(230, 226, 204));
-    assert_eq!(buffer[(31, 16)].bg, Color::Rgb(230, 226, 204));
-    assert_eq!(buffer[(99, 18)].bg, Color::Rgb(230, 226, 204));
+    assert_eq!(buffer[(40, 19)].bg, Color::Rgb(230, 226, 204));
+    assert_eq!(buffer[(40, 20)].bg, Color::Rgb(230, 226, 204));
+    assert_eq!(buffer[(40, 21)].bg, Color::Rgb(230, 226, 204));
+    assert_eq!(buffer[(31, 19)].bg, Color::Rgb(230, 226, 204));
+    assert_eq!(buffer[(99, 21)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(buffer[(30, 5)].bg, Color::Rgb(253, 246, 227));
     assert_eq!(buffer[(5, 21)].bg, Color::Rgb(253, 246, 227));
     assert_eq!(buffer[(5, 22)].bg, Color::Rgb(253, 246, 227));
@@ -233,8 +233,8 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
         .expect("Chat-list focus should render");
     let buffer = terminal.backend().buffer();
     assert_eq!(buffer[(5, 5)].bg, Color::Rgb(230, 226, 204));
-    assert_eq!(buffer[(40, 16)].bg, Color::Rgb(253, 246, 227));
-    assert_eq!(buffer[(40, 18)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(40, 19)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(40, 21)].bg, Color::Rgb(253, 246, 227));
 
     view.focus = Focus::Transcript;
     terminal
@@ -242,8 +242,8 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
         .expect("Transcript focus should render");
     let buffer = terminal.backend().buffer();
     assert_eq!(buffer[(40, 5)].bg, Color::Rgb(230, 226, 204));
-    assert_eq!(buffer[(40, 16)].bg, Color::Rgb(253, 246, 227));
-    assert_eq!(buffer[(40, 18)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(40, 19)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(40, 21)].bg, Color::Rgb(253, 246, 227));
 
     view.focus = Focus::Search;
     terminal

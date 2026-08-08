@@ -26,6 +26,7 @@ impl App {
                 attachment_path: None,
                 has_newer_messages: false,
                 help_open: false,
+                action_menu: None,
                 folder_picker: None,
                 folder_manager: None,
                 rich_media: None,
@@ -256,6 +257,7 @@ impl App {
         self.rebuild_unread_boundaries();
         self.view.active_message = None;
         self.view.selected_messages.clear();
+        self.view.action_menu = None;
         self.view.delete_confirmation = None;
         self.view.folder_manager = None;
         self.view.rich_media = None;

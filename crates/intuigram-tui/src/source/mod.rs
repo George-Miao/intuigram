@@ -75,7 +75,7 @@ use render_folder_manager::render_folder_manager;
 use render_headers::{render_active_chat_header, render_chat_list_header};
 use render_layout::render_with_graphics;
 use render_overlays::{
-    render_attachment_path, render_delete_confirmation, render_forward_picker,
+    render_action_menu, render_attachment_path, render_delete_confirmation, render_forward_picker,
     render_link_confirmation, render_poll_vote, render_reaction_picker, render_save_as,
 };
 use render_rich_media::render_rich_media;
@@ -199,6 +199,18 @@ const BINDINGS: &[Binding] = &[
         true,
     ),
     binding(KeyChord::plain(Key::Enter), "Open", Action::Open, true),
+    binding(
+        KeyChord::plain(Key::Char('a')),
+        "Actions",
+        Action::OpenActions,
+        true,
+    ),
+    binding(
+        KeyChord::plain(Key::Enter),
+        "Choose Action",
+        Action::ChooseAction,
+        true,
+    ),
     binding(
         KeyChord::control(Key::Char('n')),
         "Draft",

@@ -333,6 +333,7 @@ use crate::protocol::*;
 
 mod account_management;
 mod action_availability;
+mod action_menu;
 mod actions;
 mod bootstrap;
 mod chat_reconciliation;

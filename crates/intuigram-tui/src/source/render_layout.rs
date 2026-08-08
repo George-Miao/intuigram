@@ -60,6 +60,8 @@ pub(super) fn render_with_graphics(
         render_scheduled(frame, area, view);
     } else if view.rich_media.is_some() {
         render_rich_media(frame, area, view);
+    } else if view.action_menu.is_some() {
+        render_action_menu(frame, area, view);
     } else if view.account_confirmation.is_some() {
         render_account_confirmation(frame, area, view);
     } else if view.account_picker.is_some() {

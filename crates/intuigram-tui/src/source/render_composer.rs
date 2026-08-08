@@ -162,6 +162,7 @@ fn content_width(area_width: u16, label: Option<&str>) -> usize {
 
 fn overlay_open(view: &View) -> bool {
     view.help_open
+        || view.action_menu.is_some()
         || view.scheduled.is_some()
         || view.rich_media.is_some()
         || view.attachment_path.is_some()

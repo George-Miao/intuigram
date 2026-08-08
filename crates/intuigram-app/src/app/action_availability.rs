@@ -8,6 +8,16 @@ impl App {
             self.view.actions = vec![Action::Quit, Action::Help, Action::Cancel];
             return;
         }
+        if self.view.action_menu.is_some() {
+            self.view.actions = vec![
+                Action::Quit,
+                Action::MoveUp,
+                Action::MoveDown,
+                Action::ChooseAction,
+                Action::Cancel,
+            ];
+            return;
+        }
         if self.view.save_as.is_some() {
             self.view.actions = vec![Action::Quit, Action::ConfirmSaveAs, Action::Cancel];
             return;
@@ -238,67 +248,19 @@ impl App {
                 }
             }
             Focus::Transcript => {
-                let has_cloud_message = !self.selected_message_ids().is_empty();
                 actions.extend([
                     Action::NavigatePinned,
                     Action::TargetPreviousMessage,
                     Action::TargetNextMessage,
                     Action::Compose,
-                    Action::Reply,
                     Action::OpenScheduled,
-                    Action::OpenThread,
                     Action::Search,
                     Action::JumpEarliest,
                     Action::JumpLatest,
-                    Action::React,
-                    Action::TogglePin,
-                    Action::ToggleMessageSelection,
                     Action::Cancel,
                 ]);
-                if has_cloud_message {
-                    actions.extend([Action::Delete, Action::Forward]);
-                }
-                if self
-                    .view
-                    .active_message
-                    .and_then(|index| self.view.messages.get(index))
-                    .is_some_and(|message| {
-                        message.direction == MessageDirection::Outgoing && message.id.0 > 0
-                    })
-                {
-                    actions.push(Action::Edit);
-                }
-                if let Some(message) = self
-                    .view
-                    .active_message
-                    .and_then(|index| self.view.messages.get(index))
-                {
-                    if active_link(message).is_some() {
-                        actions.push(Action::OpenLink);
-                    }
-                    if message
-                        .details
-                        .media
-                        .as_ref()
-                        .is_some_and(|media| media.remote_id.is_some())
-                    {
-                        actions.push(Action::DownloadMedia);
-                        actions.push(Action::SaveAs);
-                    }
-                    if message
-                        .details
-                        .media
-                        .as_ref()
-                        .is_some_and(|media| media.poll.as_ref().is_some_and(|poll| !poll.closed))
-                    {
-                        actions.push(Action::VotePoll);
-                    }
-                    if self.view.downloads.iter().any(|download| {
-                        Some(download.chat) == self.active_chat_id()
-                            && download.message == message.id
-                    }) {
-                        actions.push(Action::OpenDownload);
-                    }
+                if !self.available_message_actions().is_empty() {
+                    actions.push(Action::OpenActions);
                 }
             }
             Focus::Composer => {
@@ -341,19 +303,6 @@ impl App {
                 .any(|message| message.details.pinned)
         {
             actions.retain(|action| *action != Action::NavigatePinned);
-        }
-        if !self
-            .view
-            .active_chat
-            .and_then(|index| self.view.chats.get(index))
-            .is_some_and(|chat| chat.can_pin_messages)
-            || self
-                .view
-                .active_message
-                .and_then(|index| self.view.messages.get(index))
-                .is_none_or(|message| message.id.0 <= 0)
-        {
-            actions.retain(|action| *action != Action::TogglePin);
         }
         self.view.actions = actions;
     }

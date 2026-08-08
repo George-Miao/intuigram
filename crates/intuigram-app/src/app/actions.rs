@@ -1,5 +1,8 @@
 impl App {
     pub(super) fn apply_action(&mut self, action: Action) -> Option<Effect> {
+        if self.view.action_menu.is_some() && action != Action::Quit {
+            return self.apply_action_menu(action);
+        }
         if self.view.scheduled.is_some() && action != Action::Quit {
             return self.apply_scheduled_action(action);
         }
@@ -124,6 +127,11 @@ impl App {
                 }
                 None
             }
+            Action::OpenActions => {
+                self.open_action_menu();
+                None
+            }
+            Action::ChooseAction => None,
             Action::Compose => {
                 if self.view.active_chat.is_some() {
                     self.focus_composer_at_anchor();

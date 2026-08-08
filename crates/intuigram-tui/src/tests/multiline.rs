@@ -10,7 +10,7 @@ fn composer_focus_renders_the_terminal_cursor_after_the_text() {
         .expect("Composer should render");
 
     assert!(terminal.backend().cursor_visible());
-    assert_eq!(terminal.backend().cursor_position(), (36, 17).into());
+    assert_eq!(terminal.backend().cursor_position(), (36, 20).into());
 }
 
 #[test]
@@ -28,10 +28,10 @@ fn multiline_composer_grows_to_a_cap_and_scrolls_with_the_cursor() {
         .expect("multiline Composer should render");
     let buffer = terminal.backend().buffer();
 
-    assert_eq!(buffer[(40, 10)].bg, Color::Rgb(230, 226, 204));
-    assert_eq!(terminal.backend().cursor_position(), (41, 17).into());
-    assert!(row_text(buffer, 17).contains("line 10"));
-    assert!(!row_text(buffer, 11).contains("line 1"));
+    assert_eq!(buffer[(40, 13)].bg, Color::Rgb(230, 226, 204));
+    assert_eq!(terminal.backend().cursor_position(), (41, 20).into());
+    assert!(row_text(buffer, 20).contains("line 10"));
+    assert!(!row_text(buffer, 14).contains("line 1"));
 
     current.composer.text.clear();
     current.composer.cursor = 0;
@@ -39,8 +39,8 @@ fn multiline_composer_grows_to_a_cap_and_scrolls_with_the_cursor() {
         .draw(|frame| render(frame, &current, &EffectiveKeymap::defaults()))
         .expect("empty Composer should shrink");
     let buffer = terminal.backend().buffer();
-    assert_eq!(buffer[(40, 15)].bg, Color::Rgb(253, 246, 227));
-    assert_eq!(buffer[(40, 16)].bg, Color::Rgb(230, 226, 204));
+    assert_eq!(buffer[(40, 18)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(40, 19)].bg, Color::Rgb(230, 226, 204));
 }
 
 #[test]
@@ -55,9 +55,9 @@ fn composer_height_accounts_for_soft_wrapping() {
         .expect("soft-wrapped Composer should render");
     let buffer = terminal.backend().buffer();
 
-    assert_eq!(buffer[(40, 13)].bg, Color::Rgb(253, 246, 227));
-    assert_eq!(buffer[(40, 14)].bg, Color::Rgb(230, 226, 204));
-    assert_eq!(terminal.backend().cursor_position().y, 17);
+    assert_eq!(buffer[(40, 16)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(40, 17)].bg, Color::Rgb(230, 226, 204));
+    assert_eq!(terminal.backend().cursor_position().y, 20);
 }
 
 #[test]

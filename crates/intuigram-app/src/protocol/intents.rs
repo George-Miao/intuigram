@@ -51,6 +51,10 @@ pub enum Action {
     ToggleFolderMembership,
     /// Enter the Active Chat with its Composer focused.
     Open,
+    /// Open the context actions grouped for the current interaction target.
+    OpenActions,
+    /// Invoke the selected action in the context-actions popup.
+    ChooseAction,
     /// Focus the Draft editor.
     Compose,
     /// Send the current Draft.

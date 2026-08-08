@@ -46,6 +46,7 @@ fn view(actions: Vec<Action>) -> View {
         scheduled: None,
         has_newer_messages: false,
         help_open: false,
+        action_menu: None,
         folder_picker: None,
         folder_manager: None,
         account_picker: None,

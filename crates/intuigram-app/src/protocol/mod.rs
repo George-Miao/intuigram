@@ -380,11 +380,13 @@ pub enum AdapterEvent {
 }
 use crate::domain::*;
 
+mod action_menu;
 mod effects;
 mod input;
 mod intents;
 mod view;
 
+pub use action_menu::*;
 pub use effects::*;
 pub use input::*;
 pub use intents::*;

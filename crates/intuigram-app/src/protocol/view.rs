@@ -75,6 +75,9 @@ pub struct View {
     /// Whether exhaustive context help is open.
     pub help_open: bool,
 
+    /// Context actions grouped for the current interaction target.
+    pub action_menu: Option<ActionMenuView>,
+
     /// Selected index in the Folder membership overlay, when open.
     pub folder_picker: Option<usize>,
 

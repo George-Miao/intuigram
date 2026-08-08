@@ -1,5 +1,59 @@
-use intuigram_app::{DeliveryState, ReactionView};
+use intuigram_app::{Action, DeliveryState, ReactionView};
 use test_harness::{Result, TelegramScenario, TestSystem, account, chat, key, sent_message};
+
+#[test]
+fn active_message_actions_are_grouped_in_one_selectable_popup() -> Result<()> {
+    let mut app = TestSystem::builder()
+        .name("message-actions-popup")
+        .terminal(100, 32)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, [sent_message(41, "action target")]),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.press(key::ALT_UP)?;
+    app.screen()
+        .action(Action::OpenActions)
+        .expect_available()?;
+    for action in [
+        Action::Reply,
+        Action::Edit,
+        Action::Delete,
+        Action::Forward,
+        Action::React,
+    ] {
+        app.screen().action(action).expect_unavailable()?;
+    }
+    app.type_text("a")?;
+
+    let popup = app.screen().rows().join("\n");
+    for label in [
+        "Message Actions",
+        "Reply",
+        "Edit",
+        "Delete",
+        "Forward",
+        "React",
+        "Open Thread",
+        "Pin / Unpin",
+        "Select Message",
+    ] {
+        assert!(popup.contains(label), "missing {label:?} in {popup:?}");
+    }
+
+    app.press(key::ENTER)?;
+    app.screen().composer().expect_focused()?;
+    assert!(
+        app.screen()
+            .rows()
+            .iter()
+            .any(|row| row.contains("Reply to 41"))
+    );
+    app.expect_no_unhandled_work()
+}
 
 #[test]
 fn saving_an_edit_returns_to_an_empty_composer() -> Result<()> {
@@ -21,7 +75,7 @@ fn saving_an_edit_returns_to_an_empty_composer() -> Result<()> {
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    app.press(key::ALT_EDIT)?;
+    choose_message_action(&mut app, "Edit")?;
     app.screen().composer().expect_focused()?;
     app.screen().composer().expect_text("old text")?;
     for _ in 0.."old text".chars().count() {
@@ -56,7 +110,7 @@ fn cancelling_an_edit_clears_the_stale_draft_without_leaving_the_composer() -> R
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    app.press(key::ALT_EDIT)?;
+    choose_message_action(&mut app, "Edit")?;
     app.press(key::ESCAPE)?;
 
     app.screen().composer().expect_focused()?;
@@ -80,7 +134,7 @@ fn deleting_a_message_requires_confirmation_and_removes_it_durably() -> Result<(
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    app.press(key::ALT_DELETE)?;
+    choose_message_action(&mut app, "Delete")?;
     assert!(
         app.screen()
             .rows()
@@ -116,9 +170,9 @@ fn message_selection_is_visible_and_survives_navigation_and_resize() -> Result<(
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    app.press(key::SPACE)?;
+    choose_message_action(&mut app, "Select Message")?;
     app.press(key::UP)?;
-    app.press(key::SPACE)?;
+    choose_message_action(&mut app, "Select Message")?;
 
     assert!(selected_message_is_visible(&app, "second"));
     assert!(selected_message_is_visible(&app, "third"));
@@ -126,7 +180,7 @@ fn message_selection_is_visible_and_survives_navigation_and_resize() -> Result<(
     assert!(selected_message_is_visible(&app, "second"));
     assert!(selected_message_is_visible(&app, "third"));
 
-    app.press(key::SPACE)?;
+    choose_message_action(&mut app, "Select Message")?;
     assert!(!selected_message_is_visible(&app, "second"));
     assert!(selected_message_is_visible(&app, "third"));
     app.press(key::ESCAPE)?;
@@ -156,10 +210,10 @@ fn compatible_actions_apply_to_every_selected_message() -> Result<()> {
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    app.press(key::SPACE)?;
+    choose_message_action(&mut app, "Select Message")?;
     app.press(key::UP)?;
-    app.press(key::SPACE)?;
-    app.press(key::ALT_DELETE)?;
+    choose_message_action(&mut app, "Select Message")?;
+    choose_message_action(&mut app, "Delete")?;
     assert!(
         app.screen()
             .rows()
@@ -202,7 +256,7 @@ fn forwarding_uses_a_contextual_chat_picker() -> Result<()> {
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    app.press(key::ALT_FORWARD)?;
+    choose_message_action(&mut app, "Forward")?;
     assert!(
         app.screen()
             .rows()
@@ -239,10 +293,10 @@ fn forwarding_applies_to_the_message_selection_in_transcript_order() -> Result<(
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    app.press(key::SPACE)?;
+    choose_message_action(&mut app, "Select Message")?;
     app.press(key::UP)?;
-    app.press(key::SPACE)?;
-    app.press(key::ALT_FORWARD)?;
+    choose_message_action(&mut app, "Select Message")?;
+    choose_message_action(&mut app, "Forward")?;
     assert!(
         app.screen()
             .rows()
@@ -276,7 +330,7 @@ fn reacting_uses_a_small_contextual_picker_and_persists_the_result() -> Result<(
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    app.press(key::ALT_REACT)?;
+    choose_message_action(&mut app, "React")?;
     assert!(
         app.screen()
             .rows()
@@ -288,4 +342,22 @@ fn reacting_uses_a_small_contextual_picker_and_persists_the_result() -> Result<(
     app.screen().message(41).expect_reaction("👍", 1, true)?;
     app.expect_durable_message(10, 41, "nice")?;
     app.expect_no_unhandled_work()
+}
+
+fn choose_message_action(app: &mut TestSystem, label: &str) -> Result<()> {
+    app.type_text("a")?;
+    let rows = app.screen().rows();
+    let title = rows
+        .iter()
+        .position(|row| row.contains("Message Actions"))
+        .expect("Message Actions popup should render");
+    let target = rows
+        .iter()
+        .skip(title + 2)
+        .position(|row| row.contains(label))
+        .unwrap_or_else(|| panic!("Message Action {label:?} should render in {rows:?}"));
+    for _ in 0..target {
+        app.press(key::DOWN)?;
+    }
+    app.press(key::ENTER)
 }

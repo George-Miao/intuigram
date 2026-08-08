@@ -49,20 +49,20 @@ fn compact_view_preserves_the_original_dense_layout() {
     assert_eq!(messages[0].bounds.height, 2);
     assert_eq!(messages[0].bounds.bottom(), messages[1].bounds.top());
     assert_eq!(messages[1].bounds.height, 2);
-    assert_eq!(buffer[(2, 21)].symbol(), "A");
+    assert_eq!(buffer[(2, 22)].symbol(), "A");
 }
 
 #[test]
-fn default_view_pads_action_and_status_regions_on_all_sides() {
+fn default_view_pads_folder_and_combined_chrome_regions_on_all_sides() {
     let current = view(vec![Action::Quit]);
     let rendered = render_test_frame(&current, 100, 28);
     let buffer = &rendered.buffer;
 
     assert_eq!(buffer[(1, 22)].symbol(), " ");
-    assert_eq!(buffer[(1, 23)].symbol(), "C");
+    assert_eq!(buffer[(1, 23)].symbol(), " ");
     assert_eq!(buffer[(1, 24)].symbol(), " ");
     assert_eq!(buffer[(1, 25)].symbol(), " ");
-    assert_eq!(buffer[(1, 26)].symbol(), "T");
+    assert_eq!(buffer[(1, 26)].symbol(), "c");
     assert_eq!(buffer[(1, 27)].symbol(), " ");
 }
 
@@ -136,9 +136,9 @@ fn normal_and_wide_layouts_keep_both_columns_with_adaptive_proportions() {
         .find(|node| node.role == SemanticRole::Message)
         .expect("wide layout should show Messages");
 
-    assert_eq!(normal_chat.bounds.width, 27);
+    assert_eq!(normal_chat.bounds.width, 28);
     assert_eq!(normal_message.bounds.x, 32);
-    assert_eq!(wide_chat.bounds.width, 35);
+    assert_eq!(wide_chat.bounds.width, 36);
     assert_eq!(wide_message.bounds.x, 40);
 }
 
