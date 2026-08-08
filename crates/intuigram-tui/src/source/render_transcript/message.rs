@@ -118,6 +118,7 @@ fn append_content(
     let preview = media_preview(view, message.id);
     let loading = media_preview_is_loading(view, message.id);
     let inline_media = message.details.media.is_some() && (preview.is_some() || loading);
+    let show_body = !inline_media || !body_is_media_fallback(message);
     let media_lines = message
         .details
         .media
@@ -140,14 +141,18 @@ fn append_content(
                 graphics,
             )
         });
-    let body_lines = render_rich_text_lines(message).into_iter().map(|body| {
-        Line::from(
-            content_prefix(state.active, state.selected, state.forwarded)
-                .into_iter()
-                .chain(body)
-                .collect::<Vec<_>>(),
-        )
-    });
+    let body_lines = show_body
+        .then(|| render_rich_text_lines(message))
+        .into_iter()
+        .flatten()
+        .map(|body| {
+            Line::from(
+                content_prefix(state.active, state.selected, state.forwarded)
+                    .into_iter()
+                    .chain(body)
+                    .collect::<Vec<_>>(),
+            )
+        });
     if inline_media {
         lines.extend(media_lines);
         lines.extend(body_lines);
@@ -155,6 +160,17 @@ fn append_content(
         lines.extend(body_lines);
         lines.extend(media_lines);
     }
+}
+
+fn body_is_media_fallback(message: &MessageView) -> bool {
+    message.details.media.as_ref().is_some_and(|media| {
+        let fallback = if media.description.is_empty() {
+            format!("[{}]", media.title)
+        } else {
+            format!("[{}] {}", media.title, media.description)
+        };
+        message.body == fallback
+    })
 }
 
 pub(super) fn messages_group(previous: &MessageView, current: &MessageView) -> bool {

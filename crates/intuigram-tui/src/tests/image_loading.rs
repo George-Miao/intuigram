@@ -49,6 +49,10 @@ fn image_placeholder_animates_in_the_final_preview_geometry() {
         .position(|row| row.contains("caption"))
         .expect("caption should render");
     assert!(caption_row > image_row);
+
+    current.messages[0].body = "[Photo] image".to_owned();
+    let uncaptioned = symbols(&render_test_frame(&current, 100, 40).buffer);
+    assert!(!uncaptioned.contains("[Photo] image"));
 }
 
 fn image_message_view() -> View {

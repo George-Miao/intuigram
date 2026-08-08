@@ -36,8 +36,8 @@ fn unsupported_content_remains_visible_as_an_informative_media_card() -> Result<
 }
 
 #[test]
-fn downloaded_photo_is_rendered_inline_without_a_redundant_label() -> Result<()> {
-    let mut photo = incoming(41, "Lin", "look at this");
+fn uncaptioned_photo_is_rendered_inline_without_its_text_fallback() -> Result<()> {
+    let mut photo = incoming(41, "Lin", "[photo.png] image/png");
     photo.details.media = Some(MediaCard {
         kind: MediaKind::Photo,
         title: "photo.png".to_owned(),
@@ -63,15 +63,7 @@ fn downloaded_photo_is_rendered_inline_without_a_redundant_label() -> Result<()>
     let rows = app.screen().rows();
     assert!(rows.iter().any(|row| row.contains('▀')));
     assert!(rows.iter().all(|row| !row.contains("[photo.png]")));
-    let image_row = rows
-        .iter()
-        .position(|row| row.contains('▀'))
-        .expect("image should render");
-    let caption_row = rows
-        .iter()
-        .position(|row| row.contains("look at this"))
-        .expect("caption should render");
-    assert!(caption_row > image_row);
+    assert!(rows.iter().all(|row| !row.contains("image/png")));
     app.expect_no_unhandled_work()
 }
 
@@ -98,7 +90,16 @@ fn photo_preview_is_loaded_when_the_chat_opens() -> Result<()> {
 
     app.press(key::ENTER)?;
 
-    assert!(app.screen().rows().iter().any(|row| row.contains('▀')));
+    let rows = app.screen().rows();
+    let image_row = rows
+        .iter()
+        .position(|row| row.contains('▀'))
+        .expect("image should render");
+    let caption_row = rows
+        .iter()
+        .position(|row| row.contains("automatic preview"))
+        .expect("caption should render");
+    assert!(caption_row > image_row);
     assert!(app.downloaded_paths().is_empty());
     app.expect_no_unhandled_work()
 }
