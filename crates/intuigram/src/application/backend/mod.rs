@@ -9,6 +9,7 @@ mod pins;
 mod poll;
 mod rich_media;
 mod scheduled;
+mod send;
 
 use history_failure::history_failure_event;
 use poll::PollPersistence;
@@ -266,7 +267,6 @@ impl Backend {
         let message_id = {
             let Self {
                 client,
-                next_local_message_id,
                 attachments,
                 ..
             } = self;
@@ -283,18 +283,20 @@ impl Backend {
                         schedule_date: None,
                     })
                     .await
-                    .context(TelegramSnafu)?;
+                    .context(TelegramSnafu)?
             } else {
                 let payloads = attachment_ids
                     .iter()
-                    .filter_map(|id| {
+                    .map(|id| {
                         attachments
                             .payloads
                             .get(id)
                             .cloned()
                             .map(|payload| (*id, payload))
+                            .ok_or(Error::MissingPreparedAttachment { attachment: *id })
                     })
-                    .collect::<Vec<_>>();
+                    .collect::<Result<Vec<_>>>()?;
+                let mut message_id = None;
                 for (index, (_, payload)) in payloads.iter().enumerate() {
                     let upload = match payload {
                         AttachmentPayload::Image { mime_type, bytes } => {
@@ -324,7 +326,7 @@ impl Backend {
                             },
                         },
                     };
-                    client
+                    let sent = client
                         .send_upload(intuigram_telegram::UploadSend {
                             chat,
                             upload,
@@ -347,16 +349,18 @@ impl Backend {
                         })
                         .await
                         .context(TelegramSnafu)?;
+                    message_id.get_or_insert(sent);
                 }
                 for id in &attachment_ids {
                     attachments.payloads.remove(id);
                 }
+                message_id.expect(
+                    "nonempty validated attachment IDs always produce at least one Telegram send",
+                )
             }
-            *next_local_message_id -= 1;
-            *next_local_message_id
         };
         Ok(MessageView {
-            id: MessageId(message_id),
+            id: message_id,
             sender: "You".to_owned(),
             body: text,
             timestamp: "now".to_owned(),

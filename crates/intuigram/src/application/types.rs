@@ -100,7 +100,6 @@ pub(super) struct Backend {
     pub(super) client: Box<Client>,
     pub(super) _database: AccountDatabase,
     pub(super) store: AccountStore,
-    pub(super) next_local_message_id: i64,
     pub(super) attachments: AttachmentStore,
     pub(super) media_library: MediaLibraryStore,
     pub(super) downloads: intuigram_media::DownloadDirectory,

@@ -168,70 +168,8 @@ impl Backend {
                 self.save_draft(chat, thread_root, text, reply_to).await?;
                 Ok(None)
             }
-            Effect::SendMessage {
-                chat,
-                text,
-                entities,
-                link_preview,
-                reply_to,
-                thread_root,
-                attachments,
-                local_id,
-            } => {
-                self.persist_outgoing(OutgoingRecord {
-                    chat,
-                    local_id,
-                    text: &text,
-                    entities: &entities,
-                    reply_to,
-                    thread_root,
-                    delivery: DeliveryState::Pending,
-                })
-                .await?;
-                self.save_draft(chat, thread_root, String::new(), None)
-                    .await?;
-                let result = self
-                    .send_message(MessageSend {
-                        chat,
-                        text: text.clone(),
-                        entities: entities.clone(),
-                        link_preview,
-                        reply_to,
-                        thread_root,
-                        attachment_ids: attachments,
-                        random_id: random_id.expect("every queued send has an idempotency token"),
-                    })
-                    .await;
-                let result = match result {
-                    Err(Error::Telegram { source }) if source.is_connection_failure() => {
-                        return Err(Error::Telegram { source });
-                    }
-                    result => result,
-                };
-                self.persist_outgoing(OutgoingRecord {
-                    chat,
-                    local_id,
-                    text: &text,
-                    entities: &entities,
-                    reply_to,
-                    thread_root,
-                    delivery: if result.is_ok() {
-                        DeliveryState::Sent
-                    } else {
-                        DeliveryState::Failed
-                    },
-                })
-                .await?;
-                Ok(Some(match result {
-                    Ok(_) => AdapterEvent::MessageAcknowledged { chat, local_id },
-                    Err(error) => AdapterEvent::MessageFailed {
-                        chat,
-                        local_id,
-                        thread_root,
-                        text,
-                        reason: error.to_string(),
-                    },
-                }))
+            effect @ Effect::SendMessage { .. } => {
+                self.execute_message_send(effect, random_id).await
             }
             Effect::SendPoll {
                 chat,

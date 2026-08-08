@@ -267,6 +267,9 @@ enum Error {
     #[snafu(display("attachment {} reached Telegram before local preparation", path.display()))]
     UnpreparedAttachment { path: PathBuf },
 
+    #[snafu(display("prepared attachment {attachment:?} disappeared before Telegram send"))]
+    MissingPreparedAttachment { attachment: AttachmentId },
+
     #[snafu(display("rich media reached Telegram before local preparation"))]
     UnpreparedRichMedia,
 

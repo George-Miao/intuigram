@@ -65,7 +65,6 @@ pub(super) async fn resume_account(
             client: Box::new(client),
             _database: database,
             store: store.clone(),
-            next_local_message_id: 0,
             attachments: AttachmentStore::default(),
             media_library: MediaLibraryStore::default(),
             downloads: intuigram_media::DownloadDirectory::new(storage.downloads.clone()),
