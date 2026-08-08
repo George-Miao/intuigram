@@ -136,13 +136,16 @@ fn downloaded_photos_keep_independent_inline_previews() -> Result<()> {
     app.press(key::ALT_UP)?;
     app.choose_action("Download")?;
 
-    let preview_cells = app
+    let preview_groups = app
         .screen()
         .rows()
         .iter()
-        .map(|row| row.matches('▀').count())
-        .sum::<usize>();
-    assert_eq!(preview_cells, 2);
+        .fold((0, false), |(groups, previous), row| {
+            let current = row.contains('▀');
+            (groups + usize::from(current && !previous), current)
+        })
+        .0;
+    assert_eq!(preview_groups, 2);
     app.expect_no_unhandled_work()
 }
 
