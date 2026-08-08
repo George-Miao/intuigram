@@ -9,6 +9,16 @@
 
 ## TODO
 
+- [ ] **p-core:** Collapse the bottom chrome into one context-sensitive line. Omit the Account username and interaction-target labels such as `Chats` or `Composer`; show `connected` only while idle, replace it with the current effort status while work is pending, and place the effective shortcuts after that status on the same line.
+- [ ] **p-core:** Reduce the Chat list's left content padding by one terminal cell without weakening its focus or selection affordance.
+- [ ] **p-core:** Replace separate Active Message action shortcuts with one effective key that opens a selectable Message Actions popup containing every action currently valid for the Active Message or Message Selection.
+- [ ] **p-core:** Replace separate Composer-side creation shortcuts with one effective key that opens a selectable Composer Actions popup for media, polls, and the other currently valid creation flows.
+- [ ] **p-core:** Give every popup one terminal cell of internal padding while keeping pointer semantics and narrow-terminal clipping correct.
+- [ ] **p-core:** Widen the side-by-side Chat list column slightly while preserving adaptive layout behavior and a usable Transcript width.
+- [ ] **p-core:** Replace the subtle fresh-Chat loading indicator with an obvious polished ASCII animation themed around Intuigram and Telegram. Keep cached Transcript content visible during partial updates and respect reduced terminal space.
+- [ ] **p-core:** Keep the Active Chat near 70% of the visible Chat list while navigating downward and near 30% while navigating upward, scrolling only after the corresponding directional cap is reached.
+
+- [ ] **p-high:** Replace line-oriented first-run configuration and login prompts with a centered, stepped TUI flow for API ID, API hash, phone number, login code, and 2FA password. Mask secrets, show validation and recoverable errors in place, and preserve completed non-secret steps when moving backward or retrying.
 - [ ] **p-high:** Support mouse Composer cursor positioning and visible-action invocation now that click selection and pane scrolling are stable. Preserve access to terminal-native text selection.
 - [ ] **p-high:** Add first-class forum Topics. Opening a forum Chat shows its Topic list; each Topic keeps independent unread state, Draft, pin state, and position; General remains visible; and Channel replies open in Details or the narrow-screen navigation stack.
 - [ ] **p-high:** Add topic-enabled bot Private Chats.
@@ -20,6 +30,7 @@
 - [ ] **p-high:** Add a durable Outbox that survives restart, preserves operation ordering and referenced media, and exposes safe retry, cancellation, expiry, and conflict handling.
 - [ ] **p-high:** Allow selected Chats to keep media offline outside ordinary Media Cache eviction.
 - [ ] **p-high:** Extend terminal image rendering beyond the direct Ghostty Kitty Unicode-placeholder backend. Investigate reusing Yazi's image-preview adapter or its component libraries; cover Kitty support in other terminals and legacy graphics, iTerm2 inline images, Sixel, X11/Wayland through Überzug++, and Chafa as a text fallback; and document terminal detection, tmux/Zellij passthrough, Alacritty behavior, licensing, and the smallest maintainable integration seam before choosing each implementation.
+- [ ] **p-high:** Append `...` when a Chat name is capped to fit its available width. Perform terminal-cell-aware truncation and keep the ellipsis inside the allocated Chat-list width.
 
 - [ ] **p-mid:** Make keyboard bindings configurable through a Figment-based configuration system. Support layered TOML, YAML, JSON, environment, and command-line sources; keep a complete default keymap; and generate the on-screen Action Bar and Help from the active configuration.
 - [ ] **p-mid:** Make the terminal palette configurable, keep Everforest Light as a built-in bright theme, and add automatic light/dark terminal-background detection with an explicit configuration override.
