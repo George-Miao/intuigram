@@ -1,4 +1,4 @@
 interface:
   display_name: "Maintain TODO"
-  short_description: "Add and complete prioritized roadmap tasks"
-  default_prompt: "Use $maintain-todo p-high to add an actionable roadmap task and audit related completions."
+  short_description: "Maintain and promote prioritized roadmap tasks"
+  default_prompt: "Use $maintain-todo to maintain or promote the repository roadmap."
