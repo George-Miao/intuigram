@@ -109,6 +109,14 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
             initializing_lock,
         )
         .context(LocalLockSnafu)?;
+        let authorized = if active_account.is_none() {
+            Some(
+                authorize_new_account(&credentials, &config, &layout, &global, unlock.cipher())
+                    .await?,
+            )
+        } else {
+            None
+        };
         let mut terminal = TerminalUi::enter_with_mode(view_mode).context(TerminalSnafu)?;
         let mut events = TerminalEvents::new().context(TerminalSnafu)?;
         let outcome = if let Some(account) = active_account {
@@ -166,9 +174,8 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
             )
             .await?
         } else {
-            let (backend, mut backend_events, peers, mut bootstrap) =
-                authorize_new_account(&credentials, &config, &layout, &global, unlock.cipher())
-                    .await?;
+            let (backend, mut backend_events, peers, mut bootstrap) = authorized
+                .expect("new-Account authorization completes before its main terminal opens");
             let account = backend
                 ._database
                 .account_id()
