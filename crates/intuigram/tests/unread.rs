@@ -8,6 +8,7 @@ fn unread_divider_survives_live_updates_and_clears_when_read_state_advances() ->
     room.unread = 2;
     let mut app = TestSystem::builder()
         .name("unread-divider")
+        .terminal(100, 30)
         .telegram(
             TelegramScenario::new()
                 .bootstrap(account("Ada").with_chat(room))
