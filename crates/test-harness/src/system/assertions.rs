@@ -14,6 +14,7 @@ impl TestSystem {
         let actual = cached
             .messages
             .iter()
+            .chain(&cached.pinned_messages)
             .find(|message| message.chat_id == chat && message.id == id)
             .map(|message| decode_stored_message(message.clone()))
             .map(|message| message.details.pinned);
