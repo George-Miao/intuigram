@@ -75,7 +75,7 @@ fn composer_is_one_continuous_bar_with_internal_padding() -> Result<()> {
 }
 
 #[test]
-fn chat_list_and_transcript_have_one_cell_internal_padding() -> Result<()> {
+fn chat_list_uses_dense_left_edge_while_transcript_and_chrome_stay_padded() -> Result<()> {
     let mut rust = chat(10, "Rust");
     rust.preview = "owned buffers keep terminal input responsive".to_owned();
     let mut app = TestSystem::builder()
@@ -94,7 +94,7 @@ fn chat_list_and_transcript_have_one_cell_internal_padding() -> Result<()> {
     let preview_row = row_within(&rows, "owned buffers", 0, 30);
     let message_row = row_within(&rows, "hello", 31, 100);
 
-    assert_eq!(row_segment(&rows, title_row, 0, 7), " │ [RU]");
+    assert_eq!(row_segment(&rows, title_row, 0, 6), "│ [RU]");
     assert_eq!(row_segment(&rows, preview_row, 28, 30), "  ");
     assert!(row_segment(&rows, 4, 31, 100).trim().is_empty());
     assert_eq!(row_segment(&rows, message_row, 31, 35), "   h");

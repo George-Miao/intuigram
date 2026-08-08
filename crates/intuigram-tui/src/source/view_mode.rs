@@ -37,6 +37,18 @@ impl ViewMode {
         }
     }
 
+    pub(super) const fn chat_list_area(self, area: ratatui::layout::Rect) -> ratatui::layout::Rect {
+        match self {
+            Self::Default if area.width > 1 && area.height > 2 => ratatui::layout::Rect::new(
+                area.x,
+                area.y.saturating_add(1),
+                area.width.saturating_sub(1),
+                area.height.saturating_sub(2),
+            ),
+            Self::Default | Self::Compact => area,
+        }
+    }
+
     pub(super) const fn item_height(self, content_height: u16) -> u16 {
         match self {
             Self::Default => content_height.saturating_add(1),

@@ -140,7 +140,7 @@ pub(super) fn render_chats(
     .split(area);
     render_chat_list_header(frame, rows[0], view, mode, focused);
     frame.render_widget(Paragraph::new("").style(surface_style(focused)), rows[1]);
-    let list_area = mode.padded(rows[1]);
+    let list_area = mode.chat_list_area(rows[1]);
     let items_area = match mode {
         ViewMode::Default if list_area.width > 1 => Rect::new(
             list_area.x,
