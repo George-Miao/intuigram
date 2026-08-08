@@ -194,6 +194,32 @@ fn empty_composer_up_edits_the_newest_eligible_outgoing_message() -> Result<()> 
 }
 
 #[test]
+fn empty_composer_up_ignores_an_outgoing_message_above_the_viewport() -> Result<()> {
+    let mut history = vec![sent_message(40, "offscreen editable message")];
+    history.extend((41..=52).map(|id| incoming(id, "Lin", format!("newer incoming message {id}"))));
+    let mut app = TestSystem::builder()
+        .name("navigation-ignore-offscreen-previous-message")
+        .terminal(100, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, history),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.screen().message(40).expect_absent()?;
+    app.press(key::UP)?;
+
+    app.screen().composer().expect_focused()?;
+    app.screen().composer().expect_text("")?;
+    app.screen()
+        .action(intuigram_app::Action::SaveEdit)
+        .expect_unavailable()?;
+    app.expect_no_unhandled_work()
+}
+
+#[test]
 fn empty_composer_up_does_nothing_without_an_editable_message() -> Result<()> {
     let mut app = TestSystem::builder()
         .name("navigation-no-previous-message")

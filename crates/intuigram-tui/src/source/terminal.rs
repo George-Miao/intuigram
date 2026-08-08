@@ -312,6 +312,14 @@ fn resolve_event_with_semantics(
             if let Some(chord) = chord
                 && let Some(action) = keymap.resolve(view, chord)
             {
+                if action == Action::EditPrevious
+                    && !semantics.is_empty()
+                    && !previous_edit_is_visible(view, semantics)
+                {
+                    return Some(UiEvent::Intent(Intent::MoveComposerCursor(
+                        ComposerMovement::Up,
+                    )));
+                }
                 return Some(UiEvent::Intent(Intent::Action(action)));
             }
             match key.code {
@@ -356,6 +364,23 @@ fn resolve_event_with_semantics(
         }
         _ => None,
     }
+}
+
+fn previous_edit_is_visible(view: &View, semantics: &[SemanticNode]) -> bool {
+    let Some(message) = view
+        .messages
+        .iter()
+        .rev()
+        .find(|message| message.direction == MessageDirection::Outgoing && message.id.0 > 0)
+    else {
+        return false;
+    };
+
+    semantics.iter().any(|node| {
+        node.role == SemanticRole::Message
+            && node.domain_id == Some(message.id.0)
+            && node.bounds.height > 0
+    })
 }
 
 use super::*;
