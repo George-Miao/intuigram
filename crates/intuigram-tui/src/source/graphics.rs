@@ -4,8 +4,11 @@ use std::io::{self, Write};
 
 use base64::Engine as _;
 use intuigram_app::{ChatId, InlineImage, MessageId};
+use ratatui::buffer::Buffer;
+use ratatui::style::Color;
 
 const RAW_CHUNK_BYTES: usize = 3_072;
+pub(crate) const PLACEHOLDER: char = '\u{10eeee}';
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum GraphicsProtocol {
@@ -20,6 +23,8 @@ pub(crate) struct GraphicsRequest {
     pub(crate) image: InlineImage,
     pub(crate) columns: u16,
     pub(crate) rows: u16,
+    pub(crate) x: u16,
+    pub(crate) y: u16,
 }
 
 pub(crate) struct GraphicsFrame {
@@ -50,6 +55,23 @@ impl GraphicsFrame {
 
     pub(crate) fn requests(&self) -> &[GraphicsRequest] {
         &self.requests
+    }
+
+    pub(crate) fn locate(&mut self, buffer: &Buffer) {
+        self.requests.retain_mut(|request| {
+            let foreground = image_color(request.id);
+            for y in buffer.area.top()..buffer.area.bottom() {
+                for x in buffer.area.left()..buffer.area.right() {
+                    let cell = &buffer[(x, y)];
+                    if cell.fg == foreground && cell.symbol().starts_with(PLACEHOLDER) {
+                        request.x = x;
+                        request.y = y;
+                        return true;
+                    }
+                }
+            }
+            false
+        });
     }
 }
 
@@ -93,13 +115,18 @@ impl GraphicsState {
             self.images.remove(&id);
         }
         for request in requests {
-            let fingerprint = fingerprint(&request.image, request.columns, request.rows);
+            let fingerprint = fingerprint(request);
             if self.images.get(&request.id) == Some(&fingerprint) {
                 continue;
+            }
+            if self.images.contains_key(&request.id) {
+                writer.write_all(&encode_delete(request.id))?;
             }
             writer.write_all(&encode_upload(
                 request.id,
                 &request.image,
+                request.x,
+                request.y,
                 request.columns,
                 request.rows,
             ))?;
@@ -131,21 +158,35 @@ pub(crate) fn image_id(chat: ChatId, message: MessageId) -> u32 {
     (hash & 0x00ff_ffff).max(1)
 }
 
-pub(crate) fn encode_upload(id: u32, image: &InlineImage, columns: u16, rows: u16) -> Vec<u8> {
+pub(crate) fn encode_upload(
+    id: u32,
+    image: &InlineImage,
+    x: u16,
+    y: u16,
+    columns: u16,
+    rows: u16,
+) -> Vec<u8> {
     let chunks = image.rgba().chunks(RAW_CHUNK_BYTES).collect::<Vec<_>>();
     let mut output = Vec::new();
+    write!(
+        output,
+        "\x1b[{};{}H",
+        y.saturating_add(1),
+        x.saturating_add(1),
+    )
+    .expect("writing a cursor command to memory cannot fail");
     for (index, chunk) in chunks.iter().enumerate() {
         let more = usize::from(index + 1 < chunks.len());
         if index == 0 {
             write!(
                 output,
-                "\x1b_Ga=T,f=32,s={},v={},i={id},U=1,c={columns},r={rows},q=2,m={more};",
+                "\x1b_Gq=2,a=T,C=1,f=32,s={},v={},i={id},c={columns},r={rows},m={more};",
                 image.width(),
                 image.height(),
             )
             .expect("writing a graphics command to memory cannot fail");
         } else {
-            write!(output, "\x1b_Gm={more},q=2;")
+            write!(output, "\x1b_Gm={more};")
                 .expect("writing a graphics command to memory cannot fail");
         }
         output.extend_from_slice(
@@ -162,19 +203,30 @@ fn encode_delete(id: u32) -> Vec<u8> {
     format!("\x1b_Ga=d,d=I,i={id},q=2\x1b\\").into_bytes()
 }
 
-fn fingerprint(image: &InlineImage, columns: u16, rows: u16) -> u64 {
+fn fingerprint(request: &GraphicsRequest) -> u64 {
     let mut hash = 14_695_981_039_346_656_037_u64;
-    for byte in image
+    for byte in request
+        .image
         .width()
         .to_le_bytes()
         .into_iter()
-        .chain(image.height().to_le_bytes())
-        .chain(columns.to_le_bytes())
-        .chain(rows.to_le_bytes())
-        .chain(image.rgba().iter().copied())
+        .chain(request.image.height().to_le_bytes())
+        .chain(request.x.to_le_bytes())
+        .chain(request.y.to_le_bytes())
+        .chain(request.columns.to_le_bytes())
+        .chain(request.rows.to_le_bytes())
+        .chain(request.image.rgba().iter().copied())
     {
         hash ^= u64::from(byte);
         hash = hash.wrapping_mul(1_099_511_628_211);
     }
     hash
+}
+
+const fn image_color(id: u32) -> Color {
+    Color::Rgb(
+        ((id >> 16) & 0xff) as u8,
+        ((id >> 8) & 0xff) as u8,
+        (id & 0xff) as u8,
+    )
 }

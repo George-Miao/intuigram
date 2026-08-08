@@ -147,13 +147,9 @@ fn render_test_frame_for_protocol(
             );
         })
         .expect("Ratatui's in-memory TestBackend cannot fail a draw");
-    (
-        TestFrame {
-            buffer: terminal.backend().buffer().clone(),
-            semantics,
-        },
-        graphics,
-    )
+    let buffer = terminal.backend().buffer().clone();
+    graphics.locate(&buffer);
+    (TestFrame { buffer, semantics }, graphics)
 }
 
 pub(crate) fn draw_terminal_view<W: io::Write>(

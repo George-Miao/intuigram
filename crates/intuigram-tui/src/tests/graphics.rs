@@ -29,14 +29,15 @@ fn ghostty_inside_zellij_uses_the_text_image_fallback() {
 }
 
 #[test]
-fn kitty_upload_is_quiet_rgba_with_a_virtual_placement() {
+fn ghostty_upload_uses_a_cursor_anchored_kitty_placement() {
     let image = intuigram_app::InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
         .expect("fixture pixels should match their dimensions");
 
-    let encoded =
-        String::from_utf8(encode_upload(42, &image, 32, 6)).expect("graphics commands are ASCII");
+    let encoded = String::from_utf8(encode_upload(42, &image, 7, 9, 32, 6))
+        .expect("graphics commands are ASCII");
 
-    assert!(encoded.starts_with("\u{1b}_Ga=T,f=32,s=1,v=1,i=42,U=1,c=32,r=6,q=2,m=0;"));
+    assert!(encoded.starts_with("\u{1b}[10;8H\u{1b}_Gq=2,a=T,C=1,f=32,s=1,v=1,i=42,c=32,r=6,m=0;"));
+    assert!(!encoded.contains("U=1"));
     assert!(encoded.contains("/wAA/w=="));
     assert!(encoded.ends_with("\u{1b}\\"));
 }
@@ -63,6 +64,8 @@ fn kitty_render_uses_unicode_placeholders_without_redundant_media_metadata() {
     assert_eq!(graphics.requests().len(), 1);
     assert_eq!(graphics.requests()[0].columns, 32);
     assert_eq!(graphics.requests()[0].rows, 6);
+    assert!(graphics.requests()[0].x > 0);
+    assert!(graphics.requests()[0].y > 0);
 }
 
 #[test]
@@ -95,7 +98,7 @@ fn kitty_upload_precedes_its_unicode_placeholder() {
         .expect("memory terminal should render an image");
     }
 
-    let upload = byte_offset(&output, b"\x1b_Ga=T");
+    let upload = byte_offset(&output, b"\x1b_Gq=2,a=T");
     let placeholder = byte_offset(&output, "\u{10eeee}".as_bytes());
     assert!(upload < placeholder);
 }
@@ -137,7 +140,12 @@ fn graphics_state_reuploads_a_resized_placement() {
         .expect("memory output should accept a resized placement");
 
     assert!(output.len() > first_upload);
-    assert!(output[first_upload..].starts_with(b"\x1b_Ga=T"));
+    assert!(output[first_upload..].starts_with(b"\x1b_Ga=d,d=I,i=42,q=2"));
+    assert!(
+        output[first_upload..]
+            .windows(b"\x1b_Gq=2,a=T".len())
+            .any(|window| window == b"\x1b_Gq=2,a=T")
+    );
 }
 
 fn graphics_request() -> GraphicsRequest {
@@ -147,6 +155,8 @@ fn graphics_request() -> GraphicsRequest {
             .expect("fixture pixels should match their dimensions"),
         columns: 32,
         rows: 6,
+        x: 7,
+        y: 9,
     }
 }
 

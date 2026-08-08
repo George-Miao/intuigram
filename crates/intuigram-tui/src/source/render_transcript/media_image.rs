@@ -1,10 +1,10 @@
 use intuigram_app::InlineImage;
 
 use super::*;
+use crate::source::graphics::PLACEHOLDER;
 
 const WIDTH: u16 = 32;
 const HEIGHT: u16 = 6;
-const PLACEHOLDER: char = '\u{10eeee}';
 const DIACRITICS: [char; 32] = [
     '\u{0305}', '\u{030d}', '\u{030e}', '\u{0310}', '\u{0312}', '\u{033d}', '\u{033e}', '\u{033f}',
     '\u{0346}', '\u{034a}', '\u{034b}', '\u{034c}', '\u{0350}', '\u{0351}', '\u{0352}', '\u{0357}',
@@ -78,6 +78,8 @@ fn render_unicode_image(
         image: image.clone(),
         columns: WIDTH,
         rows,
+        x: 0,
+        y: 0,
     });
     let foreground = Color::Rgb(
         u8::try_from((id >> 16) & 0xff).expect("a masked image ID byte fits in u8"),
