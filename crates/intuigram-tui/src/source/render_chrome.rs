@@ -64,7 +64,7 @@ pub(super) fn render_folders(
     );
 }
 
-pub(super) fn render_actions(
+pub(super) fn render_bottom_chrome(
     frame: &mut Frame<'_>,
     area: Rect,
     view: &View,
@@ -73,9 +73,15 @@ pub(super) fn render_actions(
     semantics: &mut Vec<SemanticNode>,
 ) {
     let content_area = mode.padded(area);
-    let mut spans = Vec::new();
-    let mut x = content_area.x;
-    for binding in keymap.action_bar(view) {
+    let mut spans = status_spans(view);
+    let mut x = content_area
+        .x
+        .saturating_add(u16::try_from(Line::from(spans.clone()).width()).unwrap_or(u16::MAX));
+    spans.push(Span::raw("  "));
+    x = x.saturating_add(2);
+    let mut bindings = keymap.action_bar(view).collect::<Vec<_>>();
+    bindings.sort_by_key(|binding| action_bar_rank(binding.key));
+    for binding in bindings {
         let width = u16::try_from(
             binding
                 .key
@@ -106,65 +112,88 @@ pub(super) fn render_actions(
         ));
         spans.push(Span::raw(format!(" {}  ", binding.label)));
     }
-    frame.render_widget(Paragraph::new("").style(surface_style(false)), area);
-    frame.render_widget(
-        Paragraph::new(Line::from(spans)).style(surface_style(false)),
-        content_area,
-    );
+    let style = surface_style(view.focus == Focus::Search);
+    frame.render_widget(Paragraph::new("").style(style), area);
+    frame.render_widget(Paragraph::new(Line::from(spans)).style(style), content_area);
 }
 
-pub(super) fn render_status(frame: &mut Frame<'_>, area: Rect, view: &View, mode: ViewMode) {
-    let mut spans = vec![Span::styled(
-        format!("{} · {:?} · ", view.account_name, view.focus),
-        Style::default().fg(MUTED_TEXT),
-    )];
+const fn action_bar_rank(key: KeyChord) -> u8 {
+    match key {
+        KeyChord {
+            key: Key::Enter,
+            control: false,
+            shift: false,
+            alt: false,
+        } => 0,
+        KeyChord {
+            key: Key::Char(_),
+            control: false,
+            shift: false,
+            alt: false,
+        } => 1,
+        KeyChord {
+            key: Key::Up | Key::Down | Key::Left | Key::Right,
+            control: false,
+            shift: false,
+            alt: false,
+        } => 3,
+        _ => 2,
+    }
+}
+
+fn status_spans(view: &View) -> Vec<Span<'static>> {
+    let mut spans = Vec::new();
+    let sending = view
+        .messages
+        .iter()
+        .any(|message| message.delivery == DeliveryState::Pending);
+    let synchronizing = view.chat_loading != ChatLoadingState::Idle;
+    let idle = view.connection == ConnectionState::Connected && !sending && !synchronizing;
+
     match view.connection {
-        ConnectionState::Connected => spans.push(Span::raw("connected")),
+        ConnectionState::Connected if idle => spans.push(Span::raw("connected")),
+        ConnectionState::Connected => {}
         ConnectionState::Connecting => {
             spans.extend(effort_spans("connecting", view.animation_frame));
         }
         ConnectionState::ReconnectCooldown => spans.push(Span::raw("reconnect cooldown")),
     }
-    if view
-        .messages
-        .iter()
-        .any(|message| message.delivery == DeliveryState::Pending)
-    {
-        spans.push(Span::raw(" · "));
+    if sending {
+        append_separator(&mut spans);
         spans.extend(effort_spans(
             "sending",
             view.animation_frame.wrapping_add(3),
         ));
     }
-    if view.chat_loading != ChatLoadingState::Idle {
-        spans.push(Span::raw(" · "));
+    if synchronizing {
+        append_separator(&mut spans);
         spans.extend(effort_spans(
             "synchronizing",
             view.animation_frame.wrapping_add(6),
         ));
     }
     if let Some(search) = &view.search {
+        append_separator(&mut spans);
         spans.push(Span::raw(format!(
-            " · {:?} search: {}",
+            "{:?} search: {}",
             search.scope, search.query
         )));
     }
     if view.has_newer_messages {
-        spans.push(Span::raw(" · new messages ↓"));
+        append_separator(&mut spans);
+        spans.push(Span::raw("new messages ↓"));
     }
     if let Some(notice) = &view.notice {
-        spans.push(Span::raw(format!(" · {notice}")));
+        append_separator(&mut spans);
+        spans.push(Span::raw(notice.clone()));
     }
-    let style = if view.focus == Focus::Search {
-        surface_style(true)
-    } else {
-        Style::default().fg(MUTED_TEXT)
-    };
-    frame.render_widget(Paragraph::new("").style(style), area);
-    frame.render_widget(
-        Paragraph::new(Line::from(spans)).style(style),
-        mode.padded(area),
-    );
+    spans
+}
+
+fn append_separator(spans: &mut Vec<Span<'static>>) {
+    if !spans.is_empty() {
+        spans.push(Span::raw(" · "));
+    }
 }
 
 pub(super) fn render_help(

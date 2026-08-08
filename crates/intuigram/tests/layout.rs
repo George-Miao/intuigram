@@ -117,6 +117,32 @@ fn chat_list_and_transcript_have_one_cell_internal_padding() -> Result<()> {
 }
 
 #[test]
+fn bottom_chrome_combines_status_and_context_actions() -> Result<()> {
+    let mut app = TestSystem::builder()
+        .name("layout-combined-bottom-chrome")
+        .terminal(100, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, []),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.press(key::ESCAPE)?;
+    let rows = app.screen().rows();
+    let bottom = rows
+        .iter()
+        .find(|row| row.contains("connected"))
+        .expect("combined bottom chrome should show the idle status");
+
+    assert!(bottom.contains("Enter Open"), "bottom chrome: {bottom:?}");
+    assert!(!bottom.contains("Ada"));
+    assert!(!bottom.contains("Chats"));
+    app.expect_no_unhandled_work()
+}
+
+#[test]
 fn only_the_focused_block_uses_a_surface_background() -> Result<()> {
     let mut app = TestSystem::builder()
         .name("layout-focused-surface")

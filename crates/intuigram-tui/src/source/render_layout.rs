@@ -49,13 +49,11 @@ pub(super) fn render_with_graphics(
         Constraint::Min(5),
         Constraint::Length(mode.folder_height()),
         Constraint::Length(mode.chrome_row_height()),
-        Constraint::Length(mode.chrome_row_height()),
     ])
     .split(area);
     render_main(frame, rows[0], view, mode, semantics, graphics);
     render_folders(frame, rows[1], view, mode, semantics);
-    render_actions(frame, rows[2], view, keymap, mode, semantics);
-    render_status(frame, rows[3], view, mode);
+    render_bottom_chrome(frame, rows[2], view, keymap, mode, semantics);
     if view.folder_manager.is_some() {
         render_folder_manager(frame, area, view);
     } else if view.scheduled.is_some() {

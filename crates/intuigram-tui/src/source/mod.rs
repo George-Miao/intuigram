@@ -67,8 +67,8 @@ use qr_render::{chord_from_crossterm, qr_login_symbols, render_qr_login};
 pub use qr_session::*;
 use render_accounts::{render_account_confirmation, render_account_picker};
 use render_chrome::{
-    anchored_window, centered_rect, interaction_rule, render_actions, render_folder_picker,
-    render_folders, render_help, render_status, selection_rule, surface_style,
+    anchored_window, centered_rect, interaction_rule, render_bottom_chrome, render_folder_picker,
+    render_folders, render_help, selection_rule, surface_style,
 };
 use render_composer::{composer_height, render_composer};
 use render_folder_manager::render_folder_manager;
