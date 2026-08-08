@@ -14,8 +14,8 @@ use ratatui::style::{Color, Modifier};
 
 use super::{
     EffectiveKeymap, Key, KeyChord, SemanticRole, UiEvent, ViewMode, chord_from_crossterm,
-    qr_login_symbols, render, render_test_frame, render_test_frame_with_graphics, render_with_mode,
-    resolve_event, resolve_test_frame_event, terminal_keyboard_flags,
+    qr_login_symbols, render, render_test_frame, render_test_frame_with_graphics,
+    render_test_frame_with_mode, resolve_event, resolve_test_frame_event, terminal_keyboard_flags,
 };
 
 fn view(actions: Vec<Action>) -> View {

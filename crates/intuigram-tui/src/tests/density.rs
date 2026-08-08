@@ -35,24 +35,20 @@ fn compact_view_preserves_the_original_dense_layout() {
     current.active_chat = Some(0);
     current.messages = vec![message(1, "first message"), message(2, "second message")];
 
-    let backend = TestBackend::new(100, 24);
-    let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
-    terminal
-        .draw(|frame| {
-            render_with_mode(
-                frame,
-                &current,
-                &EffectiveKeymap::defaults(),
-                ViewMode::Compact,
-            );
-        })
-        .expect("compact view should render");
-    let buffer = terminal.backend().buffer();
+    let rendered = render_test_frame_with_mode(&current, 100, 24, ViewMode::Compact);
+    let buffer = &rendered.buffer;
+    let messages = rendered
+        .semantics
+        .iter()
+        .filter(|node| node.role == SemanticRole::Message)
+        .collect::<Vec<_>>();
 
     assert_eq!(buffer[(7, 2)].symbol(), "F");
     assert_eq!(buffer[(7, 4)].symbol(), "S");
-    assert_eq!(buffer[(33, 3)].symbol(), "f");
-    assert_eq!(buffer[(33, 5)].symbol(), "s");
+    assert_eq!(messages.len(), 2);
+    assert_eq!(messages[0].bounds.height, 2);
+    assert_eq!(messages[0].bounds.bottom(), messages[1].bounds.top());
+    assert_eq!(messages[1].bounds.height, 2);
     assert_eq!(buffer[(2, 21)].symbol(), "A");
 }
 

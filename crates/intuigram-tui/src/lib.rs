@@ -7,7 +7,7 @@ pub use recovery::{RecoveryAction, RecoveryView, resolve_recovery_event};
 #[cfg(test)]
 pub(crate) use source::qr_render::{chord_from_crossterm, qr_login_symbols};
 #[cfg(test)]
-pub(crate) use source::render_layout::{render, render_with_mode};
+pub(crate) use source::render_layout::render;
 #[cfg(test)]
 pub(crate) use source::terminal::{resolve_event, terminal_keyboard_flags};
 pub use source::*;

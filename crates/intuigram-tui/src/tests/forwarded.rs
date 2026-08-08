@@ -51,6 +51,17 @@ fn forwarded_provenance_rule_spans_source_caption_and_media() {
             .unwrap_or_else(|| panic!("missing forwarded content {content:?}"));
         assert!(row.contains("│ "), "missing provenance bar in {row:?}");
     }
+
+    let sender = rows
+        .iter()
+        .position(|row| row.contains("← Lin"))
+        .expect("the sender heading should render");
+    let forwarded = rows
+        .iter()
+        .position(|row| row.contains("Forwarded from Runtime News"))
+        .expect("the forwarded provenance should render");
+    assert_eq!(forwarded, sender + 2);
+    assert!(rows[sender + 1].trim().is_empty());
 }
 
 fn rendered_rows(buffer: &ratatui::buffer::Buffer) -> Vec<String> {

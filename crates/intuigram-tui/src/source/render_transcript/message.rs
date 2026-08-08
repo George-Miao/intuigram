@@ -34,6 +34,7 @@ pub(super) fn message_lines(
     };
     let mut lines = message_heading(message, state, &layout);
     if let Some(source) = &message.details.forwarded_from {
+        lines.push(Line::from(""));
         let mut provenance = content_prefix(state.active, state.selected, true);
         provenance.push(Span::styled(
             format!("Forwarded from {source}"),

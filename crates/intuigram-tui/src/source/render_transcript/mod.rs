@@ -66,14 +66,22 @@ pub(super) fn render_transcript(
         .or(view.transcript_anchor)
         .unwrap_or_else(|| view.messages.len().saturating_sub(1));
     let range = transcript_window(&heights, Some(anchor), area.height);
-    render_semantics(area, view, focused, range.clone(), &heights, semantics);
+    let message_area = bottom_aligned_area(area, range.clone(), &heights);
+    render_semantics(
+        message_area,
+        view,
+        focused,
+        range.clone(),
+        &heights,
+        semantics,
+    );
     let items = rendered_messages
         .into_iter()
         .enumerate()
         .skip(range.start)
         .take(range.len())
         .map(|(index, lines)| {
-            let visible = usize::from(area.height);
+            let visible = usize::from(message_area.height);
             if index == anchor && lines.len() > visible {
                 let hidden = lines.len() - visible;
                 ListItem::new(lines.into_iter().skip(hidden).collect::<Vec<_>>())
@@ -81,7 +89,21 @@ pub(super) fn render_transcript(
                 ListItem::new(lines)
             }
         });
-    frame.render_widget(List::new(items).style(surface_style(focused)), area);
+    frame.render_widget(List::new(items).style(surface_style(focused)), message_area);
+}
+
+fn bottom_aligned_area(area: Rect, range: std::ops::Range<usize>, heights: &[u16]) -> Rect {
+    let content_height = heights[range]
+        .iter()
+        .copied()
+        .fold(0_u16, u16::saturating_add)
+        .min(area.height);
+    Rect::new(
+        area.x,
+        area.bottom().saturating_sub(content_height),
+        area.width,
+        content_height,
+    )
 }
 
 fn render_fresh_loading(frame: &mut Frame<'_>, area: Rect, view: &View, focused: bool) {

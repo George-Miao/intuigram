@@ -214,4 +214,52 @@ fn transcript_scroll_preserves_an_inactive_anchor() {
     assert_eq!(buffer[(32, 8)].symbol(), " ");
     assert_eq!(buffer[(34, 9)].symbol(), "M");
 }
+
+#[test]
+fn a_short_latest_transcript_is_anchored_above_the_composer() {
+    let mut current = view(Vec::new());
+    current.chats = vec![ChatView {
+        id: ChatId(10),
+        title: "Intuigram".to_owned(),
+        preview: String::new(),
+        status: String::new(),
+        unread: 0,
+        pinned: false,
+        can_pin_messages: true,
+        kind: ChatKind::Private,
+        folders: vec![0],
+    }];
+    current.active_chat = Some(0);
+    current.focus = Focus::Composer;
+    current.messages = vec![MessageView {
+        id: MessageId(1),
+        sender: "Lin".to_owned(),
+        body: "latest".to_owned(),
+        timestamp: "12:00".to_owned(),
+        direction: MessageDirection::Incoming,
+        delivery: DeliveryState::Read,
+        reply_to: None,
+        details: MessageDetails::default(),
+    }];
+
+    let rendered = render_test_frame(&current, 100, 40);
+    let message = rendered
+        .semantics
+        .iter()
+        .find(|node| node.role == SemanticRole::Message)
+        .expect("the latest Message should be visible");
+    let composer = rendered
+        .semantics
+        .iter()
+        .find(|node| node.role == SemanticRole::Composer)
+        .expect("the Composer should be visible");
+
+    assert!(
+        composer
+            .bounds
+            .top()
+            .saturating_sub(message.bounds.bottom())
+            <= 1
+    );
+}
 use super::*;

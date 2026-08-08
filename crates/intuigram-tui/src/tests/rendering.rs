@@ -191,12 +191,21 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
     terminal
         .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
         .expect("view should render");
+    let rendered = render_test_frame(&view, 100, 28);
     let buffer = terminal.backend().buffer();
+    let message = rendered
+        .semantics
+        .iter()
+        .find(|node| node.role == SemanticRole::Message)
+        .expect("the active Message should have matching semantics");
 
     assert_eq!(buffer[(1, 4)].symbol(), "│");
-    assert_eq!(buffer[(32, 5)].symbol(), "│");
-    assert_eq!(buffer[(34, 6)].symbol(), "│");
-    assert_eq!(buffer[(34, 6)].fg, Color::Rgb(58, 148, 197));
+    assert_eq!(buffer[(32, message.bounds.top())].symbol(), "│");
+    assert_eq!(buffer[(34, message.bounds.top() + 1)].symbol(), "│");
+    assert_eq!(
+        buffer[(34, message.bounds.top() + 1)].fg,
+        Color::Rgb(58, 148, 197)
+    );
     assert_eq!(buffer[(32, 17)].symbol(), "│");
     assert_eq!(buffer[(34, 17)].symbol(), "D");
     assert_eq!(buffer[(5, 5)].bg, Color::Rgb(244, 240, 217));
