@@ -83,10 +83,6 @@ pub enum Error {
     #[snafu(display("Telegram dialog page has no usable pagination offset"))]
     DialogOffsetUnavailable,
 
-    /// Telegram returned a full history page without a usable older offset.
-    #[snafu(display("Telegram history pagination made no progress for Chat {chat_id}"))]
-    HistoryOffsetUnavailable { chat_id: i64 },
-
     /// The requested Chat is not present in the current Telegram peer cache.
     #[snafu(display("Telegram peer for Chat {chat_id} is unavailable"))]
     PeerUnavailable {
