@@ -1,0 +1,57 @@
+use intuigram_app::Action;
+use test_harness::{Result, TelegramScenario, TestSystem, account, chat, key};
+
+#[test]
+fn composer_creation_actions_are_grouped_without_consuming_plain_text() -> Result<()> {
+    let mut app = TestSystem::builder()
+        .name("composer-actions-popup")
+        .terminal(100, 30)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, []),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.type_text("a")?;
+    app.screen().composer().expect_text("a")?;
+    app.press(key::BACKSPACE)?;
+    app.screen()
+        .action(Action::OpenActions)
+        .expect_available()?;
+    for action in [
+        Action::Paste,
+        Action::Attach,
+        Action::OpenRichMedia,
+        Action::OpenScheduled,
+        Action::CreatePoll,
+    ] {
+        app.screen().action(action).expect_unavailable()?;
+    }
+
+    app.press(key::ALT_ACTIONS)?;
+    let popup = app.screen().rows().join("\n");
+    for label in [
+        "Composer Actions",
+        "Paste",
+        "Attach File",
+        "Media & Contacts",
+        "Scheduled Messages",
+        "Create Poll",
+    ] {
+        assert!(popup.contains(label), "missing {label:?} in {popup:?}");
+    }
+
+    for _ in 0..4 {
+        app.press(key::DOWN)?;
+    }
+    app.press(key::ENTER)?;
+    assert!(
+        app.screen()
+            .rows()
+            .iter()
+            .any(|row| row.contains("Poll · question first"))
+    );
+    app.expect_no_unhandled_work()
+}

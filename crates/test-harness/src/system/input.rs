@@ -1,6 +1,10 @@
 //! Named terminal inputs used by behavior scenarios.
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use intuigram_app::Focus;
+
+use super::TestSystem;
+use crate::error::{Error, Result};
 
 pub mod key {
     use super::TestKey;
@@ -17,6 +21,7 @@ pub mod key {
     pub const ALT_DELETE: TestKey = TestKey::AltDelete;
     pub const ALT_FORWARD: TestKey = TestKey::AltForward;
     pub const ALT_REACT: TestKey = TestKey::AltReact;
+    pub const ALT_ACTIONS: TestKey = TestKey::AltActions;
     pub const ALT_PIN: TestKey = TestKey::AltPin;
     pub const PINNED: TestKey = TestKey::Pinned;
     pub const CTRL_POLL: TestKey = TestKey::ControlPoll;
@@ -63,6 +68,7 @@ pub enum TestKey {
     AltDelete,
     AltForward,
     AltReact,
+    AltActions,
     AltPin,
     Pinned,
     ControlPoll,
@@ -106,6 +112,7 @@ impl TestKey {
             Self::AltDelete => (KeyCode::Char('d'), KeyModifiers::ALT),
             Self::AltForward => (KeyCode::Char('f'), KeyModifiers::ALT),
             Self::AltReact => (KeyCode::Char('r'), KeyModifiers::ALT),
+            Self::AltActions => (KeyCode::Char('a'), KeyModifiers::ALT),
             Self::AltPin => (KeyCode::Char('p'), KeyModifiers::ALT),
             Self::Pinned => (KeyCode::Char('p'), KeyModifiers::NONE),
             Self::ControlPoll => (KeyCode::Char('p'), KeyModifiers::CONTROL),
@@ -138,5 +145,45 @@ impl TestKey {
             modifiers,
             KeyEventKind::Press,
         ))
+    }
+}
+
+impl TestSystem {
+    /// Chooses one visible context action through the production keymap.
+    pub fn choose_action(&mut self, label: &str) -> Result<()> {
+        match self.application.view().focus {
+            Focus::Transcript => self.type_text("a")?,
+            Focus::Composer => self.press(key::ALT_ACTIONS)?,
+            focus => {
+                return Err(Error::Expectation {
+                    expectation: format!("context actions are available from {focus:?}"),
+                    actual: "Chat list or Search has focus".to_owned(),
+                    artifact: self.trace.borrow().persist(),
+                });
+            }
+        }
+        let rows = self.screen().rows();
+        let Some(title) = rows.iter().position(|row| row.contains(" Actions")) else {
+            return Err(Error::Expectation {
+                expectation: "a context-actions popup is visible".to_owned(),
+                actual: rows.join("\n"),
+                artifact: self.trace.borrow().persist(),
+            });
+        };
+        let Some(target) = rows
+            .iter()
+            .skip(title + 2)
+            .position(|row| row.contains(label))
+        else {
+            return Err(Error::Expectation {
+                expectation: format!("context action {label:?} is visible"),
+                actual: rows.join("\n"),
+                artifact: self.trace.borrow().persist(),
+            });
+        };
+        for _ in 0..target {
+            self.press(key::DOWN)?;
+        }
+        self.press(key::ENTER)
     }
 }

@@ -80,14 +80,14 @@ fn active_cloud_messages_can_be_pinned_and_unpinned() -> Result<()> {
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    app.press(key::ALT_PIN)?;
+    app.choose_action("Pin / Unpin")?;
     assert!(
         app.screen()
             .rows()
             .iter()
             .any(|row| row.contains("Pinned · pin this"))
     );
-    app.press(key::ALT_PIN)?;
+    app.choose_action("Pin / Unpin")?;
     assert!(
         !app.screen()
             .rows()

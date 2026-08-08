@@ -272,11 +272,7 @@ impl App {
                     actions.extend([
                         Action::Send,
                         Action::Newline,
-                        Action::Paste,
-                        Action::Attach,
-                        Action::OpenRichMedia,
-                        Action::OpenScheduled,
-                        Action::CreatePoll,
+                        Action::OpenActions,
                         Action::Cancel,
                         Action::Search,
                         Action::TargetPreviousMessage,

@@ -107,12 +107,8 @@ fn displayed_action_bar_and_help_bindings_are_the_bindings_input_resolves() {
         Some(Action::JumpLatest)
     );
 
-    let composer = view(vec![
-        Action::Send,
-        Action::Newline,
-        Action::Attach,
-        Action::Paste,
-    ]);
+    let mut composer = view(vec![Action::Send, Action::Newline, Action::OpenActions]);
+    composer.focus = Focus::Composer;
     assert_eq!(
         keymap.resolve(&composer, KeyChord::control(Key::Char('s'))),
         Some(Action::Send)
@@ -129,19 +125,12 @@ fn displayed_action_bar_and_help_bindings_are_the_bindings_input_resolves() {
         Some(Action::Newline)
     );
     assert_eq!(
-        keymap.resolve(&composer, KeyChord::control(Key::Char('o'))),
-        Some(Action::Attach)
+        keymap.resolve(&composer, KeyChord::alt(Key::Char('a'))),
+        Some(Action::OpenActions)
     );
     assert_eq!(
-        keymap
-            .action_bar(&composer)
-            .find(|binding| binding.action == Action::Attach)
-            .map(|binding| (binding.key, binding.label)),
-        Some((KeyChord::control(Key::Char('o')), "Attach"))
-    );
-    assert_eq!(
-        keymap.resolve(&composer, KeyChord::control(Key::Char('v'))),
-        Some(Action::Paste)
+        keymap.resolve(&composer, KeyChord::plain(Key::Char('a'))),
+        None
     );
     assert_eq!(
         keymap
@@ -153,7 +142,7 @@ fn displayed_action_bar_and_help_bindings_are_the_bindings_input_resolves() {
 }
 
 #[test]
-fn link_and_download_keys_are_visible_only_when_contextually_available() {
+fn grouped_message_actions_have_no_direct_shortcuts() {
     let current = view(vec![
         Action::OpenLink,
         Action::DownloadMedia,
@@ -162,23 +151,8 @@ fn link_and_download_keys_are_visible_only_when_contextually_available() {
     ]);
     let keymap = EffectiveKeymap::defaults();
 
-    assert_eq!(
-        keymap.resolve(&current, KeyChord::control(Key::Char('l'))),
-        Some(Action::OpenLink)
-    );
-    assert_eq!(
-        keymap.resolve(&current, KeyChord::control(Key::Char('d'))),
-        Some(Action::DownloadMedia)
-    );
-    assert_eq!(
-        keymap.resolve(&current, KeyChord::alt(Key::Char('d'))),
-        Some(Action::SaveAs)
-    );
-    assert_eq!(
-        keymap.resolve(&current, KeyChord::control(Key::Char('o'))),
-        Some(Action::OpenDownload)
-    );
-    assert_eq!(keymap.action_bar(&current).count(), 4);
+    assert_eq!(keymap.help(&current).count(), 0);
+    assert_eq!(keymap.action_bar(&current).count(), 0);
 }
 
 #[test]
@@ -230,6 +204,26 @@ fn hierarchy_modifiers_resolve_only_in_their_effective_context() {
     assert_eq!(keymap.resolve(&composer, KeyChord::plain(Key::Up)), None);
     assert_eq!(keymap.resolve(&composer, KeyChord::alt(Key::Left)), None);
     assert_eq!(keymap.resolve(&composer, KeyChord::alt(Key::Right)), None);
+    let mut transcript_actions = view(vec![Action::OpenActions]);
+    transcript_actions.focus = Focus::Transcript;
+    assert_eq!(
+        keymap.resolve(&transcript_actions, KeyChord::plain(Key::Char('a'))),
+        Some(Action::OpenActions)
+    );
+    assert_eq!(
+        keymap.resolve(&transcript_actions, KeyChord::alt(Key::Char('a'))),
+        None
+    );
+    let mut composer_actions = transcript_actions;
+    composer_actions.focus = Focus::Composer;
+    assert_eq!(
+        keymap.resolve(&composer_actions, KeyChord::plain(Key::Char('a'))),
+        None
+    );
+    assert_eq!(
+        keymap.resolve(&composer_actions, KeyChord::alt(Key::Char('a'))),
+        Some(Action::OpenActions)
+    );
     assert!(chord_from_crossterm(CrosstermKey::Tab, KeyModifiers::NONE).is_none());
 }
 

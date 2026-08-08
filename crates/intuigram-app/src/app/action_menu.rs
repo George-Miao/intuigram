@@ -55,21 +55,35 @@ impl App {
         actions
     }
 
+    pub(super) fn available_composer_actions(&self) -> Vec<Action> {
+        if self.view.composer.editing.is_some() || self.view.poll_composer {
+            return Vec::new();
+        }
+        vec![
+            Action::Paste,
+            Action::Attach,
+            Action::OpenRichMedia,
+            Action::OpenScheduled,
+            Action::CreatePoll,
+        ]
+    }
+
     pub(super) fn open_action_menu(&mut self) {
-        let items = match self.view.focus {
-            Focus::Transcript => self
-                .available_message_actions()
-                .into_iter()
-                .map(|action| ActionMenuItemView {
-                    action,
-                    label: message_action_label(action).to_owned(),
-                })
-                .collect::<Vec<_>>(),
-            Focus::Chats | Focus::Composer | Focus::Search => Vec::new(),
+        let (title, actions) = match self.view.focus {
+            Focus::Transcript => ("Message Actions", self.available_message_actions()),
+            Focus::Composer => ("Composer Actions", self.available_composer_actions()),
+            Focus::Chats | Focus::Search => ("Actions", Vec::new()),
         };
+        let items = actions
+            .into_iter()
+            .map(|action| ActionMenuItemView {
+                action,
+                label: action_label(action).to_owned(),
+            })
+            .collect::<Vec<_>>();
         if !items.is_empty() {
             self.view.action_menu = Some(ActionMenuView {
-                title: "Message Actions".to_owned(),
+                title: title.to_owned(),
                 selected: 0,
                 items,
             });
@@ -102,7 +116,7 @@ impl App {
     }
 }
 
-const fn message_action_label(action: Action) -> &'static str {
+const fn action_label(action: Action) -> &'static str {
     match action {
         Action::Reply => "Reply",
         Action::Edit => "Edit",
@@ -117,6 +131,11 @@ const fn message_action_label(action: Action) -> &'static str {
         Action::OpenThread => "Open Thread",
         Action::TogglePin => "Pin / Unpin",
         Action::ToggleMessageSelection => "Select Message",
+        Action::Paste => "Paste",
+        Action::Attach => "Attach File",
+        Action::OpenRichMedia => "Media & Contacts",
+        Action::OpenScheduled => "Scheduled Messages",
+        Action::CreatePoll => "Create Poll",
         _ => "Action",
     }
 }

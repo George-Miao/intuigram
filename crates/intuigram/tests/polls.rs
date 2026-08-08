@@ -14,7 +14,7 @@ fn poll_composer_sends_a_question_and_two_or_more_options() -> Result<()> {
         .start()?;
 
     app.press(key::ENTER)?;
-    app.press(key::CTRL_POLL)?;
+    app.choose_action("Create Poll")?;
     assert!(
         app.screen()
             .rows()
@@ -53,7 +53,7 @@ fn open_multiple_choice_poll_can_be_voted_from_the_transcript() -> Result<()> {
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    app.press(key::VOTE)?;
+    app.choose_action("Vote")?;
     app.press(key::SPACE)?;
     app.press(key::DOWN)?;
     app.press(key::SPACE)?;

@@ -75,7 +75,7 @@ fn saving_an_edit_returns_to_an_empty_composer() -> Result<()> {
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    choose_message_action(&mut app, "Edit")?;
+    app.choose_action("Edit")?;
     app.screen().composer().expect_focused()?;
     app.screen().composer().expect_text("old text")?;
     for _ in 0.."old text".chars().count() {
@@ -110,7 +110,7 @@ fn cancelling_an_edit_clears_the_stale_draft_without_leaving_the_composer() -> R
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    choose_message_action(&mut app, "Edit")?;
+    app.choose_action("Edit")?;
     app.press(key::ESCAPE)?;
 
     app.screen().composer().expect_focused()?;
@@ -134,7 +134,7 @@ fn deleting_a_message_requires_confirmation_and_removes_it_durably() -> Result<(
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    choose_message_action(&mut app, "Delete")?;
+    app.choose_action("Delete")?;
     assert!(
         app.screen()
             .rows()
@@ -170,9 +170,9 @@ fn message_selection_is_visible_and_survives_navigation_and_resize() -> Result<(
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    choose_message_action(&mut app, "Select Message")?;
+    app.choose_action("Select Message")?;
     app.press(key::UP)?;
-    choose_message_action(&mut app, "Select Message")?;
+    app.choose_action("Select Message")?;
 
     assert!(selected_message_is_visible(&app, "second"));
     assert!(selected_message_is_visible(&app, "third"));
@@ -180,7 +180,7 @@ fn message_selection_is_visible_and_survives_navigation_and_resize() -> Result<(
     assert!(selected_message_is_visible(&app, "second"));
     assert!(selected_message_is_visible(&app, "third"));
 
-    choose_message_action(&mut app, "Select Message")?;
+    app.choose_action("Select Message")?;
     assert!(!selected_message_is_visible(&app, "second"));
     assert!(selected_message_is_visible(&app, "third"));
     app.press(key::ESCAPE)?;
@@ -210,10 +210,10 @@ fn compatible_actions_apply_to_every_selected_message() -> Result<()> {
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    choose_message_action(&mut app, "Select Message")?;
+    app.choose_action("Select Message")?;
     app.press(key::UP)?;
-    choose_message_action(&mut app, "Select Message")?;
-    choose_message_action(&mut app, "Delete")?;
+    app.choose_action("Select Message")?;
+    app.choose_action("Delete")?;
     assert!(
         app.screen()
             .rows()
@@ -256,7 +256,7 @@ fn forwarding_uses_a_contextual_chat_picker() -> Result<()> {
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    choose_message_action(&mut app, "Forward")?;
+    app.choose_action("Forward")?;
     assert!(
         app.screen()
             .rows()
@@ -293,10 +293,10 @@ fn forwarding_applies_to_the_message_selection_in_transcript_order() -> Result<(
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    choose_message_action(&mut app, "Select Message")?;
+    app.choose_action("Select Message")?;
     app.press(key::UP)?;
-    choose_message_action(&mut app, "Select Message")?;
-    choose_message_action(&mut app, "Forward")?;
+    app.choose_action("Select Message")?;
+    app.choose_action("Forward")?;
     assert!(
         app.screen()
             .rows()
@@ -330,7 +330,7 @@ fn reacting_uses_a_small_contextual_picker_and_persists_the_result() -> Result<(
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    choose_message_action(&mut app, "React")?;
+    app.choose_action("React")?;
     assert!(
         app.screen()
             .rows()
@@ -342,22 +342,4 @@ fn reacting_uses_a_small_contextual_picker_and_persists_the_result() -> Result<(
     app.screen().message(41).expect_reaction("👍", 1, true)?;
     app.expect_durable_message(10, 41, "nice")?;
     app.expect_no_unhandled_work()
-}
-
-fn choose_message_action(app: &mut TestSystem, label: &str) -> Result<()> {
-    app.type_text("a")?;
-    let rows = app.screen().rows();
-    let title = rows
-        .iter()
-        .position(|row| row.contains("Message Actions"))
-        .expect("Message Actions popup should render");
-    let target = rows
-        .iter()
-        .skip(title + 2)
-        .position(|row| row.contains(label))
-        .unwrap_or_else(|| panic!("Message Action {label:?} should render in {rows:?}"));
-    for _ in 0..target {
-        app.press(key::DOWN)?;
-    }
-    app.press(key::ENTER)
 }

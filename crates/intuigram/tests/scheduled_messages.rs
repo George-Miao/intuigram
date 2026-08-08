@@ -10,7 +10,7 @@ fn scheduled(name: &str) -> Result<TestSystem> {
         )
         .start()?;
     app.press(key::ENTER)?;
-    app.press(key::CTRL_SCHEDULED)?;
+    app.choose_action("Scheduled Messages")?;
     Ok(app)
 }
 

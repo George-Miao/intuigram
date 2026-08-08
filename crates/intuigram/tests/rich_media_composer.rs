@@ -10,7 +10,7 @@ fn composer(name: &str) -> Result<TestSystem> {
         )
         .start()?;
     app.press(key::ENTER)?;
-    app.press(key::CTRL_MEDIA)?;
+    app.choose_action("Media & Contacts")?;
     Ok(app)
 }
 

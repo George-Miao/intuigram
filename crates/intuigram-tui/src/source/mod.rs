@@ -131,13 +131,6 @@ const BINDINGS: &[Binding] = &[
         Action::ManageFolders,
         true,
     ),
-    binding(KeyChord::alt(Key::Char('r')), "React", Action::React, true),
-    binding(
-        KeyChord::plain(Key::Char('v')),
-        "Vote",
-        Action::VotePoll,
-        true,
-    ),
     binding(
         KeyChord::plain(Key::Char(' ')),
         "Toggle Choice",
@@ -151,39 +144,15 @@ const BINDINGS: &[Binding] = &[
         true,
     ),
     binding(
-        KeyChord::control(Key::Char('l')),
-        "Open Link",
-        Action::OpenLink,
-        true,
-    ),
-    binding(
         KeyChord::plain(Key::Enter),
         "Open Destination",
         Action::ConfirmOpenLink,
         true,
     ),
     binding(
-        KeyChord::control(Key::Char('d')),
-        "Download",
-        Action::DownloadMedia,
-        true,
-    ),
-    binding(
-        KeyChord::alt(Key::Char('d')),
-        "Save As",
-        Action::SaveAs,
-        true,
-    ),
-    binding(
         KeyChord::plain(Key::Enter),
         "Save Here",
         Action::ConfirmSaveAs,
-        true,
-    ),
-    binding(
-        KeyChord::control(Key::Char('o')),
-        "Open Download",
-        Action::OpenDownload,
         true,
     ),
     binding(
@@ -201,6 +170,12 @@ const BINDINGS: &[Binding] = &[
     binding(KeyChord::plain(Key::Enter), "Open", Action::Open, true),
     binding(
         KeyChord::plain(Key::Char('a')),
+        "Actions",
+        Action::OpenActions,
+        true,
+    ),
+    binding(
+        KeyChord::alt(Key::Char('a')),
         "Actions",
         Action::OpenActions,
         true,
@@ -225,27 +200,9 @@ const BINDINGS: &[Binding] = &[
         true,
     ),
     binding(
-        KeyChord::control(Key::Char('o')),
-        "Attach",
-        Action::Attach,
-        true,
-    ),
-    binding(
-        KeyChord::control(Key::Char('v')),
-        "Paste",
-        Action::Paste,
-        false,
-    ),
-    binding(
         KeyChord::plain(Key::Enter),
         "Add Attachment",
         Action::ConfirmAttachment,
-        true,
-    ),
-    binding(
-        KeyChord::control(Key::Char('p')),
-        "Poll",
-        Action::CreatePoll,
         true,
     ),
     binding(
@@ -267,28 +224,9 @@ const BINDINGS: &[Binding] = &[
         false,
     ),
     binding(
-        KeyChord::control(Key::Char('r')),
-        "Reply",
-        Action::Reply,
-        true,
-    ),
-    binding(KeyChord::alt(Key::Char('e')), "Edit", Action::Edit, true),
-    binding(
         KeyChord::plain(Key::Up),
         "Edit Previous",
         Action::EditPrevious,
-        true,
-    ),
-    binding(
-        KeyChord::alt(Key::Char('d')),
-        "Delete",
-        Action::Delete,
-        true,
-    ),
-    binding(
-        KeyChord::alt(Key::Char('f')),
-        "Forward",
-        Action::Forward,
         true,
     ),
     binding(
@@ -310,27 +248,9 @@ const BINDINGS: &[Binding] = &[
         true,
     ),
     binding(
-        KeyChord::control(Key::Char('t')),
-        "Thread",
-        Action::OpenThread,
-        true,
-    ),
-    binding(
         KeyChord::plain(Key::Char('p')),
         "Pinned",
         Action::NavigatePinned,
-        true,
-    ),
-    binding(
-        KeyChord::alt(Key::Char('p')),
-        "Pin / Unpin",
-        Action::TogglePin,
-        true,
-    ),
-    binding(
-        KeyChord::plain(Key::Char(' ')),
-        "Select",
-        Action::ToggleMessageSelection,
         true,
     ),
     binding(

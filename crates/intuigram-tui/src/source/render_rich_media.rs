@@ -6,12 +6,6 @@ use super::*;
 
 pub(super) const RICH_MEDIA_BINDINGS: &[Binding] = &[
     binding(
-        KeyChord::control(Key::Char('m')),
-        "Media",
-        Action::OpenRichMedia,
-        true,
-    ),
-    binding(
         KeyChord::plain(Key::Enter),
         "Choose",
         Action::ChooseRichMedia,

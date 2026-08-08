@@ -155,6 +155,12 @@ impl EffectiveKeymap {
 
 fn binding_matches_context(view: &View, binding: &Binding) -> bool {
     match (binding.action, binding.key) {
+        (Action::OpenActions, key) if key == KeyChord::plain(Key::Char('a')) => {
+            view.focus == Focus::Transcript
+        }
+        (Action::OpenActions, key) if key == KeyChord::alt(Key::Char('a')) => {
+            view.focus == Focus::Composer
+        }
         (Action::TargetPreviousMessage, key) if key == KeyChord::plain(Key::Up) => {
             view.focus == Focus::Transcript
         }

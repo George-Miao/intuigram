@@ -30,7 +30,7 @@ fn disguised_links_are_confirmed_and_launchable_downloads_are_only_revealed() ->
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    app.press(key::CTRL_LINK)?;
+    app.choose_action("Open Link")?;
     app.screen()
         .action(Action::ConfirmOpenLink)
         .expect_available()?;
@@ -43,12 +43,12 @@ fn disguised_links_are_confirmed_and_launchable_downloads_are_only_revealed() ->
     app.press(key::ENTER)?;
     assert_eq!(app.opened_links(), &["https://evil.example/login"]);
 
-    app.press(key::CTRL_DOWNLOAD)?;
+    app.choose_action("Download")?;
     app.screen()
         .action(Action::OpenDownload)
         .expect_available()?;
     assert_eq!(app.downloaded_paths().len(), 1);
-    app.press(key::CTRL_OPEN)?;
+    app.choose_action("Open Download")?;
     assert_eq!(app.opened_downloads().len(), 1);
     assert!(app.opened_downloads()[0].1);
     app.expect_no_unhandled_work()

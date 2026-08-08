@@ -58,7 +58,7 @@ fn uncaptioned_photo_is_rendered_inline_without_its_text_fallback() -> Result<()
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    app.press(key::CTRL_DOWNLOAD)?;
+    app.choose_action("Download")?;
 
     let rows = app.screen().rows();
     assert!(rows.iter().any(|row| row.contains('▀')));
@@ -132,9 +132,9 @@ fn downloaded_photos_keep_independent_inline_previews() -> Result<()> {
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    app.press(key::CTRL_DOWNLOAD)?;
+    app.choose_action("Download")?;
     app.press(key::ALT_UP)?;
-    app.press(key::CTRL_DOWNLOAD)?;
+    app.choose_action("Download")?;
 
     let preview_cells = app
         .screen()
@@ -174,7 +174,7 @@ fn failed_background_channel_refresh_does_not_block_an_image_preview() -> Result
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    app.press(key::CTRL_DOWNLOAD)?;
+    app.choose_action("Download")?;
 
     assert!(app.screen().rows().iter().any(|row| row.contains('▀')));
     app.expect_no_unhandled_work()

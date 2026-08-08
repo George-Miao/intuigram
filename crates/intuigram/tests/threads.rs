@@ -30,7 +30,7 @@ fn channel_comment_thread_preserves_independent_draft_and_live_history() -> Resu
     app.press(key::ENTER)?;
     app.type_text("parent draft")?;
     app.press(key::ALT_UP)?;
-    app.press(key::CTRL_THREAD)?;
+    app.choose_action("Open Thread")?;
 
     app.screen().message(41).expect_sender("Lin")?;
     app.screen().composer().expect_focused()?;
@@ -65,7 +65,7 @@ fn channel_comment_thread_preserves_independent_draft_and_live_history() -> Resu
 
     app.press(key::ALT_UP)?;
     app.press(key::ALT_UP)?;
-    app.press(key::CTRL_THREAD)?;
+    app.choose_action("Open Thread")?;
     app.screen().composer().expect_text("thread draft")?;
     app.screen().message(42).expect_sender("Mina")?;
     app.expect_no_unhandled_work()
@@ -96,9 +96,9 @@ fn reply_sent_from_channel_comments_stays_in_that_thread() -> Result<()> {
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
-    app.press(key::CTRL_THREAD)?;
+    app.choose_action("Open Thread")?;
     app.press(key::ALT_UP)?;
-    app.press(key::CTRL_REPLY)?;
+    app.choose_action("Reply")?;
     app.type_text("Thanks")?;
     app.press(key::ENTER)?;
 

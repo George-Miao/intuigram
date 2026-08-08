@@ -20,7 +20,7 @@ fn pending_reply_is_acknowledged_after_telegram_completion() -> Result<()> {
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
     app.screen().message(40).expect_active()?;
-    app.press(key::CTRL_REPLY)?;
+    app.choose_action("Reply")?;
     app.type_text("on it")?;
     app.press(key::ENTER)?;
 

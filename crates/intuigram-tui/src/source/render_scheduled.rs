@@ -4,12 +4,6 @@ use super::*;
 
 pub(super) const SCHEDULED_BINDINGS: &[Binding] = &[
     binding(
-        KeyChord::control(Key::Char('g')),
-        "Scheduled",
-        Action::OpenScheduled,
-        true,
-    ),
-    binding(
         KeyChord::plain(Key::Char('n')),
         "New",
         Action::NewScheduled,
