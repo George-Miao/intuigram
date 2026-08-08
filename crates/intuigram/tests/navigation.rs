@@ -116,6 +116,34 @@ fn mouse_wheel_scrolls_the_chat_list_and_transcript() -> Result<()> {
 }
 
 #[test]
+fn chat_navigation_uses_directional_seventy_and_thirty_percent_caps() -> Result<()> {
+    let mut fixture = account("Ada");
+    for index in 0..16 {
+        fixture = fixture.with_chat(chat(100 + index, format!("Chat {index:02}")));
+    }
+    let mut telegram = TelegramScenario::new().bootstrap(fixture);
+    for index in 1..16 {
+        telegram = telegram.expect_load_history(100 + index, []);
+    }
+    let mut app = TestSystem::builder()
+        .name("navigation-directional-chat-caps")
+        .terminal(100, 36)
+        .telegram(telegram)
+        .start()?;
+
+    for _ in 0..6 {
+        app.press(key::DOWN)?;
+    }
+    let down_row = chat_list_row(&app.screen().rows(), "Chat 06");
+    assert!((18..=20).contains(&down_row));
+
+    app.press(key::UP)?;
+    let up_row = chat_list_row(&app.screen().rows(), "Chat 05");
+    assert!((9..=11).contains(&up_row));
+    app.expect_no_unhandled_work()
+}
+
+#[test]
 fn default_keys_follow_the_chat_composer_message_hierarchy() -> Result<()> {
     let mut archived = chat(20, "Archived");
     archived.folders = vec![-1];
@@ -261,4 +289,10 @@ fn nonempty_composer_up_moves_the_insertion_cursor() -> Result<()> {
     app.screen().composer().expect_focused()?;
     app.screen().composer().expect_text("firstX\nsecond")?;
     app.expect_no_unhandled_work()
+}
+
+fn chat_list_row(rows: &[String], title: &str) -> usize {
+    rows.iter()
+        .position(|row| row.chars().take(32).collect::<String>().contains(title))
+        .expect("Chat should be visible in the Chat list")
 }

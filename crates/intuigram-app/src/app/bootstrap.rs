@@ -11,6 +11,7 @@ impl App {
                 active_folder: 0,
                 chats: Vec::new(),
                 active_chat: None,
+                chat_scroll_direction: ScrollDirection::Down,
                 messages: Vec::new(),
                 chat_loading: ChatLoadingState::Idle,
                 pinned_messages: Vec::new(),

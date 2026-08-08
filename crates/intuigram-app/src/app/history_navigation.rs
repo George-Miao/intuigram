@@ -38,6 +38,11 @@ impl App {
         self.save_transcript_anchor();
         self.clear_message_selection();
         self.view.active_thread = None;
+        self.view.chat_scroll_direction = if forward {
+            ScrollDirection::Down
+        } else {
+            ScrollDirection::Up
+        };
         self.view.active_chat = next;
         self.restore_active_draft();
         let transcript_anchor = self

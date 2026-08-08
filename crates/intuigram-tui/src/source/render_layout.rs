@@ -166,7 +166,13 @@ pub(super) fn render_chats(
     });
     let item_height = mode.item_height(2);
     let visible_items = usize::from(list_area.height) / usize::from(item_height);
-    let range = anchored_window(view.chats.len(), view.active_chat, visible_items, false);
+    let range = anchored_window(
+        view.chats.len(),
+        view.active_chat,
+        visible_items,
+        false,
+        view.chat_scroll_direction,
+    );
     semantics.extend(
         view.chats[range.clone()]
             .iter()

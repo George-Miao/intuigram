@@ -290,13 +290,22 @@ pub(super) fn anchored_window(
     active: Option<usize>,
     visible_items: usize,
     default_to_end: bool,
+    direction: ScrollDirection,
 ) -> std::ops::Range<usize> {
     let visible_items = visible_items.max(1).min(length);
     let active = active
         .map(|index| index.min(length.saturating_sub(1)))
         .or_else(|| default_to_end.then(|| length.saturating_sub(1)))
         .unwrap_or(0);
-    let anchor = visible_items / 3;
+    let percent = match direction {
+        ScrollDirection::Up => 30,
+        ScrollDirection::Down => 70,
+    };
+    let anchor = visible_items
+        .saturating_sub(1)
+        .saturating_mul(percent)
+        .saturating_add(50)
+        / 100;
     let start = active
         .saturating_sub(anchor)
         .min(length.saturating_sub(visible_items));

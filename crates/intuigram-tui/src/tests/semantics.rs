@@ -103,7 +103,7 @@ fn folder_membership_overlay_shows_selection_and_current_membership() {
 }
 
 #[test]
-fn chat_list_scroll_keeps_the_active_chat_near_one_third_height() {
+fn chat_list_scroll_uses_directional_seventy_and_thirty_percent_anchors() {
     let mut view = view(Vec::new());
     view.chats = (0..14)
         .map(|index| ChatView {
@@ -120,15 +120,14 @@ fn chat_list_scroll_keeps_the_active_chat_near_one_third_height() {
         .collect();
     view.active_chat = Some(8);
 
-    let backend = TestBackend::new(100, 24);
-    let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
-    terminal
-        .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
-        .expect("view should render");
-    let buffer = terminal.backend().buffer();
-    let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
+    view.chat_scroll_direction = ScrollDirection::Down;
+    let down = render_test_frame(&view, 100, 24);
+    assert_eq!(down.buffer[(0, 10)].symbol(), "│");
 
-    assert_eq!(buffer[(0, 7)].symbol(), "│");
+    view.chat_scroll_direction = ScrollDirection::Up;
+    let up = render_test_frame(&view, 100, 24);
+    assert_eq!(up.buffer[(0, 7)].symbol(), "│");
+    let rendered: String = up.buffer.content.iter().map(|cell| cell.symbol()).collect();
     assert!(rendered.contains("Chat 8"));
     assert!(!rendered.contains("Chat 0"));
 }

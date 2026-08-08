@@ -170,6 +170,7 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
     apply(&mut app, Input::Intent(Intent::Action(Action::Cancel)));
     let second = app.transition(Input::Intent(Intent::Action(Action::MoveDown)));
     assert_eq!(second.view.active_chat, Some(1));
+    assert_eq!(second.view.chat_scroll_direction, ScrollDirection::Down);
     assert!(second.view.messages.is_empty());
     assert!(second.view.composer.text.is_empty());
     assert_eq!(
@@ -183,6 +184,7 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
     );
     let first = app.transition(Input::Intent(Intent::Action(Action::MoveUp)));
     assert_eq!(first.view.active_chat, Some(0));
+    assert_eq!(first.view.chat_scroll_direction, ScrollDirection::Up);
     assert_eq!(first.view.messages, hierarchy_bootstrap().messages);
     assert_eq!(first.view.composer.text, "first draft");
     assert_eq!(

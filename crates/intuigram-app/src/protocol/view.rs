@@ -30,6 +30,10 @@ pub struct View {
     /// Active Chat index.
     pub active_chat: Option<usize>,
 
+    /// Direction of the most recent Chat-list movement, used for viewport
+    /// anchoring.
+    pub chat_scroll_direction: ScrollDirection,
+
     /// Loaded messages for the active Chat.
     pub messages: Vec<MessageView>,
 
