@@ -207,7 +207,7 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
         Color::Rgb(58, 148, 197)
     );
     assert_eq!(buffer[(32, 17)].symbol(), "│");
-    assert_eq!(buffer[(34, 17)].symbol(), "D");
+    assert_eq!(buffer[(34, 17)].symbol(), "T");
     assert_eq!(buffer[(5, 5)].bg, Color::Rgb(244, 240, 217));
     assert_eq!(buffer[(40, 5)].bg, Color::Rgb(244, 240, 217));
     assert_eq!(buffer[(40, 16)].bg, Color::Rgb(230, 226, 204));
