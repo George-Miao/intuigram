@@ -160,6 +160,27 @@ fn restored_connection_preserves_pending_messages_and_interaction_state() {
 }
 
 #[test]
+fn restored_connection_preserves_the_in_progress_composer() {
+    let mut app = App::new();
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
+    );
+    apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
+    apply(
+        &mut app,
+        Input::Intent(Intent::Insert("still typing".to_owned())),
+    );
+
+    let update = app.transition(Input::Adapter(AdapterEvent::ConnectionRestored(
+        hierarchy_bootstrap(),
+    )));
+
+    assert_eq!(update.view.focus, Focus::Composer);
+    assert_eq!(update.view.composer.text, "still typing");
+}
+
+#[test]
 fn folder_picker_adds_and_removes_the_active_chat() {
     let mut app = App::new();
     apply(

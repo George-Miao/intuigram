@@ -287,6 +287,8 @@ impl App {
 
     pub(super) fn merge_restored_connection(&mut self, bootstrap: Bootstrap) {
         let active_chat = self.active_chat_id();
+        let active_history = self.active_history_key();
+        let composer = self.view.composer.clone();
         let active_folder = self
             .view
             .folders
@@ -343,7 +345,11 @@ impl App {
         self.view.focus = focus;
         self.view.notice = None;
         self.refresh_active_history_at(active_message, transcript_anchor);
-        self.restore_active_draft();
+        if self.active_history_key() == active_history {
+            self.view.composer = composer;
+        } else {
+            self.restore_active_draft();
+        }
         self.reset_background_history();
     }
 }
