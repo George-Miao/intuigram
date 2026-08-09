@@ -305,6 +305,14 @@ impl App {
             self.histories
                 .insert(HistoryKey::root(chat), bootstrap.messages);
         }
+        self.next_local_message_id = self
+            .histories
+            .values()
+            .flatten()
+            .map(|message| message.id.0)
+            .filter(|id| *id < 0)
+            .min()
+            .unwrap_or(0);
         self.rebuild_unread_boundaries();
         self.view.active_message = None;
         self.view.selected_messages.clear();

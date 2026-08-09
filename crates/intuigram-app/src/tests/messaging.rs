@@ -51,6 +51,39 @@ fn failed_optimistic_send_restores_the_draft_and_marks_the_message_failed() {
         })
     );
 }
+
+#[test]
+fn restored_optimistic_messages_reserve_lower_local_ids() {
+    let mut fixture = bootstrap();
+    fixture.messages.push(MessageView {
+        id: MessageId(-7),
+        sender: "You".to_owned(),
+        body: "queued before restart".to_owned(),
+        timestamp: "now".to_owned(),
+        direction: MessageDirection::Outgoing,
+        delivery: DeliveryState::Pending,
+        reply_to: None,
+        details: MessageDetails::default(),
+    });
+    let mut app = App::new();
+    apply(&mut app, Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
+    apply(
+        &mut app,
+        Input::Intent(Intent::Insert("after restart".to_owned())),
+    );
+
+    let sent = app.transition(Input::Intent(Intent::Action(Action::Send)));
+
+    assert!(matches!(
+        sent.effect,
+        Some(Effect::SendMessage {
+            local_id: MessageId(-8),
+            ..
+        })
+    ));
+}
+
 #[test]
 fn thread_navigation_preserves_parent_history_and_an_independent_draft() {
     let mut app = App::new();
