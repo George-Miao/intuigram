@@ -2,11 +2,13 @@ mod codec;
 mod endpoints;
 mod lifecycle;
 mod mapping;
+mod poll;
 mod repository;
 mod types;
 
 pub(in crate::account) use endpoints::{OutboxCommand, execute};
 pub(in crate::account) use lifecycle::recover_in_flight;
+pub use poll::OutboxPoll;
 pub use repository::Error;
 pub(crate) use repository::{load, restore};
 pub use types::{

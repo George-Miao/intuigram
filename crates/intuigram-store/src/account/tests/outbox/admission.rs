@@ -7,7 +7,7 @@ use tempfile::tempdir;
 use super::super::sync_batch;
 use crate::{
     AccountDatabase, OutboxAdmission, OutboxExpiry, OutboxMedia, OutboxOperation, OutboxPayload,
-    OutboxPayloadV1, OutboxState, StoreLayout, StoredDraft, StoredMessage,
+    OutboxPayloadV1, OutboxPoll, OutboxState, StoreLayout, StoredDraft, StoredMessage,
 };
 
 #[test]
@@ -58,10 +58,10 @@ fn admission_atomically_consumes_the_scoped_draft_and_keeps_exact_media() {
     assert_eq!(cached.outbox[0].state, OutboxState::Ready);
     assert_eq!(cached.outbox[0].media, vec![media]);
 
-    database
-        .claim_outbox(40)
-        .expect("claim should complete")
-        .expect("admitted send should be eligible");
+    assert!(matches!(
+        database.claim_outbox(40).expect("claim should complete"),
+        OutboxPoll::Claimed(record) if record.id == id
+    ));
     let mut replacement = message(43, "send me");
     replacement.delivery = "sent".to_owned();
     replacement.timestamp = "12:01".to_owned();
@@ -134,10 +134,10 @@ fn failed_server_replacement_keeps_the_outbox_and_media_in_flight() {
             expiry: OutboxExpiry::Never,
         })
         .expect("Outbox item should persist without a cached Chat");
-    database
-        .claim_outbox(40)
-        .expect("claim should complete")
-        .expect("Outbox item should be eligible");
+    assert!(matches!(
+        database.claim_outbox(40).expect("claim should complete"),
+        OutboxPoll::Claimed(record) if record.id == id
+    ));
     let replacement = message(43, "server result");
 
     assert!(database.acknowledge_outbox(id, Some(replacement)).is_err());

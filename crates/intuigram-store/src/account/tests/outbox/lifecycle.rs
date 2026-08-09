@@ -7,8 +7,84 @@ use tempfile::tempdir;
 
 use crate::{
     AccountDatabase, AccountId, DatabaseRequest, OutboxAdmission, OutboxExpiry, OutboxOperation,
-    OutboxPayload, OutboxPayloadV1, OutboxState, Result, StoreLayout,
+    OutboxPayload, OutboxPayloadV1, OutboxPoll, OutboxRecord, OutboxState, Result, StoreLayout,
 };
+
+#[test]
+fn claimed_fifo_head_blocks_every_newer_item() {
+    let temporary = tempdir().expect("temporary directory should be created");
+    let layout = StoreLayout::new(temporary.path().join("intuigram"));
+    let database =
+        AccountDatabase::begin_login(&layout).expect("pending login database should open");
+    let first = database
+        .admit_outbox(admission(OutboxOperation::Send, 10, OutboxExpiry::Never))
+        .expect("first item should be admitted");
+    database
+        .admit_outbox(admission(
+            OutboxOperation::Mutation,
+            20,
+            OutboxExpiry::Never,
+        ))
+        .expect("second item should be admitted");
+
+    let claimed = claimed(
+        database
+            .claim_outbox(100)
+            .expect("first claim should complete"),
+    );
+    assert_eq!(claimed.id, first);
+    assert_eq!(
+        database
+            .claim_outbox(100)
+            .expect("blocked claim should complete"),
+        OutboxPoll::Busy { id: first }
+    );
+}
+
+#[test]
+fn deferred_fifo_head_blocks_newer_ready_work_until_due() {
+    let temporary = tempdir().expect("temporary directory should be created");
+    let layout = StoreLayout::new(temporary.path().join("intuigram"));
+    let database =
+        AccountDatabase::begin_login(&layout).expect("pending login database should open");
+    let first = database
+        .admit_outbox(admission(OutboxOperation::Send, 10, OutboxExpiry::Never))
+        .expect("first item should be admitted");
+    database
+        .admit_outbox(admission(
+            OutboxOperation::Mutation,
+            20,
+            OutboxExpiry::Never,
+        ))
+        .expect("second item should be admitted");
+    claimed(
+        database
+            .claim_outbox(100)
+            .expect("first claim should complete"),
+    );
+    database
+        .defer_outbox(first, 200, "flood wait".to_owned())
+        .expect("first item should defer");
+
+    assert_eq!(
+        database
+            .claim_outbox(199)
+            .expect("early claim should complete"),
+        OutboxPoll::WaitingUntil {
+            id: first,
+            available_at: 200,
+        }
+    );
+    assert_eq!(
+        claimed(
+            database
+                .claim_outbox(200)
+                .expect("due claim should complete")
+        )
+        .id,
+        first
+    );
+}
 
 #[test]
 fn fifo_claim_and_explicit_transitions_are_durable() {
@@ -30,54 +106,63 @@ fn fifo_claim_and_explicit_transitions_are_durable() {
         ))
         .expect("mutation should be admitted");
 
-    let claimed = database
-        .claim_outbox(100)
-        .expect("claim should complete")
-        .expect("first item should be eligible");
-    assert_eq!(claimed.id, first);
-    assert_eq!(claimed.attempts, 1);
+    let first_claimed = claimed(database.claim_outbox(100).expect("claim should complete"));
+    assert_eq!(first_claimed.id, first);
+    assert_eq!(first_claimed.attempts, 1);
     database
         .defer_outbox(first, 200, "flood wait".to_owned())
         .expect("claimed item should defer");
     assert_eq!(
         database
             .claim_outbox(100)
-            .expect("second claim should complete")
-            .expect("second item should be eligible")
-            .id,
+            .expect("blocked claim should complete"),
+        OutboxPoll::WaitingUntil {
+            id: first,
+            available_at: 200,
+        }
+    );
+    assert_eq!(
+        claimed(
+            database
+                .claim_outbox(200)
+                .expect("retry claim should complete")
+        )
+        .id,
+        first
+    );
+    database
+        .acknowledge_outbox(first, None)
+        .expect("acknowledged item should be removed");
+    assert_eq!(
+        claimed(
+            database
+                .claim_outbox(200)
+                .expect("second claim should complete")
+        )
+        .id,
         second
     );
     database
         .fail_outbox(second, "permanent".to_owned())
         .expect("claimed item should fail");
     assert_eq!(
-        database
-            .claim_outbox(100)
-            .expect("mutation claim should complete")
-            .expect("mutation should be eligible")
-            .id,
+        claimed(
+            database
+                .claim_outbox(200)
+                .expect("mutation claim should complete")
+        )
+        .id,
         mutation
     );
     database
         .conflict_outbox(mutation, "ambiguous".to_owned())
         .expect("claimed mutation should conflict");
-    assert!(
-        database
-            .claim_outbox(199)
-            .expect("early retry check should complete")
-            .is_none()
-    );
     assert_eq!(
         database
             .claim_outbox(200)
-            .expect("retry claim should complete")
-            .expect("deferred item should become eligible")
-            .id,
-        first
+            .expect("terminal queue poll should complete"),
+        OutboxPoll::Idle
     );
-    database
-        .acknowledge_outbox(first, None)
-        .expect("acknowledged item should be removed");
 
     let remaining = database.load_outbox().expect("Outbox should load");
     assert_eq!(remaining.len(), 2);
@@ -124,62 +209,18 @@ fn ordinary_sends_never_expire_silently() {
 
 #[test]
 fn reopening_recovers_only_replay_safe_in_flight_work() {
-    let temporary = tempdir().expect("temporary directory should be created");
-    let layout = StoreLayout::new(temporary.path().join("intuigram"));
-    let account = AccountId::new(7).expect("fixture Account should be valid");
-    let pending =
-        AccountDatabase::begin_login(&layout).expect("pending login database should open");
-    let send = pending
-        .admit_outbox(admission(OutboxOperation::Send, 10, OutboxExpiry::Never))
-        .expect("send should be admitted");
-    let create = pending
-        .admit_outbox(admission(OutboxOperation::Create, 15, OutboxExpiry::Never))
-        .expect("create should be admitted");
-    let mutation = pending
-        .admit_outbox(admission(
-            OutboxOperation::Mutation,
-            20,
-            OutboxExpiry::Never,
-        ))
-        .expect("mutation should be admitted");
     assert_eq!(
-        pending
-            .claim_outbox(100)
-            .expect("send claim should complete")
-            .expect("send should be eligible")
-            .id,
-        send
+        recovered_state(OutboxOperation::Send).state,
+        OutboxState::Ready
     );
     assert_eq!(
-        pending
-            .claim_outbox(100)
-            .expect("create claim should complete")
-            .expect("create should be eligible")
-            .id,
-        create
+        recovered_state(OutboxOperation::Create).state,
+        OutboxState::Ready
     );
+    let mutation = recovered_state(OutboxOperation::Mutation);
+    assert_eq!(mutation.state, OutboxState::Conflict);
     assert_eq!(
-        pending
-            .claim_outbox(100)
-            .expect("mutation claim should complete")
-            .expect("mutation should be eligible")
-            .id,
-        mutation
-    );
-    let database = pending
-        .finish_login(&layout, account)
-        .expect("database should promote");
-    drop(database);
-
-    let reopened = AccountDatabase::open(&layout, account).expect("database should reopen");
-    let records = reopened
-        .load_outbox()
-        .expect("recovered Outbox should load");
-    assert_eq!(records[0].state, OutboxState::Ready);
-    assert_eq!(records[1].state, OutboxState::Ready);
-    assert_eq!(records[2].state, OutboxState::Conflict);
-    assert_eq!(
-        records[2].last_error.as_deref(),
+        mutation.last_error.as_deref(),
         Some("interrupted before mutation acknowledgement")
     );
 }
@@ -197,12 +238,46 @@ fn runtime_endpoint_returns_outbox_results_without_blocking_the_caller() {
             .expect("admission should enqueue"),
     )
     .expect("admission should complete");
-    let claimed = wait_for(store.claim_outbox(20).expect("claim should enqueue"))
-        .expect("claim should complete")
-        .expect("admitted item should be eligible");
+    let claimed = claimed(
+        wait_for(store.claim_outbox(20).expect("claim should enqueue"))
+            .expect("claim should complete"),
+    );
 
     assert_eq!(claimed.id, id);
     assert_eq!(claimed.state, OutboxState::InFlight);
+}
+
+fn recovered_state(operation: OutboxOperation) -> OutboxRecord {
+    let temporary = tempdir().expect("temporary directory should be created");
+    let layout = StoreLayout::new(temporary.path().join("intuigram"));
+    let account = AccountId::new(7).expect("fixture Account should be valid");
+    let pending =
+        AccountDatabase::begin_login(&layout).expect("pending login database should open");
+    let id = pending
+        .admit_outbox(admission(operation, 10, OutboxExpiry::Never))
+        .expect("item should be admitted");
+    assert_eq!(
+        claimed(pending.claim_outbox(100).expect("claim should complete")).id,
+        id
+    );
+    let database = pending
+        .finish_login(&layout, account)
+        .expect("database should promote");
+    drop(database);
+
+    AccountDatabase::open(&layout, account)
+        .expect("database should reopen")
+        .load_outbox()
+        .expect("recovered Outbox should load")
+        .pop()
+        .expect("recovered item should remain")
+}
+
+fn claimed(poll: OutboxPoll) -> OutboxRecord {
+    let OutboxPoll::Claimed(record) = poll else {
+        panic!("Outbox should return a claimed item")
+    };
+    record
 }
 
 fn wait_for<T>(request: DatabaseRequest<T>) -> Result<T> {

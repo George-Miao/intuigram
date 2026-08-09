@@ -47,7 +47,7 @@ pub use model::{
 use offline_media::{load_offline_chats, set_chat_media_offline};
 pub use outbox::{
     Error as OutboxError, OutboxAdmission, OutboxExpiry, OutboxId, OutboxMedia, OutboxOperation,
-    OutboxPayload, OutboxPayloadV1, OutboxRecord, OutboxState,
+    OutboxPayload, OutboxPayloadV1, OutboxPoll, OutboxRecord, OutboxState,
 };
 pub use records::{CachedAccount, StoredDraft, StoredSelection, StoredTranscriptAnchor};
 pub use saved_dialog::StoredSavedDialog;

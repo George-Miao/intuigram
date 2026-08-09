@@ -3,8 +3,8 @@ use tempfile::tempdir;
 
 use crate::{
     AccountDatabase, AccountId, AccountOpen, OutboxAdmission, OutboxExpiry, OutboxMedia,
-    OutboxOperation, OutboxPayload, OutboxPayloadV1, OutboxState, SessionMaterial, StoreLayout,
-    StoredDraft,
+    OutboxOperation, OutboxPayload, OutboxPayloadV1, OutboxPoll, OutboxState, SessionMaterial,
+    StoreLayout, StoredDraft,
 };
 
 #[test]
@@ -120,10 +120,10 @@ fn rebuild_preserves_outbox_payload_media_and_retry_state() {
             expiry: OutboxExpiry::Never,
         })
         .expect("Outbox item should persist");
-    pending
-        .claim_outbox(30)
-        .expect("claim should complete")
-        .expect("Outbox item should be eligible");
+    assert!(matches!(
+        pending.claim_outbox(30).expect("claim should complete"),
+        OutboxPoll::Claimed(record) if record.id == id
+    ));
     pending
         .defer_outbox(id, 40, "retry later".to_owned())
         .expect("Outbox item should defer");

@@ -9,7 +9,7 @@ mod recovery;
 pub use account::{
     AccountCipher, AccountDatabase, AccountStore, CachedAccount, DatabaseRequest, Error,
     OutboxAdmission, OutboxError, OutboxExpiry, OutboxId, OutboxMedia, OutboxOperation,
-    OutboxPayload, OutboxPayloadV1, OutboxRecord, OutboxState, Result, SecurityError,
+    OutboxPayload, OutboxPayloadV1, OutboxPoll, OutboxRecord, OutboxState, Result, SecurityError,
     SecurityResult, SessionMaterial, StoredChat, StoredDraft, StoredFolder, StoredMessage,
     StoredMutation, StoredSavedDialog, StoredSelection, StoredTopic, StoredTranscriptAnchor,
     SyncBatch, SyncCursor, enable_local_lock, local_lock_is_enabled,

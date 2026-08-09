@@ -2,29 +2,61 @@ use rusqlite::{Connection, OptionalExtension, params};
 use snafu::ResultExt;
 
 use super::repository::{DatabaseSnafu, Error, Result};
-use super::{OutboxId, OutboxPayload, OutboxRecord, OutboxState, mapping, repository};
+use super::{OutboxId, OutboxPayload, OutboxPoll, OutboxState, mapping, repository};
 use crate::account::{StoredMessage, replace_message_in};
 
-pub(super) fn claim(connection: &Connection, now: i64) -> Result<Option<OutboxRecord>> {
+pub(super) fn claim(connection: &Connection, now: i64) -> Result<OutboxPoll> {
     let transaction = connection
         .unchecked_transaction()
         .context(DatabaseSnafu { operation: "claim" })?;
-    let raw_id = transaction
+    let in_flight = transaction
         .query_row(
-            "SELECT outbox_id FROM outbox WHERE (state = 'ready' OR (state = 'deferred' AND \
-             available_at <= ?1)) AND (expires_at IS NULL OR expires_at > ?1) ORDER BY \
-             admitted_at, outbox_id LIMIT 1",
-            [now],
+            "SELECT outbox_id FROM outbox WHERE state = 'in_flight' ORDER BY admitted_at, \
+             outbox_id LIMIT 1",
+            [],
             |row| row.get::<_, i64>(0),
         )
         .optional()
         .context(DatabaseSnafu { operation: "claim" })?;
-    let Some(raw_id) = raw_id else {
+    if let Some(raw_id) = in_flight {
+        let id = OutboxId::from_stored(raw_id).ok_or(Error::InvalidId { value: raw_id })?;
         transaction
             .commit()
             .context(DatabaseSnafu { operation: "claim" })?;
-        return Ok(None);
+        return Ok(OutboxPoll::Busy { id });
+    }
+    let head = transaction
+        .query_row(
+            "SELECT outbox_id, state, available_at FROM outbox WHERE state IN ('ready', \
+             'deferred') AND (expires_at IS NULL OR expires_at > ?1) ORDER BY admitted_at, \
+             outbox_id LIMIT 1",
+            [now],
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<i64>>(2)?,
+                ))
+            },
+        )
+        .optional()
+        .context(DatabaseSnafu { operation: "claim" })?;
+    let Some((raw_id, state, available_at)) = head else {
+        transaction
+            .commit()
+            .context(DatabaseSnafu { operation: "claim" })?;
+        return Ok(OutboxPoll::Idle);
     };
+    let id = OutboxId::from_stored(raw_id).ok_or(Error::InvalidId { value: raw_id })?;
+    if mapping::parse_state(&state)? == OutboxState::Deferred {
+        let available_at = available_at.ok_or(Error::MissingAvailability { id })?;
+        if available_at > now {
+            transaction
+                .commit()
+                .context(DatabaseSnafu { operation: "claim" })?;
+            return Ok(OutboxPoll::WaitingUntil { id, available_at });
+        }
+    }
     transaction
         .execute(
             "UPDATE outbox SET state = 'in_flight', available_at = NULL, attempts = attempts + 1 \
@@ -32,11 +64,11 @@ pub(super) fn claim(connection: &Connection, now: i64) -> Result<Option<OutboxRe
             [raw_id],
         )
         .context(DatabaseSnafu { operation: "claim" })?;
+    let record = mapping::load_one(&transaction, id)?;
     transaction
         .commit()
         .context(DatabaseSnafu { operation: "claim" })?;
-    let id = OutboxId::from_stored(raw_id).ok_or(Error::InvalidId { value: raw_id })?;
-    mapping::load_one(connection, id).map(Some)
+    Ok(OutboxPoll::Claimed(record))
 }
 
 pub(super) fn defer(

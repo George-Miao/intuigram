@@ -2,7 +2,7 @@ use std::sync::mpsc::{self, SyncSender};
 
 use snafu::ResultExt;
 
-use super::{OutboxAdmission, OutboxId, OutboxRecord, lifecycle, repository};
+use super::{OutboxAdmission, OutboxId, OutboxPoll, OutboxRecord, lifecycle, repository};
 use crate::account::worker::{AsyncReply, Command, async_response, map_try_send_error};
 use crate::account::{
     AccountDatabase, AccountStore, DatabaseRequest, OutboxSnafu, Result, StoredMessage,
@@ -18,7 +18,7 @@ pub(in crate::account) enum OutboxCommand {
     },
     Claim {
         now: i64,
-        reply: Reply<Option<OutboxRecord>>,
+        reply: Reply<OutboxPoll>,
     },
     Defer {
         id: OutboxId,
@@ -133,8 +133,8 @@ impl AccountDatabase {
         self.outbox_request(|reply| OutboxCommand::Load { reply })
     }
 
-    /// Claims the first eligible Outbox item in FIFO order.
-    pub fn claim_outbox(&self, now: i64) -> Result<Option<OutboxRecord>> {
+    /// Polls and possibly claims the single FIFO Outbox head.
+    pub fn claim_outbox(&self, now: i64) -> Result<OutboxPoll> {
         self.outbox_request(|reply| OutboxCommand::Claim { now, reply })
     }
 
@@ -208,8 +208,8 @@ impl AccountStore {
         self.outbox_request(|reply| OutboxCommand::Load { reply })
     }
 
-    /// Enqueues a claim of the first eligible FIFO item.
-    pub fn claim_outbox(&self, now: i64) -> Result<DatabaseRequest<Option<OutboxRecord>>> {
+    /// Enqueues a poll and possible claim of the single FIFO Outbox head.
+    pub fn claim_outbox(&self, now: i64) -> Result<DatabaseRequest<OutboxPoll>> {
         self.outbox_request(|reply| OutboxCommand::Claim { now, reply })
     }
 

@@ -28,6 +28,9 @@ pub enum Error {
     #[snafu(display("Outbox item {} does not exist", id.get()))]
     NotFound { id: OutboxId },
 
+    #[snafu(display("deferred Outbox item {} has no availability timestamp", id.get()))]
+    MissingAvailability { id: OutboxId },
+
     #[snafu(display(
         "Outbox item {} cannot transition from {from:?} to {to:?}",
         id.get()
