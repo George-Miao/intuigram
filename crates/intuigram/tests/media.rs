@@ -10,6 +10,7 @@ fn unsupported_content_remains_visible_as_an_informative_media_card() -> Result<
         description: "This Telegram content is not supported by this build".to_owned(),
         details: Vec::new(),
         poll: None,
+        specialized: None,
         remote_id: None,
     });
     let mut app = TestSystem::builder()
@@ -44,6 +45,7 @@ fn uncaptioned_photo_is_rendered_inline_without_its_text_fallback() -> Result<()
         description: "image/png".to_owned(),
         details: Vec::new(),
         poll: None,
+        specialized: None,
         remote_id: Some("photo:41".to_owned()),
     });
     let mut app = TestSystem::builder()
@@ -76,6 +78,7 @@ fn photo_preview_is_loaded_when_the_chat_opens() -> Result<()> {
         description: "image/png".to_owned(),
         details: Vec::new(),
         poll: None,
+        specialized: None,
         remote_id: Some("photo:44".to_owned()),
     });
     let mut app = TestSystem::builder()
@@ -113,6 +116,7 @@ fn inline_image_has_vertical_padding_inside_the_active_message_rule() -> Result<
         description: "image/png".to_owned(),
         details: Vec::new(),
         poll: None,
+        specialized: None,
         remote_id: Some("photo:45".to_owned()),
     });
     let mut app = TestSystem::builder()
@@ -156,6 +160,7 @@ fn downloaded_photos_keep_independent_inline_previews() -> Result<()> {
             description: "image/png".to_owned(),
             details: Vec::new(),
             poll: None,
+            specialized: None,
             remote_id: Some(format!("photo:{id}")),
         });
         photo
@@ -200,6 +205,7 @@ fn loaded_preview_survives_redraw_scroll_and_chat_reselection() -> Result<()> {
         description: "image/webp".to_owned(),
         details: Vec::new(),
         poll: None,
+        specialized: None,
         remote_id: Some("sticker:46".to_owned()),
     });
     let fixture = account("Ada")
@@ -241,6 +247,7 @@ fn failed_background_channel_refresh_does_not_block_an_image_preview() -> Result
         description: "image/png".to_owned(),
         details: Vec::new(),
         poll: None,
+        specialized: None,
         remote_id: Some("photo:43".to_owned()),
     });
     let mut app = TestSystem::builder()

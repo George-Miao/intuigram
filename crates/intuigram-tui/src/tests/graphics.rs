@@ -278,6 +278,7 @@ fn image_message_view() -> View {
                 description: "image".to_owned(),
                 details: vec!["1280 × 720".to_owned(), "2 MB".to_owned()],
                 poll: None,
+                specialized: None,
                 remote_id: Some("42".to_owned()),
             }),
             ..MessageDetails::default()

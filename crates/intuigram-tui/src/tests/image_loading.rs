@@ -90,6 +90,7 @@ fn image_message_view() -> View {
                 description: "image".to_owned(),
                 details: Vec::new(),
                 poll: None,
+                specialized: None,
                 remote_id: Some("42".to_owned()),
             }),
             ..MessageDetails::default()

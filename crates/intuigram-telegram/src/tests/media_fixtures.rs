@@ -1,30 +1,4 @@
 #[test]
-fn unsupported_and_specialized_media_keep_informative_cards() {
-    let unsupported = normalize_serialized_media(&tl::enums::MessageMedia::Unsupported.to_bytes())
-        .expect("unsupported constructor should remain representable");
-    assert_eq!(unsupported.kind, MediaKind::Unsupported);
-    assert_eq!(unsupported.title, "Unsupported Content");
-    assert!(!unsupported.description.is_empty());
-
-    let live_location = tl::enums::MessageMedia::GeoLive(tl::types::MessageMediaGeoLive {
-        geo: tl::enums::GeoPoint::Point(tl::types::GeoPoint {
-            long: 139.6917,
-            lat: 35.6895,
-            access_hash: 1,
-            accuracy_radius: Some(10),
-        }),
-        heading: None,
-        period: 900,
-        proximity_notification_radius: None,
-    });
-    let specialized = normalize_serialized_media(&live_location.to_bytes())
-        .expect("specialized constructor should remain representable");
-    assert_eq!(specialized.kind, MediaKind::Specialized);
-    assert!(!specialized.title.is_empty());
-    assert!(!specialized.description.is_empty());
-}
-
-#[test]
 fn quiz_options_results_and_solution_are_normalized() {
     let answers = [("Compio", vec![1]), ("Tokio", vec![2])]
         .into_iter()

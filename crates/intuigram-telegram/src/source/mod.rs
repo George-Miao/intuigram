@@ -19,9 +19,12 @@ use grammers_tl_types as tl;
 use grammers_tl_types::{Deserializable as _, Identifiable as _};
 use intuigram_app::{
     AdapterEvent, AvatarRef, Bootstrap, ChatId, ChatKind, ChatView, DeliveryState,
-    FolderDetailsView, FolderId, FolderRulesView, FolderView, MediaCard, MediaKind, MessageDetails,
-    MessageDirection, MessageId, MessageView, PollOptionView, PollView, ReactionView,
-    SavedDialogView, TextEntity, TextEntityKind, TopicAvailability,
+    FolderDetailsView, FolderId, FolderRulesView, FolderView, GameView, GiftKindView, GiftView,
+    GiveawayInfoView, GiveawayStateView, GiveawayView, InvoiceView, LiveLocationView, MediaCard,
+    MediaKind, MessageDetails, MessageDirection, MessageId, MessageView, PaidMediaItemView,
+    PaidMediaView, PollOptionView, PollView, ReactionView, SavedDialogView, SharedStoryView,
+    SpecializedMediaView, SpecializedRefreshTarget, StoryStateView, TextEntity, TextEntityKind,
+    TodoItemView, TodoListView, TopicAvailability,
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 
@@ -46,6 +49,7 @@ mod client_saved_dialogs;
 mod client_scheduled;
 mod client_send;
 mod client_session;
+mod client_specialized;
 mod client_topics;
 mod client_vote;
 mod connection;
@@ -92,11 +96,12 @@ pub(crate) use login_normalization::{
     normalize_code_delivery, normalize_code_delivery_method, qr_login_uri, rpc_migration_dc,
 };
 pub use media_normalization::normalize_serialized_media;
-pub(crate) use media_normalization::service_event_description;
 use media_normalization::{
     format_date, format_timestamp, media_card_fallback, nonnegative_u32, normalize_forward,
-    normalize_media, normalize_reactions, user_display_name,
+    normalize_media, normalize_paid_media_items, normalize_reactions, normalize_story_item,
+    user_display_name,
 };
+pub(crate) use media_normalization::{service_event_description, service_event_media};
 #[cfg(test)]
 pub(crate) use message_normalization::thread_root_message_id;
 use message_normalization::{

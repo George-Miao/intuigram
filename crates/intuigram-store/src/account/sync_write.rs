@@ -158,6 +158,21 @@ pub(super) fn apply_sync_mutation(
                 }
             }
         }
+        StoredMutation::SetPaidMediaItems {
+            chat_id,
+            message_id,
+            items,
+        } => {
+            // Partial Telegram updates do not contain the Stars price or the
+            // enclosing Message. The generic upsert API therefore cannot
+            // express this lossless child replacement; update only the typed
+            // JSON path while retaining every surrounding field.
+            connection.execute(
+                "UPDATE messages SET metadata = json_set(metadata, '$.media.specialized.items', \
+                 json(?3)) WHERE chat_id = ?1 AND message_id = ?2",
+                params![chat_id, message_id, items],
+            )?;
+        }
         StoredMutation::DeleteMessages { chat_id, ids } => {
             for id in ids {
                 if let Some(chat_id) = chat_id {

@@ -314,6 +314,9 @@ impl Backend {
                 message,
                 options,
             } => self.vote_poll(chat, *message, options).await,
+            effect @ (Effect::RefreshSpecialized { .. }
+            | Effect::ToggleTodoItem { .. }
+            | Effect::AppendTodoItem { .. }) => self.execute_specialized(effect).await,
             Effect::OpenExternalLink { url } => Ok(Some(
                 match intuigram_media::PlatformLauncher.open_url(&url).await {
                     Ok(()) => AdapterEvent::OperationCompleted(format!("Opened {url}")),

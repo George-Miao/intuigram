@@ -177,6 +177,44 @@ pub(super) fn render_poll_vote(frame: &mut Frame<'_>, area: Rect, view: &View) {
     render_overlay(frame, popup, lines);
 }
 
+pub(super) fn render_todo_editor(frame: &mut Frame<'_>, area: Rect, view: &View) {
+    let Some(editor) = &view.todo_editor else {
+        return;
+    };
+    let popup = centered_rect(64, 64, area);
+    let heading = Line::from(Span::styled(
+        format!("Update TODO in Message {}", editor.message.0),
+        Style::default().add_modifier(Modifier::BOLD),
+    ));
+    let mut lines = vec![heading];
+    if let Some(append) = &editor.append {
+        lines.push(Line::from(Span::styled(
+            "Enter submits · Esc returns to items",
+            Style::default().fg(MUTED_TEXT),
+        )));
+        lines.push(Line::from(""));
+        lines.push(Line::from(vec![
+            selection_rule(true),
+            Span::raw(format!("New item: {append}")),
+        ]));
+    } else {
+        lines.push(Line::from(Span::styled(
+            "Space toggles · a appends",
+            Style::default().fg(MUTED_TEXT),
+        )));
+        lines.push(Line::from(""));
+        lines.extend(editor.items.iter().enumerate().map(|(index, item)| {
+            let marker = if item.completed { "✓ " } else { "○ " };
+            Line::from(vec![
+                selection_rule(editor.selected == index),
+                Span::styled(marker, Style::default().fg(PRIMARY)),
+                Span::raw(item.title.clone()),
+            ])
+        }));
+    }
+    render_overlay(frame, popup, lines);
+}
+
 pub(super) fn render_overlay(frame: &mut Frame<'_>, area: Rect, lines: Vec<Line<'_>>) {
     frame.render_widget(Clear, area);
     frame.render_widget(Paragraph::new("").style(surface_style(true)), area);

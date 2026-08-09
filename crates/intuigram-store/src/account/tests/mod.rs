@@ -15,6 +15,7 @@ mod offline_media;
 mod outbox;
 mod pinned;
 mod saved_dialogs;
+mod specialized;
 mod topics;
 
 #[test]

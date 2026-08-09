@@ -1,15 +1,23 @@
 use super::*;
 
 mod document;
+mod gift;
 mod metadata;
 mod poll;
 mod service;
+mod specialized;
+mod story_todo;
+
+pub(crate) use specialized::normalize_paid_media_items;
+pub(crate) use story_todo::normalize_story_item;
 mod web_page;
 
 use document::normalize_document_media;
+use gift::normalize_gift_action;
 pub(super) use metadata::{normalize_forward, normalize_reactions};
 use poll::normalize_poll;
-pub(crate) use service::service_event_description;
+pub(crate) use service::{service_event_description, service_event_media};
+use specialized::{normalize_game, normalize_live_location};
 use web_page::normalize_web_page;
 
 pub(super) fn normalize_media(media: &tl::enums::MessageMedia) -> MediaCard {
@@ -56,6 +64,7 @@ pub(super) fn normalize_media(media: &tl::enums::MessageMedia) -> MediaCard {
             Vec::new(),
             None,
         ),
+        tl::enums::MessageMedia::GeoLive(media) => normalize_live_location(media),
         tl::enums::MessageMedia::Empty | tl::enums::MessageMedia::Unsupported => card(
             MediaKind::Unsupported,
             "Unsupported Content",
@@ -63,21 +72,22 @@ pub(super) fn normalize_media(media: &tl::enums::MessageMedia) -> MediaCard {
             Vec::new(),
             None,
         ),
-        tl::enums::MessageMedia::GeoLive(_)
-        | tl::enums::MessageMedia::Game(_)
-        | tl::enums::MessageMedia::Invoice(_)
-        | tl::enums::MessageMedia::Story(_)
-        | tl::enums::MessageMedia::Giveaway(_)
-        | tl::enums::MessageMedia::GiveawayResults(_)
-        | tl::enums::MessageMedia::PaidMedia(_)
-        | tl::enums::MessageMedia::ToDo(_)
-        | tl::enums::MessageMedia::VideoStream(_) => card(
-            MediaKind::Specialized,
+        tl::enums::MessageMedia::Game(media) => normalize_game(media),
+        tl::enums::MessageMedia::Invoice(media) => specialized::normalize_invoice(media),
+        tl::enums::MessageMedia::VideoStream(_) => card(
+            MediaKind::Unsupported,
             "Specialized Telegram content",
             "open Details for available metadata",
             Vec::new(),
             None,
         ),
+        tl::enums::MessageMedia::Story(media) => story_todo::normalize_story(media),
+        tl::enums::MessageMedia::ToDo(media) => story_todo::normalize_todo(media),
+        tl::enums::MessageMedia::Giveaway(media) => specialized::normalize_giveaway(media),
+        tl::enums::MessageMedia::GiveawayResults(media) => {
+            specialized::normalize_giveaway_results(media)
+        }
+        tl::enums::MessageMedia::PaidMedia(media) => specialized::normalize_paid_media(media),
     }
 }
 
@@ -94,6 +104,7 @@ pub(super) fn card(
         description: description.into(),
         details,
         poll: None,
+        specialized: None,
         remote_id,
     }
 }
@@ -120,10 +131,11 @@ pub(super) fn photo_remote_id(photo: &tl::enums::Photo) -> Option<String> {
 }
 
 pub(super) fn media_card_fallback(card: &MediaCard) -> String {
-    if card.description.is_empty() {
+    let description = card.display_description();
+    if description.is_empty() {
         format!("[{}]", card.title)
     } else {
-        format!("[{}] {}", card.title, card.description)
+        format!("[{}] {description}", card.title)
     }
 }
 

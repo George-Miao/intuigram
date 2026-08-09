@@ -134,6 +134,7 @@ pub(super) fn normalize_message(
         }
         tl::enums::Message::Service(message) => {
             let description = service_event_description(&message.action);
+            let media = service_event_media(&message.action);
             let sender_peer = message.from_id.as_ref().map(marked_peer_id);
             Some(MessageView {
                 id: MessageId(i64::from(message.id)),
@@ -156,6 +157,7 @@ pub(super) fn normalize_message(
                     sender_peer,
                     date_label: format_date(message.date),
                     service: Some(description),
+                    media,
                     saved_peer: message.saved_peer_id.as_ref().map(marked_peer_id),
                     ..MessageDetails::default()
                 },

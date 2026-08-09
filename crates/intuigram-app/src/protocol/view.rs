@@ -139,6 +139,9 @@ pub struct View {
     /// Poll or quiz option picker for the Active Message.
     pub poll_vote: Option<PollVoteView>,
 
+    /// TODO item picker or append editor for the Active Message.
+    pub todo_editor: Option<TodoListEditorView>,
+
     /// Suspicious link awaiting explicit destination confirmation.
     pub link_confirmation: Option<LinkTarget>,
 

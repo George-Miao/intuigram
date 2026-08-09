@@ -104,5 +104,6 @@ fn overlay_open(view: &View) -> bool {
         || view.forward_picker.is_some()
         || view.reaction_picker.is_some()
         || view.poll_vote.is_some()
+        || view.todo_editor.is_some()
         || view.link_confirmation.is_some()
 }

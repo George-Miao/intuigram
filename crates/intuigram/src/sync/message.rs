@@ -7,6 +7,10 @@ use intuigram_app::{
 use intuigram_store::StoredMessage;
 use serde::{Deserialize, Serialize};
 
+use super::message_metadata::{
+    StoredSpecializedMedia, cached_specialized_media, stored_specialized_media,
+};
+
 #[derive(Default, Deserialize, Serialize)]
 #[serde(default)]
 struct StoredMessageMetadata {
@@ -31,6 +35,7 @@ struct StoredMediaMetadata {
     description: String,
     details: Vec<String>,
     poll: Option<StoredPoll>,
+    specialized: Option<StoredSpecializedMedia>,
     remote_id: Option<String>,
 }
 
@@ -126,6 +131,9 @@ pub fn decode_stored_message(message: StoredMessage) -> MessageView {
             poll: stored
                 .and_then(|media| media.poll.as_ref())
                 .map(cached_poll),
+            specialized: stored
+                .and_then(|media| media.specialized.as_ref())
+                .map(cached_specialized_media),
             remote_id: stored.and_then(|media| media.remote_id.clone()),
         }
     });
@@ -194,6 +202,7 @@ fn stored_message_metadata(message: &MessageView) -> StoredMessageMetadata {
                 description: media.description.clone(),
                 details: media.details.clone(),
                 poll: media.poll.as_ref().map(stored_poll),
+                specialized: media.specialized.as_ref().map(stored_specialized_media),
                 remote_id: media.remote_id.clone(),
             }),
         reactions: message
@@ -266,7 +275,15 @@ fn stored_media_kind(kind: &str) -> Option<MediaKind> {
         "location" => MediaKind::Location,
         "venue" => MediaKind::Venue,
         "dice" => MediaKind::Dice,
-        "specialized" => MediaKind::Specialized,
+        "livelocation" => MediaKind::LiveLocation,
+        "game" => MediaKind::Game,
+        "invoice" => MediaKind::Invoice,
+        "paidmedia" => MediaKind::PaidMedia,
+        "giveaway" => MediaKind::Giveaway,
+        "gift" => MediaKind::Gift,
+        "story" => MediaKind::Story,
+        "todolist" => MediaKind::TodoList,
+        "specialized" => MediaKind::Unsupported,
         "unsupported" => MediaKind::Unsupported,
         "text" | "service" => return None,
         _ => MediaKind::Unsupported,

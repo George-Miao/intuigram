@@ -17,6 +17,7 @@ fn disguised_links_are_confirmed_and_launchable_downloads_are_only_revealed() ->
         description: "application/x-shellscript".to_owned(),
         details: Vec::new(),
         poll: None,
+        specialized: None,
         remote_id: Some("document:40".to_owned()),
     });
     let mut app = TestSystem::builder()

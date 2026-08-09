@@ -10,6 +10,8 @@ use super::fixture::AccountFixture;
 mod channel_direct;
 mod execute;
 mod expectations;
+mod message_actions;
+mod specialized;
 
 pub(crate) use channel_direct::ObservedSavedSend;
 

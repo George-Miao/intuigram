@@ -41,6 +41,7 @@ impl Backend {
                             .collect(),
                         solution: None,
                     }),
+                    specialized: None,
                     remote_id: None,
                 }),
                 thread_root,

@@ -1,3 +1,7 @@
+mod specialized;
+
+pub use specialized::*;
+
 /// Major media and specialized Message families.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MediaKind {
@@ -29,8 +33,22 @@ pub enum MediaKind {
     Venue,
     /// Dice result.
     Dice,
-    /// Specialized content planned for interactive rendering.
-    Specialized,
+    /// A location that Telegram is updating for a bounded period.
+    LiveLocation,
+    /// A Telegram game.
+    Game,
+    /// A Telegram invoice.
+    Invoice,
+    /// Telegram media guarded by a Stars price.
+    PaidMedia,
+    /// Telegram giveaway or published results.
+    Giveaway,
+    /// Telegram gift carried by a service Message.
+    Gift,
+    /// Story shared into a Message.
+    Story,
+    /// Collaborative Telegram TODO list.
+    TodoList,
     /// Constructor not recognized by the current client.
     Unsupported,
 }
@@ -110,6 +128,9 @@ pub struct MediaCard {
     /// Poll or quiz state when this card represents one.
     pub poll: Option<PollView>,
 
+    /// Structured state for Telegram's interactive Message families.
+    pub specialized: Option<SpecializedMediaView>,
+
     /// Stable remote identifier used by download actions, when available.
     pub remote_id: Option<String>,
 }
@@ -118,12 +139,32 @@ impl MediaCard {
     /// Whether `body` is the generated text fallback for this Media Card.
     #[must_use]
     pub fn is_fallback_body(&self, body: &str) -> bool {
-        let fallback = if self.description.is_empty() {
+        let description = self.display_description();
+        let fallback = if description.is_empty() {
             format!("[{}]", self.title)
         } else {
-            format!("[{}] {}", self.title, self.description)
+            format!("[{}] {description}", self.title)
         };
         body == fallback
+    }
+
+    /// Primary text generated from structured content when available.
+    #[must_use]
+    pub fn display_description(&self) -> String {
+        match &self.specialized {
+            Some(specialized) => specialized.display_description(),
+            None => self.description.clone(),
+        }
+    }
+
+    /// Secondary fallback lines generated from structured content when
+    /// available.
+    #[must_use]
+    pub fn display_details(&self) -> Vec<String> {
+        match &self.specialized {
+            Some(specialized) => specialized.display_details(),
+            None => self.details.clone(),
+        }
     }
 }
 

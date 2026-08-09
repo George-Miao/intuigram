@@ -37,6 +37,7 @@ fn forwarded_provenance_rule_spans_source_caption_and_media() {
                 description: "image/png".to_owned(),
                 details: vec!["1280×720".to_owned()],
                 poll: None,
+                specialized: None,
                 remote_id: Some("photo:40".to_owned()),
             }),
             ..MessageDetails::default()

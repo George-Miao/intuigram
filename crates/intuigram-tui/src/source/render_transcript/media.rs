@@ -95,21 +95,19 @@ pub(super) fn render_media(
         ));
         lines.push(message_spacing(active));
     } else {
+        let description = media.display_description();
         let mut card = content_prefix(active, selected, forwarded, content_indent);
         card.extend([
             Span::styled(
                 format!("[{}{}]", album.label(), media.title),
                 Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
             ),
-            Span::styled(
-                format!("  {}", media.description),
-                Style::default().fg(MUTED_TEXT),
-            ),
+            Span::styled(format!("  {description}"), Style::default().fg(MUTED_TEXT)),
         ]);
         lines.push(Line::from(card));
     }
     if preview.is_none() && !loading {
-        lines.extend(media.details.iter().map(|detail| {
+        lines.extend(media.display_details().into_iter().map(|detail| {
             let mut spans = content_prefix(active, selected, forwarded, content_indent);
             spans.push(Span::styled(
                 format!("  {detail}"),

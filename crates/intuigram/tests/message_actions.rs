@@ -114,6 +114,7 @@ fn editing_a_captionless_photo_starts_with_an_empty_caption() -> Result<()> {
         description: "image".to_owned(),
         details: Vec::new(),
         poll: None,
+        specialized: None,
         remote_id: Some("photo:41".to_owned()),
     });
     let mut edited = photo.clone();
@@ -154,6 +155,7 @@ fn editing_a_photo_can_replace_the_media_without_inventing_a_caption() -> Result
         description: "image".to_owned(),
         details: Vec::new(),
         poll: None,
+        specialized: None,
         remote_id: Some("photo:41".to_owned()),
     });
     let mut edited = photo.clone();

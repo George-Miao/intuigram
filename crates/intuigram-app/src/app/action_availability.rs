@@ -230,6 +230,22 @@ impl App {
             ];
             return;
         }
+        if let Some(editor) = &self.view.todo_editor {
+            let mut editor_actions = vec![Action::Quit, Action::Cancel];
+            if editor.append.is_some() {
+                editor_actions.insert(1, Action::ConfirmTodoAppend);
+            } else {
+                editor_actions.splice(1..1, [Action::MoveUp, Action::MoveDown]);
+                if editor.can_complete && !editor.items.is_empty() {
+                    editor_actions.insert(3, Action::ToggleTodoItem);
+                }
+                if editor.can_append {
+                    editor_actions.insert(editor_actions.len() - 1, Action::AppendTodoItem);
+                }
+            }
+            self.view.actions = editor_actions;
+            return;
+        }
         match self.view.focus {
             Focus::Chats => {
                 actions.extend([

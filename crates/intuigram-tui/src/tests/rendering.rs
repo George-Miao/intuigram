@@ -34,6 +34,7 @@ fn transcript_keeps_media_card_fallback_visible_beside_a_caption() {
                 description: "constructor retained".to_owned(),
                 details: Vec::new(),
                 poll: None,
+                specialized: None,
                 remote_id: None,
             }),
             ..MessageDetails::default()
@@ -239,6 +240,7 @@ fn transcript_renders_rich_metadata_album_and_quiz_fallbacks() {
                     }],
                     solution: Some("Completion-based I/O".to_owned()),
                 }),
+                specialized: None,
                 remote_id: Some("77".to_owned()),
             }),
             ..MessageDetails::default()
@@ -296,6 +298,7 @@ fn rich_album_message(id: i64, body: &str) -> MessageView {
                 description: "image".to_owned(),
                 details: Vec::new(),
                 poll: None,
+                specialized: None,
                 remote_id: Some(id.to_string()),
             }),
             album_id: Some(99),

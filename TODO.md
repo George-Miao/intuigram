@@ -9,7 +9,6 @@
 
 ## TODO
 
-- [ ] **p-core:** Add specialized interactive rendering for live locations, games, invoices, paid media, giveaways, gifts, shared Stories, and TODO lists.
 - [ ] **p-core:** Send static locations through coordinates, pasted map links, or place search.
 - [ ] **p-core:** Add a durable Outbox that survives restart, preserves operation ordering and referenced media, and exposes safe retry, cancellation, expiry, and conflict handling.
 - [ ] **p-high:** Make keyboard bindings configurable through a Figment-based configuration system. Support layered TOML, YAML, JSON, environment, and command-line sources; keep a complete default keymap; and generate the on-screen Action Bar and Help from the active configuration.

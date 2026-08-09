@@ -13,6 +13,7 @@ fn retained_chat_media_is_fetched_serially_before_derived_previews() {
         description: String::new(),
         details: Vec::new(),
         poll: None,
+        specialized: None,
         remote_id: Some("42".to_owned()),
     });
     let mut app = App::new();

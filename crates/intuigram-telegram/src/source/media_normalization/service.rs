@@ -1,5 +1,9 @@
 use super::*;
 
+pub(crate) fn service_event_media(action: &tl::enums::MessageAction) -> Option<MediaCard> {
+    normalize_gift_action(action)
+}
+
 pub(crate) fn service_event_description(action: &tl::enums::MessageAction) -> String {
     match action {
         tl::enums::MessageAction::Empty => "Empty Telegram service event".to_owned(),

@@ -66,6 +66,7 @@ fn view(actions: Vec<Action>) -> View {
         forward_picker: None,
         reaction_picker: None,
         poll_vote: None,
+        todo_editor: None,
         link_confirmation: None,
         downloads: Vec::new(),
         media_previews: Vec::new(),

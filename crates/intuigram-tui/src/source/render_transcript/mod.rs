@@ -211,7 +211,7 @@ fn render_semantics(
             semantics.push(SemanticNode {
                 role: SemanticRole::MediaCard,
                 name: media.title.clone(),
-                description: Some(media.description.clone()),
+                description: Some(media.display_description()),
                 domain_id: media.remote_id.as_ref().and_then(|id| id.parse().ok()),
                 action: None,
                 delivery: None,

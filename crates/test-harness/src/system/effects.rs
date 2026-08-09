@@ -312,6 +312,9 @@ impl TestSystem {
                             message: Box::new(updated),
                         });
                 }
+                effect @ (Effect::RefreshSpecialized { .. }
+                | Effect::ToggleTodoItem { .. }
+                | Effect::AppendTodoItem { .. }) => self.handle_specialized_effect(effect)?,
                 Effect::OpenExternalLink { url } => {
                     self.opened_links.push(url.clone());
                     self.application

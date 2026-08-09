@@ -4,7 +4,9 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use compio_mtproto::InvocationError;
 use grammers_tl_types::{self as tl, Serializable as _};
 use intuigram_app::{
-    AdapterEvent, ChatId, ChatKind, ChatView, FolderId, MediaKind, MessageDirection, MessageId,
+    AdapterEvent, ChatId, ChatKind, ChatView, FolderId, GiftKindView, GiftView, GiveawayStateView,
+    GiveawayView, MediaKind, MessageDirection, MessageId, SharedStoryView, SpecializedMediaView,
+    StoryStateView, TodoListView,
 };
 
 use crate::UpdateScope;
@@ -14,7 +16,8 @@ use crate::source::{
     flood_wait_delay, login_error_action, normalize_code_delivery, normalize_code_delivery_method,
     normalize_dialog_folder_details, normalize_dialog_folders, normalize_live_update,
     normalize_serialized_media, normalize_serialized_peer_kind, qr_login_uri, rpc_migration_dc,
-    service_event_description, set_dialog_filter_membership, thread_root_message_id,
+    service_event_description, service_event_media, set_dialog_filter_membership,
+    thread_root_message_id,
 };
 
 #[test]
@@ -386,6 +389,7 @@ mod dialogs_and_peers;
 mod live_updates;
 mod media_fixtures;
 mod notifications;
+mod specialized_media;
 mod topics;
 
 use media_fixtures::{basic_group, channel, dc_option, user};

@@ -47,6 +47,7 @@ impl App {
                 forward_picker: None,
                 reaction_picker: None,
                 poll_vote: None,
+                todo_editor: None,
                 link_confirmation: None,
                 downloads: Vec::new(),
                 media_previews: Vec::new(),
@@ -82,6 +83,15 @@ impl App {
     pub(super) fn apply_intent(&mut self, intent: Intent) -> Option<Effect> {
         match intent {
             Intent::Insert(text) => {
+                if let Some(append) = self
+                    .view
+                    .todo_editor
+                    .as_mut()
+                    .and_then(|editor| editor.append.as_mut())
+                {
+                    append.push_str(&text);
+                    return None;
+                }
                 if self.insert_scheduled_text(&text) {
                     return None;
                 }
@@ -117,6 +127,15 @@ impl App {
                 self.draft_effect()
             }
             Intent::Backspace => {
+                if let Some(append) = self
+                    .view
+                    .todo_editor
+                    .as_mut()
+                    .and_then(|editor| editor.append.as_mut())
+                {
+                    append.pop();
+                    return None;
+                }
                 if self.backspace_scheduled_text() {
                     return None;
                 }
@@ -299,6 +318,7 @@ impl App {
         self.view.forward_picker = None;
         self.view.reaction_picker = None;
         self.view.poll_vote = None;
+        self.view.todo_editor = None;
         self.view.poll_composer = false;
         self.saved_poll_draft = None;
         self.view.active_thread = None;

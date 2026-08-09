@@ -43,6 +43,7 @@ fn image_preview_space_is_reserved_only_while_loading() {
         description: "image".to_owned(),
         details: Vec::new(),
         poll: None,
+        specialized: None,
         remote_id: Some("42".to_owned()),
     });
     let mut app = crate::App::new();
@@ -158,6 +159,7 @@ fn downloaded_media_is_opened_or_revealed_by_opaque_handle() {
         description: "application/x-shellscript".to_owned(),
         details: Vec::new(),
         poll: None,
+        specialized: None,
         remote_id: Some("42".to_owned()),
     });
     let mut app = crate::App::new();
@@ -209,6 +211,7 @@ fn save_as_collects_an_exact_destination_before_downloading() {
         description: "text/plain".to_owned(),
         details: Vec::new(),
         poll: None,
+        specialized: None,
         remote_id: Some("42".to_owned()),
     });
     let mut app = crate::App::new();

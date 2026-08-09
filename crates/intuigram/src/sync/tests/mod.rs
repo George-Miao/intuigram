@@ -14,6 +14,8 @@ use tempfile::tempdir;
 
 use super::{UpdateCommitter, decode_stored_message, encode_stored_message};
 
+mod specialized;
+
 #[test]
 fn rich_media_and_album_state_round_trip_through_the_cache() {
     let message = MessageView {
@@ -45,6 +47,7 @@ fn rich_media_and_album_state_round_trip_through_the_cache() {
                     }],
                     solution: Some("Completion-based I/O".to_owned()),
                 }),
+                specialized: None,
                 remote_id: Some("77".to_owned()),
             }),
             album_id: Some(9),

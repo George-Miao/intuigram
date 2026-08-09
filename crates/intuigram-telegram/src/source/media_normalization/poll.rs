@@ -22,6 +22,7 @@ pub(super) fn normalize_poll(media: &tl::types::MessageMediaPoll) -> MediaCard {
             options,
             solution: results.solution.clone(),
         }),
+        specialized: None,
         remote_id: Some(poll.id.to_string()),
     }
 }

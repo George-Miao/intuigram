@@ -95,6 +95,7 @@ fn poll_message(voted: bool) -> intuigram_app::MessageView {
                 ],
                 solution: None,
             }),
+            specialized: None,
             remote_id: Some("77".to_owned()),
         }),
         ..MessageDetails::default()

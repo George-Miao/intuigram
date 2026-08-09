@@ -2,6 +2,7 @@
 //! state.
 
 mod message;
+mod message_metadata;
 
 #[cfg(test)]
 mod tests;
@@ -17,6 +18,7 @@ use intuigram_store::{
 };
 use intuigram_telegram::{LiveEvent, UpdateCursor};
 pub use message::{decode_stored_message, encode_stored_message};
+use message_metadata::stored_paid_media_items_json;
 use snafu::{ResultExt, Snafu};
 
 /// Failure while committing normalized Telegram state before exposure.
@@ -332,6 +334,15 @@ fn stored_mutation(event: &AdapterEvent) -> Option<StoredMutation> {
                 pinned: *pinned,
             })
         }
+        AdapterEvent::PaidMediaItemsUpdated {
+            chat,
+            message,
+            items,
+        } => Some(StoredMutation::SetPaidMediaItems {
+            chat_id: chat.0,
+            message_id: message.0,
+            items: stored_paid_media_items_json(items),
+        }),
         AdapterEvent::MessagesDeleted { chat, ids } => Some(StoredMutation::DeleteMessages {
             chat_id: chat.map(|chat| chat.0),
             ids: ids.iter().map(|id| id.0).collect(),

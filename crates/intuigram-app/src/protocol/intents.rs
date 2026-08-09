@@ -120,6 +120,16 @@ pub enum Action {
     TogglePollChoice,
     /// Submit the selected poll options.
     ConfirmPollVote,
+    /// Refresh the selected paid media, Story, or giveaway from Telegram.
+    RefreshSpecialized,
+    /// Open safe TODO-list item operations.
+    EditTodoList,
+    /// Toggle the selected TODO item's completion state.
+    ToggleTodoItem,
+    /// Begin appending one TODO item.
+    AppendTodoItem,
+    /// Submit the TODO item currently being appended.
+    ConfirmTodoAppend,
     /// Open the first link in the Active Message.
     OpenLink,
     /// Confirm a suspicious or disguised link destination.

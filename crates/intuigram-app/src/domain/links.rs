@@ -1,8 +1,16 @@
 use url::Url;
 
-use super::{LinkTarget, MessageView, TextEntityKind};
+use super::{LinkTarget, MessageView, SpecializedMediaView, TextEntityKind};
 
 pub(crate) fn active_link(message: &MessageView) -> Option<LinkTarget> {
+    if let Some(SpecializedMediaView::LiveLocation(location)) = message
+        .details
+        .media
+        .as_ref()
+        .and_then(|media| media.specialized.as_ref())
+    {
+        return classify_link("OpenStreetMap".to_owned(), location.map_url());
+    }
     message.details.entities.iter().find_map(|entity| {
         let display = utf16_slice(&message.body, entity.offset, entity.length)?;
         let url = match &entity.kind {

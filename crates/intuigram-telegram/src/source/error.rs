@@ -156,6 +156,21 @@ pub enum Error {
     #[snafu(display("poll option {option} is unavailable in Message {message_id}"))]
     PollOptionUnavailable { message_id: i64, option: usize },
 
+    /// The selected specialized Message no longer has the requested family.
+    #[snafu(display("Telegram Message {message_id} no longer contains {family}"))]
+    SpecializedMediaUnavailable {
+        message_id: i64,
+        family: &'static str,
+    },
+
+    /// Telegram did not return the requested peer-scoped Story.
+    #[snafu(display("Telegram Story {story_id} for peer {peer_id} is unavailable"))]
+    StoryUnavailable { peer_id: i64, story_id: i32 },
+
+    /// The selected TODO item no longer exists.
+    #[snafu(display("TODO item {item} is unavailable in Message {message_id}"))]
+    TodoItemUnavailable { message_id: i64, item: i32 },
+
     /// Telegram advertised an invalid or unrepresentable media size.
     #[snafu(display("Telegram media size {size} cannot be downloaded on this platform"))]
     InvalidDownloadSize { size: i64 },

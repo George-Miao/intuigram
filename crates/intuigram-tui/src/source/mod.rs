@@ -87,6 +87,7 @@ use render_layout::render_with_graphics;
 use render_overlays::{
     render_action_menu, render_attachment_path, render_delete_confirmation, render_forward_picker,
     render_link_confirmation, render_poll_vote, render_reaction_picker, render_save_as,
+    render_todo_editor,
 };
 use render_rich_media::render_rich_media;
 use render_saved_dialogs::render_saved_dialogs;
@@ -152,9 +153,27 @@ const BINDINGS: &[Binding] = &[
         true,
     ),
     binding(
+        KeyChord::plain(Key::Char(' ')),
+        "Toggle TODO",
+        Action::ToggleTodoItem,
+        true,
+    ),
+    binding(
+        KeyChord::plain(Key::Char('a')),
+        "Append TODO",
+        Action::AppendTodoItem,
+        true,
+    ),
+    binding(
         KeyChord::plain(Key::Enter),
         "Submit Vote",
         Action::ConfirmPollVote,
+        true,
+    ),
+    binding(
+        KeyChord::plain(Key::Enter),
+        "Append Item",
+        Action::ConfirmTodoAppend,
         true,
     ),
     binding(

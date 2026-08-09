@@ -280,6 +280,13 @@ pub(crate) fn normalize_update(
                 ),
             }]
         }
+        tl::enums::Update::MessageExtendedMedia(update) => {
+            vec![AdapterEvent::PaidMediaItemsUpdated {
+                chat: marked_peer_id(&update.peer),
+                message: MessageId(i64::from(update.msg_id)),
+                items: normalize_paid_media_items(&update.extended_media),
+            }]
+        }
         _ => Vec::new(),
     }
 }

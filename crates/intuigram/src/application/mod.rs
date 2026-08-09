@@ -25,8 +25,9 @@ use intuigram_app::{
     PollOptionView, PollView, RichMediaItemId, RichMediaItemView, RichMediaLibraryKind,
     RichMediaUploadKind, SavedDialogDraftView, SavedDialogListView, SavedDialogLoadFailure,
     SavedDialogView, ScheduledDeliveryView, ScheduledMessageId, ScheduledMessageView,
-    ScheduledRequest, SelectionView, TextEntity, TopicDraftView, TopicId, TopicListView,
-    TopicLoadFailure, TopicView, TranscriptAnchorView, Update,
+    ScheduledRequest, SelectionView, SpecializedMediaView, SpecializedRefreshTarget, TextEntity,
+    TopicDraftView, TopicId, TopicListView, TopicLoadFailure, TopicView, TranscriptAnchorView,
+    Update,
 };
 use intuigram_config::{
     Config, ConfigLoader, Overrides, PlatformDefaults, ViewMode as ConfigViewMode,

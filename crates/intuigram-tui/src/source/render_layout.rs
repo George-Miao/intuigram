@@ -86,6 +86,8 @@ pub(super) fn render_with_graphics(
         render_reaction_picker(frame, area, view);
     } else if view.poll_vote.is_some() {
         render_poll_vote(frame, area, view);
+    } else if view.todo_editor.is_some() {
+        render_todo_editor(frame, area, view);
     } else if view.forward_picker.is_some() {
         render_forward_picker(frame, area, view);
     } else if view.delete_confirmation.is_some() {

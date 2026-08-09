@@ -251,6 +251,18 @@ pub enum StoredMutation {
         pinned: bool,
     },
 
+    /// Replace ordered child state disclosed for one paid-media Message.
+    SetPaidMediaItems {
+        /// Owning Chat.
+        chat_id: i64,
+
+        /// Telegram Message identity.
+        message_id: i64,
+
+        /// JSON array encoded by the application persistence boundary.
+        items: String,
+    },
+
     /// Delete Message IDs, optionally scoped to one Channel Chat.
     DeleteMessages {
         /// Channel Chat for channel-local IDs; `None` for account-wide IDs.

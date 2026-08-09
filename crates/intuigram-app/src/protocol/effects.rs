@@ -281,6 +281,32 @@ pub enum Effect {
 
         options: Vec<usize>,
     },
+    /// Refresh one specialized Message through its family-specific safe API.
+    RefreshSpecialized {
+        chat: ChatId,
+
+        message: Box<MessageView>,
+
+        target: SpecializedRefreshTarget,
+    },
+    /// Change one TODO item's completion state.
+    ToggleTodoItem {
+        chat: ChatId,
+
+        message: Box<MessageView>,
+
+        item: i32,
+
+        completed: bool,
+    },
+    /// Append one plain-text item to a TODO list.
+    AppendTodoItem {
+        chat: ChatId,
+
+        message: Box<MessageView>,
+
+        title: String,
+    },
     /// Open an ordinary web destination with the platform browser.
     OpenExternalLink { url: String },
     /// Resolve a supported Telegram username without leaving Intuigram.

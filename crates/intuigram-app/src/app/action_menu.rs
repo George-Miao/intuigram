@@ -36,6 +36,26 @@ impl App {
         {
             actions.push(Action::VotePoll);
         }
+        match message
+            .details
+            .media
+            .as_ref()
+            .and_then(|media| media.specialized.as_ref())
+        {
+            Some(SpecializedMediaView::PaidMedia(media))
+                if media
+                    .items
+                    .iter()
+                    .any(|item| matches!(item, PaidMediaItemView::Preview { .. })) =>
+            {
+                actions.push(Action::RefreshSpecialized);
+            }
+            Some(SpecializedMediaView::Story(_) | SpecializedMediaView::Giveaway(_)) => {
+                actions.push(Action::RefreshSpecialized);
+            }
+            Some(SpecializedMediaView::TodoList(_)) => actions.push(Action::EditTodoList),
+            _ => {}
+        }
         if self.view.downloads.iter().any(|download| {
             Some(download.chat) == self.active_chat_id() && download.message == message.id
         }) {
@@ -136,10 +156,25 @@ impl App {
             Action::Delete => "Delete",
             Action::Forward => "Forward",
             Action::React => "React",
-            Action::OpenLink => "Open Link",
+            Action::OpenLink => {
+                if self
+                    .view
+                    .active_message
+                    .and_then(|index| self.view.messages.get(index))
+                    .and_then(|message| message.details.media.as_ref())
+                    .and_then(|media| media.specialized.as_ref())
+                    .is_some_and(|media| matches!(media, SpecializedMediaView::LiveLocation(_)))
+                {
+                    "Open Map"
+                } else {
+                    "Open Link"
+                }
+            }
             Action::DownloadMedia => "Download",
             Action::SaveAs => "Save As",
             Action::VotePoll => "Vote",
+            Action::RefreshSpecialized => "Refresh",
+            Action::EditTodoList => "Update TODO",
             Action::OpenDownload => "Open Download",
             Action::OpenThread => "Open Thread",
             Action::TogglePin => "Pin / Unpin",

@@ -31,6 +31,7 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
                 description: "image".to_owned(),
                 details: Vec::new(),
                 poll: None,
+                specialized: None,
                 remote_id: Some("99".to_owned()),
             }),
             thread_root: Some(MessageId(41)),
@@ -91,9 +92,11 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
     let bootstrap = cached_bootstrap("Ada".to_owned(), "telegram:7".to_owned(), cached);
 
     assert_eq!(bootstrap.chats[0].kind, ChatKind::Private);
-    assert!(bootstrap.histories.iter().any(|history| {
-        history.thread_root.is_none() && history.messages == [message.clone()]
-    }));
+    assert!(
+        bootstrap.histories.iter().any(|history| {
+            history.thread_root.is_none() && history.messages == [message.clone()]
+        })
+    );
     assert!(bootstrap.histories.iter().any(|history| {
         history.thread_root == Some(MessageId(41)) && history.messages == [message.clone()]
     }));

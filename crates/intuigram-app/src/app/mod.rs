@@ -107,6 +107,11 @@ impl App {
                 self.replace_message(chat, *message);
                 None
             }
+            Input::Adapter(AdapterEvent::PaidMediaItemsUpdated {
+                chat,
+                message,
+                items,
+            }) => self.apply_paid_media_items(chat, message, items),
             Input::Adapter(AdapterEvent::AvatarChanged { peer, id }) => {
                 self.update_avatar(peer, id)
             }
@@ -369,6 +374,7 @@ mod reconnection;
 mod rich_media;
 mod saved_dialog_navigation;
 mod scheduled;
+mod specialized_content;
 mod state;
 mod topic_navigation;
 mod unread;

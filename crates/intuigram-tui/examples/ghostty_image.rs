@@ -52,6 +52,7 @@ fn main() -> intuigram_tui::Result<()> {
                 description: "image".to_owned(),
                 details: Vec::new(),
                 poll: None,
+                specialized: None,
                 remote_id: Some("probe".to_owned()),
             }),
             ..MessageDetails::default()

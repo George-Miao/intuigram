@@ -37,6 +37,9 @@ impl App {
         if self.view.poll_vote.is_some() && action != Action::Quit {
             return self.apply_poll_vote(action);
         }
+        if self.view.todo_editor.is_some() && action != Action::Quit {
+            return self.apply_todo_editor(action);
+        }
         if self.view.forward_picker.is_some() && action != Action::Quit {
             return self.apply_forward_picker(action);
         }
@@ -203,6 +206,12 @@ impl App {
                 None
             }
             Action::TogglePollChoice | Action::ConfirmPollVote => None,
+            Action::RefreshSpecialized => self.refresh_specialized(),
+            Action::EditTodoList => {
+                self.open_todo_editor();
+                None
+            }
+            Action::ToggleTodoItem | Action::AppendTodoItem | Action::ConfirmTodoAppend => None,
             Action::OpenLink => self.open_active_link(),
             Action::ConfirmOpenLink => None,
             Action::DownloadMedia => self.download_active_media(),

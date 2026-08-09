@@ -13,6 +13,7 @@ mod rich_media;
 mod saved_dialogs;
 mod scheduled;
 mod send;
+mod specialized;
 mod topics;
 
 use history_failure::history_failure_event;

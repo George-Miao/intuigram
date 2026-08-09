@@ -1,5 +1,6 @@
 use intuigram_app::{
-    AvatarRef, ChatId, MessageId, MessageView, SavedDialogView, TextEntity, TopicView,
+    AvatarRef, ChatId, MessageId, MessageView, SavedDialogView, SpecializedRefreshTarget,
+    TextEntity, TopicView,
 };
 
 #[derive(Clone, Debug)]
@@ -131,6 +132,28 @@ pub(super) enum ExpectedCommand {
         chat: ChatId,
         message: MessageId,
         options: Vec<usize>,
+        updated: MessageView,
+    },
+
+    RefreshSpecialized {
+        chat: ChatId,
+        message: MessageId,
+        target: SpecializedRefreshTarget,
+        updated: MessageView,
+    },
+
+    ToggleTodoItem {
+        chat: ChatId,
+        message: MessageId,
+        item: i32,
+        completed: bool,
+        updated: MessageView,
+    },
+
+    AppendTodoItem {
+        chat: ChatId,
+        message: MessageId,
+        title: String,
         updated: MessageView,
     },
 
@@ -267,6 +290,34 @@ impl ExpectedCommand {
                 ..
             } => format!(
                 "vote for options {options:?} in Message {} of Chat {}",
+                message.0, chat.0
+            ),
+            Self::RefreshSpecialized {
+                chat,
+                message,
+                target,
+                ..
+            } => format!(
+                "refresh {target:?} in Message {} of Chat {}",
+                message.0, chat.0
+            ),
+            Self::ToggleTodoItem {
+                chat,
+                message,
+                item,
+                completed,
+                ..
+            } => format!(
+                "set TODO item {item} in Message {} of Chat {} to {completed}",
+                message.0, chat.0
+            ),
+            Self::AppendTodoItem {
+                chat,
+                message,
+                title,
+                ..
+            } => format!(
+                "append TODO item {title:?} to Message {} of Chat {}",
                 message.0, chat.0
             ),
             Self::Reconnect => "reconnect".to_owned(),

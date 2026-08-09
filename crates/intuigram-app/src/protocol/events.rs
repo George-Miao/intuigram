@@ -142,6 +142,15 @@ pub enum AdapterEvent {
         message: Box<MessageView>,
     },
 
+    /// Telegram revealed newer ordered paid-media child state for one Message.
+    PaidMediaItemsUpdated {
+        chat: ChatId,
+
+        message: MessageId,
+
+        items: Vec<PaidMediaItemView>,
+    },
+
     /// Telegram changed pinned state for Messages without replacing their
     /// content.
     MessagesPinChanged {
