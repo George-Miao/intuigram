@@ -22,12 +22,12 @@ use intuigram_app::{
     DeliveryState, DownloadId, DownloadView, DraftView, Effect, FolderId, FolderOperation,
     FolderOperationResult, FolderView, HistoryView, InlineImage, Input, Intent, MediaCard,
     MediaKind, MediaPreviewView, MessageDetails, MessageDirection, MessageId, MessageView,
-    OutboxAction, OutboxItemView, OutboxKey, OutboxStateView, PollOptionView, PollView,
-    RichMediaItemId, RichMediaItemView, RichMediaLibraryKind, RichMediaUploadKind,
-    SavedDialogDraftView, SavedDialogListView, SavedDialogLoadFailure, SavedDialogView,
-    ScheduledDeliveryView, ScheduledMessageId, ScheduledMessageView, ScheduledRequest,
-    SelectionView, SpecializedMediaView, SpecializedRefreshTarget, TextEntity, TopicDraftView,
-    TopicId, TopicListView, TopicLoadFailure, TopicView, TranscriptAnchorView, Update,
+    OutboxItemView, OutboxKey, OutboxStateView, PollOptionView, PollView, RichMediaItemId,
+    RichMediaItemView, RichMediaLibraryKind, RichMediaUploadKind, SavedDialogDraftView,
+    SavedDialogListView, SavedDialogLoadFailure, SavedDialogView, ScheduledDeliveryView,
+    ScheduledMessageId, ScheduledMessageView, ScheduledRequest, SelectionView,
+    SpecializedMediaView, SpecializedRefreshTarget, TextEntity, TopicDraftView, TopicId,
+    TopicListView, TopicLoadFailure, TopicView, TranscriptAnchorView, Update,
 };
 use intuigram_config::{
     Config, ConfigLoader, Overrides, PlatformDefaults, ViewMode as ConfigViewMode,

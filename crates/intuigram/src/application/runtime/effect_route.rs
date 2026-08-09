@@ -19,6 +19,11 @@ impl EffectRoute {
 }
 
 pub(in crate::application) const fn effect_route(effect: &Effect) -> EffectRoute {
+    if super::super::outbox::admission::handles(effect)
+        || matches!(effect, Effect::ResolveOutbox { .. })
+    {
+        return EffectRoute::LocalOrdered;
+    }
     match effect {
         Effect::Notify { .. }
         | Effect::OpenExternalLink { .. }
@@ -71,5 +76,23 @@ mod tests {
         }));
 
         assert_eq!(route, EffectRoute::Telegram);
+    }
+
+    #[test]
+    fn outbound_work_uses_the_ordered_admission_lane() {
+        let route = effect_route(&Effect::SendMessage {
+            chat: ChatId(7),
+            text: "durable".to_owned(),
+            entities: Vec::new(),
+            link_preview: true,
+            reply_to: None,
+            thread_root: None,
+            saved_peer: None,
+            attachments: Vec::new(),
+            local_id: MessageId(-1),
+        });
+
+        assert_eq!(route, EffectRoute::LocalOrdered);
+        assert!(!route.runs_independently());
     }
 }

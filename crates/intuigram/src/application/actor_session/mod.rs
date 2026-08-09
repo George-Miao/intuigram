@@ -14,6 +14,7 @@ mod driver;
 mod errors;
 mod local_effect;
 mod media_response;
+mod outbox;
 #[cfg(test)]
 mod tests;
 
@@ -45,6 +46,7 @@ struct ActorOwner {
     store: intuigram_store::AccountStore,
     local: RefCell<local_effect::State>,
     operation_providers: RefCell<intuigram::OperationProviders>,
+    outbox: RefCell<outbox::Coordinator>,
 }
 
 impl Drop for ActorOwner {
@@ -56,9 +58,12 @@ impl Drop for ActorOwner {
 impl ActorSession {
     pub(super) fn poll_background(
         &self,
-        _cx: &mut std::task::Context<'_>,
+        cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<BackendOutput>> {
-        std::task::Poll::Pending
+        self.owner
+            .outbox
+            .borrow_mut()
+            .poll(&self.owner.operation_providers, cx)
     }
 
     pub(super) async fn execute(
@@ -120,6 +125,11 @@ impl ActorSession {
                     image,
                 },
             ))));
+        }
+        if let Effect::ResolveOutbox { item, action } = &effect.effect {
+            return super::outbox::resolution::execute(&self.owner.store, *item, *action)
+                .await
+                .map(BackendOutput::event);
         }
         if super::outbox::admission::handles(&effect.effect) {
             return self.admit_outbox(effect).await;

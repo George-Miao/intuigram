@@ -117,6 +117,10 @@ impl ActorSession {
         Ok(ConnectedActorSession {
             backend: Self {
                 owner: Rc::new(ActorOwner {
+                    outbox: RefCell::new(super::outbox::Coordinator::new(
+                        startup.store.clone(),
+                        mailbox.clone(),
+                    )),
                     mailbox,
                     handle: RefCell::new(Some(handle)),
                     cluster: RefCell::new(Some(cluster)),

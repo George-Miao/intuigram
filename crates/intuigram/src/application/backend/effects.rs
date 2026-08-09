@@ -52,7 +52,9 @@ impl Backend {
                 Ok(None)
             }
             Effect::Quit | Effect::Reconnect => Ok(None),
-            Effect::ResolveOutbox { item, action } => self.resolve_outbox(item, action).await,
+            Effect::ResolveOutbox { item, action } => {
+                super::super::outbox::resolution::execute(&self.store, item, action).await
+            }
             Effect::SetChatFolder {
                 chat,
                 folder,

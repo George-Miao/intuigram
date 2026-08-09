@@ -35,12 +35,12 @@ pub(super) struct TelegramActor;
 
 pub(super) struct TelegramState {
     pub(super) backend: Backend,
-    submitted: SubmittedUpdates,
+    pub(super) submitted: SubmittedUpdates,
     driver_stop: DriverStop,
     driver: Option<JoinHandle<()>>,
     events: Option<BackendEvents>,
     output: flume::Sender<SessionEvent>,
-    cancellation: ActorCancellation,
+    pub(super) cancellation: ActorCancellation,
 }
 
 pub(super) enum ActorResponse {

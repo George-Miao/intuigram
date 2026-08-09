@@ -44,6 +44,17 @@ impl Error {
             Self::Decode { .. } | Self::Invalid { .. } => RetryDisposition::DoNotRetry,
         }
     }
+
+    pub(in crate::application) const fn reached_telegram(&self) -> bool {
+        matches!(self, Self::Telegram { .. })
+    }
+
+    pub(in crate::application) fn into_connection_error(self) -> Option<intuigram_telegram::Error> {
+        match self {
+            Self::Telegram { source } if source.is_connection_failure() => Some(source),
+            Self::Decode { .. } | Self::Invalid { .. } | Self::Telegram { .. } => None,
+        }
+    }
 }
 
 pub(in crate::application) async fn execute(

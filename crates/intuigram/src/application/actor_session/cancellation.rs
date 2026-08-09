@@ -41,10 +41,20 @@ pub(super) async fn until_cancelled<T>(
     operation: impl Future<Output = Result<T>>,
     cancellation: &ActorCancellation,
 ) -> Result<T> {
+    match until_cancelled_result(operation, cancellation).await? {
+        Ok(value) => Ok(value),
+        Err(error) => Err(error),
+    }
+}
+
+pub(super) async fn until_cancelled_result<T, E>(
+    operation: impl Future<Output = std::result::Result<T, E>>,
+    cancellation: &ActorCancellation,
+) -> Result<std::result::Result<T, E>> {
     let mut operation = std::pin::pin!(operation);
     std::future::poll_fn(|cx| {
         if let Poll::Ready(result) = operation.as_mut().poll(cx) {
-            return Poll::Ready(result);
+            return Poll::Ready(Ok(result));
         }
         if cancellation.poll(cx).is_ready() {
             return Poll::Ready(Err(Error::TelegramActorCancelled));

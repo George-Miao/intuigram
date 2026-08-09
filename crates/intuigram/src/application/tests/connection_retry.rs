@@ -11,13 +11,17 @@ impl ApplicationBackend for FailingConnectionBackend {
         effect: AdapterEffect,
         _peers: intuigram_telegram::PeerDirectory,
     ) -> Result<BackendOutput> {
+        let durable = super::super::outbox::admission::handles(&effect.effect);
         self.observed.borrow_mut().push(effect);
+        if durable {
+            return Ok(BackendOutput::event(None));
+        }
         Err(Error::TelegramUpdatesClosed)
     }
 }
 
 #[test]
-fn connection_failure_returns_the_same_send_for_retry() {
+fn connection_failure_does_not_requeue_a_durably_admitted_send() {
     let views = Rc::new(RefCell::new(Vec::new()));
     let observed = Rc::new(RefCell::new(Vec::new()));
     let mut terminal = RecordingUi {
@@ -44,7 +48,6 @@ fn connection_failure_returns_the_same_send_for_retry() {
         local_id: MessageId(-1),
     })
     .expect("operation id should be generated");
-    let expected_random_id = send.random_id;
     let runtime = compio::runtime::Runtime::new().expect("test runtime should initialize");
 
     let exit = runtime
@@ -65,9 +68,11 @@ fn connection_failure_returns_the_same_send_for_retry() {
         panic!("connection failure should not quit")
     };
 
-    assert_eq!(observed.borrow().len(), 1);
-    assert_eq!(state.pending_effects.len(), 2);
-    assert_eq!(state.pending_effects[0].random_id, expected_random_id);
+    assert_eq!(observed.borrow().len(), 2);
+    assert_eq!(state.pending_effects.len(), 1);
+    assert!(!super::super::outbox::admission::handles(
+        &state.pending_effects[0].effect
+    ));
     assert_eq!(
         state.app.view().connection,
         intuigram_app::ConnectionState::ReconnectCooldown
