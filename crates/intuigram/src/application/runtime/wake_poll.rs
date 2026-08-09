@@ -5,6 +5,7 @@ use std::task::{Context, Poll};
 use futures_util::StreamExt;
 use futures_util::stream::FuturesUnordered;
 
+use super::super::ApplicationUi;
 use super::adapters::{ApplicationAdapterEvents, ApplicationEvents};
 use super::types::{ApplicationWake, PendingEffect};
 
@@ -14,14 +15,16 @@ enum PollSource {
     Adapter,
     Terminal,
     Backend,
+    Redraw,
     Animation,
 }
 
 impl PollSource {
-    const ORDER: [Self; 4] = [
+    const ORDER: [Self; 5] = [
         Self::Adapter,
         Self::Terminal,
         Self::Backend,
+        Self::Redraw,
         Self::Animation,
     ];
 
@@ -39,6 +42,14 @@ pub(super) struct WakePolicy {
     pub(super) poll_interaction: bool,
 }
 
+pub(super) struct WakeSources<'a, U, E, A> {
+    pub(super) ui: &'a mut U,
+    pub(super) events: &'a mut E,
+    pub(super) adapter_events: &'a mut A,
+    pub(super) active_effects: &'a mut FuturesUnordered<PendingEffect>,
+    pub(super) animation_timer: &'a mut Option<Pin<Box<dyn Future<Output = ()>>>>,
+}
+
 impl WakePoller {
     pub(super) const fn new() -> Self {
         Self {
@@ -46,19 +57,24 @@ impl WakePoller {
         }
     }
 
-    pub(super) fn poll<E, A>(
+    pub(super) fn poll<U, E, A>(
         &mut self,
-        events: &mut E,
-        adapter_events: &mut A,
-        active_effects: &mut FuturesUnordered<PendingEffect>,
-        animation_timer: &mut Option<Pin<Box<dyn Future<Output = ()>>>>,
+        sources: WakeSources<'_, U, E, A>,
         policy: WakePolicy,
         cx: &mut Context<'_>,
     ) -> Poll<ApplicationWake>
     where
+        U: ApplicationUi,
         E: ApplicationEvents,
         A: ApplicationAdapterEvents,
     {
+        let WakeSources {
+            ui,
+            events,
+            adapter_events,
+            active_effects,
+            animation_timer,
+        } = sources;
         for offset in 0..PollSource::ORDER.len() {
             let source = self.next.offset(offset);
             let wake = match source {
@@ -74,6 +90,7 @@ impl WakePoller {
                     .flatten()
                     .map(Box::new)
                     .map(ApplicationWake::Backend),
+                PollSource::Redraw => ready(ui.poll_redraw(cx)).map(ApplicationWake::Redraw),
                 PollSource::Animation if policy.poll_interaction => animation_timer
                     .as_mut()
                     .and_then(|timer| ready(timer.as_mut().poll(cx)))

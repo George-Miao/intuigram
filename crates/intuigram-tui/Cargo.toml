@@ -9,10 +9,14 @@ compio-term.workspace = true
 intuigram-app.workspace = true
 crossterm = { workspace = true, features = ["bracketed-paste"] }
 futures-util.workspace = true
+flume.workspace = true
 qrcode = { version = "0.14.1", default-features = false }
 ratatui.workspace = true
 rasterm.workspace = true
 snafu.workspace = true
+
+[dev-dependencies]
+image = { workspace = true, features = ["png"] }
 
 [lints]
 workspace = true

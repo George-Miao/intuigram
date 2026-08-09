@@ -1,23 +1,45 @@
-use std::io::{self, Write};
+mod worker;
 
 use intuigram_app::{ChatId, InlineImage, MessageId};
 use rasterm::{
-    CellPixels, CellSize, Environment, Image, ImageId, Multiplexer, Placement, Protocol, Renderer,
+    CellPixels, CellSize, Environment, Image, ImageId, Multiplexer, Placement, Protocol,
 };
 use ratatui::buffer::Buffer;
 use ratatui::style::Color;
+use snafu::Snafu;
+pub(crate) use worker::GraphicsWorker;
+
 pub(crate) type GraphicsProtocol = Protocol;
 pub(crate) type GraphicsRequest = Placement;
+
+/// Background terminal-graphics preparation failure.
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub(crate)))]
+pub enum Error {
+    /// The dedicated graphics worker thread could not be started.
+    #[snafu(display("failed to start terminal graphics worker"))]
+    StartWorker { source: std::io::Error },
+
+    /// The graphics worker stopped before accepting or returning a frame.
+    #[snafu(display("terminal graphics worker stopped unexpectedly"))]
+    WorkerStopped,
+
+    /// A terminal graphics frame could not be prepared.
+    #[snafu(display("failed to prepare terminal graphics frame"))]
+    Prepare { source: rasterm::Error },
+
+    /// Prepared terminal graphics bytes could not be written.
+    #[snafu(display("failed to write prepared terminal graphics frame"))]
+    Write { source: std::io::Error },
+}
+
+pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
 
 pub(crate) struct GraphicsFrame {
     protocol: GraphicsProtocol,
     multiplexer: Multiplexer,
     cell_pixels: CellPixels,
     requests: Vec<GraphicsRequest>,
-}
-
-pub(crate) struct GraphicsState {
-    renderer: Renderer,
 }
 
 impl GraphicsFrame {
@@ -87,28 +109,6 @@ impl GraphicsFrame {
             }
             false
         });
-    }
-}
-
-impl GraphicsState {
-    pub(crate) fn new(protocol: GraphicsProtocol) -> Self {
-        Self {
-            renderer: Renderer::new(protocol),
-        }
-    }
-
-    pub(crate) fn sync(
-        &mut self,
-        writer: &mut impl Write,
-        requests: &[GraphicsRequest],
-    ) -> io::Result<()> {
-        self.renderer
-            .sync(writer, requests)
-            .map_err(io::Error::other)
-    }
-
-    pub(crate) fn clear(&mut self, writer: &mut impl Write) -> io::Result<()> {
-        self.renderer.clear(writer).map_err(io::Error::other)
     }
 }
 

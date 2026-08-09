@@ -1,32 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::CellSize;
-
-/// Safe argv for a caller-owned asynchronous Chafa process.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ChafaCommand {
-    /// Executable name.
-    pub program: &'static str,
-
-    /// Arguments without shell interpolation.
-    pub arguments: Vec<String>,
-}
-
-impl ChafaCommand {
-    /// Builds a symbols-only Chafa request for an encoded image file.
-    #[must_use]
-    pub fn symbols(path: &Path, size: CellSize) -> Self {
-        Self {
-            program: "chafa",
-            arguments: vec![
-                "--format=symbols".to_owned(),
-                format!("--size={}x{}", size.columns, size.rows),
-                "--".to_owned(),
-                path.to_string_lossy().into_owned(),
-            ],
-        }
-    }
-}
+use crate::{CellSize, ImageId};
 
 /// JSON-line command for a caller-owned asynchronous Überzug++ layer.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -57,6 +31,22 @@ pub enum UeberzugCommand {
 }
 
 impl UeberzugCommand {
+    pub(crate) fn add(id: ImageId, path: &Path, x: u16, y: u16, size: CellSize) -> Self {
+        Self::Add {
+            identifier: identifier(id),
+            path: path.to_owned(),
+            x,
+            y,
+            size,
+        }
+    }
+
+    pub(crate) fn remove(id: ImageId) -> Self {
+        Self::Remove {
+            identifier: identifier(id),
+        }
+    }
+
     /// Encodes one command for `ueberzugpp layer --parser json`.
     #[must_use]
     pub fn json_line(&self) -> String {
@@ -83,6 +73,10 @@ impl UeberzugCommand {
     }
 }
 
+fn identifier(id: ImageId) -> String {
+    format!("rasterm-{}", id.get())
+}
+
 fn escape(value: &str) -> String {
     value
         .chars()
@@ -95,40 +89,4 @@ fn escape(value: &str) -> String {
             character => vec![character],
         })
         .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use std::path::Path;
-
-    use super::{ChafaCommand, UeberzugCommand};
-    use crate::CellSize;
-
-    const SIZE: CellSize = CellSize {
-        columns: 12,
-        rows: 6,
-    };
-
-    #[test]
-    fn external_renderers_receive_shell_free_requests() {
-        let chafa = ChafaCommand::symbols(Path::new("/tmp/a b.png"), SIZE);
-        assert_eq!(chafa.program, "chafa");
-        assert_eq!(
-            chafa.arguments.last().map(String::as_str),
-            Some("/tmp/a b.png")
-        );
-
-        let command = UeberzugCommand::Add {
-            identifier: "message-42".to_owned(),
-            path: "/tmp/a b.png".into(),
-            x: 7,
-            y: 9,
-            size: SIZE,
-        };
-        assert_eq!(
-            command.json_line(),
-            "{\"action\":\"add\",\"identifier\":\"message-42\",\"path\":\"/tmp/a \
-             b.png\",\"x\":7,\"y\":9,\"max_width\":12,\"max_height\":6}\n"
-        );
-    }
 }

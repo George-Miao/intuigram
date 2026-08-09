@@ -3,7 +3,7 @@
 //! Run inside Ghostty:
 //!
 //! ```text
-//! cargo run -p intuigram-tui --example ghostty_image
+//! cargo run -p intuigram-tui --example ghostty_image -- /path/to/detailed.png
 //! ```
 
 use crossterm::event::{Event, KeyCode, KeyEventKind};
@@ -13,10 +13,10 @@ use intuigram_app::{
 };
 use intuigram_tui::TerminalUi;
 
-const WIDTH: u16 = 96;
-const HEIGHT: u16 = 48;
-
 fn main() -> intuigram_tui::Result<()> {
+    let image_path = std::env::args()
+        .nth(1)
+        .expect("the Ghostty image probe requires an image path");
     let mut view = App::new().view();
     view.chats.push(ChatView {
         id: ChatId(1),
@@ -54,10 +54,12 @@ fn main() -> intuigram_tui::Result<()> {
     view.media_previews.push(MediaPreviewView {
         chat: ChatId(1),
         message: MessageId(1),
-        image: probe_image(),
+        image: probe_image(&image_path),
     });
 
     let mut terminal = TerminalUi::enter()?;
+    terminal.draw(&view)?;
+    wait_for_graphics(&mut terminal)?;
     terminal.draw(&view)?;
     while !matches!(
         crossterm::event::read(),
@@ -66,19 +68,26 @@ fn main() -> intuigram_tui::Result<()> {
     Ok(())
 }
 
-fn probe_image() -> InlineImage {
-    let mut rgba = Vec::with_capacity(usize::from(WIDTH) * usize::from(HEIGHT) * 4);
-    for y in 0..HEIGHT {
-        for x in 0..WIDTH {
-            let color = match (x < WIDTH / 2, y < HEIGHT / 2) {
-                (true, true) => [255, 70, 70, 255],
-                (false, true) => [70, 220, 110, 255],
-                (true, false) => [70, 130, 255, 255],
-                (false, false) => [255, 220, 70, 255],
-            };
-            rgba.extend_from_slice(&color);
+fn wait_for_graphics(terminal: &mut TerminalUi) -> intuigram_tui::Result<()> {
+    loop {
+        let waker = futures_util::task::noop_waker();
+        let mut context = std::task::Context::from_waker(&waker);
+        match terminal.poll_redraw(&mut context) {
+            std::task::Poll::Ready(result) => return result,
+            std::task::Poll::Pending => {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
         }
     }
-    InlineImage::from_rgba(WIDTH, HEIGHT, rgba)
-        .expect("the probe dimensions exactly describe its RGBA pixels")
+}
+
+fn probe_image(path: &str) -> InlineImage {
+    let decoded = image::open(path)
+        .expect("the Ghostty probe image should decode")
+        .resize(640, 640, image::imageops::FilterType::Lanczos3)
+        .into_rgba8();
+    let width = u16::try_from(decoded.width()).expect("the resized probe width fits in u16");
+    let height = u16::try_from(decoded.height()).expect("the resized probe height fits in u16");
+    InlineImage::from_rgba(width, height, decoded.into_raw())
+        .expect("the decoded probe dimensions exactly describe its RGBA pixels")
 }

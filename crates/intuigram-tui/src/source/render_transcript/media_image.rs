@@ -27,7 +27,7 @@ pub(super) fn render_image(
             rows: HEIGHT.min(context.max_height),
         },
     );
-    if graphics.protocol().is_native()
+    if graphics.protocol().uses_placements()
         && let Some(id) = context.id
     {
         render_native_image(image, id, size, context, graphics)

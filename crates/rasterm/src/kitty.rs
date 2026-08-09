@@ -71,10 +71,10 @@ fn encode_transmission(placement: &Placement, unicode: bool) -> Vec<u8> {
 }
 
 fn write_first(output: &mut String, placement: &Placement, unicode: bool, more: usize) {
-    let virtual_placement = if unicode { ",U=1" } else { ",C=1" };
+    let placement_flags = if unicode { ",C=1,U=1" } else { ",C=1" };
     write!(
         output,
-        "\x1b_Gq=2,a=T{virtual_placement},f=32,s={},v={},i={},c={},r={},m={more};",
+        "\x1b_Gq=2,a=T{placement_flags},f=32,s={},v={},i={},c={},r={},m={more};",
         placement.image.width(),
         placement.image.height(),
         placement.id.get(),

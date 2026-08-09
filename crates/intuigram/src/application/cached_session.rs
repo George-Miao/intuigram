@@ -73,9 +73,13 @@ where
 
         enum Wake<T> {
             Terminal(T),
+            Redraw(intuigram_tui::Result<()>),
             Connected(Box<Result<ConnectedActorSession>>),
         }
         let wake = poll_fn(|cx| {
+            if let Poll::Ready(result) = terminal.poll_redraw(cx) {
+                return Poll::Ready(Wake::Redraw(result));
+            }
             if let Poll::Ready(event) = events.poll_next_event(cx) {
                 return Poll::Ready(Wake::Terminal(event));
             }
@@ -89,6 +93,7 @@ where
         .await;
 
         match wake {
+            Wake::Redraw(result) => result.context(TerminalSnafu)?,
             Wake::Terminal(event) => {
                 let event = event.context(TerminalSnafu)?;
                 let Some(event) = terminal.resolve_event(&update.view, event) else {

@@ -6,6 +6,11 @@ pub(super) trait ApplicationUi {
         view: &intuigram_app::View,
         event: crossterm::event::Event,
     ) -> Option<UiEvent>;
+
+    fn poll_redraw(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<intuigram_tui::Result<()>>;
 }
 
 impl ApplicationUi for TerminalUi {
@@ -19,6 +24,13 @@ impl ApplicationUi for TerminalUi {
         event: crossterm::event::Event,
     ) -> Option<UiEvent> {
         Self::resolve_event(self, view, event)
+    }
+
+    fn poll_redraw(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<intuigram_tui::Result<()>> {
+        Self::poll_redraw(self, cx)
     }
 }
 

@@ -34,6 +34,13 @@ impl Protocol {
         )
     }
 
+    /// Whether the renderer needs an explicit image placement for this
+    /// protocol.
+    #[must_use]
+    pub const fn uses_placements(self) -> bool {
+        !matches!(self, Self::Text)
+    }
+
     /// Whether a virtual placement must exist before placeholder text is drawn.
     #[must_use]
     pub const fn uses_unicode_placeholders(self) -> bool {

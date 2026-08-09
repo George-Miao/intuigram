@@ -16,7 +16,7 @@ mod sixel;
 mod text;
 
 pub use environment::{Environment, Multiplexer};
-pub use external::{ChafaCommand, UeberzugCommand};
+pub use external::{ChafaCommand, Error as ExternalError, UeberzugCommand};
 pub use geometry::{CellBounds, CellPixels, CellSize, fit_cells};
 pub use id::ImageId;
 pub use image::{Error as ImageError, Image, Result as ImageResult};

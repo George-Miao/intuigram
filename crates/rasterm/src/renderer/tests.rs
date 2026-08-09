@@ -14,7 +14,7 @@ fn kitty_unicode_upload_is_virtual_and_position_independent() {
         .expect("memory output should accept a Kitty upload");
     let first = output.len();
     let text = String::from_utf8(output.clone()).expect("Kitty commands are ASCII");
-    assert!(text.starts_with("\x1b_Gq=2,a=T,U=1,f=32,s=1,v=1,i=42,c=12,r=6,m=0;"));
+    assert!(text.starts_with("\x1b_Gq=2,a=T,C=1,U=1,f=32,s=1,v=1,i=42,c=12,r=6,m=0;"));
     assert!(!text.contains("\x1b[10;8H"));
 
     placement.x = 20;

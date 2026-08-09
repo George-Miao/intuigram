@@ -73,9 +73,10 @@ impl Environment {
         if self.multiplexer == Multiplexer::Zellij {
             return Protocol::Sixel;
         }
-        if self.kitty_window
-            || contains_any(term, &["ghostty", "kitty"])
-            || contains_any(program, &["ghostty", "kitty"])
+        if contains_any(term, &["ghostty"]) || contains_any(program, &["ghostty"]) {
+            return Protocol::KittyLegacy;
+        }
+        if self.kitty_window || contains_any(term, &["kitty"]) || contains_any(program, &["kitty"])
         {
             return Protocol::KittyUnicode;
         }
@@ -131,6 +132,26 @@ mod tests {
             ..Environment::default()
         };
         assert_eq!(environment.protocol(), Protocol::Sixel);
+    }
+
+    #[test]
+    fn ghostty_uses_the_verified_cursor_anchored_kitty_protocol() {
+        let environment = Environment {
+            term: Some(OsString::from("xterm-ghostty")),
+            term_program: Some(OsString::from("ghostty")),
+            ..Environment::default()
+        };
+        assert_eq!(environment.protocol(), Protocol::KittyLegacy);
+    }
+
+    #[test]
+    fn kitty_keeps_unicode_placeholders() {
+        let environment = Environment {
+            term: Some(OsString::from("xterm-kitty")),
+            kitty_window: true,
+            ..Environment::default()
+        };
+        assert_eq!(environment.protocol(), Protocol::KittyUnicode);
     }
 
     #[test]

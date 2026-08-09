@@ -76,6 +76,10 @@ impl ApplicationUi for RecordingUi {
             _ => None,
         }
     }
+
+    fn poll_redraw(&mut self, _cx: &mut Context<'_>) -> Poll<intuigram_tui::Result<()>> {
+        Poll::Pending
+    }
 }
 
 enum EventStep {

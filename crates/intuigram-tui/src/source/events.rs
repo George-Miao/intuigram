@@ -125,6 +125,13 @@ pub enum Error {
         source: io::Error,
     },
 
+    /// Terminal graphics could not be prepared or presented.
+    #[snafu(display("failed to render terminal graphics"))]
+    Graphics {
+        /// Structured graphics adapter failure.
+        source: GraphicsError,
+    },
+
     /// A terminal event could not be read.
     #[snafu(display("failed to read terminal input"))]
     ReadEvent {

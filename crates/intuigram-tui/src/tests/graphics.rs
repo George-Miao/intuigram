@@ -6,14 +6,14 @@ use ratatui::layout::Rect;
 use ratatui::{TerminalOptions, Viewport};
 
 use super::*;
-use crate::source::graphics::{GraphicsProtocol, GraphicsRequest, GraphicsState};
+use crate::source::graphics::{GraphicsProtocol, GraphicsRequest};
 use crate::source::terminal::{TerminalFrameState, draw_terminal_view};
 
 #[test]
-fn ghostty_selects_kitty_unicode_graphics() {
+fn ghostty_selects_verified_cursor_anchored_kitty_graphics() {
     assert_eq!(
         protocol("xterm-ghostty", None),
-        GraphicsProtocol::KittyUnicode
+        GraphicsProtocol::KittyLegacy
     );
     assert_eq!(protocol("xterm-256color", None), GraphicsProtocol::Text);
 }
@@ -27,15 +27,15 @@ fn zellij_uses_sixel_instead_of_the_outer_terminal_protocol() {
 }
 
 #[test]
-fn ghostty_upload_creates_only_a_virtual_unicode_placement() {
-    let mut state = GraphicsState::new(GraphicsProtocol::KittyUnicode);
+fn kitty_unicode_upload_creates_only_a_virtual_placement() {
+    let mut state = rasterm::Renderer::new(GraphicsProtocol::KittyUnicode);
     let mut output = Vec::new();
     state
         .sync(&mut output, &[graphics_request()])
         .expect("memory output should accept a graphics request");
     let encoded = String::from_utf8(output).expect("graphics commands are ASCII");
 
-    assert!(encoded.starts_with("\u{1b}_Gq=2,a=T,U=1,f=32,s=1,v=1,i=42,c=32,r=6,m=0;"));
+    assert!(encoded.starts_with("\u{1b}_Gq=2,a=T,C=1,U=1,f=32,s=1,v=1,i=42,c=32,r=6,m=0;"));
     assert!(!encoded.contains("\u{1b}[10;8H"));
     assert!(encoded.contains("/wAA/w=="));
     assert!(encoded.ends_with("\u{1b}\\"));
@@ -84,7 +84,7 @@ fn kitty_render_uses_unicode_placeholders_without_redundant_media_metadata() {
 }
 
 #[test]
-fn kitty_upload_precedes_its_unicode_placeholder() {
+fn background_kitty_upload_precedes_the_followup_placeholder() {
     let mut current = image_message_view();
     current.media_previews = vec![intuigram_app::MediaPreviewView {
         chat: ChatId(10),
@@ -101,7 +101,8 @@ fn kitty_upload_precedes_its_unicode_placeholder() {
         let mut terminal = Terminal::with_options(backend, options)
             .expect("fixed memory terminal should initialize");
         let mut frame_state =
-            TerminalFrameState::new(GraphicsProtocol::KittyUnicode, Multiplexer::None);
+            TerminalFrameState::new(GraphicsProtocol::KittyUnicode, Multiplexer::None)
+                .expect("graphics worker should start");
 
         draw_terminal_view(
             &mut terminal,
@@ -111,17 +112,43 @@ fn kitty_upload_precedes_its_unicode_placeholder() {
             &current,
         )
         .expect("memory terminal should render an image");
+        wait_for_graphics(&mut frame_state);
+        draw_terminal_view(
+            &mut terminal,
+            &mut frame_state,
+            &EffectiveKeymap::defaults(),
+            ViewMode::Default,
+            &current,
+        )
+        .expect("prepared graphics should render on the followup frame");
     }
 
+    let first_placeholder = byte_offset(&output, "\u{10eeee}".as_bytes());
     let upload = byte_offset(&output, b"\x1b_Gq=2,a=T");
-    let placeholder = byte_offset(&output, "\u{10eeee}".as_bytes());
-    assert!(upload < placeholder);
+    let followup_placeholder = output
+        .windows("\u{10eeee}".len())
+        .rposition(|window| window == "\u{10eeee}".as_bytes())
+        .expect("followup output should contain a Unicode placeholder");
+    assert!(first_placeholder < upload);
+    assert!(upload < followup_placeholder);
+}
+
+fn wait_for_graphics(state: &mut TerminalFrameState) {
+    for _ in 0..100 {
+        let waker = futures_util::task::noop_waker();
+        let mut cx = std::task::Context::from_waker(&waker);
+        if state.poll_redraw(&mut cx).is_ready() {
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    panic!("graphics worker did not complete the tiny fixture in time");
 }
 
 #[test]
 fn graphics_state_reuses_unchanged_uploads_and_deletes_stale_images() {
     let request = graphics_request();
-    let mut state = GraphicsState::new(GraphicsProtocol::KittyUnicode);
+    let mut state = rasterm::Renderer::new(GraphicsProtocol::KittyUnicode);
     let mut output = Vec::new();
 
     state
@@ -142,7 +169,7 @@ fn graphics_state_reuses_unchanged_uploads_and_deletes_stale_images() {
 #[test]
 fn graphics_state_reuploads_a_resized_placement() {
     let mut request = graphics_request();
-    let mut state = GraphicsState::new(GraphicsProtocol::KittyUnicode);
+    let mut state = rasterm::Renderer::new(GraphicsProtocol::KittyUnicode);
     let mut output = Vec::new();
 
     state

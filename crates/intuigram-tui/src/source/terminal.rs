@@ -12,25 +12,32 @@ pub struct TerminalUi {
 pub(crate) struct TerminalFrameState {
     protocol: GraphicsProtocol,
     multiplexer: Multiplexer,
-    graphics: GraphicsState,
+    graphics: GraphicsWorker,
     chat_viewport: ChatViewport,
     cell_pixels: CellPixels,
 }
 
 impl TerminalFrameState {
-    pub(crate) fn new(protocol: GraphicsProtocol, multiplexer: Multiplexer) -> Self {
-        Self {
+    pub(crate) fn new(
+        protocol: GraphicsProtocol,
+        multiplexer: Multiplexer,
+    ) -> graphics::Result<Self> {
+        Ok(Self {
             protocol,
             multiplexer,
-            graphics: GraphicsState::new(protocol),
+            graphics: GraphicsWorker::new(protocol)?,
             chat_viewport: ChatViewport::default(),
             cell_pixels: CellPixels::default(),
-        }
+        })
     }
 
     fn with_cell_pixels(mut self, cell_pixels: CellPixels) -> Self {
         self.cell_pixels = cell_pixels;
         self
+    }
+
+    pub(crate) fn poll_redraw(&mut self, cx: &mut Context<'_>) -> Poll<graphics::Result<()>> {
+        self.graphics.poll_ready(cx)
     }
 }
 
@@ -49,6 +56,7 @@ impl TerminalUi {
             view_mode,
             semantics: Vec::new(),
             frame_state: TerminalFrameState::new(graphics_protocol, graphics_multiplexer)
+                .context(GraphicsSnafu)?
                 .with_cell_pixels(terminal_cell_pixels()),
         })
     }
@@ -61,8 +69,7 @@ impl TerminalUi {
             &self.keymap,
             self.view_mode,
             view,
-        )
-        .context(DrawSnafu)?;
+        )?;
         Ok(())
     }
 
@@ -70,10 +77,6 @@ impl TerminalUi {
     /// terminal session.
     pub fn draw_recovery(&mut self, view: &RecoveryView) -> Result<()> {
         self.semantics.clear();
-        self.frame_state
-            .graphics
-            .clear(self.terminal.backend_mut())
-            .context(DrawSnafu)?;
         self.terminal
             .draw(|frame| recovery::render(frame, view))
             .context(DrawSnafu)?;
@@ -84,6 +87,13 @@ impl TerminalUi {
     #[must_use]
     pub fn resolve_event(&self, view: &View, event: Event) -> Option<UiEvent> {
         resolve_event_with_semantics(&self.keymap, view, event, &self.semantics)
+    }
+
+    /// Polls completion of background terminal-graphics preparation.
+    pub fn poll_redraw(&mut self, cx: &mut Context<'_>) -> Poll<Result<()>> {
+        self.frame_state
+            .poll_redraw(cx)
+            .map(|result| result.context(GraphicsSnafu))
     }
 }
 
@@ -119,8 +129,8 @@ pub(crate) fn draw_terminal_view<W: io::Write>(
     keymap: &EffectiveKeymap,
     view_mode: ViewMode,
     view: &View,
-) -> io::Result<Vec<SemanticNode>> {
-    let prepared = if state.protocol.is_native() {
+) -> Result<Vec<SemanticNode>> {
+    let prepared = if state.protocol.uses_placements() {
         let area = terminal.get_frame().area();
         let (_, mut graphics) = test_renderer::render_test_frame_for_protocol_with_viewport(
             view,
@@ -133,37 +143,44 @@ pub(crate) fn draw_terminal_view<W: io::Write>(
         );
         graphics.set_multiplexer(state.multiplexer);
         graphics.set_cell_pixels(state.cell_pixels);
-        // A Unicode placeholder only resolves if its virtual placement exists
-        // before the terminal receives the placeholder cells.
-        if state.protocol.uses_unicode_placeholders() {
-            state
-                .graphics
-                .sync(terminal.backend_mut(), graphics.requests())?;
-        }
         Some(graphics)
     } else {
         None
     };
 
-    let mut semantics = Vec::new();
-    let mut graphics = GraphicsFrame::new(state.protocol, state.multiplexer);
-    terminal.draw(|frame| {
-        render_with_graphics(
-            frame,
-            view,
-            keymap,
-            view_mode,
-            &mut semantics,
-            &mut graphics,
-            &mut state.chat_viewport,
-        );
-    })?;
-    if !state.protocol.uses_unicode_placeholders()
-        && let Some(graphics) = prepared
-    {
+    if let Some(graphics) = &prepared {
         state
             .graphics
-            .sync(terminal.backend_mut(), graphics.requests())?;
+            .request(graphics.requests())
+            .context(GraphicsSnafu)?;
+    }
+    let output = state.graphics.take_output().context(GraphicsSnafu)?;
+    if state.protocol.uses_unicode_placeholders()
+        && let Some(output) = &output
+    {
+        GraphicsWorker::write(terminal.backend_mut(), output).context(GraphicsSnafu)?;
+        terminal.swap_buffers();
+    }
+
+    let mut semantics = Vec::new();
+    let mut graphics = GraphicsFrame::new(state.protocol, state.multiplexer);
+    terminal
+        .draw(|frame| {
+            render_with_graphics(
+                frame,
+                view,
+                keymap,
+                view_mode,
+                &mut semantics,
+                &mut graphics,
+                &mut state.chat_viewport,
+            );
+        })
+        .context(DrawSnafu)?;
+    if !state.protocol.uses_unicode_placeholders()
+        && let Some(output) = &output
+    {
+        GraphicsWorker::write(terminal.backend_mut(), output).context(GraphicsSnafu)?;
     }
     Ok(semantics)
 }
@@ -205,7 +222,6 @@ impl TerminalEvents {
 
 impl Drop for TerminalUi {
     fn drop(&mut self) {
-        let _ = self.frame_state.graphics.clear(self.terminal.backend_mut());
         restore_terminal(&mut self.terminal);
     }
 }

@@ -1787,7 +1787,9 @@ version = "0.1.0"
 dependencies = [
  "compio-term",
  "crossterm",
+ "flume",
  "futures-util",
+ "image",
  "intuigram-app",
  "qrcode",
  "rasterm",

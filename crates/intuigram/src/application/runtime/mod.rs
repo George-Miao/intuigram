@@ -19,7 +19,7 @@ pub(super) use types::{
     DisconnectedApplication, connection_failure_reason, enqueue_effect, notification_key,
     start_effect,
 };
-use wake_poll::{WakePolicy, WakePoller};
+use wake_poll::{WakePolicy, WakePoller, WakeSources};
 
 #[cfg(test)]
 pub(super) async fn run_application<U, E, A, B>(
@@ -161,10 +161,13 @@ where
 
         let wake = poll_fn(|cx| {
             wake_poller.poll(
-                events,
-                adapter_events,
-                &mut active_effects,
-                &mut animation_timer,
+                WakeSources {
+                    ui: terminal,
+                    events,
+                    adapter_events,
+                    active_effects: &mut active_effects,
+                    animation_timer: &mut animation_timer,
+                },
                 WakePolicy {
                     poll_adapter: !disconnected,
                     poll_interaction: requested_exit.is_none(),
@@ -175,6 +178,7 @@ where
         .await;
 
         match wake {
+            ApplicationWake::Redraw(result) => result.context(TerminalSnafu)?,
             ApplicationWake::Terminal(event) => {
                 let event = event.context(TerminalSnafu)?;
                 let Some(event) = terminal.resolve_event(&update.view, event) else {

@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use snafu::{ResultExt, Snafu};
 
+use crate::external::Driver;
 use crate::{CellPixels, CellSize, Image, ImageId, Multiplexer, Protocol};
 
 /// One terminal-native image placement.
@@ -46,6 +47,10 @@ pub enum Error {
     /// A protocol-specific image payload could not be encoded.
     #[snafu(display("failed to encode terminal image payload"))]
     Encode { source: image::ImageError },
+
+    /// An external graphics adapter failed.
+    #[snafu(display("external terminal graphics adapter failed"))]
+    External { source: crate::external::Error },
 }
 
 /// Result returned by terminal graphics lifecycle operations.
@@ -56,6 +61,7 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 pub struct Renderer {
     protocol: Protocol,
     images: HashMap<ImageId, ImageState>,
+    external: Driver,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -71,6 +77,7 @@ impl Renderer {
         Self {
             protocol,
             images: HashMap::new(),
+            external: Driver::new(protocol),
         }
     }
 
@@ -108,9 +115,17 @@ impl Renderer {
             if self.images.contains_key(&placement.id) {
                 self.delete(writer, placement.id, placement.multiplexer)?;
             }
-            writer
-                .write_all(&encode::placement(self.protocol, placement)?)
-                .context(WriteSnafu)?;
+            let encoded = match self.protocol {
+                Protocol::Ueberzug | Protocol::Chafa => {
+                    self.external.place(placement).context(ExternalSnafu)?
+                }
+                Protocol::Text
+                | Protocol::KittyUnicode
+                | Protocol::KittyLegacy
+                | Protocol::Iterm2
+                | Protocol::Sixel => encode::placement(self.protocol, placement)?,
+            };
+            writer.write_all(&encoded).context(WriteSnafu)?;
             self.images.insert(
                 placement.id,
                 ImageState {
@@ -136,6 +151,7 @@ impl Renderer {
     }
 
     fn delete(&mut self, writer: &mut impl Write, id: ImageId, mux: Multiplexer) -> Result<()> {
+        self.external.delete(id).context(ExternalSnafu)?;
         writer
             .write_all(&encode::delete(self.protocol, id, mux))
             .context(WriteSnafu)?;
