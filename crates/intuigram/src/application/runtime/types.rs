@@ -9,6 +9,7 @@ pub(in crate::application) enum ApplicationWake {
     Terminal(intuigram_tui::Result<crossterm::event::Event>),
     Adapter(Box<Result<AdapterBatch>>),
     Backend(Box<BackendCompletion>),
+    Background(Box<Result<BackendOutput>>),
     Redraw(intuigram_tui::Result<()>),
     Animation,
 }

@@ -51,6 +51,13 @@ impl Drop for ActorOwner {
 }
 
 impl ActorSession {
+    pub(super) fn poll_background(
+        &self,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<BackendOutput>> {
+        std::task::Poll::Pending
+    }
+
     pub(super) async fn execute(
         &self,
         effect: AdapterEffect,

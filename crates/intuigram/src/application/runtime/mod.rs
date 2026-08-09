@@ -166,11 +166,13 @@ where
                     events,
                     adapter_events,
                     active_effects: &mut active_effects,
+                    backend: &backend,
                     animation_timer: &mut animation_timer,
                 },
                 WakePolicy {
                     poll_adapter: !disconnected,
                     poll_interaction: requested_exit.is_none(),
+                    poll_background: !disconnected && requested_exit.is_none(),
                 },
                 cx,
             )
@@ -277,6 +279,33 @@ where
                     }
                 }
             }
+            ApplicationWake::Background(result) => match *result {
+                Ok(output) => {
+                    peers.merge(output.peers);
+                    if let Some(returned) = output.telegram_update {
+                        adapter_events.submit_update(returned);
+                    }
+                    update = match output.event {
+                        Some(event) => app.transition(Input::Adapter(event)),
+                        None => Update {
+                            view: app.view(),
+                            effect: None,
+                        },
+                    };
+                }
+                Err(error) => {
+                    let Some(reason) = connection_failure_reason(&error) else {
+                        pending_effects.clear();
+                        requested_exit = Some(RequestedExit::Quit);
+                        stopping_error = Some(error);
+                        backend.begin_shutdown();
+                        continue;
+                    };
+                    disconnected = true;
+                    backend.begin_shutdown();
+                    update = app.transition(Input::Adapter(AdapterEvent::ConnectionFailed(reason)));
+                }
+            },
             ApplicationWake::Animation => {
                 animation_timer = None;
                 update = app.transition(Input::Intent(Intent::Animate));

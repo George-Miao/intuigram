@@ -9,6 +9,10 @@ pub(in crate::application) trait ApplicationBackend:
         peers: intuigram_telegram::PeerDirectory,
     ) -> Result<BackendOutput>;
 
+    fn poll_background(&self, _cx: &mut std::task::Context<'_>) -> Poll<Result<BackendOutput>> {
+        Poll::Pending
+    }
+
     fn begin_shutdown(&self) {}
 
     async fn shutdown(self) -> Result<()> {
@@ -68,6 +72,10 @@ impl ApplicationBackend for ActorSession {
         peers: intuigram_telegram::PeerDirectory,
     ) -> Result<BackendOutput> {
         self.execute(effect, peers).await
+    }
+
+    fn poll_background(&self, cx: &mut std::task::Context<'_>) -> Poll<Result<BackendOutput>> {
+        self.poll_background(cx)
     }
 
     fn begin_shutdown(&self) {
