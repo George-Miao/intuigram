@@ -9,7 +9,6 @@
 
 ## TODO
 
-- [ ] **p-core:** Add a durable Outbox that survives restart, preserves operation ordering and referenced media, and exposes safe retry, cancellation, expiry, and conflict handling.
 - [ ] **p-high:** Make keyboard bindings configurable through a Figment-based configuration system. Support layered TOML, YAML, JSON, environment, and command-line sources; keep a complete default keymap; and generate the on-screen Action Bar and Help from the active configuration.
 - [ ] **p-high:** Make the terminal palette configurable, keep Everforest Light as a built-in bright theme, and add automatic light/dark terminal-background detection with an explicit configuration override.
 - [ ] **p-high:** Add sender, date-range, and media-type filters to Chat Search and Global Search.
