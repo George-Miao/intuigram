@@ -1,7 +1,7 @@
 use intuigram_app::{
     AccountKey, AccountView, AvatarId, AvatarRef, Bootstrap, ChatId, ChatKind, ChatView,
     ConnectionState, DeliveryState, DraftView, FolderDetailsView, FolderRulesView, FolderView,
-    MessageDetails, MessageDirection, MessageId, MessageView, TopicListView,
+    MessageDetails, MessageDirection, MessageId, MessageView, SavedDialogListView, TopicListView,
 };
 
 #[derive(Clone, Debug)]
@@ -17,6 +17,7 @@ pub struct AccountFixture {
     muted_chats: Vec<ChatId>,
     avatar_peers: Vec<AvatarRef>,
     topic_lists: Vec<TopicListView>,
+    saved_dialog_lists: Vec<SavedDialogListView>,
 }
 
 impl AccountFixture {
@@ -113,6 +114,20 @@ impl AccountFixture {
         self
     }
 
+    /// Seeds one cached Saved Messages per-origin projection.
+    #[must_use]
+    pub fn with_saved_dialogs(
+        mut self,
+        chat: i64,
+        dialogs: impl IntoIterator<Item = intuigram_app::SavedDialogView>,
+    ) -> Self {
+        self.saved_dialog_lists.push(SavedDialogListView {
+            chat: ChatId(chat),
+            dialogs: dialogs.into_iter().collect(),
+        });
+        self
+    }
+
     pub(crate) fn into_bootstrap(self) -> Bootstrap {
         Bootstrap {
             connection: ConnectionState::Connected,
@@ -127,6 +142,7 @@ impl AccountFixture {
             folders: self.folders,
             chats: self.chats,
             topic_lists: self.topic_lists,
+            saved_dialog_lists: self.saved_dialog_lists,
             avatar_peers: self.avatar_peers,
             messages: self.messages,
             pinned_messages: Vec::new(),
@@ -166,6 +182,7 @@ pub fn account(name: impl Into<String>) -> AccountFixture {
         muted_chats: Vec::new(),
         avatar_peers: Vec::new(),
         topic_lists: Vec::new(),
+        saved_dialog_lists: Vec::new(),
     }
 }
 

@@ -47,6 +47,7 @@ impl App {
                 .rev()
                 .filter_map(|message| message.details.sender_peer),
         );
+        peers.extend(self.view.saved_dialogs.iter().map(|dialog| dialog.peer));
 
         let mut unique = HashSet::new();
         self.avatar_loads.queued = peers

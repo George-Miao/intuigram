@@ -21,11 +21,12 @@ pub(super) fn save_selection(connection: &Connection, selection: StoredSelection
     for anchor in selection.transcript_anchors {
         transaction
             .execute(
-                "INSERT INTO transcript_anchors(chat_id, thread_root_message_id, \
-                 anchor_message_id) VALUES (?1, ?2, ?3)",
+                "INSERT INTO transcript_anchors(chat_id, thread_root_message_id, saved_peer_id, \
+                 anchor_message_id) VALUES (?1, ?2, ?3, ?4)",
                 params![
                     anchor.chat_id,
                     anchor.thread_root.unwrap_or_default(),
+                    anchor.saved_peer.unwrap_or_default(),
                     anchor.message_id
                 ],
             )

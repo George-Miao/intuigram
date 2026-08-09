@@ -109,6 +109,8 @@ impl Backend {
                 Err(error) => history_failure_event(chat, Some(root), error),
             },
             Effect::LoadTopics(chat) => self.load_topics(chat).await,
+            Effect::LoadSavedDialogs(chat) => self.load_saved_dialogs(chat).await,
+            Effect::LoadSavedHistory { chat, peer } => self.load_saved_history(chat, peer).await,
             Effect::ReadThread { chat, root, max_id } => {
                 match self.client.read_thread(chat, root, max_id).await {
                     Ok(()) => Ok(None),

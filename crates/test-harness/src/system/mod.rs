@@ -28,6 +28,7 @@ mod input;
 mod offline_media_effects;
 mod pointer;
 mod rich_media_effects;
+mod saved_dialog_effects;
 mod scheduled_effects;
 mod telegram_control;
 mod topic_effects;

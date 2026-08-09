@@ -59,12 +59,16 @@ fn activation_target(node: &SemanticNode) -> Option<ActivationTarget> {
         SemanticRole::Topic => node
             .domain_id
             .map(|topic| ActivationTarget::Topic(TopicId(topic))),
+        SemanticRole::SavedDialog => node
+            .domain_id
+            .map(|peer| ActivationTarget::SavedDialog(ChatId(peer))),
         SemanticRole::Message => node
             .domain_id
             .map(|message| ActivationTarget::Message(MessageId(message))),
         SemanticRole::Composer => Some(ActivationTarget::Composer),
         SemanticRole::ChatList
         | SemanticRole::TopicList
+        | SemanticRole::SavedDialogList
         | SemanticRole::Transcript
         | SemanticRole::MediaCard
         | SemanticRole::Action => None,
@@ -75,6 +79,9 @@ const fn scroll_target(role: SemanticRole) -> Option<ScrollTarget> {
     match role {
         SemanticRole::ChatList | SemanticRole::Chat => Some(ScrollTarget::Chats),
         SemanticRole::TopicList | SemanticRole::Topic => Some(ScrollTarget::Topics),
+        SemanticRole::SavedDialogList | SemanticRole::SavedDialog => {
+            Some(ScrollTarget::SavedDialogs)
+        }
         SemanticRole::Transcript | SemanticRole::Message | SemanticRole::MediaCard => {
             Some(ScrollTarget::Transcript)
         }

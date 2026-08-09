@@ -34,6 +34,12 @@ pub enum AdapterEvent {
     /// A Topic projection could not be refreshed.
     TopicsLoadFailed(TopicLoadFailure),
 
+    /// One Saved Messages 2.0 dialog projection loaded.
+    SavedDialogsLoaded(SavedDialogListView),
+
+    /// A Saved Messages 2.0 dialog projection could not be refreshed.
+    SavedDialogsLoadFailed(SavedDialogLoadFailure),
+
     /// One Message's original media is protected from ordinary eviction.
     MediaCachedOffline(OfflineMediaTarget),
 
@@ -267,6 +273,30 @@ pub enum AdapterEvent {
 
         /// Chronological Thread history.
         messages: Vec<MessageView>,
+    },
+
+    /// Saved Messages filtered to one original peer became available.
+    SavedHistoryLoaded {
+        /// Owning Saved Messages Chat.
+        chat: ChatId,
+
+        /// Original peer used by the Saved Messages filter.
+        peer: ChatId,
+
+        /// Chronological filtered history.
+        messages: Vec<MessageView>,
+    },
+
+    /// One original-peer Saved Messages history could not be refreshed.
+    SavedHistoryLoadFailed {
+        /// Owning Saved Messages Chat.
+        chat: ChatId,
+
+        /// Original peer used by the Saved Messages filter.
+        peer: ChatId,
+
+        /// User-facing semantic failure.
+        reason: String,
     },
     /// Native clipboard content became available for a Composer.
     ClipboardReady {

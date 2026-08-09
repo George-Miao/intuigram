@@ -4,6 +4,42 @@ use super::*;
 pub(super) struct HistoryKey {
     pub(super) chat: ChatId,
     pub(super) thread: Option<MessageId>,
+    /// Saved Messages 2.0 origin. Never set together with `thread`.
+    pub(super) saved_peer: Option<ChatId>,
+}
+
+impl HistoryKey {
+    pub(super) const fn root(chat: ChatId) -> Self {
+        Self {
+            chat,
+            thread: None,
+            saved_peer: None,
+        }
+    }
+
+    pub(super) const fn thread(chat: ChatId, root: MessageId) -> Self {
+        Self {
+            chat,
+            thread: Some(root),
+            saved_peer: None,
+        }
+    }
+
+    pub(super) const fn from_thread(chat: ChatId, thread: Option<MessageId>) -> Self {
+        Self {
+            chat,
+            thread,
+            saved_peer: None,
+        }
+    }
+
+    pub(super) const fn saved(chat: ChatId, peer: ChatId) -> Self {
+        Self {
+            chat,
+            thread: None,
+            saved_peer: Some(peer),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

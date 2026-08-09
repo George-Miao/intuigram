@@ -111,6 +111,13 @@ pub(super) fn run_worker(
             } => {
                 let _ = reply.send(save_topics(&connection, chat, topics));
             }
+            Command::SaveSavedDialogs {
+                chat,
+                dialogs,
+                reply,
+            } => {
+                let _ = reply.send(save_saved_dialogs(&connection, chat, dialogs));
+            }
             Command::CommitSyncAsync { batch, reply } => {
                 reply.finish(commit_sync(&connection, *batch));
             }
@@ -136,6 +143,13 @@ pub(super) fn run_worker(
                 reply,
             } => {
                 reply.finish(save_topics(&connection, chat, topics));
+            }
+            Command::SaveSavedDialogsAsync {
+                chat,
+                dialogs,
+                reply,
+            } => {
+                reply.finish(save_saved_dialogs(&connection, chat, dialogs));
             }
             Command::ReplaceMessageAsync {
                 chat,

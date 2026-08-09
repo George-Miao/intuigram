@@ -138,13 +138,14 @@ pub(super) fn upsert_message(
     connection
         .execute(
             "INSERT INTO messages(chat_id, message_id, sender, body, timestamp, direction, \
-             delivery, reply_to_message_id, thread_root_message_id, content_kind, metadata) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) ON CONFLICT(chat_id, \
-             message_id) DO UPDATE SET sender=excluded.sender, body=excluded.body, \
-             timestamp=excluded.timestamp, direction=excluded.direction, \
+             delivery, reply_to_message_id, thread_root_message_id, saved_peer_id, content_kind, \
+             metadata) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) ON \
+             CONFLICT(chat_id, message_id) DO UPDATE SET sender=excluded.sender, \
+             body=excluded.body, timestamp=excluded.timestamp, direction=excluded.direction, \
              delivery=excluded.delivery, reply_to_message_id=excluded.reply_to_message_id, \
              thread_root_message_id=excluded.thread_root_message_id, \
-             content_kind=excluded.content_kind, metadata=excluded.metadata",
+             saved_peer_id=excluded.saved_peer_id, content_kind=excluded.content_kind, \
+             metadata=excluded.metadata",
             params![
                 message.chat_id,
                 message.id,
@@ -155,6 +156,7 @@ pub(super) fn upsert_message(
                 message.delivery,
                 message.reply_to,
                 message.thread_root,
+                message.saved_peer,
                 message.content_kind,
                 message.metadata
             ],

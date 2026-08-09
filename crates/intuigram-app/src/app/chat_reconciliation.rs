@@ -64,22 +64,39 @@ impl App {
         let transcript_anchor = (self.active_chat_id() == Some(chat))
             .then(|| self.transcript_anchor_id())
             .flatten();
-        let root_key = HistoryKey { chat, thread: None };
-        upsert_history_message(self.histories.entry(root_key).or_default(), &message);
-        if let Some(root) = message.details.thread_root {
-            let thread_key = HistoryKey {
-                chat,
-                thread: Some(root),
-            };
-            upsert_history_message(self.histories.entry(thread_key).or_default(), &message);
+        for (key, history) in self
+            .histories
+            .iter_mut()
+            .filter(|(key, _)| key.chat == chat)
+        {
+            let root = key.thread.is_none() && key.saved_peer.is_none();
+            let belongs = root
+                || (key.thread.is_some() && key.thread == message.details.thread_root)
+                || (key.saved_peer.is_some() && key.saved_peer == message.details.saved_peer);
+            if belongs {
+                upsert_history_message(history, &message);
+            } else {
+                history.retain(|candidate| candidate.id != message.id);
+            }
         }
-        for (_, history) in self.histories.iter_mut().filter(|(key, history)| {
-            key.chat == chat
-                && key.thread != message.details.thread_root
-                && key.thread.is_some()
-                && history.iter().any(|candidate| candidate.id == message.id)
-        }) {
-            upsert_history_message(history, &message);
+        upsert_history_message(
+            self.histories.entry(HistoryKey::root(chat)).or_default(),
+            &message,
+        );
+        if let Some(root) = message.details.thread_root {
+            upsert_history_message(
+                self.histories
+                    .entry(HistoryKey::thread(chat, root))
+                    .or_default(),
+                &message,
+            );
+        } else if let Some(peer) = message.details.saved_peer {
+            upsert_history_message(
+                self.histories
+                    .entry(HistoryKey::saved(chat, peer))
+                    .or_default(),
+                &message,
+            );
         }
         for chat_view in self
             .all_chats

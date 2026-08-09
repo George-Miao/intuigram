@@ -338,14 +338,18 @@ pub(super) fn render_active_chat(
     graphics: &mut GraphicsFrame,
 ) {
     let mode = options.mode;
-    if view.focus == Focus::Topics {
+    if matches!(view.focus, Focus::Topics | Focus::SavedDialogs) {
         let rows = Layout::vertical([
             Constraint::Length(mode.active_chat_header_height()),
             Constraint::Min(1),
         ])
         .split(area);
         render_active_chat_header(frame, rows[0], view, mode, true, graphics);
-        render_topics(frame, rows[1], view, mode, semantics);
+        if view.focus == Focus::Topics {
+            render_topics(frame, rows[1], view, mode, semantics);
+        } else {
+            render_saved_dialogs(frame, rows[1], view, mode, semantics, graphics);
+        }
         return;
     }
     let composer_height = composer_height(area, view);

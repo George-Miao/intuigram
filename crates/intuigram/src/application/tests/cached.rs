@@ -2,7 +2,9 @@ use intuigram_app::{
     ChatId, ChatKind, DeliveryState, MediaCard, MediaKind, MessageDetails, MessageDirection,
     MessageId, MessageView, SelectionView, TextEntity, TextEntityKind,
 };
-use intuigram_store::{CachedAccount, StoredChat, StoredDraft, StoredFolder, StoredSelection};
+use intuigram_store::{
+    CachedAccount, StoredChat, StoredDraft, StoredFolder, StoredSavedDialog, StoredSelection,
+};
 
 use super::super::{cached_bootstrap, encode_stored_message};
 
@@ -59,6 +61,7 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
             folders: vec![0],
         }],
         topics: Vec::new(),
+        saved_dialogs: Vec::new(),
         messages: vec![encode_stored_message(ChatId(7), &message)],
         pinned_messages: vec![encode_stored_message(ChatId(7), &old_pin)],
         drafts: vec![StoredDraft {
@@ -75,6 +78,7 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
             transcript_anchors: vec![intuigram_store::StoredTranscriptAnchor {
                 chat_id: 7,
                 thread_root: Some(41),
+                saved_peer: None,
                 message_id: 42,
             }],
         }),
@@ -97,4 +101,63 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
             message: Some(MessageId(42)),
         })
     );
+}
+
+#[test]
+fn cached_saved_message_is_restored_into_root_and_origin_histories() {
+    let mut message = MessageView {
+        id: MessageId(42),
+        sender: "Ada".to_owned(),
+        body: "saved note".to_owned(),
+        timestamp: "12:00".to_owned(),
+        direction: MessageDirection::Outgoing,
+        delivery: DeliveryState::Read,
+        reply_to: None,
+        details: MessageDetails::default(),
+    };
+    message.details.saved_peer = Some(ChatId(9));
+    let cached = CachedAccount {
+        folders: vec![StoredFolder {
+            id: 0,
+            title: "All".to_owned(),
+            unread: 0,
+        }],
+        chats: vec![StoredChat {
+            id: 7,
+            kind: "saved_messages".to_owned(),
+            title: "Saved Messages".to_owned(),
+            preview: "saved note".to_owned(),
+            status: String::new(),
+            unread: 0,
+            pinned: true,
+            can_pin_messages: true,
+            has_topics: false,
+            folders: vec![0],
+        }],
+        saved_dialogs: vec![StoredSavedDialog {
+            chat_id: 7,
+            peer_id: 9,
+            title: "Ada".to_owned(),
+            preview: "saved note".to_owned(),
+            timestamp: "12:00".to_owned(),
+            pinned: false,
+            top_message_id: 42,
+        }],
+        messages: vec![encode_stored_message(ChatId(7), &message)],
+        ..CachedAccount::default()
+    };
+
+    let bootstrap = cached_bootstrap("Ada".to_owned(), "telegram:7".to_owned(), cached);
+
+    assert_eq!(bootstrap.saved_dialog_lists[0].dialogs[0].peer, ChatId(9));
+    assert!(bootstrap.histories.iter().any(|history| {
+        history.chat == ChatId(7)
+            && history.saved_peer.is_none()
+            && history.messages == [message.clone()]
+    }));
+    assert!(bootstrap.histories.iter().any(|history| {
+        history.chat == ChatId(7)
+            && history.saved_peer == Some(ChatId(9))
+            && history.messages == [message.clone()]
+    }));
 }

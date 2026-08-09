@@ -22,6 +22,7 @@ fn active_history_reports_fresh_and_incremental_effort_until_completion() {
     cached_fixture.histories.push(HistoryView {
         chat: ChatId(20),
         thread_root: None,
+        saved_peer: None,
         messages: vec![message(19, "cached")],
     });
     let mut cached_app = App::new();
@@ -40,6 +41,7 @@ fn background_refresh_does_not_replace_a_transcript_being_read() {
     fixture.histories.push(HistoryView {
         chat: ChatId(20),
         thread_root: None,
+        saved_peer: None,
         messages: vec![cached.clone()],
     });
     let mut app = App::new();
@@ -110,6 +112,7 @@ fn refresh_prunes_stale_cache_without_losing_older_live_or_pending_messages() {
     fixture.histories.push(HistoryView {
         chat: ChatId(20),
         thread_root: None,
+        saved_peer: None,
         messages: vec![
             message(1, "older history"),
             message(8, "stale cache"),
@@ -171,6 +174,7 @@ fn reconnect_refreshes_the_selected_cached_chat_before_background_history() {
     cached.histories.push(HistoryView {
         chat: ChatId(20),
         thread_root: None,
+        saved_peer: None,
         messages: vec![stale.clone()],
     });
     let mut app = App::new();
@@ -271,6 +275,7 @@ fn background_thread_refresh_does_not_replace_a_transcript_being_read() {
     fixture.histories.push(HistoryView {
         chat: ChatId(10),
         thread_root: Some(MessageId(3)),
+        saved_peer: None,
         messages: vec![cached.clone()],
     });
     let mut app = App::new();
@@ -353,6 +358,7 @@ fn thread_read_is_emitted_after_remaining_background_history() {
             transcript_anchors: vec![TranscriptAnchorView {
                 chat: ChatId(10),
                 thread: None,
+                saved_peer: None,
                 message: MessageId(3),
             }],
         })

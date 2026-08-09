@@ -72,6 +72,9 @@ impl App {
                 if self.view.focus == Focus::Topics {
                     self.move_topic(false);
                     None
+                } else if self.view.focus == Focus::SavedDialogs {
+                    self.move_saved_dialog(false);
+                    None
                 } else {
                     self.move_chat(false)
                 }
@@ -79,6 +82,9 @@ impl App {
             Action::MoveDown => {
                 if self.view.focus == Focus::Topics {
                     self.move_topic(true);
+                    None
+                } else if self.view.focus == Focus::SavedDialogs {
+                    self.move_saved_dialog(true);
                     None
                 } else {
                     self.move_chat(true)
@@ -129,7 +135,13 @@ impl App {
                 if self.view.focus == Focus::Topics {
                     return self.open_active_topic();
                 }
+                if self.view.focus == Focus::SavedDialogs {
+                    return self.open_active_saved_dialog();
+                }
                 if let Some(chat) = self.active_chat_id() {
+                    if self.active_chat_is_saved_messages() {
+                        return self.open_saved_dialogs(chat);
+                    }
                     if self.active_chat_has_topics() {
                         return self.open_topics(chat);
                     }
@@ -156,7 +168,7 @@ impl App {
             Action::ToggleKeepMediaOffline => self.toggle_offline_media(),
             Action::ChooseAction => None,
             Action::Compose => {
-                if self.view.active_chat.is_some() {
+                if self.view.active_chat.is_some() && !self.saved_history_is_read_only() {
                     self.focus_composer_at_anchor();
                 }
                 None
@@ -261,17 +273,23 @@ impl App {
                 } else if self.view.composer.reply_to.take().is_some() {
                     self.view.focus = Focus::Composer;
                     return self.draft_effect();
+                } else if self.view.focus == Focus::Transcript
+                    && self.view.active_saved_peer.is_some()
+                {
+                    self.leave_saved_dialog();
                 } else if self.view.focus == Focus::Transcript {
                     self.focus_composer_at_anchor();
                 } else if self.view.focus == Focus::Composer {
-                    if self.view.active_topic.is_some() {
+                    if self.view.active_saved_peer.is_some() {
+                        self.leave_saved_dialog();
+                    } else if self.view.active_topic.is_some() {
                         self.leave_topic();
                     } else if self.view.active_thread.is_some() {
                         self.leave_thread();
                     } else {
                         self.view.focus = Focus::Chats;
                     }
-                } else if self.view.focus == Focus::Topics {
+                } else if matches!(self.view.focus, Focus::Topics | Focus::SavedDialogs) {
                     self.view.focus = Focus::Chats;
                 }
                 None

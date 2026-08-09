@@ -1,4 +1,4 @@
-use intuigram_app::{ChatId, MessageId, MessageView, TopicView};
+use intuigram_app::{ChatId, MessageId, MessageView, SavedDialogView, TopicView};
 
 use super::{
     ExpectedCommand, HeldSend, HistoryResult, ObservedSend, ScenarioMismatch, TelegramScenario,
@@ -52,6 +52,41 @@ impl TelegramScenario {
                 chat: expected_chat,
                 topics,
             } if expected_chat == chat => Ok(topics),
+            expected => Err(mismatch(expected, observed)),
+        }
+    }
+
+    pub fn load_saved_dialogs(
+        &mut self,
+        chat: ChatId,
+    ) -> Result<Vec<SavedDialogView>, ScenarioMismatch> {
+        let observed = format!("load saved dialogs for Chat {}", chat.0);
+        let expected = self.next_expected(&observed)?;
+        match expected {
+            ExpectedCommand::LoadSavedDialogs {
+                chat: expected_chat,
+                dialogs,
+            } if expected_chat == chat => Ok(dialogs),
+            expected => Err(mismatch(expected, observed)),
+        }
+    }
+
+    pub fn load_saved_history(
+        &mut self,
+        chat: ChatId,
+        peer: ChatId,
+    ) -> Result<Vec<MessageView>, ScenarioMismatch> {
+        let observed = format!(
+            "load Saved Messages history for peer {} in Chat {}",
+            peer.0, chat.0
+        );
+        let expected = self.next_expected(&observed)?;
+        match expected {
+            ExpectedCommand::LoadSavedHistory {
+                chat: expected_chat,
+                peer: expected_peer,
+                messages,
+            } if expected_chat == chat && expected_peer == peer => Ok(messages),
             expected => Err(mismatch(expected, observed)),
         }
     }

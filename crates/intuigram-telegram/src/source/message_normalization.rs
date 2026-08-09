@@ -128,6 +128,7 @@ pub(super) fn normalize_message(
                     album_id: message.grouped_id,
                     service: None,
                     thread_root: message.reply_to.as_ref().and_then(thread_root_message_id),
+                    saved_peer: message.saved_peer_id.as_ref().map(marked_peer_id),
                 },
             })
         }
@@ -155,6 +156,7 @@ pub(super) fn normalize_message(
                     sender_peer,
                     date_label: format_date(message.date),
                     service: Some(description),
+                    saved_peer: message.saved_peer_id.as_ref().map(marked_peer_id),
                     ..MessageDetails::default()
                 },
             })

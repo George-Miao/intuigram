@@ -13,6 +13,7 @@ pub(super) fn load_cache(connection: &Connection) -> Result<CachedAccount> {
             .context(LoadCacheSnafu)?;
     }
     let topics = load_topics(connection)?;
+    let saved_dialogs = load_saved_dialogs(connection)?;
     let messages = load_messages(connection)?;
     let pinned_messages = load_pinned_messages(connection)?;
     let drafts = load_drafts(connection)?;
@@ -38,6 +39,7 @@ pub(super) fn load_cache(connection: &Connection) -> Result<CachedAccount> {
         folders,
         chats,
         topics,
+        saved_dialogs,
         messages,
         pinned_messages,
         drafts,
@@ -50,8 +52,8 @@ fn load_transcript_anchors(
     connection: &Connection,
 ) -> rusqlite::Result<Vec<StoredTranscriptAnchor>> {
     let mut statement = connection.prepare(
-        "SELECT chat_id, thread_root_message_id, anchor_message_id FROM transcript_anchors ORDER \
-         BY chat_id, thread_root_message_id",
+        "SELECT chat_id, thread_root_message_id, saved_peer_id, anchor_message_id FROM \
+         transcript_anchors ORDER BY chat_id, thread_root_message_id, saved_peer_id",
     )?;
     statement
         .query_map([], |row| {
@@ -59,7 +61,11 @@ fn load_transcript_anchors(
             Ok(StoredTranscriptAnchor {
                 chat_id: row.get(0)?,
                 thread_root: (thread_root != 0).then_some(thread_root),
-                message_id: row.get(2)?,
+                saved_peer: match row.get::<_, i64>(2)? {
+                    0 => None,
+                    peer => Some(peer),
+                },
+                message_id: row.get(3)?,
             })
         })?
         .collect()
@@ -163,6 +169,30 @@ pub(super) fn load_topics(connection: &Connection) -> Result<Vec<StoredTopic>> {
         .context(LoadCacheSnafu)
 }
 
+pub(super) fn load_saved_dialogs(connection: &Connection) -> Result<Vec<StoredSavedDialog>> {
+    let mut statement = connection
+        .prepare(
+            "SELECT chat_id, saved_peer_id, title, preview, timestamp, pinned, top_message_id \
+             FROM saved_dialogs ORDER BY chat_id, position",
+        )
+        .context(LoadCacheSnafu)?;
+    statement
+        .query_map([], |row| {
+            Ok(StoredSavedDialog {
+                chat_id: row.get(0)?,
+                peer_id: row.get(1)?,
+                title: row.get(2)?,
+                preview: row.get(3)?,
+                timestamp: row.get(4)?,
+                pinned: row.get(5)?,
+                top_message_id: row.get(6)?,
+            })
+        })
+        .context(LoadCacheSnafu)?
+        .collect::<std::result::Result<_, _>>()
+        .context(LoadCacheSnafu)
+}
+
 pub(super) fn load_messages(connection: &Connection) -> Result<Vec<StoredMessage>> {
     query_messages(connection).context(LoadCacheSnafu)
 }
@@ -170,9 +200,9 @@ pub(super) fn load_messages(connection: &Connection) -> Result<Vec<StoredMessage
 pub(super) fn query_messages(connection: &Connection) -> rusqlite::Result<Vec<StoredMessage>> {
     let mut statement = connection.prepare(
         "SELECT chat_id, message_id, sender, body, timestamp, direction, delivery, \
-         reply_to_message_id, thread_root_message_id, content_kind, metadata FROM messages m \
-         WHERE NOT EXISTS (SELECT 1 FROM message_projections p WHERE p.chat_id = m.chat_id AND \
-         p.message_id = m.message_id) ORDER BY m.chat_id, m.message_id",
+         reply_to_message_id, thread_root_message_id, saved_peer_id, content_kind, metadata FROM \
+         messages m WHERE NOT EXISTS (SELECT 1 FROM message_projections p WHERE p.chat_id = \
+         m.chat_id AND p.message_id = m.message_id) ORDER BY m.chat_id, m.message_id",
     )?;
     statement
         .query_map([], |row| {
@@ -186,8 +216,9 @@ pub(super) fn query_messages(connection: &Connection) -> rusqlite::Result<Vec<St
                 delivery: row.get(6)?,
                 reply_to: row.get(7)?,
                 thread_root: row.get(8)?,
-                content_kind: row.get(9)?,
-                metadata: row.get(10)?,
+                saved_peer: row.get(9)?,
+                content_kind: row.get(10)?,
+                metadata: row.get(11)?,
             })
         })?
         .collect()
@@ -197,9 +228,10 @@ pub(super) fn load_pinned_messages(connection: &Connection) -> Result<Vec<Stored
     let mut statement = connection
         .prepare(
             "SELECT m.chat_id, m.message_id, m.sender, m.body, m.timestamp, m.direction, \
-             m.delivery, m.reply_to_message_id, m.thread_root_message_id, m.content_kind, \
-             m.metadata FROM messages m JOIN pinned_message_projection p ON p.chat_id = m.chat_id \
-             AND p.message_id = m.message_id ORDER BY m.chat_id, m.message_id",
+             m.delivery, m.reply_to_message_id, m.thread_root_message_id, m.saved_peer_id, \
+             m.content_kind, m.metadata FROM messages m JOIN pinned_message_projection p ON \
+             p.chat_id = m.chat_id AND p.message_id = m.message_id ORDER BY m.chat_id, \
+             m.message_id",
         )
         .context(LoadCacheSnafu)?;
     statement
@@ -214,8 +246,9 @@ pub(super) fn load_pinned_messages(connection: &Connection) -> Result<Vec<Stored
                 delivery: row.get(6)?,
                 reply_to: row.get(7)?,
                 thread_root: row.get(8)?,
-                content_kind: row.get(9)?,
-                metadata: row.get(10)?,
+                saved_peer: row.get(9)?,
+                content_kind: row.get(10)?,
+                metadata: row.get(11)?,
             })
         })
         .context(LoadCacheSnafu)?

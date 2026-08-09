@@ -9,6 +9,13 @@ pub(super) fn composer_height(area: Rect, view: &View) -> u16 {
     if view.active_chat.is_none() {
         return 0;
     }
+    if view.active_saved_peer.is_some_and(|peer| {
+        view.active_chat
+            .and_then(|index| view.chats.get(index))
+            .is_none_or(|chat| chat.id != peer)
+    }) {
+        return 0;
+    }
     let label = composer_label(view);
     let width = content_width(area.width, label.as_deref());
     let wrapped = wrap_text(&view.composer.text, view.composer.cursor, width);

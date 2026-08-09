@@ -75,6 +75,7 @@ pub(super) fn application_fixture() -> Bootstrap {
             },
         ],
         topic_lists: Vec::new(),
+        saved_dialog_lists: Vec::new(),
         avatar_peers: Vec::new(),
         messages: fixture_messages(),
         pinned_messages: Vec::new(),

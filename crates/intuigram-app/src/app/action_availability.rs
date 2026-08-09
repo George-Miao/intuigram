@@ -256,18 +256,27 @@ impl App {
                     Action::Cancel,
                 ]);
             }
+            Focus::SavedDialogs => {
+                actions.extend([
+                    Action::MoveUp,
+                    Action::MoveDown,
+                    Action::Open,
+                    Action::Cancel,
+                ]);
+            }
             Focus::Transcript => {
                 actions.extend([
                     Action::NavigatePinned,
                     Action::TargetPreviousMessage,
                     Action::TargetNextMessage,
-                    Action::Compose,
-                    Action::OpenScheduled,
                     Action::Search,
                     Action::JumpEarliest,
                     Action::JumpLatest,
                     Action::Cancel,
                 ]);
+                if !self.saved_history_is_read_only() {
+                    actions.extend([Action::Compose, Action::OpenScheduled]);
+                }
                 if !self.available_message_actions().is_empty() {
                     actions.push(Action::OpenActions);
                 }

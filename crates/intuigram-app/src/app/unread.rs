@@ -3,6 +3,9 @@ use super::*;
 impl App {
     pub(super) fn active_read_effect(&self) -> Option<Effect> {
         let key = self.active_history_key()?;
+        if key.saved_peer.is_some() {
+            return None;
+        }
         if self.view.focus == Focus::Chats || !self.at_latest() {
             return None;
         }
@@ -34,7 +37,7 @@ impl App {
         let boundaries = self
             .histories
             .iter()
-            .filter(|(key, _)| key.thread.is_none())
+            .filter(|(key, _)| key.thread.is_none() && key.saved_peer.is_none())
             .filter_map(|(key, messages)| {
                 unread_boundary(messages, self.chat_unread(key.chat)).map(|id| (*key, id))
             })
@@ -43,7 +46,10 @@ impl App {
     }
 
     pub(super) fn ensure_unread_boundary(&mut self, key: HistoryKey, messages: &[MessageView]) {
-        if key.thread.is_some() || self.unread_boundaries.contains_key(&key) {
+        if key.thread.is_some()
+            || key.saved_peer.is_some()
+            || self.unread_boundaries.contains_key(&key)
+        {
             return;
         }
         if let Some(boundary) = unread_boundary(messages, self.chat_unread(key.chat)) {
@@ -52,7 +58,7 @@ impl App {
     }
 
     pub(super) fn advance_unread_boundary(&mut self, chat: ChatId, max_id: MessageId, unread: u32) {
-        let key = HistoryKey { chat, thread: None };
+        let key = HistoryKey::root(chat);
         if unread == 0 {
             self.unread_boundaries.remove(&key);
             return;

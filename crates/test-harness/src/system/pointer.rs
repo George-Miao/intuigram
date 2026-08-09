@@ -19,6 +19,7 @@ impl TestSystem {
         let role = match target {
             ScrollTarget::Chats => SemanticRole::ChatList,
             ScrollTarget::Topics => SemanticRole::TopicList,
+            ScrollTarget::SavedDialogs => SemanticRole::SavedDialogList,
             ScrollTarget::Transcript => SemanticRole::Transcript,
         };
         let Some(bounds) = frame

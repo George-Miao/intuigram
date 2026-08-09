@@ -295,6 +295,7 @@ fn bootstrap_cached_history_renders_before_a_background_refresh() {
     fixture.histories.push(super::HistoryView {
         chat: ChatId(20),
         thread_root: None,
+        saved_peer: None,
         messages: vec![cached.clone()],
     });
     let mut app = App::new();

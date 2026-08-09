@@ -38,6 +38,7 @@ fn bootstrap() -> Bootstrap {
             folders: vec![0],
         }],
         topic_lists: Vec::new(),
+        saved_dialog_lists: Vec::new(),
         messages: (1..=3)
             .map(|id| MessageView {
                 id: MessageId(id),
@@ -180,6 +181,7 @@ fn bootstrap_restores_independent_transcript_anchors_when_switching_chats() {
     fixture.histories.push(HistoryView {
         chat: ChatId(20),
         thread_root: None,
+        saved_peer: None,
         messages: vec![MessageView {
             id: MessageId(20),
             sender: "Ferris".to_owned(),
@@ -195,11 +197,13 @@ fn bootstrap_restores_independent_transcript_anchors_when_switching_chats() {
         TranscriptAnchorView {
             chat: ChatId(10),
             thread: None,
+            saved_peer: None,
             message: MessageId(2),
         },
         TranscriptAnchorView {
             chat: ChatId(20),
             thread: None,
+            saved_peer: None,
             message: MessageId(20),
         },
     ];

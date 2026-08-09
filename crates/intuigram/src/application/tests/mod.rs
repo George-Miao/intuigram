@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::task::{Context, Poll};
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
-use intuigram_app::{Action, AdapterEvent, ChatId, Effect, Intent, MessageId};
+use intuigram_app::{Action, AdapterEvent, ChatId, ChatKind, Effect, Intent, MessageId};
 use intuigram_tui::UiEvent;
 
 use super::runtime::{AdapterBatch, BackendOutput, PendingEffect};
@@ -196,6 +196,8 @@ fn chat_history_loading_does_not_block_terminal_input() {
     let backend = PendingHistoryBackend {
         polls: Rc::clone(&polls),
     };
+    let mut fixture = application_fixture();
+    fixture.chats[0].kind = ChatKind::Private;
     let mut adapter_events = NoAdapterEvents;
     let runtime = compio::runtime::Runtime::new().expect("test runtime should initialize");
 
@@ -206,7 +208,7 @@ fn chat_history_loading_does_not_block_terminal_input() {
             &mut adapter_events,
             backend,
             intuigram_telegram::PeerDirectory::default(),
-            application_fixture(),
+            fixture,
         ))
         .expect("application should stop cleanly");
 

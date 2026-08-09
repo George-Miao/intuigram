@@ -20,8 +20,8 @@ use grammers_tl_types::{Deserializable as _, Identifiable as _};
 use intuigram_app::{
     AdapterEvent, AvatarRef, Bootstrap, ChatId, ChatKind, ChatView, DeliveryState,
     FolderDetailsView, FolderId, FolderRulesView, FolderView, MediaCard, MediaKind, MessageDetails,
-    MessageDirection, MessageId, MessageView, PollOptionView, PollView, ReactionView, TextEntity,
-    TextEntityKind, TopicAvailability,
+    MessageDirection, MessageId, MessageView, PollOptionView, PollView, ReactionView,
+    SavedDialogView, TextEntity, TextEntityKind, TopicAvailability,
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 
@@ -42,6 +42,7 @@ mod client_phone;
 mod client_poll;
 mod client_qr;
 mod client_rich_media;
+mod client_saved_dialogs;
 mod client_scheduled;
 mod client_send;
 mod client_session;

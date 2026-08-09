@@ -6,6 +6,7 @@ mod media;
 mod message;
 mod offline_media;
 mod rich_media;
+mod saved_dialog;
 mod scheduled;
 mod topic;
 
@@ -17,6 +18,7 @@ pub use media::*;
 pub use message::*;
 pub use offline_media::*;
 pub use rich_media::*;
+pub use saved_dialog::*;
 pub use scheduled::*;
 pub use topic::*;
 
@@ -81,6 +83,8 @@ pub enum Focus {
     Chats,
     /// Topic list nested inside a forum or topic-enabled bot Chat.
     Topics,
+    /// Original-peer dialogs nested inside Saved Messages.
+    SavedDialogs,
     /// Active Chat transcript.
     Transcript,
     /// Message Draft editor.
@@ -131,6 +135,9 @@ pub struct TranscriptAnchorView {
     /// Thread root, or `None` for root Chat history.
     pub thread: Option<MessageId>,
 
+    /// Original peer for a Saved Messages 2.0 dialog position.
+    pub saved_peer: Option<ChatId>,
+
     /// Message anchoring the viewport.
     pub message: MessageId,
 }
@@ -147,6 +154,9 @@ pub enum ActivationTarget {
     /// Select one Topic while retaining Topic-list interaction.
     Topic(TopicId),
 
+    /// Select one original-peer dialog inside Saved Messages.
+    SavedDialog(ChatId),
+
     /// Select a Message and descend to Transcript interaction.
     Message(MessageId),
 
@@ -162,6 +172,9 @@ pub enum ScrollTarget {
 
     /// The Active Chat's Topic list.
     Topics,
+
+    /// The Active Chat's Saved Messages dialog list.
+    SavedDialogs,
 
     /// The active Chat's Transcript.
     Transcript,

@@ -10,7 +10,7 @@ impl App {
         let missing = ids.iter().any(|id| {
             !self
                 .histories
-                .get(&HistoryKey { chat, thread: None })
+                .get(&HistoryKey::root(chat))
                 .is_some_and(|history| history.iter().any(|message| message.id == *id))
         });
         for (key, history) in &mut self.histories {
@@ -29,7 +29,7 @@ impl App {
                 if pins.iter().all(|message| message.id != *id)
                     && let Some(message) = self
                         .histories
-                        .get(&HistoryKey { chat, thread: None })
+                        .get(&HistoryKey::root(chat))
                         .and_then(|history| history.iter().find(|message| message.id == *id))
                 {
                     let mut message = message.clone();
@@ -68,7 +68,7 @@ impl App {
             self.histories.insert(key, messages);
             return;
         }
-        if self.view.focus == Focus::Transcript {
+        if self.view.focus == Focus::Transcript && !self.view.messages.is_empty() {
             self.view.has_newer_messages |= self.view.messages != messages;
             self.histories.insert(key, messages);
             self.refresh_pinned_projection();

@@ -195,6 +195,20 @@ impl AccountDatabase {
         response.recv().map_err(|_| Error::WorkerUnavailable)?
     }
 
+    /// Atomically replaces one Saved Messages Chat's per-origin dialog
+    /// projection.
+    pub fn save_saved_dialogs(&self, chat: i64, dialogs: Vec<StoredSavedDialog>) -> Result<()> {
+        let (reply, response) = mpsc::sync_channel(1);
+        self.commands
+            .send(Command::SaveSavedDialogs {
+                chat,
+                dialogs,
+                reply,
+            })
+            .map_err(|_| Error::WorkerUnavailable)?;
+        response.recv().map_err(|_| Error::WorkerUnavailable)?
+    }
+
     fn spawn(path: PathBuf, create: bool, cipher: AccountCipher) -> Result<Self> {
         prepare_data_directory(&path)?;
         let (commands, requests) = mpsc::sync_channel(32);

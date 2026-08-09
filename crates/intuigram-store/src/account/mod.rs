@@ -21,6 +21,7 @@ mod message_write;
 mod migration;
 mod model;
 mod offline_media;
+mod saved_dialog;
 mod security;
 mod selection;
 mod session;
@@ -41,6 +42,8 @@ pub use model::{
     StoredMutation, StoredSelection, StoredTopic, StoredTranscriptAnchor, SyncBatch, SyncCursor,
 };
 use offline_media::{load_offline_chats, set_chat_media_offline};
+pub use saved_dialog::StoredSavedDialog;
+use saved_dialog::save_saved_dialogs;
 pub use security::{
     AccountCipher, Error as SecurityError, Result as SecurityResult, enable_local_lock,
     local_lock_is_enabled,
@@ -302,6 +305,17 @@ pub enum Error {
     #[snafu(display("failed to persist Topic projection for Chat {chat_id}"))]
     SaveTopics {
         /// Forum or topic-enabled bot Chat.
+        chat_id: i64,
+
+        /// Underlying database failure.
+        source: rusqlite::Error,
+    },
+
+    /// One Saved Messages Chat's complete per-origin projection could not be
+    /// persisted.
+    #[snafu(display("failed to persist Saved Messages dialogs for Chat {chat_id}"))]
+    SaveSavedDialogs {
+        /// Owning Saved Messages Chat.
         chat_id: i64,
 
         /// Underlying database failure.

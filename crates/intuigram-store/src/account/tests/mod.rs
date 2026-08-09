@@ -13,6 +13,7 @@ use crate::{AccountId, StoreLayout};
 mod lifecycle;
 mod offline_media;
 mod pinned;
+mod saved_dialogs;
 mod topics;
 
 #[test]
@@ -268,11 +269,13 @@ fn replacing_the_ui_selection_keeps_the_current_value_durable() {
             super::StoredTranscriptAnchor {
                 chat_id: 9,
                 thread_root: None,
+                saved_peer: None,
                 message_id: 8,
             },
             super::StoredTranscriptAnchor {
                 chat_id: 10,
                 thread_root: Some(3),
+                saved_peer: None,
                 message_id: 4,
             },
         ],
@@ -334,6 +337,7 @@ pub(super) fn sync_batch() -> SyncBatch {
             delivery: "sent".to_owned(),
             reply_to: None,
             thread_root: Some(41),
+            saved_peer: None,
             content_kind: "text".to_owned(),
             metadata: String::new(),
         }],

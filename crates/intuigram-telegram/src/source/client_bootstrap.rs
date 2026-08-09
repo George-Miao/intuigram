@@ -123,6 +123,7 @@ impl Client {
             folder_details,
             chats: chat_views,
             topic_lists: Vec::new(),
+            saved_dialog_lists: Vec::new(),
             avatar_peers: self.peers.avatar_peers(),
             messages: initial_messages,
             pinned_messages: Vec::new(),

@@ -42,6 +42,9 @@ pub struct MessageDetails {
 
     /// Top Message ID for an ordinary Thread or Channel comments.
     pub thread_root: Option<MessageId>,
+
+    /// Original peer when this Message belongs to a Saved Messages 2.0 dialog.
+    pub saved_peer: Option<ChatId>,
 }
 
 /// One dense transcript row.
@@ -169,6 +172,9 @@ pub struct HistoryView {
 
     /// Thread root, or `None` for root Chat history.
     pub thread_root: Option<MessageId>,
+
+    /// Original peer when this is one Saved Messages 2.0 dialog history.
+    pub saved_peer: Option<ChatId>,
 
     /// Chronological cached Messages.
     pub messages: Vec<MessageView>,

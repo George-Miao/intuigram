@@ -15,6 +15,10 @@ impl App {
                 topics: Vec::new(),
                 active_topic: None,
                 topics_loading: false,
+                saved_dialogs: Vec::new(),
+                active_saved_dialog: None,
+                active_saved_peer: None,
+                saved_dialogs_loading: false,
                 chat_scroll_direction: ScrollDirection::Down,
                 messages: Vec::new(),
                 parent_messages: Vec::new(),
@@ -58,6 +62,7 @@ impl App {
             drafts: HashMap::new(),
             histories: HashMap::new(),
             topic_lists: HashMap::new(),
+            saved_dialog_lists: HashMap::new(),
             pinned_histories: HashMap::new(),
             projected_pin: false,
             transcript_anchors: HashMap::new(),
@@ -101,7 +106,10 @@ impl App {
                 } else if let Some(search) = &mut self.view.search {
                     search.query.push_str(&text);
                 } else if self.view.active_chat.is_some()
-                    && !matches!(self.view.focus, Focus::Chats | Focus::Topics)
+                    && !matches!(
+                        self.view.focus,
+                        Focus::Chats | Focus::Topics | Focus::SavedDialogs
+                    )
                 {
                     self.focus_composer_at_anchor();
                     self.insert_composer_text(&text);
@@ -179,15 +187,13 @@ impl App {
             .retain(|avatar| self.avatar_peers.get(&avatar.avatar.peer) == Some(&avatar.avatar.id));
         self.all_chats = bootstrap.chats;
         self.replace_topic_lists(bootstrap.topic_lists);
+        self.replace_saved_dialog_lists(bootstrap.saved_dialog_lists);
         self.drafts = bootstrap
             .drafts
             .into_iter()
             .map(|draft| {
                 (
-                    HistoryKey {
-                        chat: draft.chat,
-                        thread: draft.thread_root,
-                    },
+                    HistoryKey::from_thread(draft.chat, draft.thread_root),
                     ComposerView {
                         cursor: draft.text.len(),
                         text: draft.text,
@@ -232,15 +238,16 @@ impl App {
             self.view.active_chat = None;
         }
         self.restore_active_topics();
+        self.restore_active_saved_dialogs();
         self.histories = bootstrap
             .histories
             .into_iter()
             .map(|history| {
                 (
-                    HistoryKey {
-                        chat: history.chat,
-                        thread: history.thread_root,
-                    },
+                    history.saved_peer.map_or_else(
+                        || HistoryKey::from_thread(history.chat, history.thread_root),
+                        |peer| HistoryKey::saved(history.chat, peer),
+                    ),
                     history.messages,
                 )
             })
@@ -248,7 +255,7 @@ impl App {
         self.pinned_histories = self
             .histories
             .iter()
-            .filter(|(key, _)| key.thread.is_none())
+            .filter(|(key, _)| key.thread.is_none() && key.saved_peer.is_none())
             .map(|(key, messages)| {
                 (
                     key.chat,
@@ -267,10 +274,10 @@ impl App {
         self.transcript_anchors = restored_anchors
             .into_iter()
             .filter_map(|anchor| {
-                let key = HistoryKey {
-                    chat: anchor.chat,
-                    thread: anchor.thread,
-                };
+                let key = anchor.saved_peer.map_or_else(
+                    || HistoryKey::from_thread(anchor.chat, anchor.thread),
+                    |peer| HistoryKey::saved(anchor.chat, peer),
+                );
                 self.histories
                     .get(&key)
                     .is_some_and(|history| {
@@ -281,7 +288,7 @@ impl App {
             .collect();
         if let Some(chat) = self.active_chat_id() {
             self.histories
-                .insert(HistoryKey { chat, thread: None }, bootstrap.messages);
+                .insert(HistoryKey::root(chat), bootstrap.messages);
         }
         self.rebuild_unread_boundaries();
         self.view.active_message = None;

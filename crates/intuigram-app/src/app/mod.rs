@@ -6,6 +6,7 @@ pub struct App {
     drafts: HashMap<HistoryKey, ComposerView>,
     histories: HashMap<HistoryKey, Vec<MessageView>>,
     topic_lists: HashMap<ChatId, Vec<TopicView>>,
+    saved_dialog_lists: HashMap<ChatId, Vec<SavedDialogView>>,
     pinned_histories: HashMap<ChatId, Vec<MessageView>>,
     projected_pin: bool,
     transcript_anchors: HashMap<HistoryKey, MessageId>,
@@ -68,6 +69,10 @@ impl App {
             | Input::Adapter(event @ AdapterEvent::TopicsLoadFailed(_))
             | Input::Adapter(event @ AdapterEvent::ChatTopicsChanged(_)) => {
                 self.apply_topic_event(event)
+            }
+            Input::Adapter(event @ AdapterEvent::SavedDialogsLoaded(_))
+            | Input::Adapter(event @ AdapterEvent::SavedDialogsLoadFailed(_)) => {
+                self.apply_saved_dialog_event(event)
             }
             Input::Adapter(
                 event @ (AdapterEvent::ChatMediaOfflineChanged(_)
@@ -169,7 +174,7 @@ impl App {
                 messages,
                 pinned_messages,
             }) => {
-                let key = HistoryKey { chat, thread: None };
+                let key = HistoryKey::root(chat);
                 if let Some(status) = status {
                     self.apply_chat_status(chat, status);
                 }
@@ -189,10 +194,7 @@ impl App {
                 thread_root,
                 reason,
             }) => {
-                let key = HistoryKey {
-                    chat,
-                    thread: thread_root,
-                };
+                let key = HistoryKey::from_thread(chat, thread_root);
                 if self.active_history_key() == Some(key) {
                     self.view.notice = Some(reason);
                 }
@@ -203,10 +205,7 @@ impl App {
                 root,
                 messages,
             }) => {
-                let key = HistoryKey {
-                    chat,
-                    thread: Some(root),
-                };
+                let key = HistoryKey::thread(chat, root);
                 self.store_loaded_history(key, messages);
                 self.queue_offline_media(chat);
                 if self.active_history_key() == Some(key) {
@@ -217,16 +216,17 @@ impl App {
                 self.request_next_offline_media()
                     .or_else(|| self.complete_history_load(key, true))
             }
+            Input::Adapter(event @ AdapterEvent::SavedHistoryLoaded { .. })
+            | Input::Adapter(event @ AdapterEvent::SavedHistoryLoadFailed { .. }) => {
+                self.apply_saved_history_event(event)
+            }
             Input::Adapter(AdapterEvent::ClipboardReady {
                 chat,
                 thread_root,
                 text,
                 attachments,
             }) => {
-                let key = HistoryKey {
-                    chat,
-                    thread: thread_root,
-                };
+                let key = HistoryKey::from_thread(chat, thread_root);
                 if self.active_history_key() == Some(key) {
                     if let Some(text) = text {
                         self.insert_composer_text(&text);
@@ -254,10 +254,7 @@ impl App {
                 }
             }
             Input::Adapter(AdapterEvent::AttachmentPathRequired { chat, thread_root }) => {
-                let key = HistoryKey {
-                    chat,
-                    thread: thread_root,
-                };
+                let key = HistoryKey::from_thread(chat, thread_root);
                 if self.active_history_key() == Some(key) {
                     self.view.attachment_path = Some(AttachmentPathView {
                         path: String::new(),
@@ -280,10 +277,7 @@ impl App {
                 reason,
             }) => {
                 self.update_delivery(chat, local_id, DeliveryState::Failed);
-                let key = HistoryKey {
-                    chat,
-                    thread: thread_root,
-                };
+                let key = HistoryKey::from_thread(chat, thread_root);
                 let failed_draft = self
                     .pending_drafts
                     .remove(&local_id)
@@ -325,10 +319,7 @@ impl App {
                 reason,
             }) => {
                 self.update_delivery(chat, local_id, DeliveryState::Failed);
-                let key = HistoryKey {
-                    chat,
-                    thread: thread_root,
-                };
+                let key = HistoryKey::from_thread(chat, thread_root);
                 let text = self
                     .pending_polls
                     .remove(&local_id)
@@ -387,6 +378,7 @@ mod pinned;
 mod poll_composer;
 mod poll_vote;
 mod rich_media;
+mod saved_dialog_navigation;
 mod scheduled;
 mod state;
 mod topic_navigation;

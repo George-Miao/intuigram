@@ -72,6 +72,7 @@ impl App {
             .map(|(key, message)| TranscriptAnchorView {
                 chat: key.chat,
                 thread: key.thread,
+                saved_peer: key.saved_peer,
                 message: *message,
             })
             .collect::<Vec<_>>();
@@ -79,10 +80,17 @@ impl App {
             anchors.push(TranscriptAnchorView {
                 chat: key.chat,
                 thread: key.thread,
+                saved_peer: key.saved_peer,
                 message,
             });
         }
-        anchors.sort_unstable_by_key(|anchor| (anchor.chat, anchor.thread.unwrap_or(MessageId(0))));
+        anchors.sort_unstable_by_key(|anchor| {
+            (
+                anchor.chat,
+                anchor.saved_peer.unwrap_or(ChatId(0)),
+                anchor.thread.unwrap_or(MessageId(0)),
+            )
+        });
         anchors
     }
 

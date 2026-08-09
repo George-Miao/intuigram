@@ -28,6 +28,7 @@ impl TestSystem {
                         .map(|anchor| StoredTranscriptAnchor {
                             chat_id: anchor.chat.0,
                             thread_root: anchor.thread.map(|message| message.0),
+                            saved_peer: anchor.saved_peer.map(|peer| peer.0),
                             message_id: anchor.message.0,
                         })
                         .collect(),

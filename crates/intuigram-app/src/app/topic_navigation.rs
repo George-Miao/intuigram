@@ -85,10 +85,7 @@ impl App {
         for topic in &topics {
             if let Some(draft) = &topic.draft {
                 self.drafts
-                    .entry(HistoryKey {
-                        chat,
-                        thread: Some(topic.id.root_message()),
-                    })
+                    .entry(HistoryKey::thread(chat, topic.id.root_message()))
                     .or_insert_with(|| ComposerView {
                         text: draft.text.clone(),
                         cursor: draft.text.len(),
@@ -134,10 +131,7 @@ impl App {
         self.restore_active_draft();
         self.refresh_active_history();
         self.view.focus = Focus::Composer;
-        self.request_history_load(HistoryKey {
-            chat,
-            thread: Some(root),
-        })
+        self.request_history_load(HistoryKey::thread(chat, root))
     }
 
     pub(super) fn leave_topic(&mut self) {

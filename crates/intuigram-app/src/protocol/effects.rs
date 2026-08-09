@@ -152,6 +152,16 @@ pub enum Effect {
     },
     /// Load the complete ordered Topic projection for one Chat.
     LoadTopics(ChatId),
+    /// Load the complete original-peer projection for Saved Messages.
+    LoadSavedDialogs(ChatId),
+    /// Load Saved Messages filtered to one original peer.
+    LoadSavedHistory {
+        /// Owning Saved Messages Chat.
+        chat: ChatId,
+
+        /// Original peer used by Telegram's Saved Messages filter.
+        peer: ChatId,
+    },
     /// Persist navigation when no Chat load is needed.
     SaveSelection {
         /// Selected Telegram Folder ID.

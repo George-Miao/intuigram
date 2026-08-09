@@ -9,7 +9,6 @@
 
 ## TODO
 
-- [ ] **p-core:** Add Saved Messages 2.0 per-origin dialogs.
 - [ ] **p-core:** Add Channel direct messages backed by monoforum dialogs.
 - [ ] **p-core:** Add specialized interactive rendering for live locations, games, invoices, paid media, giveaways, gifts, shared Stories, and TODO lists.
 - [ ] **p-core:** Send static locations through coordinates, pasted map links, or place search.

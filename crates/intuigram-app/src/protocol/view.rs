@@ -42,6 +42,18 @@ pub struct View {
     /// Whether the Active Chat's Topic projection is being refreshed.
     pub topics_loading: bool,
 
+    /// Original-peer dialogs for the Active Saved Messages Chat.
+    pub saved_dialogs: Vec<SavedDialogView>,
+
+    /// Selected Saved Messages dialog while its list is active.
+    pub active_saved_dialog: Option<usize>,
+
+    /// Original peer whose saved history is currently open.
+    pub active_saved_peer: Option<ChatId>,
+
+    /// Whether the Saved Messages dialog projection is refreshing.
+    pub saved_dialogs_loading: bool,
+
     /// Direction of the most recent Chat-list movement, used for viewport
     /// anchoring.
     pub chat_scroll_direction: ScrollDirection,
@@ -162,6 +174,7 @@ impl View {
         self.connection == ConnectionState::Connecting
             || self.chat_loading != ChatLoadingState::Idle
             || self.topics_loading
+            || self.saved_dialogs_loading
             || self
                 .folder_manager
                 .as_ref()

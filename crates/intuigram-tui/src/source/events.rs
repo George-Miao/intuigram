@@ -22,6 +22,12 @@ pub enum SemanticRole {
     /// The Active Chat's Topic list.
     TopicList,
 
+    /// One Saved Messages per-origin dialog.
+    SavedDialog,
+
+    /// The Active Chat's Saved Messages per-origin dialog list.
+    SavedDialogList,
+
     /// The scrollable Transcript region.
     Transcript,
 

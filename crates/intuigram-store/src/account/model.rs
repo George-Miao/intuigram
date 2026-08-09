@@ -194,6 +194,9 @@ pub struct StoredMessage {
     /// Thread root, or `None` for root Chat history.
     pub thread_root: Option<i64>,
 
+    /// Original peer for a Saved Messages 2.0 filtered history.
+    pub saved_peer: Option<i64>,
+
     /// Stable semantic content kind.
     pub content_kind: String,
 
@@ -335,6 +338,9 @@ pub struct StoredTranscriptAnchor {
     /// Thread root, or `None` for root Chat history.
     pub thread_root: Option<i64>,
 
+    /// Original peer for a Saved Messages 2.0 filtered history.
+    pub saved_peer: Option<i64>,
+
     /// Message anchoring the restored viewport.
     pub message_id: i64,
 }
@@ -353,6 +359,9 @@ pub struct CachedAccount {
 
     /// Cached ordered Topic projections.
     pub topics: Vec<StoredTopic>,
+
+    /// Cached ordered Saved Messages per-origin dialogs.
+    pub saved_dialogs: Vec<StoredSavedDialog>,
 
     /// Cached Messages.
     pub messages: Vec<StoredMessage>,

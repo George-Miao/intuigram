@@ -53,6 +53,7 @@ mod render_headers;
 pub(crate) mod render_layout;
 mod render_overlays;
 mod render_rich_media;
+mod render_saved_dialogs;
 mod render_scheduled;
 pub(crate) mod render_text;
 mod render_topics;
@@ -88,6 +89,7 @@ use render_overlays::{
     render_link_confirmation, render_poll_vote, render_reaction_picker, render_save_as,
 };
 use render_rich_media::render_rich_media;
+use render_saved_dialogs::render_saved_dialogs;
 use render_scheduled::render_scheduled;
 use render_text::capped_text;
 use render_topics::render_topics;

@@ -18,6 +18,7 @@ pub(super) fn cached_bootstrap(
                 .map(|anchor| TranscriptAnchorView {
                     chat: ChatId(anchor.chat_id),
                     thread: anchor.thread_root.map(MessageId),
+                    saved_peer: anchor.saved_peer.map(ChatId),
                     message: MessageId(anchor.message_id),
                 })
                 .collect()
@@ -81,25 +82,61 @@ pub(super) fn cached_bootstrap(
             topics,
         })
         .collect();
-    let mut grouped = BTreeMap::<(i64, Option<i64>), Vec<MessageView>>::new();
-    for message in cached.messages {
-        grouped
-            .entry((message.chat_id, message.thread_root))
+    let mut grouped_saved_dialogs = BTreeMap::<i64, Vec<SavedDialogView>>::new();
+    for dialog in cached.saved_dialogs {
+        grouped_saved_dialogs
+            .entry(dialog.chat_id)
             .or_default()
-            .push(decode_stored_message(message));
+            .push(SavedDialogView {
+                peer: ChatId(dialog.peer_id),
+                title: dialog.title,
+                preview: dialog.preview,
+                timestamp: dialog.timestamp,
+                pinned: dialog.pinned,
+                top_message: MessageId(dialog.top_message_id),
+            });
+    }
+    let saved_dialog_lists = grouped_saved_dialogs
+        .into_iter()
+        .map(|(chat, dialogs)| SavedDialogListView {
+            chat: ChatId(chat),
+            dialogs,
+        })
+        .collect();
+    let mut grouped = BTreeMap::<(i64, Option<i64>, Option<i64>), Vec<MessageView>>::new();
+    for message in cached.messages {
+        let chat = message.chat_id;
+        let thread = message.thread_root;
+        let saved_peer = message.saved_peer;
+        let message = decode_stored_message(message);
+        grouped
+            .entry((chat, thread, None))
+            .or_default()
+            .push(message.clone());
+        if let Some(saved_peer) = saved_peer {
+            grouped
+                .entry((chat, None, Some(saved_peer)))
+                .or_default()
+                .push(message);
+        }
     }
     let histories = grouped
         .into_iter()
-        .map(|((chat, thread_root), messages)| HistoryView {
+        .map(|((chat, thread_root, saved_peer), messages)| HistoryView {
             chat: ChatId(chat),
             thread_root: thread_root.map(MessageId),
+            saved_peer: saved_peer.map(ChatId),
             messages,
         })
         .collect::<Vec<_>>();
     for chat in &mut chats {
         let Some(message) = histories
             .iter()
-            .find(|history| history.chat == chat.id && history.thread_root.is_none())
+            .find(|history| {
+                history.chat == chat.id
+                    && history.thread_root.is_none()
+                    && history.saved_peer.is_none()
+            })
             .and_then(|history| history.messages.last())
         else {
             continue;
@@ -120,6 +157,7 @@ pub(super) fn cached_bootstrap(
         .map(|(chat, messages)| HistoryView {
             chat: ChatId(chat),
             thread_root: None,
+            saved_peer: None,
             messages,
         })
         .collect();
@@ -137,7 +175,11 @@ pub(super) fn cached_bootstrap(
     let messages = active_chat.map_or_else(Vec::new, |active| {
         histories
             .iter()
-            .find(|history| history.chat == active && history.thread_root.is_none())
+            .find(|history| {
+                history.chat == active
+                    && history.thread_root.is_none()
+                    && history.saved_peer.is_none()
+            })
             .map_or_else(Vec::new, |history| history.messages.clone())
     });
     Bootstrap {
@@ -153,6 +195,7 @@ pub(super) fn cached_bootstrap(
         folders,
         chats,
         topic_lists,
+        saved_dialog_lists,
         avatar_peers: Vec::new(),
         messages,
         pinned_messages,

@@ -9,6 +9,7 @@ mod message_actions;
 mod pins;
 mod poll;
 mod rich_media;
+mod saved_dialogs;
 mod scheduled;
 mod send;
 mod topics;
@@ -131,6 +132,7 @@ impl Backend {
                     .map(|anchor| intuigram_store::StoredTranscriptAnchor {
                         chat_id: anchor.chat.0,
                         thread_root: anchor.thread.map(|message| message.0),
+                        saved_peer: anchor.saved_peer.map(|peer| peer.0),
                         message_id: anchor.message.0,
                     })
                     .collect(),

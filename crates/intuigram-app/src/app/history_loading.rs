@@ -31,11 +31,11 @@ impl App {
     }
 
     pub(super) fn request_chat_load(&mut self, chat: ChatId) -> Option<Effect> {
-        self.request_history_load(HistoryKey { chat, thread: None })
+        self.request_history_load(HistoryKey::root(chat))
     }
 
     pub(super) fn force_chat_load(&mut self, chat: ChatId) -> Option<Effect> {
-        let key = HistoryKey { chat, thread: None };
+        let key = HistoryKey::root(chat);
         self.history_loads.refreshed_chats.remove(&chat);
         if self.history_loads.active == Some(key) {
             self.history_loads.queued = Some(key);
@@ -105,17 +105,24 @@ impl App {
                     .flatten()
                     .map(|message| message.id)
                     .collect();
-                Some(match key.thread {
-                    Some(root) => Effect::LoadThread {
+                Some(match (key.saved_peer, key.thread) {
+                    (Some(peer), None) => Effect::LoadSavedHistory {
+                        chat: key.chat,
+                        peer,
+                    },
+                    (None, Some(root)) => Effect::LoadThread {
                         chat: key.chat,
                         root,
                     },
-                    None => Effect::LoadChat {
+                    (None, None) => Effect::LoadChat {
                         chat: key.chat,
                         selection: (self.active_history_key() == Some(key))
                             .then(|| self.selection_view()),
                         transcript_anchors: self.transcript_anchor_views(),
                     },
+                    (Some(_), Some(_)) => {
+                        unreachable!("a history cannot be both a Thread and Saved Messages dialog")
+                    }
                 })
             }
             Some(loading) if loading == key => {
@@ -138,7 +145,7 @@ impl App {
         key: HistoryKey,
         refreshed: bool,
     ) -> Option<Effect> {
-        if refreshed && key.thread.is_none() {
+        if refreshed && key.thread.is_none() && key.saved_peer.is_none() {
             self.history_loads.refreshed_chats.insert(key.chat);
         }
         if self.history_loads.active != Some(key) {
@@ -175,10 +182,7 @@ impl App {
             let index = self.history_loads.background_cursor;
             self.history_loads.background_cursor = (index + 1) % self.all_chats.len();
             self.history_loads.background_remaining -= 1;
-            let key = HistoryKey {
-                chat: self.all_chats[index].id,
-                thread: None,
-            };
+            let key = HistoryKey::root(self.all_chats[index].id);
             if !self.history_was_refreshed(key) {
                 return self.start_history_load(key);
             }
@@ -187,6 +191,8 @@ impl App {
     }
 
     fn history_was_refreshed(&self, key: HistoryKey) -> bool {
-        key.thread.is_none() && self.history_loads.refreshed_chats.contains(&key.chat)
+        key.thread.is_none()
+            && key.saved_peer.is_none()
+            && self.history_loads.refreshed_chats.contains(&key.chat)
     }
 }

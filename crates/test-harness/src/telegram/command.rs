@@ -1,4 +1,6 @@
-use intuigram_app::{AvatarRef, ChatId, MessageId, MessageView, TextEntity, TopicView};
+use intuigram_app::{
+    AvatarRef, ChatId, MessageId, MessageView, SavedDialogView, TextEntity, TopicView,
+};
 
 #[derive(Clone, Debug)]
 pub(super) enum ExpectedCommand {
@@ -32,6 +34,17 @@ pub(super) enum ExpectedCommand {
     LoadTopics {
         chat: ChatId,
         topics: Vec<TopicView>,
+    },
+
+    LoadSavedDialogs {
+        chat: ChatId,
+        dialogs: Vec<SavedDialogView>,
+    },
+
+    LoadSavedHistory {
+        chat: ChatId,
+        peer: ChatId,
+        messages: Vec<MessageView>,
     },
 
     ReadThread {
@@ -128,6 +141,13 @@ impl ExpectedCommand {
                 format!("load Thread {} in Chat {}", root.0, chat.0)
             }
             Self::LoadTopics { chat, .. } => format!("load Topics for Chat {}", chat.0),
+            Self::LoadSavedDialogs { chat, .. } => {
+                format!("load saved dialogs for Chat {}", chat.0)
+            }
+            Self::LoadSavedHistory { chat, peer, .. } => format!(
+                "load Saved Messages history for peer {} in Chat {}",
+                peer.0, chat.0
+            ),
             Self::ReadThread { chat, root, max_id } => format!(
                 "read Thread {} in Chat {} through Message {}",
                 root.0, chat.0, max_id.0

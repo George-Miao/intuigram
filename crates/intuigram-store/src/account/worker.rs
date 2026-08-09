@@ -38,6 +38,11 @@ pub(super) enum Command {
         topics: Vec<StoredTopic>,
         reply: SyncSender<Result<()>>,
     },
+    SaveSavedDialogs {
+        chat: i64,
+        dialogs: Vec<StoredSavedDialog>,
+        reply: SyncSender<Result<()>>,
+    },
     CommitSyncAsync {
         batch: Box<SyncBatch>,
         reply: AsyncReply<()>,
@@ -62,6 +67,11 @@ pub(super) enum Command {
     SaveTopicsAsync {
         chat: i64,
         topics: Vec<StoredTopic>,
+        reply: AsyncReply<()>,
+    },
+    SaveSavedDialogsAsync {
+        chat: i64,
+        dialogs: Vec<StoredSavedDialog>,
         reply: AsyncReply<()>,
     },
     ReplaceMessageAsync {
@@ -210,6 +220,24 @@ impl AccountStore {
             .try_send(Command::SaveTopicsAsync {
                 chat,
                 topics,
+                reply,
+            })
+            .map_err(map_try_send_error)?;
+        Ok(request)
+    }
+
+    /// Atomically replaces one Saved Messages Chat's per-origin dialog
+    /// projection.
+    pub fn save_saved_dialogs(
+        &self,
+        chat: i64,
+        dialogs: Vec<StoredSavedDialog>,
+    ) -> Result<DatabaseRequest<()>> {
+        let (reply, request) = async_response();
+        self.commands
+            .try_send(Command::SaveSavedDialogsAsync {
+                chat,
+                dialogs,
                 reply,
             })
             .map_err(map_try_send_error)?;

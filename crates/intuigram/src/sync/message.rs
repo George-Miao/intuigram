@@ -105,6 +105,7 @@ pub fn encode_stored_message(chat: ChatId, message: &MessageView) -> StoredMessa
         .to_owned(),
         reply_to: message.reply_to.map(|message| message.0),
         thread_root: message.details.thread_root.map(|message| message.0),
+        saved_peer: message.details.saved_peer.map(|peer| peer.0),
         content_kind,
         metadata,
     }
@@ -168,6 +169,7 @@ pub fn decode_stored_message(message: StoredMessage) -> MessageView {
             album_id: metadata.album_id,
             service: metadata.service,
             thread_root: message.thread_root.map(MessageId),
+            saved_peer: message.saved_peer.map(ChatId),
         },
     }
 }

@@ -175,6 +175,7 @@ fn stored_message(id: i64, body: &str) -> StoredMessage {
         delivery: "read".to_owned(),
         reply_to: None,
         thread_root: None,
+        saved_peer: None,
         content_kind: "text".to_owned(),
         metadata: "{}".to_owned(),
     }

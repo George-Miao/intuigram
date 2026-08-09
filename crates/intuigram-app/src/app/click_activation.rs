@@ -16,6 +16,11 @@ impl App {
                 self.move_topic(direction == ScrollDirection::Down);
                 None
             }
+            ScrollTarget::SavedDialogs => {
+                self.view.focus = Focus::SavedDialogs;
+                self.move_saved_dialog(direction == ScrollDirection::Down);
+                None
+            }
             ScrollTarget::Transcript => {
                 let previous = (self.view.active_message, self.view.transcript_anchor);
                 if self.view.focus == Focus::Chats {
@@ -42,6 +47,15 @@ impl App {
                     .iter()
                     .position(|candidate| candidate.id == topic);
                 self.view.focus = Focus::Topics;
+                None
+            }
+            ActivationTarget::SavedDialog(peer) => {
+                self.view.active_saved_dialog = self
+                    .view
+                    .saved_dialogs
+                    .iter()
+                    .position(|candidate| candidate.peer == peer);
+                self.view.focus = Focus::SavedDialogs;
                 None
             }
             ActivationTarget::Message(message) => {
@@ -82,6 +96,7 @@ impl App {
         self.clear_message_selection();
         self.view.active_thread = None;
         self.view.active_topic = None;
+        self.view.active_saved_peer = None;
         self.view.chat_scroll_direction =
             self.view
                 .active_chat
@@ -94,6 +109,7 @@ impl App {
                 });
         self.view.active_chat = Some(index);
         self.restore_active_topics();
+        self.restore_active_saved_dialogs();
         self.restore_active_draft();
         let transcript_anchor = self
             .active_history_key()

@@ -15,18 +15,20 @@ impl App {
         let incoming = message.direction == MessageDirection::Incoming;
         let message_id = message.id;
         let message_thread = message.details.thread_root;
+        let saved_peer = message.details.saved_peer;
         let active = self.active_chat_id() == Some(chat);
         let was_latest = active && self.at_latest();
         let active_message = active.then(|| self.active_message_id()).flatten();
         let transcript_anchor = active.then(|| self.transcript_anchor_id()).flatten();
         let visibly_read = active
             && self.view.active_thread == message_thread
+            && self.view.active_saved_peer == saved_peer
             && self.view.focus != Focus::Chats
             && was_latest;
         let unread_increment = u32::from(incoming && !visibly_read);
-        if unread_increment > 0 && message_thread.is_none() {
+        if unread_increment > 0 && message_thread.is_none() && saved_peer.is_none() {
             self.unread_boundaries
-                .entry(HistoryKey { chat, thread: None })
+                .entry(HistoryKey::root(chat))
                 .or_insert(message.id);
         }
         for chat_view in self
@@ -44,15 +46,17 @@ impl App {
         let reconciled = self.reconcile_pending_message(chat, &message);
         if !reconciled {
             self.histories
-                .entry(HistoryKey { chat, thread: None })
+                .entry(HistoryKey::root(chat))
                 .or_default()
                 .push(message.clone());
             if let Some(root) = message_thread {
                 self.histories
-                    .entry(HistoryKey {
-                        chat,
-                        thread: Some(root),
-                    })
+                    .entry(HistoryKey::thread(chat, root))
+                    .or_default()
+                    .push(message);
+            } else if let Some(peer) = saved_peer {
+                self.histories
+                    .entry(HistoryKey::saved(chat, peer))
                     .or_default()
                     .push(message);
             }
@@ -61,17 +65,18 @@ impl App {
             self.refresh_active_history_at(active_message, transcript_anchor);
             self.view.has_newer_messages = !was_latest;
         }
-        let read_effect = (incoming && visibly_read).then_some(match message_thread {
-            Some(root) => Effect::ReadThread {
-                chat,
-                root,
-                max_id: message_id,
-            },
-            None => Effect::ReadHistory {
-                chat,
-                max_id: message_id,
-            },
-        });
+        let read_effect =
+            (incoming && visibly_read && saved_peer.is_none()).then_some(match message_thread {
+                Some(root) => Effect::ReadThread {
+                    chat,
+                    root,
+                    max_id: message_id,
+                },
+                None => Effect::ReadHistory {
+                    chat,
+                    max_id: message_id,
+                },
+            });
         read_effect.or_else(|| {
             (incoming && !visibly_read && !self.muted_chats.contains(&chat)).then(|| {
                 Effect::Notify {
@@ -83,6 +88,9 @@ impl App {
     }
 
     pub(super) fn send_message(&mut self) -> Option<Effect> {
+        if self.saved_history_is_read_only() {
+            return None;
+        }
         if self.view.composer.editing.is_some() {
             return self.save_edit();
         }
@@ -114,6 +122,7 @@ impl App {
             details: MessageDetails {
                 entities: formatted.entities.clone(),
                 thread_root: self.view.active_thread,
+                saved_peer: self.view.active_saved_peer,
                 ..MessageDetails::default()
             },
         };

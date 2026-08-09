@@ -117,4 +117,32 @@ impl TelegramScenario {
         });
         self
     }
+
+    #[must_use]
+    pub fn expect_load_saved_dialogs(
+        mut self,
+        chat: i64,
+        dialogs: impl IntoIterator<Item = SavedDialogView>,
+    ) -> Self {
+        self.expected.push_back(ExpectedCommand::LoadSavedDialogs {
+            chat: ChatId(chat),
+            dialogs: dialogs.into_iter().collect(),
+        });
+        self
+    }
+
+    #[must_use]
+    pub fn expect_load_saved_history(
+        mut self,
+        chat: i64,
+        peer: i64,
+        messages: impl IntoIterator<Item = MessageView>,
+    ) -> Self {
+        self.expected.push_back(ExpectedCommand::LoadSavedHistory {
+            chat: ChatId(chat),
+            peer: ChatId(peer),
+            messages: messages.into_iter().collect(),
+        });
+        self
+    }
 }

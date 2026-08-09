@@ -1,6 +1,8 @@
 use std::collections::{HashMap, VecDeque};
 
-use intuigram_app::{Bootstrap, ChatId, MessageId, MessageView, TextEntity, TopicView};
+use intuigram_app::{
+    Bootstrap, ChatId, MessageId, MessageView, SavedDialogView, TextEntity, TopicView,
+};
 
 use super::command::ExpectedCommand;
 use super::fixture::AccountFixture;

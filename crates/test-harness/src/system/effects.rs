@@ -65,6 +65,7 @@ impl TestSystem {
                                 .map(|anchor| intuigram_store::StoredTranscriptAnchor {
                                     chat_id: anchor.chat.0,
                                     thread_root: anchor.thread.map(|message| message.0),
+                                    saved_peer: anchor.saved_peer.map(|peer| peer.0),
                                     message_id: anchor.message.0,
                                 })
                                 .collect(),
@@ -83,6 +84,10 @@ impl TestSystem {
                     });
                 }
                 Effect::LoadTopics(chat) => self.handle_topic_load(chat)?,
+                Effect::LoadSavedDialogs(chat) => self.handle_saved_dialog_load(chat)?,
+                Effect::LoadSavedHistory { chat, peer } => {
+                    self.handle_saved_history_load(chat, peer)?
+                }
                 Effect::ReadThread { chat, root, max_id } => {
                     self.telegram
                         .read_thread(chat, root, max_id)

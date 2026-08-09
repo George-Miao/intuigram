@@ -146,12 +146,20 @@ pub(in crate::application) fn enqueue_effect(
     }
     if matches!(
         effect,
-        Effect::LoadChat { .. } | Effect::LoadThread { .. } | Effect::LoadTopics(_)
+        Effect::LoadChat { .. }
+            | Effect::LoadThread { .. }
+            | Effect::LoadTopics(_)
+            | Effect::LoadSavedDialogs(_)
+            | Effect::LoadSavedHistory { .. }
     ) {
         pending.retain(|pending| {
             !matches!(
                 pending.effect,
-                Effect::LoadChat { .. } | Effect::LoadThread { .. } | Effect::LoadTopics(_)
+                Effect::LoadChat { .. }
+                    | Effect::LoadThread { .. }
+                    | Effect::LoadTopics(_)
+                    | Effect::LoadSavedDialogs(_)
+                    | Effect::LoadSavedHistory { .. }
             )
         });
     }

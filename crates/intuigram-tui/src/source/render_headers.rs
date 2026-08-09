@@ -75,6 +75,37 @@ fn title_and_status(
                 )
             },
             |chat| {
+                if view.focus == Focus::SavedDialogs {
+                    let status = if view.saved_dialogs_loading {
+                        Line::from(effort_spans(
+                            "updating Saved Messages",
+                            view.animation_frame,
+                        ))
+                    } else {
+                        Line::from(Span::styled(
+                            format!("{} saved dialogs", view.saved_dialogs.len()),
+                            Style::default().fg(MUTED_TEXT),
+                        ))
+                    };
+                    return (
+                        Line::from(title_spans(view, chat, graphics, focused)),
+                        status,
+                    );
+                }
+                if let Some(peer) = view.active_saved_peer {
+                    let origin = view
+                        .saved_dialogs
+                        .iter()
+                        .find(|dialog| dialog.peer == peer)
+                        .map_or("Saved Messages", |dialog| dialog.title.as_str());
+                    return (
+                        Line::from(title_spans(view, chat, graphics, focused)),
+                        Line::from(Span::styled(
+                            format!("Saved from {origin}"),
+                            Style::default().fg(MUTED_TEXT),
+                        )),
+                    );
+                }
                 let status = match view.chat_loading {
                     ChatLoadingState::Updating => {
                         Line::from(effort_spans("updating", view.animation_frame))

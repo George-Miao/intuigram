@@ -39,6 +39,9 @@ pub struct Bootstrap {
     /// Cached Topic lists available before Telegram reconnects.
     pub topic_lists: Vec<TopicListView>,
 
+    /// Cached Saved Messages dialog lists available before reconnect.
+    pub saved_dialog_lists: Vec<SavedDialogListView>,
+
     /// Versioned peer avatars known by the adapter.
     pub avatar_peers: Vec<AvatarRef>,
 
