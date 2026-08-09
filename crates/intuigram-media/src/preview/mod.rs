@@ -7,8 +7,10 @@ use snafu::{ResultExt, Snafu};
 
 const MAX_SOURCE_DIMENSION: u32 = 16_384;
 const MAX_DECODED_BYTES: u64 = 64 * 1024 * 1024;
-const PREVIEW_WIDTH: u32 = 32;
-const PREVIEW_HEIGHT: u32 = 12;
+// The Transcript reserves at most 32 by 6 cells. These bounds retain enough
+// pixels for a high-DPI 16 by 32 pixel cell without storing the full download.
+const PREVIEW_WIDTH: u32 = 512;
+const PREVIEW_HEIGHT: u32 = 192;
 
 /// Failure while decoding untrusted media bytes into a bounded terminal
 /// preview.
@@ -41,7 +43,7 @@ pub fn decode_preview(encoded: &[u8]) -> Result<InlineImage> {
     let decoded = reader.decode().context(DecodeSnafu)?;
     let preview = if decoded.width() > PREVIEW_WIDTH || decoded.height() > PREVIEW_HEIGHT {
         decoded
-            .resize(PREVIEW_WIDTH, PREVIEW_HEIGHT, FilterType::Triangle)
+            .resize(PREVIEW_WIDTH, PREVIEW_HEIGHT, FilterType::Lanczos3)
             .to_rgba8()
     } else {
         decoded.to_rgba8()
@@ -56,6 +58,10 @@ pub fn decode_preview(encoded: &[u8]) -> Result<InlineImage> {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Cursor;
+
+    use image::{DynamicImage, ImageBuffer, ImageFormat, Rgba};
+
     use super::decode_preview;
 
     const ONE_PIXEL_PNG: &[u8] = &[
@@ -78,5 +84,25 @@ mod tests {
     #[test]
     fn malformed_image_is_rejected_without_a_partial_preview() {
         assert!(decode_preview(b"not an image").is_err());
+    }
+
+    #[test]
+    fn detailed_source_retains_terminal_native_pixel_density() {
+        let source = ImageBuffer::from_fn(640, 480, |x, y| {
+            Rgba([
+                (x.wrapping_mul(17) ^ y.wrapping_mul(3)) as u8,
+                (x.wrapping_mul(5) ^ y.wrapping_mul(29)) as u8,
+                (x.wrapping_mul(11).wrapping_add(y.wrapping_mul(7))) as u8,
+                255,
+            ])
+        });
+        let mut encoded = Cursor::new(Vec::new());
+        DynamicImage::ImageRgba8(source)
+            .write_to(&mut encoded, ImageFormat::Png)
+            .expect("the detailed RGBA fixture should encode as PNG");
+
+        let preview = decode_preview(encoded.get_ref()).expect("the PNG fixture should decode");
+
+        assert_eq!((preview.width(), preview.height()), (256, 192));
     }
 }

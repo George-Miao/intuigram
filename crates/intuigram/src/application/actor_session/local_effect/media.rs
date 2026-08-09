@@ -103,7 +103,7 @@ fn cache_key(
     chat: intuigram_app::ChatId,
     message: intuigram_app::MessageId,
 ) -> intuigram_media::CacheKey {
-    intuigram_media::CacheKey::new(format!("{}:{}", chat.0, message.0))
+    intuigram_media::CacheKey::new(format!("preview-v2:{}:{}", chat.0, message.0))
 }
 
 fn encode_cached_preview(image: &InlineImage) -> Vec<u8> {
@@ -123,4 +123,19 @@ fn decode_cached_preview(bytes: &[u8]) -> Option<InlineImage> {
         u16::from_le_bytes([*height_low, *height_high]),
         rgba.to_vec(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use intuigram_app::{ChatId, MessageId};
+
+    use super::cache_key;
+
+    #[test]
+    fn high_density_previews_do_not_reuse_legacy_cache_entries() {
+        assert_ne!(
+            cache_key(ChatId(10), MessageId(20)),
+            intuigram_media::CacheKey::new("10:20")
+        );
+    }
 }
