@@ -66,6 +66,30 @@ fn command_line_values_override_configuration_files() {
 }
 
 #[test]
+fn external_path_picker_is_loaded_as_a_direct_program_and_arguments() {
+    let temporary = tempdir().expect("temporary directory should be created");
+    let platform = defaults(temporary.path());
+    fs::create_dir_all(&platform.config).expect("config directory should be created");
+    fs::write(
+        platform.config.join("config.toml"),
+        "[external.path_picker]\nprogram = 'zenity'\nargs = ['--file-selection']\n",
+    )
+    .expect("TOML config should be written");
+
+    let config = ConfigLoader::new(platform)
+        .read_environment(false)
+        .load()
+        .expect("path-picker configuration should load");
+    let picker = config
+        .external
+        .path_picker
+        .expect("configured path picker should be present");
+
+    assert_eq!(picker.program, "zenity");
+    assert_eq!(picker.args, ["--file-selection"]);
+}
+
+#[test]
 fn telegram_and_proxy_secrets_are_redacted() {
     let temporary = tempdir().expect("temporary directory should be created");
     let platform = defaults(temporary.path());

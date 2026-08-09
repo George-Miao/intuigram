@@ -17,7 +17,6 @@
 - [ ] **p-core:** Add Channel direct messages backed by monoforum dialogs.
 - [ ] **p-core:** Add specialized interactive rendering for live locations, games, invoices, paid media, giveaways, gifts, shared Stories, and TODO lists.
 - [ ] **p-core:** Send static locations through coordinates, pasted map links, or place search.
-- [ ] **p-core:** Integrate a configurable external path picker for attaching local files. Keep the picker boundary reusable by the later download-destination workflow.
 - [ ] **p-core:** Add a durable Outbox that survives restart, preserves operation ordering and referenced media, and exposes safe retry, cancellation, expiry, and conflict handling.
 - [ ] **p-core:** Allow selected Chats to keep media offline outside ordinary Media Cache eviction.
 - [ ] **p-core:** Render sender avatar images in the Transcript and use a two-row `[avatar] [username]` / `[avatar] [message]` layout. Fall back to the current two-character name avatar when an image cannot be rendered.

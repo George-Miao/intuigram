@@ -55,3 +55,26 @@ fn composer_creation_actions_are_grouped_without_consuming_plain_text() -> Resul
     );
     app.expect_no_unhandled_work()
 }
+
+#[test]
+fn attachment_action_falls_back_to_the_built_in_path_field() -> Result<()> {
+    let mut app = TestSystem::builder()
+        .name("composer-attachment-path-fallback")
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, []),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.choose_action("Attach File")?;
+
+    assert!(
+        app.screen()
+            .rows()
+            .iter()
+            .any(|row| row.contains("Attach local file"))
+    );
+    app.expect_no_unhandled_work()
+}

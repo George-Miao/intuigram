@@ -120,6 +120,12 @@ impl Backend {
                     Err(error) => AdapterEvent::OperationFailed(error.to_string()),
                 }))
             }
+            Effect::PickAttachment { chat, thread_root } => {
+                Ok(Some(AdapterEvent::AttachmentPathRequired {
+                    chat,
+                    thread_root,
+                }))
+            }
             Effect::SelectAttachment {
                 chat,
                 thread_root,

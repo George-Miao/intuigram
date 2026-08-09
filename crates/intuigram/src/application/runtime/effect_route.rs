@@ -23,6 +23,7 @@ pub(in crate::application) const fn effect_route(effect: &Effect) -> EffectRoute
         Effect::Notify { .. }
         | Effect::OpenExternalLink { .. }
         | Effect::ReadClipboard { .. }
+        | Effect::PickAttachment { .. }
         | Effect::SelectAttachment { .. }
         | Effect::OpenDownload { .. } => EffectRoute::LocalIndependent,
         Effect::SaveDraft { .. } | Effect::SaveSelection { .. } => EffectRoute::LocalOrdered,

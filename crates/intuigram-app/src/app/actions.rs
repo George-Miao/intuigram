@@ -192,12 +192,10 @@ impl App {
                 chat: key.chat,
                 thread_root: key.thread,
             }),
-            Action::Attach => {
-                self.view.attachment_path = Some(AttachmentPathView {
-                    path: String::new(),
-                });
-                None
-            }
+            Action::Attach => self.active_history_key().map(|key| Effect::PickAttachment {
+                chat: key.chat,
+                thread_root: key.thread,
+            }),
             Action::ConfirmAttachment => self.confirm_attachment(),
             Action::CreatePoll => {
                 self.begin_poll();

@@ -308,6 +308,14 @@ pub enum AdapterEvent {
         /// Adapter-owned attachment candidates.
         attachments: Vec<AttachmentView>,
     },
+    /// No external path picker is configured, so the built-in field is needed.
+    AttachmentPathRequired {
+        /// Chat whose Composer requested the attachment.
+        chat: ChatId,
+
+        /// Thread Composer, when applicable.
+        thread_root: Option<MessageId>,
+    },
     /// Telegram acknowledged an optimistic local Message.
     MessageAcknowledged {
         /// Owning Chat.

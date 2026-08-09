@@ -121,6 +121,7 @@ pub(super) struct AdapterStorage {
     pub(super) cache_limit: u64,
     pub(super) cipher: AccountCipher,
     pub(super) route: compio_mtproto::Route,
+    pub(super) path_picker: Option<intuigram_config::ExternalCommand>,
 }
 
 impl AdapterStorage {

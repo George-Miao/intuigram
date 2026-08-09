@@ -360,6 +360,10 @@ impl TestSystem {
                             "Opened completed download".to_owned(),
                         ));
                 }
+                Effect::PickAttachment { chat, thread_root } => {
+                    self.application
+                        .handle_adapter(AdapterEvent::AttachmentPathRequired { chat, thread_root });
+                }
                 Effect::Reconnect => {
                     self.telegram
                         .reconnect()

@@ -125,6 +125,7 @@ impl ActorSession {
                     local: RefCell::new(super::local_effect::State::new(
                         startup.downloads,
                         startup.media_cache,
+                        startup.path_picker,
                     )),
                 }),
             },

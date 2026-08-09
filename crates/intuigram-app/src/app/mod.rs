@@ -245,6 +245,18 @@ impl App {
                     })
                 }
             }
+            Input::Adapter(AdapterEvent::AttachmentPathRequired { chat, thread_root }) => {
+                let key = HistoryKey {
+                    chat,
+                    thread: thread_root,
+                };
+                if self.active_history_key() == Some(key) {
+                    self.view.attachment_path = Some(AttachmentPathView {
+                        path: String::new(),
+                    });
+                }
+                None
+            }
             Input::Adapter(AdapterEvent::MessageAcknowledged { chat, local_id }) => {
                 self.update_delivery(chat, local_id, DeliveryState::Sent);
                 self.pending_drafts.remove(&local_id);

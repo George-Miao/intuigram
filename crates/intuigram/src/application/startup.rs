@@ -173,6 +173,7 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
                     cache_limit: config.media.cache_bytes,
                     cipher: unlock.cipher(),
                     route: telegram_route(&config)?,
+                    path_picker: config.external.path_picker.clone(),
                 },
             },
         )

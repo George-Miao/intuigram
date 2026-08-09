@@ -47,6 +47,9 @@ pub struct Config {
     /// Filesystem locations used by Intuigram.
     pub paths: Paths,
 
+    /// Optional external programs used for platform workflows.
+    pub external: External,
+
     /// Media cache policy.
     pub media: Media,
 
@@ -55,6 +58,24 @@ pub struct Config {
 
     /// Terminal presentation settings.
     pub view: View,
+}
+
+/// Optional external program integrations.
+#[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
+pub struct External {
+    /// Program that prints one selected local path to standard output.
+    pub path_picker: Option<ExternalCommand>,
+}
+
+/// One directly executed external program without shell interpretation.
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+pub struct ExternalCommand {
+    /// Executable name or exact path.
+    pub program: String,
+
+    /// Literal arguments passed to the executable.
+    #[serde(default)]
+    pub args: Vec<String>,
 }
 
 /// Optional encryption of Account records and authorization material.
@@ -256,6 +277,7 @@ impl ConfigLoader {
                 cache: self.defaults.cache.clone(),
                 downloads: self.defaults.downloads.clone(),
             },
+            external: External::default(),
             media: Media {
                 cache_bytes: DEFAULT_MEDIA_CACHE_BYTES,
             },

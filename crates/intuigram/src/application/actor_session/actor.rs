@@ -28,6 +28,7 @@ pub(super) struct ActorStartup {
     pub(super) store: intuigram_store::AccountStore,
     pub(super) downloads: intuigram_media::DownloadDirectory,
     pub(super) media_cache: intuigram_media::MediaCache,
+    pub(super) path_picker: Option<intuigram_config::ExternalCommand>,
 }
 
 pub(super) struct TelegramActor;
@@ -89,6 +90,7 @@ impl Actor for TelegramActor {
             events: output,
             cancellation,
         } = arguments;
+        let path_picker = storage.path_picker.clone();
         let (backend, events, peers, bootstrap) = until_cancelled(
             resume_account(credentials, &layout, &account, storage),
             &cancellation,
@@ -102,6 +104,7 @@ impl Actor for TelegramActor {
                 store: backend.store.clone(),
                 downloads: backend.downloads.clone(),
                 media_cache: backend.media_cache.clone(),
+                path_picker,
             })
             .map_err(|_| Error::TelegramActorStartupClosed)?;
         Ok(TelegramState {

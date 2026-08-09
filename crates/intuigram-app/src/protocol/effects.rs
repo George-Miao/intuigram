@@ -195,6 +195,14 @@ pub enum Effect {
         /// Thread Composer, when applicable.
         thread_root: Option<MessageId>,
     },
+    /// Ask the configured platform picker for a local attachment path.
+    PickAttachment {
+        /// Chat whose Composer requested the attachment.
+        chat: ChatId,
+
+        /// Thread Composer, when applicable.
+        thread_root: Option<MessageId>,
+    },
     /// Validate and retain one exact local attachment path.
     SelectAttachment {
         /// Chat whose Composer owns the attachment.

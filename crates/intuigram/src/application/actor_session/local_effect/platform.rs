@@ -39,6 +39,9 @@ pub(super) async fn execute(
                 .await
                 .unwrap_or_else(|error| AdapterEvent::OperationFailed(error.to_string())),
         ),
+        Effect::PickAttachment { chat, thread_root } => {
+            Some(pick_attachment(state, chat, thread_root).await)
+        }
         Effect::SelectAttachment {
             chat,
             thread_root,
@@ -57,6 +60,19 @@ pub(super) async fn execute(
         _ => unreachable!("only independent local effects reach the platform executor"),
     };
     Ok(event)
+}
+
+async fn pick_attachment(
+    state: &RefCell<State>,
+    chat: intuigram_app::ChatId,
+    thread_root: Option<intuigram_app::MessageId>,
+) -> AdapterEvent {
+    let command = state.borrow().path_picker.clone();
+    match super::picker::select(command).await {
+        Ok(Some(path)) => select_attachment(state, chat, thread_root, path).await,
+        Ok(None) => AdapterEvent::AttachmentPathRequired { chat, thread_root },
+        Err(error) => AdapterEvent::OperationFailed(error.to_string()),
+    }
 }
 
 async fn read_clipboard(

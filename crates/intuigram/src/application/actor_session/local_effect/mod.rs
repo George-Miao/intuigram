@@ -7,6 +7,7 @@ use super::super::{AttachmentStore, BackendOutput, DownloadStore, Result};
 use crate::application::runtime::{EffectRoute, effect_route};
 
 mod media;
+mod picker;
 mod platform;
 mod storage;
 mod upload;
@@ -18,18 +19,21 @@ pub(super) struct State {
     pub(super) downloaded: DownloadStore,
     pub(super) downloads: intuigram_media::DownloadDirectory,
     pub(super) media_cache: intuigram_media::MediaCache,
+    pub(super) path_picker: Option<intuigram_config::ExternalCommand>,
 }
 
 impl State {
     pub(super) fn new(
         downloads: intuigram_media::DownloadDirectory,
         media_cache: intuigram_media::MediaCache,
+        path_picker: Option<intuigram_config::ExternalCommand>,
     ) -> Self {
         Self {
             attachments: AttachmentStore::default(),
             downloaded: DownloadStore::default(),
             downloads,
             media_cache,
+            path_picker,
         }
     }
 }
