@@ -123,25 +123,31 @@ fn composer_is_one_continuous_bar_with_internal_padding() -> Result<()> {
 fn chat_list_uses_dense_left_edge_while_transcript_and_chrome_stay_padded() -> Result<()> {
     let mut rust = chat(10, "abcdefghijklmnopqrstuvwxy");
     rust.preview = "owned buffers keep terminal input responsive".to_owned();
+    rust.unread = 83;
     let mut app = TestSystem::builder()
         .name("layout-chat-title-alignment")
         .terminal(100, 24)
         .telegram(
             TelegramScenario::new()
                 .bootstrap(account("Ada").with_chat(rust))
-                .expect_load_history(10, [incoming(40, "Lin", "hello")]),
+                .expect_load_history(10, [incoming(40, "Lin", "hello")])
+                .expect_read_history(10, 40),
         )
         .start()?;
 
+    let chat_rows = app.screen().rows();
+    let title_row = row_within(&chat_rows, "abcdefghijkl", 0, 32);
+    let preview_row = row_within(&chat_rows, "owned buffers", 0, 32);
+    assert_eq!(row_segment(&chat_rows, title_row, 0, 6), "│ [AB]");
+    assert_eq!(row_segment(&chat_rows, title_row, 24, 27), "...");
+    assert_eq!(row_segment(&chat_rows, title_row, 28, 30), "83");
+    assert_eq!(row_segment(&chat_rows, preview_row, 27, 30), "...");
+    assert_eq!(row_segment(&chat_rows, preview_row, 30, 32), "  ");
+
     app.press(key::ENTER)?;
     let rows = app.screen().rows();
-    let title_row = row_within(&rows, "abcdefghijkl", 0, 32);
-    let preview_row = row_within(&rows, "owned buffers", 0, 32);
     let message_row = row_within(&rows, "hello", 33, 100);
 
-    assert_eq!(row_segment(&rows, title_row, 0, 6), "│ [AB]");
-    assert_eq!(row_segment(&rows, title_row, 29, 30), "w");
-    assert_eq!(row_segment(&rows, preview_row, 30, 32), "  ");
     assert!(row_segment(&rows, 4, 33, 100).trim().is_empty());
     assert_eq!(row_segment(&rows, message_row, 33, 37), "   h");
     let folder = rows

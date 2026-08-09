@@ -224,20 +224,42 @@ pub(super) fn render_chats(
                 String::new()
             };
             let selected = view.active_chat == Some(index);
+            let rule = selection_rule(selected);
+            let avatar = avatar_badge(&chat.title);
+            let marker = Span::styled(marker, Style::default().fg(MUTED_TEXT));
+            let unread = Span::styled(unread, Style::default().fg(PRIMARY));
+            let fixed_width = Line::from(vec![
+                rule.clone(),
+                avatar.clone(),
+                marker.clone(),
+                unread.clone(),
+            ])
+            .width();
+            let title = capped_text(
+                &chat.title,
+                usize::from(items_area.width).saturating_sub(fixed_width),
+            );
+            let title_width = Line::from(title.as_str()).width();
+            let title_gap = usize::from(items_area.width)
+                .saturating_sub(fixed_width)
+                .saturating_sub(title_width);
+            let preview_width = usize::from(items_area.width)
+                .saturating_sub(Line::from(selection_rule(selected)).width());
             let mut lines = vec![
                 Line::from(vec![
-                    selection_rule(selected),
-                    avatar_badge(&chat.title),
-                    Span::styled(
-                        chat.title.clone(),
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    Span::styled(marker, Style::default().fg(MUTED_TEXT)),
-                    Span::styled(unread, Style::default().fg(PRIMARY)),
+                    rule,
+                    avatar,
+                    Span::styled(title, Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw(" ".repeat(title_gap)),
+                    marker,
+                    unread,
                 ]),
                 Line::from(vec![
                     selection_rule(selected),
-                    Span::styled(chat.preview.clone(), Style::default().fg(MUTED_TEXT)),
+                    Span::styled(
+                        capped_text(&chat.preview, preview_width),
+                        Style::default().fg(MUTED_TEXT),
+                    ),
                 ]),
             ];
             if mode == ViewMode::Default {
@@ -246,6 +268,29 @@ pub(super) fn render_chats(
             ListItem::new(lines)
         });
     frame.render_widget(List::new(items).style(surface_style(focused)), items_area);
+}
+
+pub(crate) fn capped_text(text: &str, max_width: usize) -> String {
+    if Line::from(text).width() <= max_width {
+        return text.to_owned();
+    }
+    const SUFFIX: &str = "...";
+    if max_width <= SUFFIX.len() {
+        return ".".repeat(max_width);
+    }
+    let content_width = max_width - SUFFIX.len();
+    let mut result = String::new();
+    let mut width = 0_usize;
+    for character in text.chars() {
+        let character_width = Line::from(character.to_string()).width();
+        if width.saturating_add(character_width) > content_width {
+            break;
+        }
+        result.push(character);
+        width = width.saturating_add(character_width);
+    }
+    result.push_str(SUFFIX);
+    result
 }
 
 pub(super) fn render_active_chat(

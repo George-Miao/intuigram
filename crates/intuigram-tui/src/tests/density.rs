@@ -1,4 +1,13 @@
 use super::*;
+use crate::source::render_layout::capped_text;
+
+#[test]
+fn chat_text_cap_counts_terminal_cells_and_keeps_three_dots_inside_the_width() {
+    let capped = capped_text("终端界面终端界面", 12);
+
+    assert_eq!(ratatui::text::Line::from(capped.as_str()).width(), 11);
+    assert!(capped.ends_with("..."));
+}
 
 #[test]
 fn compact_view_preserves_the_original_dense_layout() {
