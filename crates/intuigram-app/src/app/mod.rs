@@ -77,6 +77,7 @@ impl App {
             Input::Adapter(
                 event @ (AdapterEvent::ScheduledMessagesReady { .. }
                 | AdapterEvent::ScheduledOperationCompleted { .. }
+                | AdapterEvent::ScheduledOperationAcknowledged { .. }
                 | AdapterEvent::ScheduledOperationFailed { .. }),
             ) => self.apply_scheduled_event(event),
             Input::Adapter(AdapterEvent::OperationFailed(reason)) => {
@@ -261,6 +262,23 @@ impl App {
                 self.view.notice = None;
                 None
             }
+            Input::Adapter(AdapterEvent::MessageEditAcknowledged {
+                chat,
+                message,
+                text,
+                entities,
+            }) => {
+                self.apply_edit_acknowledgement(chat, message, text, entities);
+                None
+            }
+            Input::Adapter(AdapterEvent::MessageMediaUpdated {
+                chat,
+                message,
+                media,
+            }) => {
+                self.apply_message_media(chat, message, media);
+                None
+            }
             Input::Adapter(AdapterEvent::OutboxChanged(item)) => {
                 self.apply_outbox_changed(item);
                 None
@@ -379,6 +397,7 @@ mod message_selection;
 mod messaging;
 mod offline_media;
 mod outbox;
+mod outbox_completion;
 mod pinned;
 mod poll_composer;
 mod poll_vote;

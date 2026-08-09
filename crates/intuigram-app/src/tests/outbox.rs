@@ -138,6 +138,59 @@ fn active_outbox_states_keep_effort_animation_running_without_a_local_message() 
     }
 }
 
+#[test]
+fn durable_edit_acknowledgement_preserves_unrelated_message_metadata() {
+    let mut fixture = bootstrap();
+    fixture.messages[1].reply_to = Some(MessageId(1));
+    let mut app = App::new();
+    apply(&mut app, Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::MessageEditAcknowledged {
+            chat: ChatId(10),
+            message: MessageId(2),
+            text: "edited".to_owned(),
+            entities: Vec::new(),
+        }),
+    );
+
+    let view = app.view();
+    let message = view
+        .messages
+        .iter()
+        .find(|message| message.id == MessageId(2))
+        .expect("edited Message should remain present");
+    assert_eq!(message.body, "edited");
+    assert_eq!(message.reply_to, Some(MessageId(1)));
+    assert!(message.details.edited);
+}
+
+#[test]
+fn scheduled_acknowledgement_requests_a_fresh_server_projection() {
+    let mut app = App::new();
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::Bootstrap(bootstrap())),
+    );
+
+    let update = app.transition(Input::Adapter(
+        AdapterEvent::ScheduledOperationAcknowledged {
+            chat: ChatId(10),
+            saved_peer: None,
+            notice: "Scheduled Message created".to_owned(),
+        },
+    ));
+
+    assert_eq!(
+        update.effect,
+        Some(Effect::LoadScheduledMessages {
+            chat: ChatId(10),
+            saved_peer: None,
+        })
+    );
+}
+
 fn outgoing(id: i64, delivery: DeliveryState) -> MessageView {
     MessageView {
         id: MessageId(id),

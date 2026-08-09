@@ -196,6 +196,8 @@ impl App {
         local_id: MessageId,
         server_id: MessageId,
     ) {
+        self.pending_drafts.remove(&local_id);
+        self.pending_polls.remove(&local_id);
         for message in self
             .histories
             .iter_mut()

@@ -124,6 +124,26 @@ impl App {
     }
 
     pub(super) fn apply_scheduled_event(&mut self, event: AdapterEvent) -> Option<Effect> {
+        if let AdapterEvent::ScheduledOperationAcknowledged {
+            chat,
+            saved_peer,
+            notice,
+        } = &event
+        {
+            if let Some(manager) = &mut self.view.scheduled
+                && manager.chat == *chat
+                && manager.saved_peer == *saved_peer
+            {
+                manager.editor = None;
+                manager.confirmation = None;
+                manager.pending = true;
+                self.view.notice = Some(notice.clone());
+            }
+            return Some(Effect::LoadScheduledMessages {
+                chat: *chat,
+                saved_peer: *saved_peer,
+            });
+        }
         let (chat, saved_peer, messages, notice) = match event {
             AdapterEvent::ScheduledMessagesReady {
                 chat,

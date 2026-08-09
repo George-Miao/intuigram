@@ -300,6 +300,27 @@ pub enum AdapterEvent {
     /// Telegram acknowledged an optimistic local Message.
     MessageAcknowledged { chat: ChatId, local_id: MessageId },
 
+    /// Telegram acknowledged a durable edit without replacing unrelated
+    /// cached Message metadata.
+    MessageEditAcknowledged {
+        chat: ChatId,
+
+        message: MessageId,
+
+        text: String,
+
+        entities: Vec<TextEntity>,
+    },
+
+    /// Telegram returned authoritative media state for one durable mutation.
+    MessageMediaUpdated {
+        chat: ChatId,
+
+        message: MessageId,
+
+        media: MediaCard,
+    },
+
     /// A pending send reached a terminal failure.
     MessageFailed {
         chat: ChatId,
@@ -320,6 +341,16 @@ pub enum AdapterEvent {
 
     /// One terminal or acknowledged operation left the durable Outbox.
     OutboxRemoved { item: OutboxKey },
+
+    /// Telegram acknowledged a Scheduled Message mutation; its server-owned
+    /// projection must now be reloaded.
+    ScheduledOperationAcknowledged {
+        chat: ChatId,
+
+        saved_peer: Option<ChatId>,
+
+        notice: String,
+    },
 
     /// A poll send failed and its structured editor contents remain
     /// recoverable.
