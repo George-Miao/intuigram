@@ -164,6 +164,7 @@ impl TelegramScenario {
         message: MessageId,
         text: String,
         entities: Vec<intuigram_app::TextEntity>,
+        attachments: Vec<String>,
     ) -> Result<MessageView, ScenarioMismatch> {
         let observed = format!("edit Message {} in Chat {} to {text:?}", message.0, chat.0);
         let expected = self.next_expected(&observed)?;
@@ -173,13 +174,17 @@ impl TelegramScenario {
                 message: expected_message,
                 text: expected_text,
                 entities: expected_entities,
+                attachments: expected_attachments,
                 updated,
             } if expected_chat == chat
                 && expected_message == message
                 && expected_text == text
                 && expected_entities
                     .as_ref()
-                    .is_none_or(|expected| expected == &entities) =>
+                    .is_none_or(|expected| expected == &entities)
+                && expected_attachments
+                    .as_ref()
+                    .is_none_or(|expected| expected == &attachments) =>
             {
                 Ok(updated)
             }

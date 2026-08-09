@@ -171,14 +171,11 @@ fn append_content(
 }
 
 fn body_is_media_fallback(message: &MessageView) -> bool {
-    message.details.media.as_ref().is_some_and(|media| {
-        let fallback = if media.description.is_empty() {
-            format!("[{}]", media.title)
-        } else {
-            format!("[{}] {}", media.title, media.description)
-        };
-        message.body == fallback
-    })
+    message
+        .details
+        .media
+        .as_ref()
+        .is_some_and(|media| media.is_fallback_body(&message.body))
 }
 
 pub(super) fn messages_group(previous: &MessageView, current: &MessageView) -> bool {

@@ -70,6 +70,7 @@ impl AdapterEffect {
         let random_id = if matches!(
             effect,
             Effect::SendMessage { .. }
+                | Effect::EditMessage { .. }
                 | Effect::SendPoll { .. }
                 | Effect::ForwardMessages { .. }
                 | Effect::SendLibraryMedia { .. }

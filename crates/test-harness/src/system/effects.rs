@@ -1,7 +1,10 @@
 //! Synchronous execution of application effects against scripted adapters.
 
 use intuigram::encode_stored_message;
-use intuigram_app::{AdapterEvent, ConnectionState, Effect, MediaPreviewView};
+use intuigram_app::{
+    AdapterEvent, AttachmentId, AttachmentKind, AttachmentView, ConnectionState, Effect,
+    MediaPreviewView,
+};
 use intuigram_store::{StoredDraft, StoredSelection};
 use intuigram_telegram::{LiveEvent, UpdateCursor, UpdateScope};
 use snafu::ResultExt;
@@ -113,6 +116,31 @@ impl TestSystem {
                         })
                         .context(StoreSnafu)?;
                 }
+                Effect::SelectAttachment {
+                    chat,
+                    thread_root,
+                    path,
+                } => {
+                    self.next_attachment_id = self.next_attachment_id.saturating_add(1);
+                    let id = AttachmentId(self.next_attachment_id);
+                    let name = std::path::Path::new(&path).file_name().map_or_else(
+                        || "attachment".to_owned(),
+                        |name| name.to_string_lossy().into_owned(),
+                    );
+                    let kind = if name.ends_with(".png") || name.ends_with(".jpg") {
+                        AttachmentKind::Photo
+                    } else {
+                        AttachmentKind::File
+                    };
+                    self.attachment_names.insert(id, name.clone());
+                    self.application
+                        .handle_adapter(AdapterEvent::ClipboardReady {
+                            chat,
+                            thread_root,
+                            text: None,
+                            attachments: vec![AttachmentView { id, kind, name }],
+                        });
+                }
                 Effect::SendMessage {
                     chat,
                     text,
@@ -162,7 +190,13 @@ impl TestSystem {
                     chat,
                     message,
                     draft_text: _,
+                    attachments,
+                    draft_attachments: _,
                 } => {
+                    let attachments = attachments
+                        .iter()
+                        .filter_map(|id| self.attachment_names.get(id).cloned())
+                        .collect();
                     let updated = self
                         .telegram
                         .edit_message(
@@ -170,6 +204,7 @@ impl TestSystem {
                             message.id,
                             message.body.clone(),
                             message.details.entities.clone(),
+                            attachments,
                         )
                         .map_err(|error| self.scenario_error(error))?;
                     let request = self

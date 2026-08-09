@@ -238,7 +238,19 @@ impl Backend {
                 chat,
                 message,
                 draft_text,
-            } => self.edit_message(chat, *message, draft_text).await,
+                attachments,
+                draft_attachments,
+            } => {
+                self.edit_message(
+                    chat,
+                    *message,
+                    draft_text,
+                    attachments,
+                    draft_attachments,
+                    random_id.expect("every queued media edit has an idempotency token"),
+                )
+                .await
+            }
             Effect::DeleteMessages { chat, messages } => self.delete_messages(chat, messages).await,
             Effect::ForwardMessages {
                 source,

@@ -208,6 +208,9 @@ pub enum AdapterEvent {
         /// Attempted replacement text.
         text: String,
 
+        /// Attempted replacement media retained for retry.
+        attachments: Vec<AttachmentView>,
+
         /// User-facing semantic failure.
         reason: String,
     },

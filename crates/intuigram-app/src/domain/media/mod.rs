@@ -114,6 +114,19 @@ pub struct MediaCard {
     pub remote_id: Option<String>,
 }
 
+impl MediaCard {
+    /// Whether `body` is the generated text fallback for this Media Card.
+    #[must_use]
+    pub fn is_fallback_body(&self, body: &str) -> bool {
+        let fallback = if self.description.is_empty() {
+            format!("[{}]", self.title)
+        } else {
+            format!("[{}] {}", self.title, self.description)
+        };
+        body == fallback
+    }
+}
+
 /// Small immutable RGBA image suitable for terminal-native preview rendering.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct InlineImage {

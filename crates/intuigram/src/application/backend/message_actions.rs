@@ -6,15 +6,30 @@ impl Backend {
         chat: ChatId,
         message: MessageView,
         draft_text: String,
+        attachment_ids: Vec<AttachmentId>,
+        draft_attachments: Vec<AttachmentView>,
+        random_id: i64,
     ) -> Result<Option<AdapterEvent>> {
+        let upload = attachment_ids
+            .last()
+            .map(|id| {
+                self.attachments
+                    .payloads
+                    .get(id)
+                    .ok_or(Error::MissingPreparedAttachment { attachment: *id })
+                    .and_then(super::attachments::prepared_upload)
+                    .map(|upload| (upload, derived_random_id(random_id, 0, 0x4544_4954)))
+            })
+            .transpose()?;
         let result = self
             .client
-            .edit_text(
+            .edit_message(intuigram_telegram::MessageEdit {
                 chat,
-                message.id,
-                message.body.clone(),
-                message.details.entities.clone(),
-            )
+                message: message.id,
+                text: message.body.clone(),
+                entities: message.details.entities.clone(),
+                upload,
+            })
             .await;
         match result {
             Ok(()) => {
@@ -23,6 +38,9 @@ impl Backend {
                     .context(AccountDatabaseSnafu)?
                     .await
                     .context(AccountDatabaseSnafu)?;
+                for id in attachment_ids {
+                    self.attachments.payloads.remove(&id);
+                }
                 Ok(Some(AdapterEvent::MessageUpdated {
                     chat,
                     message: Box::new(message),
@@ -33,6 +51,7 @@ impl Backend {
                 chat,
                 message: message.id,
                 text: draft_text,
+                attachments: draft_attachments,
                 reason: error.to_string(),
             })),
         }

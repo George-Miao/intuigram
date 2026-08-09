@@ -1,5 +1,6 @@
 use super::*;
 
+mod attachments;
 mod download;
 mod effects;
 mod folders;
@@ -298,34 +299,7 @@ impl Backend {
                     .collect::<Result<Vec<_>>>()?;
                 let mut message_id = None;
                 for (index, (_, payload)) in payloads.iter().enumerate() {
-                    let upload = match payload {
-                        AttachmentPayload::Image { mime_type, bytes } => {
-                            intuigram_telegram::Upload {
-                                name: "clipboard.png".to_owned(),
-                                mime_type: mime_type.clone(),
-                                bytes: bytes.clone(),
-                                kind: intuigram_telegram::UploadKind::Photo,
-                            }
-                        }
-                        AttachmentPayload::File { path, .. } => {
-                            return Err(Error::UnpreparedAttachment { path: path.clone() });
-                        }
-                        AttachmentPayload::PreparedFile {
-                            name,
-                            mime_type,
-                            bytes,
-                            kind,
-                        } => intuigram_telegram::Upload {
-                            name: name.clone(),
-                            mime_type: mime_type.clone(),
-                            bytes: bytes.clone(),
-                            kind: match kind {
-                                AttachmentKind::Photo => intuigram_telegram::UploadKind::Photo,
-                                AttachmentKind::Video => intuigram_telegram::UploadKind::Video,
-                                AttachmentKind::File => intuigram_telegram::UploadKind::File,
-                            },
-                        },
-                    };
+                    let upload = attachments::prepared_upload(payload)?;
                     let sent = client
                         .send_upload(intuigram_telegram::UploadSend {
                             chat,

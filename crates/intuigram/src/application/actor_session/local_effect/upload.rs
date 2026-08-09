@@ -13,8 +13,11 @@ pub(in crate::application::actor_session) async fn attachment_payloads(
     effect: &Effect,
     state: &RefCell<State>,
 ) -> Result<Vec<(AttachmentId, AttachmentPayload)>> {
-    let Effect::SendMessage { attachments, .. } = effect else {
-        return Ok(Vec::new());
+    let attachments = match effect {
+        Effect::SendMessage { attachments, .. } | Effect::EditMessage { attachments, .. } => {
+            attachments
+        }
+        _ => return Ok(Vec::new()),
     };
     let payloads = attachments
         .iter()

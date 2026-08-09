@@ -159,12 +159,18 @@ impl App {
             .filter(|message| message.direction == MessageDirection::Outgoing && message.id.0 > 0)
             .cloned()?;
         let key = self.active_history_key()?;
+        let text = message
+            .details
+            .media
+            .as_ref()
+            .filter(|media| media.kind == MediaKind::Photo && media.is_fallback_body(&message.body))
+            .map_or_else(|| message.body.clone(), |_| String::new());
         self.drafts.remove(&key);
         self.view.transcript_anchor = self.view.active_message;
         self.view.active_message = None;
         self.view.composer = ComposerView {
-            cursor: message.body.len(),
-            text: message.body,
+            cursor: text.len(),
+            text,
             editing: Some(message.id),
             ..ComposerView::default()
         };
@@ -181,24 +187,32 @@ impl App {
         let chat = self.active_chat_id()?;
         let message_id = self.view.composer.editing?;
         let draft_text = self.view.composer.text.trim_end().to_owned();
-        if draft_text.is_empty() {
-            return None;
-        }
-        let formatted = format_markdown(&draft_text);
         let mut message = self
             .view
             .messages
             .iter()
             .find(|message| message.id == message_id)?
             .clone();
+        let draft_attachments = self.view.composer.attachments.clone();
+        if draft_text.is_empty() && draft_attachments.is_empty() && message.details.media.is_none()
+        {
+            return None;
+        }
+        let formatted = format_markdown(&draft_text);
         message.body = formatted.text;
         message.details.entities = formatted.entities;
         message.details.edited = true;
+        let attachments = draft_attachments
+            .iter()
+            .map(|attachment| attachment.id)
+            .collect();
         self.finish_edit();
         Some(Effect::EditMessage {
             chat,
             message: Box::new(message),
             draft_text,
+            attachments,
+            draft_attachments,
         })
     }
 
@@ -215,7 +229,13 @@ impl App {
         self.view.focus = Focus::Composer;
     }
 
-    pub(super) fn restore_failed_edit(&mut self, chat: ChatId, message: MessageId, text: String) {
+    pub(super) fn restore_failed_edit(
+        &mut self,
+        chat: ChatId,
+        message: MessageId,
+        text: String,
+        attachments: Vec<AttachmentView>,
+    ) {
         if self.active_chat_id() != Some(chat) {
             return;
         }
@@ -225,6 +245,7 @@ impl App {
             cursor: text.len(),
             text,
             editing: Some(message),
+            attachments,
             ..ComposerView::default()
         };
         self.view.focus = Focus::Composer;

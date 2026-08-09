@@ -57,7 +57,11 @@ pub(super) fn observe_completion(
     state: &RefCell<State>,
 ) {
     let mut state = state.borrow_mut();
-    if let Effect::SendMessage { attachments, .. } = effect {
+    let succeeded = !matches!(event, Some(AdapterEvent::MessageEditFailed { .. }));
+    if succeeded
+        && let Effect::SendMessage { attachments, .. } | Effect::EditMessage { attachments, .. } =
+            effect
+    {
         for id in attachments {
             state.attachments.payloads.remove(id);
         }

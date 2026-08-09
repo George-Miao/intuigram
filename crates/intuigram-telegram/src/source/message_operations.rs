@@ -1,19 +1,42 @@
 use grammers_tl_types::Serializable as _;
 
+/// Replacement contents for one existing outgoing Message.
+pub struct MessageEdit {
+    /// Chat containing the Message.
+    pub chat: ChatId,
+
+    /// Message to replace.
+    pub message: MessageId,
+
+    /// New text or media caption.
+    pub text: String,
+
+    /// Caption entities using UTF-16 offsets.
+    pub entities: Vec<TextEntity>,
+
+    /// New media and its upload identifier, when replacing media.
+    pub upload: Option<(Upload, i64)>,
+}
+
 impl Client {
-    /// Replaces the text of one existing outgoing Message.
-    pub async fn edit_text(
-        &mut self,
-        chat: ChatId,
-        message: MessageId,
-        text: String,
-        entities: Vec<TextEntity>,
-    ) -> Result<()> {
+    /// Replaces the text, caption, or media of one existing outgoing Message.
+    pub async fn edit_message(&mut self, request: MessageEdit) -> Result<()> {
+        let MessageEdit {
+            chat,
+            message,
+            text,
+            entities,
+            upload,
+        } = request;
         let peer = self.peers.resolve(chat)?;
         let id = i32::try_from(message.0).map_err(|_| Error::InvalidMessageId {
             message_id: message.0,
         })?;
         let entities = serialize_entities(entities)?;
+        let media = match upload {
+            Some((upload, file_id)) => Some(self.upload_media(upload, file_id).await?),
+            None => None,
+        };
         self.connection
             .invoke(&tl::functions::messages::EditMessage {
                 no_webpage: false,
@@ -21,7 +44,7 @@ impl Client {
                 peer,
                 id,
                 message: Some(text),
-                media: None,
+                media,
                 reply_markup: None,
                 entities,
                 schedule_date: None,

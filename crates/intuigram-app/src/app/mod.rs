@@ -134,9 +134,10 @@ impl App {
                 chat,
                 message,
                 text,
+                attachments,
                 reason,
             }) => {
-                self.restore_failed_edit(chat, message, text);
+                self.restore_failed_edit(chat, message, text, attachments);
                 self.view.notice = Some(reason);
                 None
             }
@@ -222,7 +223,11 @@ impl App {
                     if let Some(text) = text {
                         self.insert_composer_text(&text);
                     }
-                    self.view.composer.attachments.extend(attachments);
+                    if self.view.composer.editing.is_some() && !attachments.is_empty() {
+                        self.view.composer.attachments = attachments;
+                    } else {
+                        self.view.composer.attachments.extend(attachments);
+                    }
                     self.view.focus = Focus::Composer;
                     self.draft_effect()
                 } else {

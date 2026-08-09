@@ -119,6 +119,8 @@ impl TestSystemBuilder {
             _root: root,
             download_root,
             next_download_id: 0,
+            next_attachment_id: 0,
+            attachment_names: std::collections::HashMap::new(),
             next_update_pts: 0,
             downloaded_paths: Vec::new(),
             opened_links: Vec::new(),

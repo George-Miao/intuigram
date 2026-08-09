@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use intuigram::{Application, UpdateCommitter};
-use intuigram_app::{AccountLifecycle, ChatId, DownloadId, ScheduledMessageView};
+use intuigram_app::{AccountLifecycle, AttachmentId, ChatId, DownloadId, ScheduledMessageView};
 use intuigram_store::AccountDatabase;
 use intuigram_tui::{render_test_frame, resolve_test_frame_event};
 use tempfile::TempDir;
@@ -41,6 +41,8 @@ pub struct TestSystem {
     _root: TempDir,
     download_root: PathBuf,
     next_download_id: u64,
+    next_attachment_id: u64,
+    attachment_names: HashMap<AttachmentId, String>,
     next_update_pts: i32,
     downloaded_paths: Vec<PathBuf>,
     opened_links: Vec<String>,

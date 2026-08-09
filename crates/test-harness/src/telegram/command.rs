@@ -60,6 +60,7 @@ pub(super) enum ExpectedCommand {
         message: MessageId,
         text: String,
         entities: Option<Vec<TextEntity>>,
+        attachments: Option<Vec<String>>,
         updated: MessageView,
     },
 

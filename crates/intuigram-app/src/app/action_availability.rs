@@ -265,7 +265,12 @@ impl App {
             }
             Focus::Composer => {
                 if self.view.composer.editing.is_some() {
-                    actions.extend([Action::SaveEdit, Action::Newline, Action::Cancel]);
+                    actions.extend([
+                        Action::SaveEdit,
+                        Action::Newline,
+                        Action::OpenActions,
+                        Action::Cancel,
+                    ]);
                 } else if self.view.poll_composer {
                     actions.extend([Action::SendPoll, Action::Newline, Action::Cancel]);
                 } else {

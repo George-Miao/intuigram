@@ -135,59 +135,8 @@ impl Client {
             thread_root,
             ids,
         } = request;
-        const PART_BYTES: usize = 512 * 1024;
-        const BIG_FILE_BYTES: usize = 10 * 1024 * 1024;
-
         let peer = self.peers.resolve(chat)?;
-        let part_count = upload.bytes.len().div_ceil(PART_BYTES);
-        let part_count = i32::try_from(part_count).map_err(|_| Error::InvalidMessageId {
-            message_id: i64::try_from(upload.bytes.len()).unwrap_or(i64::MAX),
-        })?;
-        let big = upload.bytes.len() > BIG_FILE_BYTES;
-        for (part, bytes) in upload.bytes.chunks(PART_BYTES).enumerate() {
-            let part = i32::try_from(part)
-                .expect("an in-memory upload cannot exceed Telegram's signed part index");
-            let accepted = if big {
-                self.connection
-                    .invoke(&tl::functions::upload::SaveBigFilePart {
-                        file_id: ids.file,
-                        file_part: part,
-                        file_total_parts: part_count,
-                        bytes: bytes.to_vec(),
-                    })
-                    .await
-                    .context(InvokeSnafu)?
-            } else {
-                self.connection
-                    .invoke(&tl::functions::upload::SaveFilePart {
-                        file_id: ids.file,
-                        file_part: part,
-                        bytes: bytes.to_vec(),
-                    })
-                    .await
-                    .context(InvokeSnafu)?
-            };
-            if !accepted {
-                return UploadPartRejectedSnafu { part }.fail();
-            }
-        }
-        let input_file = if big {
-            tl::types::InputFileBig {
-                id: ids.file,
-                parts: part_count,
-                name: upload.name.clone(),
-            }
-            .into()
-        } else {
-            tl::types::InputFile {
-                id: ids.file,
-                parts: part_count,
-                name: upload.name.clone(),
-                md5_checksum: format!("{:x}", md5::compute(&upload.bytes)),
-            }
-            .into()
-        };
-        let media = uploaded_media(upload, input_file);
+        let media = self.upload_media(upload, ids.file).await?;
         let entities = serialize_entities(entities)?;
         let updates = self
             .connection
@@ -217,6 +166,65 @@ impl Client {
             .await
             .context(InvokeSnafu)?;
         sent_message_id(updates, ids.message)
+    }
+
+    pub(super) async fn upload_media(
+        &mut self,
+        upload: Upload,
+        file_id: i64,
+    ) -> Result<tl::enums::InputMedia> {
+        const PART_BYTES: usize = 512 * 1024;
+        const BIG_FILE_BYTES: usize = 10 * 1024 * 1024;
+
+        let part_count = upload.bytes.len().div_ceil(PART_BYTES);
+        let part_count = i32::try_from(part_count).map_err(|_| Error::InvalidMessageId {
+            message_id: i64::try_from(upload.bytes.len()).unwrap_or(i64::MAX),
+        })?;
+        let big = upload.bytes.len() > BIG_FILE_BYTES;
+        for (part, bytes) in upload.bytes.chunks(PART_BYTES).enumerate() {
+            let part = i32::try_from(part)
+                .expect("an in-memory upload cannot exceed Telegram's signed part index");
+            let accepted = if big {
+                self.connection
+                    .invoke(&tl::functions::upload::SaveBigFilePart {
+                        file_id,
+                        file_part: part,
+                        file_total_parts: part_count,
+                        bytes: bytes.to_vec(),
+                    })
+                    .await
+                    .context(InvokeSnafu)?
+            } else {
+                self.connection
+                    .invoke(&tl::functions::upload::SaveFilePart {
+                        file_id,
+                        file_part: part,
+                        bytes: bytes.to_vec(),
+                    })
+                    .await
+                    .context(InvokeSnafu)?
+            };
+            if !accepted {
+                return UploadPartRejectedSnafu { part }.fail();
+            }
+        }
+        let input_file = if big {
+            tl::types::InputFileBig {
+                id: file_id,
+                parts: part_count,
+                name: upload.name.clone(),
+            }
+            .into()
+        } else {
+            tl::types::InputFile {
+                id: file_id,
+                parts: part_count,
+                name: upload.name.clone(),
+                md5_checksum: format!("{:x}", md5::compute(&upload.bytes)),
+            }
+            .into()
+        };
+        Ok(uploaded_media(upload, input_file))
     }
 
     /// Returns a direct IPv4 endpoint advertised by Telegram for a data center.

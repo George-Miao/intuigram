@@ -276,6 +276,12 @@ pub enum Effect {
 
         /// Exact composer contents restored if Telegram rejects the edit.
         draft_text: String,
+
+        /// Adapter-owned replacement media, when the edit changes a photo.
+        attachments: Vec<AttachmentId>,
+
+        /// Safe attachment presentation restored if Telegram rejects the edit.
+        draft_attachments: Vec<AttachmentView>,
     },
     /// Delete one or more Messages from Telegram and durable storage.
     DeleteMessages {

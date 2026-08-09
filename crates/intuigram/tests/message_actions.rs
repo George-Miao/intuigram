@@ -1,4 +1,4 @@
-use intuigram_app::{Action, DeliveryState, ReactionView};
+use intuigram_app::{Action, DeliveryState, MediaCard, MediaKind, ReactionView};
 use test_harness::{Result, TelegramScenario, TestSystem, account, chat, key, sent_message};
 
 #[test]
@@ -102,6 +102,90 @@ fn saving_an_edit_returns_to_an_empty_composer() -> Result<()> {
     app.screen().composer().expect_focused()?;
     app.screen().composer().expect_text("")?;
     app.expect_saved_draft(10, "")?;
+    app.expect_no_unhandled_work()
+}
+
+#[test]
+fn editing_a_captionless_photo_starts_with_an_empty_caption() -> Result<()> {
+    let mut photo = sent_message(41, "[Photo] image");
+    photo.details.media = Some(MediaCard {
+        kind: MediaKind::Photo,
+        title: "Photo".to_owned(),
+        description: "image".to_owned(),
+        details: Vec::new(),
+        poll: None,
+        remote_id: Some("photo:41".to_owned()),
+    });
+    let mut edited = photo.clone();
+    edited.body = "new caption".to_owned();
+    edited.details.edited = true;
+    let mut app = TestSystem::builder()
+        .name("message-actions-edit-photo-caption")
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, [photo])
+                .expect_media_preview(10, 41)
+                .expect_edit_message(10, 41, "new caption", edited),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.press(key::ALT_UP)?;
+    app.choose_action("Edit")?;
+
+    app.screen().composer().expect_focused()?;
+    app.screen().composer().expect_text("")?;
+    app.type_text("new caption")?;
+    app.press(key::ENTER)?;
+
+    app.screen()
+        .message_text("new caption")
+        .expect_delivery(DeliveryState::Sent)?;
+    app.expect_no_unhandled_work()
+}
+
+#[test]
+fn editing_a_photo_can_replace_the_media_without_inventing_a_caption() -> Result<()> {
+    let mut photo = sent_message(41, "[Photo] image");
+    photo.details.media = Some(MediaCard {
+        kind: MediaKind::Photo,
+        title: "Photo".to_owned(),
+        description: "image".to_owned(),
+        details: Vec::new(),
+        poll: None,
+        remote_id: Some("photo:41".to_owned()),
+    });
+    let mut edited = photo.clone();
+    edited.body.clear();
+    edited.details.edited = true;
+    let mut app = TestSystem::builder()
+        .name("message-actions-replace-photo")
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, [photo])
+                .expect_media_preview(10, 41)
+                .expect_edit_message_with_attachment(10, 41, "", "replacement.png", edited),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.press(key::ALT_UP)?;
+    app.choose_action("Edit")?;
+    app.choose_action("Attach File")?;
+    app.type_text("/tmp/replacement.png")?;
+    app.press(key::ENTER)?;
+    assert!(
+        app.screen()
+            .rows()
+            .iter()
+            .any(|row| row.contains("1 attachment(s)"))
+    );
+    app.press(key::ENTER)?;
+
+    app.screen().composer().expect_focused()?;
+    app.screen().composer().expect_text("")?;
     app.expect_no_unhandled_work()
 }
 

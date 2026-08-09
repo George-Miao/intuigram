@@ -99,6 +99,7 @@ use message_normalization::{
     mark_channel_id, marked_peer_id, message_body, message_chat_id, message_parts,
     normalize_entities, normalize_message, reply_message_id, text_with_entities,
 };
+pub use message_operations::MessageEdit;
 pub(crate) use notifications::{NotificationDefaults, notifications_muted_at};
 pub use peer_directory::{PeerAddress, PeerDirectory};
 use sent_message::sent_message_id;

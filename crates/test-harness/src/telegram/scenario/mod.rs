@@ -253,6 +253,7 @@ impl TelegramScenario {
             message: MessageId(message),
             text: text.into(),
             entities: None,
+            attachments: None,
             updated,
         });
         self
@@ -272,6 +273,27 @@ impl TelegramScenario {
             message: MessageId(message),
             text: text.into(),
             entities: Some(entities),
+            attachments: None,
+            updated,
+        });
+        self
+    }
+
+    #[must_use]
+    pub fn expect_edit_message_with_attachment(
+        mut self,
+        chat: i64,
+        message: i64,
+        text: impl Into<String>,
+        attachment: impl Into<String>,
+        updated: MessageView,
+    ) -> Self {
+        self.expected.push_back(ExpectedCommand::EditMessage {
+            chat: ChatId(chat),
+            message: MessageId(message),
+            text: text.into(),
+            entities: None,
+            attachments: Some(vec![attachment.into()]),
             updated,
         });
         self

@@ -56,7 +56,10 @@ impl App {
     }
 
     pub(super) fn available_composer_actions(&self) -> Vec<Action> {
-        if self.view.composer.editing.is_some() || self.view.poll_composer {
+        if self.view.composer.editing.is_some() {
+            return vec![Action::Paste, Action::Attach];
+        }
+        if self.view.poll_composer {
             return Vec::new();
         }
         vec![
