@@ -5,6 +5,7 @@ pub(super) fn application_fixture() -> Bootstrap {
         account_name: "Intuigram Test".to_owned(),
         notification_identity: "telegram:test".to_owned(),
         muted_chats: Vec::new(),
+        offline_chats: Vec::new(),
         accounts: Vec::new(),
         folder_details: Vec::new(),
         restored_selection: None,

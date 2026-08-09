@@ -1,7 +1,10 @@
 use std::cell::RefCell;
 
 use compio::runtime::ResumeUnwind;
-use intuigram_app::{AdapterEvent, AvatarView, DownloadView, InlineImage, MediaPreviewView};
+use intuigram_app::{
+    AdapterEvent, AvatarView, DownloadView, InlineImage, MediaPreviewView, OfflineMediaFailure,
+    OfflineMediaTarget,
+};
 use snafu::ResultExt;
 
 use super::super::super::{MediaCacheSnafu, Result, SaveDownloadSnafu};
@@ -21,7 +24,44 @@ pub(super) async fn cached_preview(
     .resume_unwind()
     .expect("an awaited cache read cannot be cancelled")
     .context(MediaCacheSnafu)?;
-    Ok(cached.and_then(|bytes| decode_cached_preview(&bytes)))
+    if let Some(image) = cached.and_then(|bytes| decode_cached_preview(&bytes)) {
+        return Ok(Some(image));
+    }
+    let cache = state.borrow().media_cache.clone();
+    let original = compio::runtime::spawn_blocking(move || {
+        let Some(media) = crate::application::offline_media::load(&cache, chat, message)? else {
+            return Ok(None);
+        };
+        let preview = intuigram_media::decode_preview(&media.bytes).ok();
+        if let Some(preview) = &preview {
+            cache.put_retained(
+                intuigram_media::CacheKind::Thumbnail,
+                &crate::application::offline_media::owner(chat),
+                &cache_key(chat, message),
+                &encode_cached_preview(preview),
+            )?;
+        }
+        Ok::<_, intuigram_media::CacheError>(preview)
+    })
+    .await
+    .resume_unwind()
+    .expect("an awaited retained preview decode cannot be cancelled")
+    .context(MediaCacheSnafu)?;
+    Ok(original)
+}
+
+pub(super) async fn cached_original(
+    state: &RefCell<State>,
+    target: OfflineMediaTarget,
+) -> Result<Option<intuigram_telegram::DownloadedMedia>> {
+    let cache = state.borrow().media_cache.clone();
+    compio::runtime::spawn_blocking(move || {
+        crate::application::offline_media::load(&cache, target.chat, target.message)
+    })
+    .await
+    .resume_unwind()
+    .expect("an awaited retained-media read cannot be cancelled")
+    .context(MediaCacheSnafu)
 }
 
 pub(super) async fn cached_avatar(
@@ -108,6 +148,38 @@ pub(super) async fn finish_avatar(
         }),
         None => AdapterEvent::AvatarFailed { avatar: avatar_ref },
     })
+}
+
+pub(super) async fn finish_offline_media(
+    state: &RefCell<State>,
+    target: OfflineMediaTarget,
+    media: Option<intuigram_telegram::DownloadedMedia>,
+) -> Result<AdapterEvent> {
+    let Some(media) = media else {
+        return Ok(AdapterEvent::MediaCacheOfflineFailed(OfflineMediaFailure {
+            chat: target.chat,
+            message: Some(target.message),
+            reason: "Telegram did not return downloadable media".to_owned(),
+        }));
+    };
+    let cache = state.borrow().media_cache.clone();
+    compio::runtime::spawn_blocking(move || {
+        crate::application::offline_media::retain(&cache, target.chat, target.message, &media)?;
+        if let Ok(preview) = intuigram_media::decode_preview(&media.bytes) {
+            cache.put_retained(
+                intuigram_media::CacheKind::Thumbnail,
+                &crate::application::offline_media::owner(target.chat),
+                &cache_key(target.chat, target.message),
+                &encode_cached_preview(&preview),
+            )?;
+        }
+        Ok::<_, intuigram_media::CacheError>(())
+    })
+    .await
+    .resume_unwind()
+    .expect("an awaited offline-media cache write cannot be cancelled")
+    .context(MediaCacheSnafu)?;
+    Ok(AdapterEvent::MediaCachedOffline(target))
 }
 
 pub(super) async fn finish_download(

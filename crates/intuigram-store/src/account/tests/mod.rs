@@ -11,6 +11,7 @@ use super::{
 use crate::{AccountId, StoreLayout};
 
 mod lifecycle;
+mod offline_media;
 mod pinned;
 
 #[test]

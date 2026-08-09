@@ -24,9 +24,12 @@ impl TestSystem {
                 self.application.revision(),
             );
             match effect {
+                effect @ (Effect::SetChatMediaOffline(_) | Effect::CacheMediaOffline(_)) => {
+                    self.handle_offline_media_effect(effect)?;
+                }
                 Effect::LoadScheduledMessages { chat } => self.handle_scheduled_load(chat),
                 Effect::ScheduledOperation { chat, request } => {
-                    self.handle_scheduled_operation(chat, request);
+                    self.handle_scheduled_operation(chat, request)
                 }
                 Effect::BrowseRichMedia { kind } => self.handle_rich_media_browse(kind),
                 Effect::SendLibraryMedia { chat, local_id, .. }
@@ -35,9 +38,7 @@ impl TestSystem {
                 | Effect::SendContact { chat, local_id, .. } => {
                     self.handle_rich_media_ack(chat, local_id);
                 }
-                Effect::FolderOperation { operation } => {
-                    self.handle_folder_operation(operation);
-                }
+                Effect::FolderOperation { operation } => self.handle_folder_operation(operation),
                 Effect::RefreshFolders => self.handle_folder_refresh(),
                 Effect::AccountLifecycle { request } => {
                     self.account_lifecycle.push(request);

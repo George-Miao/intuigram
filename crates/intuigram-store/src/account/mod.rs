@@ -20,6 +20,7 @@ mod filesystem;
 mod message_write;
 mod migration;
 mod model;
+mod offline_media;
 mod security;
 mod selection;
 mod session;
@@ -38,6 +39,7 @@ pub use model::{
     CachedAccount, SessionMaterial, StoredChat, StoredDraft, StoredFolder, StoredMessage,
     StoredMutation, StoredSelection, StoredTranscriptAnchor, SyncBatch, SyncCursor,
 };
+use offline_media::{load_offline_chats, set_chat_media_offline};
 pub use security::{
     AccountCipher, Error as SecurityError, Result as SecurityResult, enable_local_lock,
     local_lock_is_enabled,
@@ -297,6 +299,16 @@ pub enum Error {
     /// The last selected Folder and Chat could not be persisted.
     #[snafu(display("failed to persist the active Folder and Chat"))]
     SaveSelection {
+        /// Underlying database failure.
+        source: rusqlite::Error,
+    },
+
+    /// One Chat's offline-media retention policy could not be persisted.
+    #[snafu(display("failed to persist offline-media policy for Chat {chat_id}"))]
+    SaveOfflineMediaPolicy {
+        /// Chat whose Account-local policy changed.
+        chat_id: i64,
+
         /// Underlying database failure.
         source: rusqlite::Error,
     },

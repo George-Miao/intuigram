@@ -25,6 +25,7 @@ mod effects;
 mod folder_effects;
 mod history_effects;
 mod input;
+mod offline_media_effects;
 mod pointer;
 mod rich_media_effects;
 mod scheduled_effects;

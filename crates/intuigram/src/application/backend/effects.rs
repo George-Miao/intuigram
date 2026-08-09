@@ -1,4 +1,5 @@
 use compio::runtime::ResumeUnwind;
+use intuigram_app::OfflineMediaFailure;
 
 use super::*;
 
@@ -65,6 +66,22 @@ impl Backend {
                     Err(error) => AdapterEvent::OperationFailed(error.to_string()),
                 },
             )),
+            Effect::SetChatMediaOffline(_) => {
+                unreachable!("offline-media policy persistence is a local ordered effect")
+            }
+            Effect::CacheMediaOffline(target) => {
+                Ok(Some(match self.cache_media_offline(target).await {
+                    Ok(()) => AdapterEvent::MediaCachedOffline(target),
+                    Err(Error::Telegram { source }) if source.is_connection_failure() => {
+                        return Err(Error::Telegram { source });
+                    }
+                    Err(error) => AdapterEvent::MediaCacheOfflineFailed(OfflineMediaFailure {
+                        chat: target.chat,
+                        message: Some(target.message),
+                        reason: error.to_string(),
+                    }),
+                }))
+            }
             Effect::LoadChat {
                 chat,
                 selection,

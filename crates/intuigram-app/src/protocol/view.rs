@@ -27,6 +27,9 @@ pub struct View {
     /// Chats in the active Folder.
     pub chats: Vec<ChatView>,
 
+    /// Chats whose original media is retained outside ordinary cache eviction.
+    pub offline_chats: Vec<ChatId>,
+
     /// Active Chat index.
     pub active_chat: Option<usize>,
 

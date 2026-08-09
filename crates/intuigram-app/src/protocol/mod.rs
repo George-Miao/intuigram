@@ -22,6 +22,18 @@ pub enum AdapterEvent {
         muted: bool,
     },
 
+    /// One Chat's Account-local offline-media policy was durably changed.
+    ChatMediaOfflineChanged(OfflineMediaPolicy),
+
+    /// One Chat's offline-media policy could not be changed.
+    ChatMediaOfflineFailed(OfflineMediaFailure),
+
+    /// One Message's original media is protected from ordinary eviction.
+    MediaCachedOffline(OfflineMediaTarget),
+
+    /// One Message could not be retained for offline use.
+    MediaCacheOfflineFailed(OfflineMediaFailure),
+
     /// A requested Chat Folder membership change was acknowledged.
     FolderMembershipChanged {
         /// Chat whose membership changed.

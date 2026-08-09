@@ -71,17 +71,24 @@ impl App {
         ]
     }
 
+    pub(super) fn available_chat_actions(&self) -> Vec<Action> {
+        self.active_chat_id()
+            .map(|_| vec![Action::ToggleKeepMediaOffline])
+            .unwrap_or_default()
+    }
+
     pub(super) fn open_action_menu(&mut self) {
         let (title, actions) = match self.view.focus {
             Focus::Transcript => ("Message Actions", self.available_message_actions()),
             Focus::Composer => ("Composer Actions", self.available_composer_actions()),
-            Focus::Chats | Focus::Search => ("Actions", Vec::new()),
+            Focus::Chats => ("Chat Actions", self.available_chat_actions()),
+            Focus::Search => ("Actions", Vec::new()),
         };
         let items = actions
             .into_iter()
             .map(|action| ActionMenuItemView {
                 action,
-                label: action_label(action).to_owned(),
+                label: self.action_label(action).to_owned(),
             })
             .collect::<Vec<_>>();
         if !items.is_empty() {
@@ -119,26 +126,35 @@ impl App {
     }
 }
 
-const fn action_label(action: Action) -> &'static str {
-    match action {
-        Action::Reply => "Reply",
-        Action::Edit => "Edit",
-        Action::Delete => "Delete",
-        Action::Forward => "Forward",
-        Action::React => "React",
-        Action::OpenLink => "Open Link",
-        Action::DownloadMedia => "Download",
-        Action::SaveAs => "Save As",
-        Action::VotePoll => "Vote",
-        Action::OpenDownload => "Open Download",
-        Action::OpenThread => "Open Thread",
-        Action::TogglePin => "Pin / Unpin",
-        Action::ToggleMessageSelection => "Select Message",
-        Action::Paste => "Paste",
-        Action::Attach => "Attach File",
-        Action::OpenRichMedia => "Media & Contacts",
-        Action::OpenScheduled => "Scheduled Messages",
-        Action::CreatePoll => "Create Poll",
-        _ => "Action",
+impl App {
+    fn action_label(&self, action: Action) -> &'static str {
+        match action {
+            Action::Reply => "Reply",
+            Action::Edit => "Edit",
+            Action::Delete => "Delete",
+            Action::Forward => "Forward",
+            Action::React => "React",
+            Action::OpenLink => "Open Link",
+            Action::DownloadMedia => "Download",
+            Action::SaveAs => "Save As",
+            Action::VotePoll => "Vote",
+            Action::OpenDownload => "Open Download",
+            Action::OpenThread => "Open Thread",
+            Action::TogglePin => "Pin / Unpin",
+            Action::ToggleMessageSelection => "Select Message",
+            Action::Paste => "Paste",
+            Action::Attach => "Attach File",
+            Action::OpenRichMedia => "Media & Contacts",
+            Action::OpenScheduled => "Scheduled Messages",
+            Action::CreatePoll => "Create Poll",
+            Action::ToggleKeepMediaOffline => self.active_chat_id().map_or("Action", |chat| {
+                if self.offline_media.contains(chat) {
+                    "Use Cache Eviction"
+                } else {
+                    "Keep Media Offline"
+                }
+            }),
+            _ => "Action",
+        }
     }
 }

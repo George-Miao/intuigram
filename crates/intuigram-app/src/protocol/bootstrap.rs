@@ -15,6 +15,9 @@ pub struct Bootstrap {
     /// Chats whose effective Telegram notification setting is muted.
     pub muted_chats: Vec<ChatId>,
 
+    /// Chats whose original media is retained outside ordinary cache eviction.
+    pub offline_chats: Vec<ChatId>,
+
     /// Registered Accounts available without restarting Intuigram.
     pub accounts: Vec<AccountView>,
 

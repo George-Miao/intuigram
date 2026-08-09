@@ -13,6 +13,7 @@ mod connection;
 mod driver;
 mod errors;
 mod local_effect;
+mod media_response;
 #[cfg(test)]
 mod tests;
 
@@ -55,6 +56,39 @@ impl ActorSession {
         effect: AdapterEffect,
         peers: intuigram_telegram::PeerDirectory,
     ) -> Result<BackendOutput> {
+        if let Effect::CacheMediaOffline(target) = &effect.effect
+            && local_effect::cached_original(&self.owner.local, *target)
+                .await?
+                .is_some()
+        {
+            return Ok(BackendOutput::event(Some(
+                AdapterEvent::MediaCachedOffline(*target),
+            )));
+        }
+        if let Effect::DownloadMedia {
+            chat,
+            message,
+            destination,
+        } = &effect.effect
+            && let Some(media) = local_effect::cached_original(
+                &self.owner.local,
+                intuigram_app::OfflineMediaTarget {
+                    chat: *chat,
+                    message: *message,
+                },
+            )
+            .await?
+        {
+            return local_effect::finish_download(
+                &self.owner.local,
+                *chat,
+                *message,
+                destination.clone(),
+                media,
+            )
+            .await
+            .map(|event| BackendOutput::event(Some(event)));
+        }
         if let Effect::LoadAvatar { avatar } = &effect.effect
             && let Some(image) = local_effect::cached_avatar(&self.owner.local, *avatar).await?
         {
@@ -131,6 +165,13 @@ impl ActorSession {
                     .await
                     .map(|event| BackendOutput::event(Some(event)))
             }
+            ActorResponse::MediaOffline { target, media } => local_effect::finish_offline_media(
+                &self.owner.local,
+                target,
+                media.map(|media| *media),
+            )
+            .await
+            .map(|event| BackendOutput::event(Some(event))),
             ActorResponse::Failed(error) => Err(*error),
             ActorResponse::Cancelled => Err(Error::TelegramActorCancelled),
         }

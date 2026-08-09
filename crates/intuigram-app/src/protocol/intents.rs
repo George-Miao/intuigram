@@ -53,6 +53,9 @@ pub enum Action {
     Open,
     /// Open the context actions grouped for the current interaction target.
     OpenActions,
+    /// Toggle whether the Active Chat's media is retained outside cache
+    /// eviction.
+    ToggleKeepMediaOffline,
     /// Invoke the selected action in the context-actions popup.
     ChooseAction,
     /// Focus the Draft editor.

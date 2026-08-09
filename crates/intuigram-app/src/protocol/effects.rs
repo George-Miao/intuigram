@@ -135,6 +135,11 @@ pub enum Effect {
         /// Whether the Chat should belong to the Folder.
         included: bool,
     },
+    /// Persist whether one Chat's media is protected from ordinary eviction.
+    SetChatMediaOffline(OfflineMediaPolicy),
+    /// Download and retain one Message's original media outside ordinary
+    /// eviction.
+    CacheMediaOffline(OfflineMediaTarget),
     /// Load recent history for the selected Chat.
     LoadChat {
         /// Chat selected by the user.

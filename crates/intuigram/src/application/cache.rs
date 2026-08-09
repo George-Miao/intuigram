@@ -114,6 +114,7 @@ pub(super) fn cached_bootstrap(
         account_name,
         notification_identity,
         muted_chats: Vec::new(),
+        offline_chats: cached.offline_chats.into_iter().map(ChatId).collect(),
         accounts: Vec::new(),
         folder_details: Vec::new(),
         restored_selection,

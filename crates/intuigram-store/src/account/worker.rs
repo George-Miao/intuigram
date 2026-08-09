@@ -28,6 +28,11 @@ pub(super) enum Command {
         selection: StoredSelection,
         reply: SyncSender<Result<()>>,
     },
+    SetChatMediaOffline {
+        chat_id: i64,
+        keep: bool,
+        reply: SyncSender<Result<()>>,
+    },
     CommitSyncAsync {
         batch: Box<SyncBatch>,
         reply: AsyncReply<()>,
@@ -38,6 +43,11 @@ pub(super) enum Command {
     },
     SaveSelectionAsync {
         selection: StoredSelection,
+        reply: AsyncReply<()>,
+    },
+    SetChatMediaOfflineAsync {
+        chat_id: i64,
+        keep: bool,
         reply: AsyncReply<()>,
     },
     SaveMessagesAsync {
@@ -157,6 +167,19 @@ impl AccountStore {
         let (reply, request) = async_response();
         self.commands
             .try_send(Command::SaveSelectionAsync { selection, reply })
+            .map_err(map_try_send_error)?;
+        Ok(request)
+    }
+
+    /// Enqueues an Account-local offline-media policy change.
+    pub fn set_chat_media_offline(&self, chat_id: i64, keep: bool) -> Result<DatabaseRequest<()>> {
+        let (reply, request) = async_response();
+        self.commands
+            .try_send(Command::SetChatMediaOfflineAsync {
+                chat_id,
+                keep,
+                reply,
+            })
             .map_err(map_try_send_error)?;
         Ok(request)
     }

@@ -114,6 +114,7 @@ impl Client {
                 |identity| format!("telegram:{}", identity.id),
             ),
             muted_chats,
+            offline_chats: Vec::new(),
             accounts: Vec::new(),
             restored_selection: None,
             transcript_anchors: Vec::new(),

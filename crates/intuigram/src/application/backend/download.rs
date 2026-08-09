@@ -65,6 +65,17 @@ impl Backend {
         {
             return Ok(Some(image));
         }
+        let cache = self.media_cache.clone();
+        let retained = compio::runtime::spawn_blocking(move || {
+            crate::application::offline_media::load(&cache, chat, message)
+        })
+        .await
+        .resume_unwind()
+        .expect("an awaited retained-media read cannot be cancelled")
+        .context(MediaCacheSnafu)?;
+        if let Some(media) = retained {
+            return Ok(intuigram_media::decode_preview(&media.bytes).ok());
+        }
         let media = self
             .client
             .download_media_preview(chat, message)
@@ -97,11 +108,22 @@ impl Backend {
         message: MessageId,
         destination: Option<String>,
     ) -> Result<DownloadView> {
-        let media = self
-            .client
-            .download_media(chat, message)
-            .await
-            .context(TelegramSnafu)?;
+        let cache = self.media_cache.clone();
+        let retained = compio::runtime::spawn_blocking(move || {
+            crate::application::offline_media::load(&cache, chat, message)
+        })
+        .await
+        .resume_unwind()
+        .expect("an awaited retained-media read cannot be cancelled")
+        .context(MediaCacheSnafu)?;
+        let media = match retained {
+            Some(media) => media,
+            None => self
+                .client
+                .download_media(chat, message)
+                .await
+                .context(TelegramSnafu)?,
+        };
         let name = media.name;
         let mime_type = media.mime_type;
         let bytes = media.bytes;
@@ -129,10 +151,40 @@ impl Backend {
             preview,
         })
     }
+
+    pub(super) async fn cache_media_offline(
+        &mut self,
+        target: intuigram_app::OfflineMediaTarget,
+    ) -> Result<()> {
+        let cache = self.media_cache.clone();
+        let cached = compio::runtime::spawn_blocking({
+            let cache = cache.clone();
+            move || crate::application::offline_media::load(&cache, target.chat, target.message)
+        })
+        .await
+        .resume_unwind()
+        .expect("an awaited retained-media read cannot be cancelled")
+        .context(MediaCacheSnafu)?;
+        if cached.is_some() {
+            return Ok(());
+        }
+        let media = self
+            .client
+            .download_media(target.chat, target.message)
+            .await
+            .context(TelegramSnafu)?;
+        compio::runtime::spawn_blocking(move || {
+            crate::application::offline_media::retain(&cache, target.chat, target.message, &media)
+        })
+        .await
+        .resume_unwind()
+        .expect("an awaited offline-media write cannot be cancelled")
+        .context(MediaCacheSnafu)
+    }
 }
 
 fn cache_key(chat: ChatId, message: MessageId) -> intuigram_media::CacheKey {
-    intuigram_media::CacheKey::new(format!("{}:{}", chat.0, message.0))
+    intuigram_media::CacheKey::new(format!("preview-v2:{}:{}", chat.0, message.0))
 }
 
 fn avatar_cache_key(avatar: AvatarRef) -> intuigram_media::CacheKey {

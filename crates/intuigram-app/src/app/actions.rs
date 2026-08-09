@@ -133,6 +133,7 @@ impl App {
                 self.open_action_menu();
                 None
             }
+            Action::ToggleKeepMediaOffline => self.toggle_offline_media(),
             Action::ChooseAction => None,
             Action::Compose => {
                 if self.view.active_chat.is_some() {

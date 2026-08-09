@@ -29,6 +29,7 @@ fn view(actions: Vec<Action>) -> View {
         folder_details: Vec::new(),
         active_folder: 0,
         chats: Vec::new(),
+        offline_chats: Vec::new(),
         active_chat: None,
         chat_scroll_direction: ScrollDirection::Down,
         messages: Vec::new(),
@@ -129,6 +130,11 @@ fn displayed_action_bar_and_help_bindings_are_the_bindings_input_resolves() {
     );
     assert_eq!(
         keymap.resolve(&composer, KeyChord::alt(Key::Char('a'))),
+        Some(Action::OpenActions)
+    );
+    let chats = view(vec![Action::OpenActions]);
+    assert_eq!(
+        keymap.resolve(&chats, KeyChord::alt(Key::Char('a'))),
         Some(Action::OpenActions)
     );
     assert_eq!(

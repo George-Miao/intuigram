@@ -31,6 +31,7 @@ pub(super) fn load_cache(connection: &Connection) -> Result<CachedAccount> {
         )
         .optional()
         .context(LoadCacheSnafu)?;
+    let offline_chats = load_offline_chats(connection)?;
     Ok(CachedAccount {
         cursors,
         folders,
@@ -39,6 +40,7 @@ pub(super) fn load_cache(connection: &Connection) -> Result<CachedAccount> {
         pinned_messages,
         drafts,
         selection,
+        offline_chats,
     })
 }
 

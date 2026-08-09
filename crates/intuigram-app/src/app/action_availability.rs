@@ -239,6 +239,7 @@ impl App {
                     Action::NextFolder,
                     Action::ManageFolders,
                     Action::ManageAccounts,
+                    Action::OpenActions,
                     Action::Open,
                     Action::NavigatePinned,
                     Action::Search,

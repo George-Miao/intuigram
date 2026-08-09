@@ -10,6 +10,7 @@ impl App {
                 folder_details: Vec::new(),
                 active_folder: 0,
                 chats: Vec::new(),
+                offline_chats: Vec::new(),
                 active_chat: None,
                 chat_scroll_direction: ScrollDirection::Down,
                 messages: Vec::new(),
@@ -58,6 +59,7 @@ impl App {
             unread_boundaries: HashMap::new(),
             history_loads: HistoryLoads::default(),
             media_preview_loads: MediaPreviewLoads::default(),
+            offline_media: OfflineMedia::default(),
             avatar_peers: HashMap::new(),
             avatar_loads: AvatarLoads::default(),
             next_local_message_id: 0,
@@ -155,6 +157,8 @@ impl App {
         self.view.account_name = bootstrap.account_name;
         self.view.notification_identity = bootstrap.notification_identity;
         self.muted_chats = bootstrap.muted_chats.into_iter().collect();
+        self.offline_media.replace(bootstrap.offline_chats);
+        self.sync_offline_chat_view();
         self.view.accounts = bootstrap.accounts;
         self.view.folders = bootstrap.folders;
         self.view.folder_details = bootstrap.folder_details;

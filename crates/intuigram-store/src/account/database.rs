@@ -169,6 +169,19 @@ impl AccountDatabase {
         response.recv().map_err(|_| Error::WorkerUnavailable)?
     }
 
+    /// Persists whether one Chat's original media is protected from eviction.
+    pub fn set_chat_media_offline(&self, chat_id: i64, keep: bool) -> Result<()> {
+        let (reply, response) = mpsc::sync_channel(1);
+        self.commands
+            .send(Command::SetChatMediaOffline {
+                chat_id,
+                keep,
+                reply,
+            })
+            .map_err(|_| Error::WorkerUnavailable)?;
+        response.recv().map_err(|_| Error::WorkerUnavailable)?
+    }
+
     fn spawn(path: PathBuf, create: bool, cipher: AccountCipher) -> Result<Self> {
         prepare_data_directory(&path)?;
         let (commands, requests) = mpsc::sync_channel(32);

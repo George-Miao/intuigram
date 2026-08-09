@@ -59,6 +59,7 @@ mod local_lock;
 mod login;
 mod maintenance;
 mod media_arguments;
+mod offline_media;
 mod proxy;
 mod runtime;
 mod schedule_arguments;

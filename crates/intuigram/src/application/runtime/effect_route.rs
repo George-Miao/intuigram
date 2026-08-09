@@ -33,7 +33,7 @@ pub(in crate::application) const fn effect_route(effect: &Effect) -> EffectRoute
 
 #[cfg(test)]
 mod tests {
-    use intuigram_app::{ChatId, MessageId};
+    use intuigram_app::{ChatId, MessageId, OfflineMediaPolicy};
 
     use super::*;
 
@@ -59,5 +59,15 @@ mod tests {
             })
             .runs_independently()
         );
+    }
+
+    #[test]
+    fn offline_policy_changes_share_the_single_media_request_lane() {
+        let route = effect_route(&Effect::SetChatMediaOffline(OfflineMediaPolicy {
+            chat: ChatId(7),
+            keep: true,
+        }));
+
+        assert_eq!(route, EffectRoute::Telegram);
     }
 }

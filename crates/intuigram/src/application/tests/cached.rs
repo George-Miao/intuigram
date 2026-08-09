@@ -76,6 +76,7 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
                 message_id: 42,
             }],
         }),
+        offline_chats: vec![7],
     };
 
     let bootstrap = cached_bootstrap("Ada".to_owned(), "telegram:7".to_owned(), cached);
@@ -85,6 +86,7 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
     assert_eq!(bootstrap.histories[0].messages, vec![message]);
     assert_eq!(bootstrap.pinned_messages[0].messages, vec![old_pin]);
     assert_eq!(bootstrap.drafts[0].text, "cached Draft");
+    assert_eq!(bootstrap.offline_chats, vec![ChatId(7)]);
     assert_eq!(
         bootstrap.restored_selection,
         Some(SelectionView {

@@ -4,6 +4,7 @@ mod formatting;
 mod links;
 mod media;
 mod message;
+mod offline_media;
 mod rich_media;
 mod scheduled;
 
@@ -13,6 +14,7 @@ pub(crate) use formatting::format_markdown;
 pub(crate) use links::active_link;
 pub use media::*;
 pub use message::*;
+pub use offline_media::*;
 pub use rich_media::*;
 pub use scheduled::*;
 

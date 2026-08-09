@@ -159,7 +159,7 @@ fn binding_matches_context(view: &View, binding: &Binding) -> bool {
             view.focus == Focus::Transcript
         }
         (Action::OpenActions, key) if key == KeyChord::alt(Key::Char('a')) => {
-            view.focus == Focus::Composer
+            matches!(view.focus, Focus::Chats | Focus::Composer)
         }
         (Action::TargetPreviousMessage, key) if key == KeyChord::plain(Key::Up) => {
             view.focus == Focus::Transcript

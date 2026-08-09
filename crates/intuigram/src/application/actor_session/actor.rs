@@ -1,14 +1,13 @@
 use compio::runtime::{JoinHandle, ResumeUnwind};
 use compio_actor::{Actor, Call, Handler, Mailbox};
-use intuigram_app::{AdapterEvent, Bootstrap, Effect};
+use intuigram_app::{Bootstrap, Effect};
 use intuigram_store::{AccountRecord, StoreLayout};
 use intuigram_telegram::ApplicationCredentials;
-use snafu::ResultExt;
 
 use super::super::{
     AdapterBatch, AdapterEffect, AdapterStorage, AttachmentPayload, Backend, BackendEvents,
     BackendOutput, Error, PreparedRichMedia, Result, RetainedBackend, SubmittedUpdates,
-    TelegramSnafu, resume_account,
+    resume_account,
 };
 use super::cancellation::{ActorCancellation, until_cancelled};
 use super::driver::{DriverStop, SessionEvent, run_driver};
@@ -35,7 +34,7 @@ pub(super) struct ActorStartup {
 pub(super) struct TelegramActor;
 
 pub(super) struct TelegramState {
-    backend: Backend,
+    pub(super) backend: Backend,
     submitted: SubmittedUpdates,
     driver_stop: DriverStop,
     driver: Option<JoinHandle<()>>,
@@ -60,6 +59,10 @@ pub(super) enum ActorResponse {
         message: intuigram_app::MessageId,
         destination: Option<String>,
         media: Box<intuigram_telegram::DownloadedMedia>,
+    },
+    MediaOffline {
+        target: intuigram_app::OfflineMediaTarget,
+        media: Option<Box<intuigram_telegram::DownloadedMedia>>,
     },
     Failed(Box<Error>),
     Cancelled,
@@ -162,15 +165,23 @@ impl Handler<Call<ExecuteEffect, ActorResponse>> for TelegramActor {
         let cancellation = state.cancellation.clone();
         let AdapterEffect { effect, random_id } = request.effect;
         let response = match effect {
-            Effect::LoadAvatar { avatar } => avatar_response(state, &cancellation, avatar).await,
+            Effect::LoadAvatar { avatar } => {
+                super::media_response::avatar(state, &cancellation, avatar).await
+            }
             Effect::LoadMediaPreview { chat, message } => {
-                preview_response(state, &cancellation, chat, message).await
+                super::media_response::preview(state, &cancellation, chat, message).await
             }
             Effect::DownloadMedia {
                 chat,
                 message,
                 destination,
-            } => download_response(state, &cancellation, chat, message, destination).await,
+            } => {
+                super::media_response::download(state, &cancellation, chat, message, destination)
+                    .await
+            }
+            Effect::CacheMediaOffline(target) => {
+                super::media_response::offline(state, &cancellation, target).await
+            }
             effect if request.rich_media.is_some() => {
                 let prepared = request
                     .rich_media
@@ -198,112 +209,6 @@ impl Handler<Call<ExecuteEffect, ActorResponse>> for TelegramActor {
         };
         reply.reply(response).ok();
         Ok(())
-    }
-}
-
-async fn avatar_response(
-    state: &mut TelegramState,
-    cancellation: &ActorCancellation,
-    avatar: intuigram_app::AvatarRef,
-) -> ActorResponse {
-    let result = until_cancelled(
-        async {
-            state
-                .backend
-                .client
-                .download_avatar(avatar)
-                .await
-                .context(TelegramSnafu)
-        },
-        cancellation,
-    )
-    .await;
-    match result {
-        Ok(media) => ActorResponse::Avatar {
-            avatar,
-            media: media.map(Box::new),
-        },
-        Err(Error::Telegram { source }) if !source.is_connection_failure() => {
-            ActorResponse::Avatar {
-                avatar,
-                media: None,
-            }
-        }
-        Err(Error::TelegramActorCancelled) => ActorResponse::Cancelled,
-        Err(error) => ActorResponse::Failed(Box::new(error)),
-    }
-}
-
-async fn preview_response(
-    state: &mut TelegramState,
-    cancellation: &ActorCancellation,
-    chat: intuigram_app::ChatId,
-    message: intuigram_app::MessageId,
-) -> ActorResponse {
-    let result = until_cancelled(
-        async {
-            state
-                .backend
-                .client
-                .download_media_preview(chat, message)
-                .await
-                .context(TelegramSnafu)
-        },
-        cancellation,
-    )
-    .await;
-    match result {
-        Ok(media) => ActorResponse::MediaPreview {
-            chat,
-            message,
-            media: media.map(Box::new),
-        },
-        Err(Error::Telegram { source }) if !source.is_connection_failure() => {
-            ActorResponse::MediaPreview {
-                chat,
-                message,
-                media: None,
-            }
-        }
-        Err(Error::TelegramActorCancelled) => ActorResponse::Cancelled,
-        Err(error) => ActorResponse::Failed(Box::new(error)),
-    }
-}
-
-async fn download_response(
-    state: &mut TelegramState,
-    cancellation: &ActorCancellation,
-    chat: intuigram_app::ChatId,
-    message: intuigram_app::MessageId,
-    destination: Option<String>,
-) -> ActorResponse {
-    let result = until_cancelled(
-        async {
-            state
-                .backend
-                .client
-                .download_media(chat, message)
-                .await
-                .context(TelegramSnafu)
-        },
-        cancellation,
-    )
-    .await;
-    match result {
-        Ok(media) => ActorResponse::MediaDownload {
-            chat,
-            message,
-            destination,
-            media: Box::new(media),
-        },
-        Err(Error::Telegram { source }) if !source.is_connection_failure() => {
-            ActorResponse::Complete(Box::new(AdapterBatch {
-                event: Some(AdapterEvent::OperationFailed(source.to_string())),
-                peers: intuigram_telegram::PeerDirectory::default(),
-            }))
-        }
-        Err(Error::TelegramActorCancelled) => ActorResponse::Cancelled,
-        Err(error) => ActorResponse::Failed(Box::new(error)),
     }
 }
 

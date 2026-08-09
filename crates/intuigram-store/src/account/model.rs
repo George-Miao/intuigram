@@ -304,5 +304,8 @@ pub struct CachedAccount {
 
     /// Last selected Folder and Chat, when the application saved one.
     pub selection: Option<StoredSelection>,
+
+    /// Chats whose original media is protected from ordinary cache eviction.
+    pub offline_chats: Vec<i64>,
 }
 use super::*;

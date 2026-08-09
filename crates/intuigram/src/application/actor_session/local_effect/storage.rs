@@ -1,13 +1,18 @@
-use intuigram_app::Effect;
+use std::cell::RefCell;
+
+use compio::runtime::ResumeUnwind;
+use intuigram_app::{AdapterEvent, Effect, OfflineMediaFailure};
 use intuigram_store::{AccountStore, StoredDraft, StoredSelection, StoredTranscriptAnchor};
 use snafu::ResultExt;
 
-use super::super::super::{AccountDatabaseSnafu, Result, unix_timestamp};
+use super::super::super::{AccountDatabaseSnafu, MediaCacheSnafu, Result, unix_timestamp};
+use super::State;
 
 pub(super) async fn execute(
     effect: Effect,
     store: &AccountStore,
-) -> Result<Option<intuigram_app::AdapterEvent>> {
+    state: &RefCell<State>,
+) -> Result<Option<AdapterEvent>> {
     match effect {
         Effect::SaveDraft {
             chat,
@@ -51,7 +56,48 @@ pub(super) async fn execute(
                 .await
                 .context(AccountDatabaseSnafu)?;
         }
+        Effect::SetChatMediaOffline(policy) => {
+            let persisted = match store.set_chat_media_offline(policy.chat.0, policy.keep) {
+                Ok(request) => request.await.context(AccountDatabaseSnafu),
+                Err(error) => Err(error).context(AccountDatabaseSnafu),
+            };
+            if let Err(error) = persisted {
+                return Ok(Some(AdapterEvent::ChatMediaOfflineFailed(
+                    OfflineMediaFailure {
+                        chat: policy.chat,
+                        message: None,
+                        reason: error.to_string(),
+                    },
+                )));
+            }
+            if !policy.keep {
+                let cache = state.borrow().media_cache.clone();
+                let owner = media_owner(policy.chat);
+                let released = compio::runtime::spawn_blocking(move || cache.release(&owner))
+                    .await
+                    .resume_unwind()
+                    .expect("an awaited retained-media release cannot be cancelled")
+                    .context(MediaCacheSnafu);
+                if let Err(error) = released {
+                    if let Ok(request) = store.set_chat_media_offline(policy.chat.0, true) {
+                        let _ = request.await;
+                    }
+                    return Ok(Some(AdapterEvent::ChatMediaOfflineFailed(
+                        OfflineMediaFailure {
+                            chat: policy.chat,
+                            message: None,
+                            reason: error.to_string(),
+                        },
+                    )));
+                }
+            }
+            return Ok(Some(AdapterEvent::ChatMediaOfflineChanged(policy)));
+        }
         _ => unreachable!("only ordered local effects reach local storage"),
     }
     Ok(None)
+}
+
+fn media_owner(chat: intuigram_app::ChatId) -> intuigram_media::CacheOwner {
+    intuigram_media::CacheOwner::new(format!("chat:{}", chat.0))
 }

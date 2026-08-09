@@ -11,6 +11,7 @@ fn bootstrap() -> Bootstrap {
         account_name: "Ada".to_owned(),
         notification_identity: "telegram:10".to_owned(),
         muted_chats: Vec::new(),
+        offline_chats: Vec::new(),
         accounts: Vec::new(),
         folder_details: Vec::new(),
         avatar_peers: Vec::new(),
@@ -393,6 +394,7 @@ mod clipboard;
 mod history_loading;
 mod link_media;
 mod messaging;
+mod offline_media;
 mod reconciliation;
 mod rich_media;
 mod scheduled;

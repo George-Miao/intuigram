@@ -39,7 +39,7 @@ impl State {
 }
 
 pub(super) const fn handles(effect: &Effect) -> bool {
-    effect_route(effect).is_local()
+    matches!(effect, Effect::SetChatMediaOffline(_)) || effect_route(effect).is_local()
 }
 
 pub(super) async fn execute(
@@ -47,10 +47,16 @@ pub(super) async fn execute(
     store: &AccountStore,
     state: &RefCell<State>,
 ) -> Result<BackendOutput> {
-    let event = match effect_route(&effect) {
-        EffectRoute::LocalIndependent => platform::execute(effect, state).await?,
-        EffectRoute::LocalOrdered => storage::execute(effect, store).await?,
-        EffectRoute::Telegram => unreachable!("Telegram effects do not reach the local executor"),
+    let event = if matches!(effect, Effect::SetChatMediaOffline(_)) {
+        storage::execute(effect, store, state).await?
+    } else {
+        match effect_route(&effect) {
+            EffectRoute::LocalIndependent => platform::execute(effect, state).await?,
+            EffectRoute::LocalOrdered => storage::execute(effect, store, state).await?,
+            EffectRoute::Telegram => {
+                unreachable!("Telegram effects do not reach the local executor")
+            }
+        }
     };
     Ok(BackendOutput::event(event))
 }
@@ -94,6 +100,13 @@ pub(super) async fn cached_avatar(
     media::cached_avatar(state, avatar).await
 }
 
+pub(super) async fn cached_original(
+    state: &RefCell<State>,
+    target: intuigram_app::OfflineMediaTarget,
+) -> Result<Option<intuigram_telegram::DownloadedMedia>> {
+    media::cached_original(state, target).await
+}
+
 pub(super) async fn finish_preview(
     state: &RefCell<State>,
     chat: intuigram_app::ChatId,
@@ -109,6 +122,14 @@ pub(super) async fn finish_avatar(
     media: Option<intuigram_telegram::DownloadedMedia>,
 ) -> Result<AdapterEvent> {
     media::finish_avatar(state, avatar, media).await
+}
+
+pub(super) async fn finish_offline_media(
+    state: &RefCell<State>,
+    target: intuigram_app::OfflineMediaTarget,
+    media: Option<intuigram_telegram::DownloadedMedia>,
+) -> Result<AdapterEvent> {
+    media::finish_offline_media(state, target, media).await
 }
 
 pub(super) async fn finish_download(
@@ -150,6 +171,12 @@ mod tests {
             chat: ChatId(7),
             thread_root: None,
         }));
+        assert!(handles(&Effect::SetChatMediaOffline(
+            intuigram_app::OfflineMediaPolicy {
+                chat: ChatId(7),
+                keep: true,
+            },
+        )));
     }
 
     #[test]

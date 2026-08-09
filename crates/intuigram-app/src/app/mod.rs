@@ -11,6 +11,7 @@ pub struct App {
     unread_boundaries: HashMap<HistoryKey, MessageId>,
     history_loads: HistoryLoads,
     media_preview_loads: MediaPreviewLoads,
+    offline_media: OfflineMedia,
     avatar_peers: HashMap<ChatId, AvatarId>,
     avatar_loads: AvatarLoads,
     next_local_message_id: i64,
@@ -20,32 +21,6 @@ pub struct App {
 }
 
 impl App {
-    /// Creates an application waiting for initial adapter data.
-    #[must_use]
-    pub fn new() -> Self {
-        let mut app = Self::empty();
-        app.refresh_actions();
-        app
-    }
-
-    /// Applies one ordered input and returns the resulting immutable view and
-    /// adapter effect.
-    #[must_use]
-    pub fn transition(&mut self, input: Input) -> Update {
-        let effect = self.apply(input);
-        self.refresh_actions();
-        Update {
-            view: self.view.clone(),
-            effect,
-        }
-    }
-
-    /// Returns the current immutable view without changing application state.
-    #[must_use]
-    pub fn view(&self) -> View {
-        self.view.clone()
-    }
-
     fn apply(&mut self, input: Input) -> Option<Effect> {
         match input {
             Input::Adapter(AdapterEvent::Bootstrap(bootstrap)) => {
@@ -53,17 +28,21 @@ impl App {
                 if self.view.connection != ConnectionState::Connected {
                     return None;
                 }
+                self.queue_all_offline_media();
                 self.queue_active_media_previews();
                 self.queue_visible_avatars();
-                self.request_next_media_preview()
+                self.request_next_offline_media()
+                    .or_else(|| self.request_next_media_preview())
                     .or_else(|| self.request_next_avatar())
                     .or_else(|| self.request_next_background_history())
             }
             Input::Adapter(AdapterEvent::ConnectionRestored(bootstrap)) => {
                 self.merge_restored_connection(bootstrap);
+                self.queue_all_offline_media();
                 self.queue_active_media_previews();
                 self.queue_visible_avatars();
-                self.request_next_background_history()
+                self.request_next_offline_media()
+                    .or_else(|| self.request_next_background_history())
                     .or_else(|| self.request_next_media_preview())
                     .or_else(|| self.request_next_avatar())
             }
@@ -84,6 +63,12 @@ impl App {
                 }
                 None
             }
+            Input::Adapter(
+                event @ (AdapterEvent::ChatMediaOfflineChanged(_)
+                | AdapterEvent::ChatMediaOfflineFailed(_)
+                | AdapterEvent::MediaCachedOffline(_)
+                | AdapterEvent::MediaCacheOfflineFailed(_)),
+            ) => self.apply_offline_media_event(event),
             Input::Adapter(
                 event @ (AdapterEvent::FolderMembershipChanged { .. }
                 | AdapterEvent::FolderOperationCompleted { .. }
@@ -127,7 +112,9 @@ impl App {
                 None
             }
             Input::Adapter(AdapterEvent::MessageAdded { chat, message }) => {
-                self.apply_added_message(chat, *message)
+                let effect = self.apply_added_message(chat, *message);
+                self.queue_offline_media(chat);
+                effect.or_else(|| self.request_next_offline_media())
             }
             Input::Adapter(AdapterEvent::MessageUpdated { chat, message }) => {
                 self.replace_message(chat, *message);
@@ -182,12 +169,14 @@ impl App {
                 }
                 self.store_loaded_pins(chat, pinned_messages);
                 self.store_loaded_history(key, messages);
+                self.queue_offline_media(chat);
                 if self.active_history_key() == Some(key) {
                     self.queue_active_media_previews();
                     self.queue_visible_avatars();
                     self.defer_active_read();
                 }
-                self.complete_history_load(key, true)
+                self.request_next_offline_media()
+                    .or_else(|| self.complete_history_load(key, true))
             }
             Input::Adapter(AdapterEvent::HistoryLoadFailed {
                 chat,
@@ -213,12 +202,14 @@ impl App {
                     thread: Some(root),
                 };
                 self.store_loaded_history(key, messages);
+                self.queue_offline_media(chat);
                 if self.active_history_key() == Some(key) {
                     self.queue_active_media_previews();
                     self.queue_visible_avatars();
                     self.defer_active_read();
                 }
-                self.complete_history_load(key, true)
+                self.request_next_offline_media()
+                    .or_else(|| self.complete_history_load(key, true))
             }
             Input::Adapter(AdapterEvent::ClipboardReady {
                 chat,
@@ -379,10 +370,12 @@ mod folder_navigation;
 mod folder_reconciliation;
 mod history_navigation;
 mod history_reconciliation;
+mod interface;
 mod link_media;
 mod media_preview;
 mod message_selection;
 mod messaging;
+mod offline_media;
 mod pinned;
 mod poll_composer;
 mod poll_vote;
@@ -395,6 +388,7 @@ use action_availability::move_index;
 use avatar_loads::AvatarLoads;
 use history_navigation::HistoryLoads;
 use media_preview::{MediaPreviewLoads, PreviewKey};
+use offline_media::OfflineMedia;
 use state::{HistoryKey, PendingDraft, PendingPoll};
 
 const BACKGROUND_HISTORY_LIMIT: usize = 16;
