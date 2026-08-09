@@ -22,7 +22,6 @@
 - [ ] **p-core:** Allow selected Chats to keep media offline outside ordinary Media Cache eviction.
 - [ ] **p-core:** Append `...` when a Chat name &amp; message preview is capped to fit its available width. Perform terminal-cell-aware truncation and keep the ellipsis inside the allocated Chat-list width. Message count should always be visible on the rightmost side of chat name. 
 - [ ] **p-core:** Adopt Clap for command-line parsing while preserving typed configuration, maintenance commands, validation, and generated help.
-- [ ] **p-core:** Add one blank row above and below every inline image and Sticker while preserving grouped-Message and Active Message selection semantics.
 - [ ] **p-core:** Edit photo Messages through their caption and media rather than the `[Photo] image` fallback. Start captionless photo edits with an empty Composer, preserve existing captions as editable text, and allow the attached image to be replaced.
 - [ ] **p-core:** Increase the default inline image height substantially toward Telegram Swift's presentation while preserving aspect ratio, available Transcript space, and narrow-terminal behavior.
 - [ ] **p-core:** Render sender avatar images in the Transcript and use a two-row `[avatar] [username]` / `[avatar] [message]` layout. Fall back to the current two-character name avatar when an image cannot be rendered.

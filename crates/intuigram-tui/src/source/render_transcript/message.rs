@@ -139,7 +139,7 @@ fn append_content(
                     focused: layout.focused,
                     album: album_position(view, index, message.details.album_id),
                     animation_frame: view.animation_frame,
-                    max_height: layout.available_height.saturating_sub(3).max(1),
+                    max_height: layout.available_height.saturating_sub(5).max(1),
                 },
                 active_chat(view).map(|chat| image_id(chat, message.id)),
                 graphics,

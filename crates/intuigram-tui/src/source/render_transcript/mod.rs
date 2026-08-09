@@ -6,7 +6,7 @@ mod message;
 mod rich_text;
 mod window;
 
-use message::{MessageLayout, content_prefix, message_lines, messages_group};
+use message::{MessageLayout, content_prefix, message_lines, message_spacing, messages_group};
 use window::{transcript_window, unread_boundary_index};
 
 pub(super) fn render_transcript(

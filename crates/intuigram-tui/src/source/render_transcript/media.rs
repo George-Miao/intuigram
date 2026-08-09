@@ -62,6 +62,7 @@ pub(super) fn render_media(
     } = context;
     let mut lines = Vec::new();
     if let Some(preview) = preview {
+        lines.push(message_spacing(active));
         lines.extend(render_image(
             preview,
             ImageRenderContext {
@@ -74,7 +75,9 @@ pub(super) fn render_media(
             },
             graphics,
         ));
+        lines.push(message_spacing(active));
     } else if loading {
+        lines.push(message_spacing(active));
         lines.extend(render_loading_image(
             selected,
             active,
@@ -82,6 +85,7 @@ pub(super) fn render_media(
             animation_frame,
             max_height,
         ));
+        lines.push(message_spacing(active));
     } else {
         let mut card = content_prefix(active, selected, forwarded);
         card.extend([

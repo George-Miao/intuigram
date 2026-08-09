@@ -105,6 +105,47 @@ fn photo_preview_is_loaded_when_the_chat_opens() -> Result<()> {
 }
 
 #[test]
+fn inline_image_has_vertical_padding_inside_the_active_message_rule() -> Result<()> {
+    let mut photo = incoming(45, "Lin", "padded preview");
+    photo.details.media = Some(MediaCard {
+        kind: MediaKind::Photo,
+        title: "padded.png".to_owned(),
+        description: "image/png".to_owned(),
+        details: Vec::new(),
+        poll: None,
+        remote_id: Some("photo:45".to_owned()),
+    });
+    let mut app = TestSystem::builder()
+        .name("media-inline-image-padding")
+        .terminal(100, 40)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, [photo])
+                .expect_media_preview(10, 45),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.press(key::ALT_UP)?;
+    let rows = app.screen().rows();
+    let image_rows = rows
+        .iter()
+        .enumerate()
+        .filter_map(|(row, content)| content.contains('▀').then_some(row))
+        .collect::<Vec<_>>();
+    let first = *image_rows.first().expect("image should render");
+    let last = *image_rows.last().expect("image should render");
+
+    assert_eq!(app.screen().symbol_at(34, (first - 1) as u16), "│");
+    assert_eq!(app.screen().symbol_at(34, (last + 1) as u16), "│");
+    assert!(transcript_content(&rows[first - 1]).trim().is_empty());
+    assert!(transcript_content(&rows[last + 1]).trim().is_empty());
+    app.screen().message(45).expect_continuous_active_rule()?;
+    app.expect_no_unhandled_work()
+}
+
+#[test]
 fn downloaded_photos_keep_independent_inline_previews() -> Result<()> {
     let photos = [41, 42].map(|id| {
         let mut photo = incoming(id, "Lin", format!("photo {id}"));
@@ -181,4 +222,8 @@ fn failed_background_channel_refresh_does_not_block_an_image_preview() -> Result
 
     assert!(app.screen().rows().iter().any(|row| row.contains('▀')));
     app.expect_no_unhandled_work()
+}
+
+fn transcript_content(row: &str) -> String {
+    row.chars().skip(36).collect()
 }
