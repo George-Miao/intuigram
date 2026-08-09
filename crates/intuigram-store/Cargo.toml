@@ -9,6 +9,7 @@ refinery = { workspace = true, features = ["rusqlite"] }
 rusqlite = { workspace = true, features = ["backup"] }
 rustix = { workspace = true, features = ["fs"] }
 snafu.workspace = true
+sha2.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]

@@ -1,4 +1,5 @@
 pub(super) fn load_cache(connection: &Connection) -> Result<CachedAccount> {
+    let outbox = outbox::load(connection).context(OutboxSnafu)?;
     let cursors = load_cursors(connection)?;
     let folders = load_folders(connection)?;
     let mut chats = load_chats(connection)?;
@@ -35,6 +36,7 @@ pub(super) fn load_cache(connection: &Connection) -> Result<CachedAccount> {
         .context(LoadCacheSnafu)?;
     let offline_chats = load_offline_chats(connection)?;
     Ok(CachedAccount {
+        outbox,
         cursors,
         folders,
         chats,

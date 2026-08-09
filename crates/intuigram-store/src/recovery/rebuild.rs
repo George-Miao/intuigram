@@ -5,8 +5,9 @@ use rusqlite::{Connection, params};
 use snafu::ResultExt;
 
 use super::error::{
-    CopyUniqueRecordsSnafu, CreateRebuiltDatabaseSnafu, OpenRebuiltDatabaseSnafu,
-    PreserveOriginalSnafu, RebuildNamesExhaustedSnafu, RecoveryError, RecoveryResult,
+    CopyOutboxRecordsSnafu, CopyUniqueRecordsSnafu, CreateRebuiltDatabaseSnafu,
+    OpenRebuiltDatabaseSnafu, PreserveOriginalSnafu, RebuildNamesExhaustedSnafu, RecoveryError,
+    RecoveryResult,
 };
 use super::types::{RebuiltAccount, UniqueRecords};
 use crate::{AccountCipher, AccountDatabase, AccountId, StoreLayout, account};
@@ -114,6 +115,9 @@ fn copy_unique_records(
                 path: path.to_path_buf(),
             })?;
     }
+    account::outbox::restore(&transaction, &records.outbox).context(CopyOutboxRecordsSnafu {
+        path: path.to_path_buf(),
+    })?;
     transaction.commit().context(CopyUniqueRecordsSnafu {
         path: path.to_path_buf(),
     })

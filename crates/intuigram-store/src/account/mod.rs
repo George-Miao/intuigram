@@ -21,6 +21,7 @@ mod message_write;
 mod migration;
 mod model;
 mod offline_media;
+pub(crate) mod outbox;
 mod records;
 mod saved_dialog;
 mod security;
@@ -34,7 +35,8 @@ use cache_read::load_cache;
 pub use database::AccountDatabase;
 use filesystem::{prepare_data_directory, promote_without_replace, protect_path, run_worker};
 use message_write::{
-    delete_messages, replace_message, save_chat_history, save_draft, save_messages, upsert_message,
+    delete_messages, replace_message, replace_message_in, save_chat_history, save_draft,
+    save_messages, upsert_message,
 };
 pub(crate) use migration::open_and_migrate;
 use migration::read_account_id;
@@ -43,6 +45,10 @@ pub use model::{
     SyncBatch, SyncCursor,
 };
 use offline_media::{load_offline_chats, set_chat_media_offline};
+pub use outbox::{
+    Error as OutboxError, OutboxAdmission, OutboxExpiry, OutboxId, OutboxMedia, OutboxOperation,
+    OutboxPayload, OutboxPayloadV1, OutboxRecord, OutboxState,
+};
 pub use records::{CachedAccount, StoredDraft, StoredSelection, StoredTranscriptAnchor};
 pub use saved_dialog::StoredSavedDialog;
 use saved_dialog::save_saved_dialogs;
@@ -230,6 +236,13 @@ pub enum Error {
     /// The database worker panicked while shutting down.
     #[snafu(display("account database worker panicked"))]
     WorkerPanicked,
+
+    /// A durable Outbox operation failed.
+    #[snafu(display("durable Outbox operation failed"))]
+    Outbox {
+        /// Typed Outbox storage failure.
+        source: OutboxError,
+    },
 
     /// The database filename and persisted Telegram user ID disagree.
     #[snafu(display(

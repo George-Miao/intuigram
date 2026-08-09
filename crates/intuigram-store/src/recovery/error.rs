@@ -21,6 +21,16 @@ pub enum RecoveryError {
         source: rusqlite::Error,
     },
 
+    /// Durable Outbox records could not be proven readable.
+    #[snafu(display("cannot prove that durable Outbox records are readable in {}", path.display()))]
+    ReadOutboxRecords {
+        /// Failed Account database.
+        path: PathBuf,
+
+        /// Typed Outbox storage failure.
+        source: account::OutboxError,
+    },
+
     /// Stored authorization material had an invalid length.
     #[snafu(display("authorization key in {} has invalid length {length}", path.display()))]
     InvalidAuthorizationKey {
@@ -66,6 +76,16 @@ pub enum RecoveryError {
 
         /// SQLite write failure.
         source: rusqlite::Error,
+    },
+
+    /// Verified durable Outbox records could not be restored.
+    #[snafu(display("failed to restore durable Outbox records into {}", path.display()))]
+    CopyOutboxRecords {
+        /// Temporary rebuild path.
+        path: PathBuf,
+
+        /// Typed Outbox storage failure.
+        source: account::OutboxError,
     },
 
     /// The original database could not be moved to its recovery backup.

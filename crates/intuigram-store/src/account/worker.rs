@@ -1,4 +1,5 @@
 pub(super) enum Command {
+    Outbox(outbox::OutboxCommand),
     ReadIdentity {
         reply: SyncSender<Result<Option<AccountId>>>,
     },
@@ -139,7 +140,7 @@ impl<T> Future for DatabaseRequest<T> {
     }
 }
 
-fn async_response<T>() -> (AsyncReply<T>, DatabaseRequest<T>) {
+pub(super) fn async_response<T>() -> (AsyncReply<T>, DatabaseRequest<T>) {
     let state = Arc::new(Mutex::new(AsyncState {
         result: None,
         waker: None,
@@ -304,7 +305,7 @@ impl AccountStore {
     }
 }
 
-fn map_try_send_error<T>(error: mpsc::TrySendError<T>) -> Error {
+pub(super) fn map_try_send_error<T>(error: mpsc::TrySendError<T>) -> Error {
     match error {
         mpsc::TrySendError::Full(_) => Error::WorkerQueueFull,
         mpsc::TrySendError::Disconnected(_) => Error::WorkerUnavailable,

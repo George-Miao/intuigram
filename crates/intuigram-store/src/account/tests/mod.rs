@@ -12,6 +12,7 @@ use crate::{AccountId, StoreLayout};
 
 mod lifecycle;
 mod offline_media;
+mod outbox;
 mod pinned;
 mod saved_dialogs;
 mod topics;

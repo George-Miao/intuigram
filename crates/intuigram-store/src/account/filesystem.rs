@@ -41,6 +41,11 @@ pub(super) fn run_worker(
     ready: &SyncSender<Result<()>>,
 ) {
     let connection = open_and_migrate(path, create, &cipher);
+    let connection = connection.and_then(|connection| {
+        outbox::recover_in_flight(&connection)
+            .context(OutboxSnafu)
+            .map(|()| connection)
+    });
     let Ok(connection) = connection else {
         let _ = ready.send(connection.map(|_| ()));
         return;
@@ -51,6 +56,7 @@ pub(super) fn run_worker(
 
     while let Ok(command) = requests.recv() {
         match command {
+            Command::Outbox(command) => outbox::execute(&connection, command),
             Command::ReadIdentity { reply } => {
                 let _ = reply.send(read_account_id(&connection));
             }

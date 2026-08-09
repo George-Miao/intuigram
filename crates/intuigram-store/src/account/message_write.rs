@@ -17,16 +17,24 @@ pub(super) fn replace_message(
     let transaction = connection
         .unchecked_transaction()
         .context(SaveMessagesSnafu)?;
-    upsert_message(&transaction, &message).context(SaveMessagesSnafu)?;
+    replace_message_in(&transaction, chat, local_id, &message).context(SaveMessagesSnafu)?;
+    transaction.commit().context(SaveMessagesSnafu)
+}
+
+pub(super) fn replace_message_in(
+    connection: &Connection,
+    chat: i64,
+    local_id: i64,
+    message: &StoredMessage,
+) -> rusqlite::Result<()> {
+    upsert_message(connection, message)?;
     apply_sync_mutation(
-        &transaction,
+        connection,
         StoredMutation::DeleteMessages {
             chat_id: Some(chat),
             ids: vec![local_id],
         },
     )
-    .context(SaveMessagesSnafu)?;
-    transaction.commit().context(SaveMessagesSnafu)
 }
 
 pub(super) fn save_chat_history(

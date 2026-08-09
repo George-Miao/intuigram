@@ -1,7 +1,11 @@
 use rusqlite::Connection;
 use tempfile::tempdir;
 
-use crate::{AccountDatabase, AccountId, AccountOpen, SessionMaterial, StoreLayout, StoredDraft};
+use crate::{
+    AccountDatabase, AccountId, AccountOpen, OutboxAdmission, OutboxExpiry, OutboxMedia,
+    OutboxOperation, OutboxPayload, OutboxPayloadV1, OutboxState, SessionMaterial, StoreLayout,
+    StoredDraft,
+};
 
 #[test]
 fn rebuild_preserves_unique_records_and_the_broken_database() {
@@ -85,4 +89,74 @@ fn rebuild_is_unavailable_when_unique_records_cannot_be_proven_readable() {
         std::fs::read(path).expect("original should remain"),
         b"not sqlite"
     );
+}
+
+#[test]
+fn rebuild_preserves_outbox_payload_media_and_retry_state() {
+    let temporary = tempdir().expect("temporary directory should be created");
+    let layout = StoreLayout::new(temporary.path().join("intuigram"));
+    let account = AccountId::new(9).expect("fixture ID should be positive");
+    let media = OutboxMedia::new(
+        "evidence.bin".to_owned(),
+        "application/octet-stream".to_owned(),
+        vec![0, 4, 8, 15, 16, 23, 42, 255],
+    );
+    let pending = AccountDatabase::begin_login(&layout).expect("pending database should open");
+    let id = pending
+        .admit_outbox(OutboxAdmission {
+            operation: OutboxOperation::Create,
+            payload: OutboxPayload::V1(OutboxPayloadV1 {
+                chat_id: 7,
+                thread_root: Some(11),
+                saved_peer: Some(13),
+                local_message_id: Some(-17),
+                random_id: 19,
+                content: vec![1, 3, 3, 7],
+            }),
+            media: vec![media.clone()],
+            optimistic_message: None,
+            consume_draft: false,
+            admitted_at: 20,
+            expiry: OutboxExpiry::Never,
+        })
+        .expect("Outbox item should persist");
+    pending
+        .claim_outbox(30)
+        .expect("claim should complete")
+        .expect("Outbox item should be eligible");
+    pending
+        .defer_outbox(id, 40, "retry later".to_owned())
+        .expect("Outbox item should defer");
+    let expected = pending.load_outbox().expect("Outbox should load");
+    let database = pending
+        .finish_login(&layout, account)
+        .expect("database should promote");
+    drop(database);
+
+    let path = layout.account_database(account);
+    let connection = Connection::open(&path).expect("fixture database should open");
+    connection
+        .execute_batch(
+            "PRAGMA foreign_keys = OFF;
+             INSERT INTO chat_folders (chat_id, folder_id, position) VALUES (999, 0, 0);",
+        )
+        .expect("fixture should introduce a foreign-key violation");
+    drop(connection);
+    let AccountOpen::Recovery(recovery) =
+        AccountDatabase::open_recoverable(&layout, account).expect("recovery should be described")
+    else {
+        panic!("corrupt synchronized cache must not open normally");
+    };
+    assert!(recovery.can_rebuild_cache());
+
+    let rebuilt = recovery
+        .rebuild_cache()
+        .expect("Outbox records should rebuild safely");
+    let actual = rebuilt
+        .database()
+        .load_outbox()
+        .expect("rebuilt Outbox should load");
+    assert_eq!(actual, expected);
+    assert_eq!(actual[0].state, OutboxState::Deferred);
+    assert_eq!(actual[0].media, vec![media]);
 }

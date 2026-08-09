@@ -1,4 +1,7 @@
-use super::{StoredChat, StoredFolder, StoredMessage, StoredSavedDialog, StoredTopic, SyncCursor};
+use super::{
+    OutboxRecord, StoredChat, StoredFolder, StoredMessage, StoredSavedDialog, StoredTopic,
+    SyncCursor,
+};
 
 /// Durable Draft value.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -57,6 +60,9 @@ pub struct StoredTranscriptAnchor {
 /// Immediately renderable durable Account cache.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CachedAccount {
+    /// Durable outbound work in FIFO order.
+    pub outbox: Vec<OutboxRecord>,
+
     /// Last durable synchronization cursors.
     pub cursors: Vec<SyncCursor>,
 

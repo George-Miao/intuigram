@@ -1,6 +1,6 @@
 /// A database containing one Telegram account's durable state.
 pub struct AccountDatabase {
-    commands: SyncSender<Command>,
+    pub(super) commands: SyncSender<Command>,
     worker: Option<JoinHandle<()>>,
     cipher: AccountCipher,
 }

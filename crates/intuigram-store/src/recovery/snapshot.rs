@@ -5,7 +5,8 @@ use rusqlite::{Connection, OpenFlags, OptionalExtension};
 use snafu::ResultExt;
 
 use super::error::{
-    InvalidAuthorizationKeySnafu, ReadUniqueRecordsSnafu, RecoveryError, RecoveryResult,
+    InvalidAuthorizationKeySnafu, ReadOutboxRecordsSnafu, ReadUniqueRecordsSnafu, RecoveryError,
+    RecoveryResult,
 };
 use super::types::{DraftHistory, UniqueRecords};
 use crate::{AccountCipher, AccountId, SessionMaterial, StoredDraft};
@@ -47,6 +48,9 @@ pub(super) fn read_unique_records(
         session: read_session(&connection, path)?,
         drafts: read_drafts(&connection, path)?,
         draft_history: read_draft_history(&connection, path)?,
+        outbox: crate::account::outbox::load(&connection).context(ReadOutboxRecordsSnafu {
+            path: path.to_path_buf(),
+        })?,
     })
 }
 

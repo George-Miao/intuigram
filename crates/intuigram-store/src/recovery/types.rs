@@ -4,7 +4,8 @@ use super::error::{RecoveryError, RecoveryResult};
 use super::rebuild::rebuild;
 use super::snapshot::{discover_backups, read_unique_records};
 use crate::{
-    AccountCipher, AccountDatabase, AccountId, SessionMaterial, StoreLayout, StoredDraft, account,
+    AccountCipher, AccountDatabase, AccountId, OutboxRecord, SessionMaterial, StoreLayout,
+    StoredDraft, account,
 };
 
 /// Result of opening an existing Account without silently changing its data.
@@ -127,6 +128,7 @@ pub(super) struct UniqueRecords {
     pub(super) session: Option<SessionMaterial>,
     pub(super) drafts: Vec<StoredDraft>,
     pub(super) draft_history: Vec<DraftHistory>,
+    pub(super) outbox: Vec<OutboxRecord>,
 }
 
 pub(super) struct DraftHistory {
