@@ -38,6 +38,20 @@ fn kitty_legacy_is_cursor_anchored_and_tmux_escaped() {
 }
 
 #[test]
+fn zellij_kitty_placement_is_unwrapped_and_avoids_unicode_placeholders() {
+    let mut renderer = Renderer::new(Protocol::KittyLegacy);
+    let mut output = Vec::new();
+    renderer
+        .sync(&mut output, &[placement(Multiplexer::Zellij)])
+        .expect("memory output should accept a Zellij Kitty upload");
+
+    let text = String::from_utf8(output).expect("Kitty commands are ASCII");
+    assert!(text.starts_with("\x1b[10;8H\x1b_Gq=2,a=T,C=1,f=32"));
+    assert!(!text.contains("U=1"));
+    assert!(!text.contains("tmux;"));
+}
+
+#[test]
 fn iterm2_and_sixel_encoders_emit_their_native_framing() {
     let request = placement(Multiplexer::None);
     let mut iterm = Renderer::new(Protocol::Iterm2);

@@ -37,10 +37,11 @@ tmux.
 Zellij is represented explicitly and leaves native sequences unwrapped. Stable
 Zellij releases historically exposed Sixel; [Zellij main added Kitty graphics
 support][zellij-changelog] after 0.44.3. A Zellij build containing that change
-can preserve the outer Ghostty/kitty capability through `TERM_PROGRAM` and use
-Unicode placeholders. Older builds need Sixel support in both Zellij and the
-outer terminal or the text fallback. This is deliberately documented because
-Yazi's current stable documentation still describes Zellij as Sixel-only.
+uses cursor-anchored Kitty placement when `TERM_PROGRAM` identifies a compatible
+Ghostty, kitty, or Konsole host. Zellij does not support Kitty Unicode
+placeholders, so `rasterm` never selects them through that multiplexer. Other
+Zellij hosts keep the Sixel fallback and require Sixel support in both Zellij
+and the outer terminal.
 
 ## Alacritty
 

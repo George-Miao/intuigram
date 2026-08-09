@@ -70,14 +70,23 @@ impl Environment {
     pub fn protocol(&self) -> Protocol {
         let term = text(self.term.as_deref());
         let program = text(self.term_program.as_deref());
+        let ghostty = contains_any(term, &["ghostty"]) || contains_any(program, &["ghostty"]);
+        let kitty = self.kitty_window
+            || contains_any(term, &["kitty"])
+            || contains_any(program, &["kitty"]);
+        let legacy_kitty =
+            ghostty || contains_any(term, &["konsole"]) || contains_any(program, &["konsole"]);
         if self.multiplexer == Multiplexer::Zellij {
-            return Protocol::Sixel;
+            return if legacy_kitty || kitty {
+                Protocol::KittyLegacy
+            } else {
+                Protocol::Sixel
+            };
         }
-        if contains_any(term, &["ghostty"]) || contains_any(program, &["ghostty"]) {
+        if ghostty {
             return Protocol::KittyLegacy;
         }
-        if self.kitty_window || contains_any(term, &["kitty"]) || contains_any(program, &["kitty"])
-        {
+        if kitty {
             return Protocol::KittyUnicode;
         }
         if contains_any(term, &["konsole"]) || contains_any(program, &["konsole"]) {
@@ -124,10 +133,21 @@ mod tests {
     use crate::Protocol;
 
     #[test]
-    fn zellij_uses_its_only_supported_graphics_protocol() {
+    fn zellij_on_ghostty_uses_supported_cursor_anchored_kitty_graphics() {
         let environment = Environment {
             term: Some(OsString::from("xterm-256color")),
             term_program: Some(OsString::from("ghostty")),
+            multiplexer: Multiplexer::Zellij,
+            ..Environment::default()
+        };
+        assert_eq!(environment.protocol(), Protocol::KittyLegacy);
+    }
+
+    #[test]
+    fn zellij_without_a_kitty_host_keeps_the_sixel_fallback() {
+        let environment = Environment {
+            term: Some(OsString::from("xterm-256color")),
+            term_program: Some(OsString::from("Apple_Terminal")),
             multiplexer: Multiplexer::Zellij,
             ..Environment::default()
         };

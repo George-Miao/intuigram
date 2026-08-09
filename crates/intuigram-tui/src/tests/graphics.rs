@@ -19,9 +19,17 @@ fn ghostty_selects_verified_cursor_anchored_kitty_graphics() {
 }
 
 #[test]
-fn zellij_uses_sixel_instead_of_the_outer_terminal_protocol() {
+fn zellij_on_ghostty_uses_cursor_anchored_kitty_graphics() {
     assert_eq!(
         protocol("xterm-256color", Some("ghostty")),
+        GraphicsProtocol::KittyLegacy
+    );
+}
+
+#[test]
+fn zellij_without_a_kitty_host_keeps_sixel() {
+    assert_eq!(
+        protocol("xterm-256color", Some("Apple_Terminal")),
         GraphicsProtocol::Sixel
     );
 }
