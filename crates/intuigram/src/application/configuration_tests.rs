@@ -1,6 +1,16 @@
 use super::*;
 
 #[test]
+fn command_help_is_generated_from_the_complete_cli_definition() {
+    let help = help_text();
+
+    assert!(help.contains("Usage: intuigram [OPTIONS]"));
+    assert!(help.contains("--config-dir <PATH>"));
+    assert!(help.contains("--folder-create <ID> <TITLE> <RULES>"));
+    assert!(help.contains("--scheduled-reschedule <ID> <CHAT> <MESSAGE> <DELIVERY>"));
+}
+
+#[test]
 fn storage_maintenance_requires_one_positive_account_id() {
     let parsed = parse_arguments(["--media-cache-usage".to_owned(), "42".to_owned()])
         .expect("valid maintenance arguments should parse");

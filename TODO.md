@@ -20,7 +20,6 @@
 - [ ] **p-core:** Integrate a configurable external path picker for attaching local files. Keep the picker boundary reusable by the later download-destination workflow.
 - [ ] **p-core:** Add a durable Outbox that survives restart, preserves operation ordering and referenced media, and exposes safe retry, cancellation, expiry, and conflict handling.
 - [ ] **p-core:** Allow selected Chats to keep media offline outside ordinary Media Cache eviction.
-- [ ] **p-core:** Adopt Clap for command-line parsing while preserving typed configuration, maintenance commands, validation, and generated help.
 - [ ] **p-core:** Edit photo Messages through their caption and media rather than the `[Photo] image` fallback. Start captionless photo edits with an empty Composer, preserve existing captions as editable text, and allow the attached image to be replaced.
 - [ ] **p-core:** Render sender avatar images in the Transcript and use a two-row `[avatar] [username]` / `[avatar] [message]` layout. Fall back to the current two-character name avatar when an image cannot be rendered.
 - [ ] **p-core:** Keep a successfully loaded and displayed image or Sticker renderable across redraw, scrolling, and Chat reselection. Do not regress it to filename or MIME metadata while its preview remains available.

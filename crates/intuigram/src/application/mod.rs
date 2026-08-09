@@ -49,6 +49,7 @@ mod authorization;
 mod backend;
 mod cache;
 mod cached_session;
+mod cli;
 mod configuration;
 #[cfg(test)]
 mod configuration_tests;
@@ -69,9 +70,12 @@ use actor_session::{ActorConnection, ActorSession, ConnectedActorSession};
 use authorization::{authorize_new_account, resume_account};
 use cache::cached_bootstrap;
 use cached_session::{CachedSession, run_cached_account};
+#[cfg(test)]
+use cli::help_text;
+use cli::{parse_arguments, print_help};
 use configuration::{
-    derived_random_id, mime_type_for_path, parse_arguments, platform_defaults, print_help, prompt,
-    resolve_telegram_credentials, store_session, telegram_session,
+    derived_random_id, mime_type_for_path, platform_defaults, prompt, resolve_telegram_credentials,
+    store_session, telegram_session,
 };
 #[cfg(test)]
 use fixtures::application_fixture;
@@ -117,6 +121,9 @@ enum Error {
 
     #[snafu(display("unknown argument {argument}"))]
     UnknownArgument { argument: String },
+
+    #[snafu(display("command-line arguments are invalid"))]
+    ParseArguments { source: clap::Error },
 
     #[snafu(display("{argument} requires a positive decimal Telegram user ID, got {value:?}"))]
     InvalidArgumentValue { argument: String, value: String },

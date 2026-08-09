@@ -53,6 +53,7 @@ zeroize = { version = "1.9", features = ["derive"] }
 image = { version = "0.25.10", default-features = false, features = ["gif", "jpeg", "png", "webp"] }
 md5 = "0.8.1"
 base64 = "0.22.1"
+clap = "4.5"
 qrcode = "0.14.1"
 signal-hook = "0.3.18"
 url = "2.5.7"
