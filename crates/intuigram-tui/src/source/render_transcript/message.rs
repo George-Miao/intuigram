@@ -1,6 +1,7 @@
 use super::media::{MediaRenderContext, render_media};
 use super::rich_text::{message_metadata, render_rich_text_lines};
 use super::*;
+use crate::source::render_outbox::message_outbox;
 
 pub(super) struct MessageLayout {
     pub(super) focused: bool,
@@ -66,6 +67,7 @@ pub(super) fn message_lines(
     append_message_metadata(
         &mut lines,
         message,
+        message_outbox(view, message),
         view.animation_frame,
         layout.transcript_width,
         state,
@@ -232,15 +234,28 @@ fn reply_preview(view: &View, reply: intuigram_app::MessageId) -> String {
 fn append_message_metadata(
     lines: &mut Vec<Line<'static>>,
     message: &MessageView,
+    outbox: Option<&intuigram_app::OutboxItemView>,
     animation_frame: u8,
     width: u16,
     state: MessageState,
 ) {
-    let metadata = message_metadata(message, animation_frame);
+    let width = usize::from(width);
+    let prefix_width = Line::from(content_prefix(
+        state.active,
+        state.selected,
+        state.forwarded,
+        state.content_indent,
+    ))
+    .width();
+    let metadata = message_metadata(
+        message,
+        outbox,
+        animation_frame,
+        width.saturating_sub(prefix_width),
+    );
     let metadata_width = Line::from(metadata.clone()).width();
     let line = lines.last_mut().expect("Every Message has a content line");
     let line_width = line.width();
-    let width = usize::from(width);
     if line_width.saturating_add(metadata_width).saturating_add(2) <= width {
         line.push_span(Span::raw(
             " ".repeat(

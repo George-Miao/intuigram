@@ -3,10 +3,11 @@ use crossterm::event::{
     MouseButton, MouseEvent, MouseEventKind,
 };
 use intuigram_app::{
-    Action, ActivationTarget, ChatId, ChatKind, ChatLoadingState, ChatView, ComposerView,
-    ConnectionState, DeliveryState, Focus, FolderView, MediaCard, MediaKind, MessageDetails,
-    MessageDirection, MessageId, MessageView, PollOptionView, PollView, ReactionView,
-    ScrollDirection, ScrollTarget, SearchView, TextEntity, TextEntityKind, View,
+    Action, ActionMenuItemView, ActionMenuView, ActivationTarget, ChatId, ChatKind,
+    ChatLoadingState, ChatView, ComposerView, ConnectionState, DeliveryState, Focus, FolderView,
+    MediaCard, MediaKind, MessageDetails, MessageDirection, MessageId, MessageView, OutboxItemView,
+    OutboxKey, OutboxStateView, PollOptionView, PollView, ReactionView, ScrollDirection,
+    ScrollTarget, SearchView, TextEntity, TextEntityKind, View,
 };
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
@@ -40,6 +41,7 @@ fn view(actions: Vec<Action>) -> View {
         saved_dialogs_loading: false,
         chat_scroll_direction: ScrollDirection::Down,
         messages: Vec::new(),
+        outbox: Vec::new(),
         parent_messages: Vec::new(),
         chat_loading: ChatLoadingState::Idle,
         pinned_messages: Vec::new(),
@@ -328,6 +330,7 @@ mod image_loading;
 mod loading;
 mod metadata;
 mod multiline;
+mod outbox;
 mod pointer;
 mod qr;
 mod rendering;

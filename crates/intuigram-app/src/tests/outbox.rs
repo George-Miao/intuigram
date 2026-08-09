@@ -118,6 +118,26 @@ fn unknown_outcomes_require_explicit_resolution_instead_of_retry() {
     assert!(!actions.contains(&Action::RetryOutbox));
 }
 
+#[test]
+fn active_outbox_states_keep_effort_animation_running_without_a_local_message() {
+    for state in [
+        OutboxStateView::Ready,
+        OutboxStateView::InFlight,
+        OutboxStateView::Deferred,
+        OutboxStateView::CancelRequested,
+    ] {
+        let mut fixture = bootstrap();
+        let mut item = outbox_item(state, true);
+        item.local_message = None;
+        fixture.outbox = vec![item];
+        let mut app = App::new();
+
+        apply(&mut app, Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+
+        assert!(app.view().has_pending_effort(), "{state:?} should animate");
+    }
+}
+
 fn outgoing(id: i64, delivery: DeliveryState) -> MessageView {
     MessageView {
         id: MessageId(id),

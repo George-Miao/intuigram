@@ -1,6 +1,11 @@
 use super::*;
 
-pub(super) fn message_metadata(message: &MessageView, animation_frame: u8) -> Vec<Span<'static>> {
+pub(super) fn message_metadata(
+    message: &MessageView,
+    outbox: Option<&intuigram_app::OutboxItemView>,
+    animation_frame: u8,
+    max_width: usize,
+) -> Vec<Span<'static>> {
     let mut spans = Vec::new();
     if let Some(views) = message.details.views {
         push_metadata(
@@ -51,7 +56,21 @@ pub(super) fn message_metadata(message: &MessageView, animation_frame: u8) -> Ve
         message.timestamp.clone(),
         Style::default().fg(MUTED_TEXT),
     );
-    match message.delivery {
+    if let Some(item) = outbox {
+        crate::source::render_outbox::append_message_lifecycle(
+            &mut spans,
+            item,
+            animation_frame,
+            max_width,
+        );
+    } else {
+        append_delivery(&mut spans, message.delivery, animation_frame);
+    }
+    spans
+}
+
+fn append_delivery(spans: &mut Vec<Span<'static>>, delivery: DeliveryState, animation_frame: u8) {
+    match delivery {
         DeliveryState::Saving => {
             if !spans.is_empty() {
                 spans.push(Span::styled(" · ", Style::default().fg(MUTED_TEXT)));
@@ -64,13 +83,10 @@ pub(super) fn message_metadata(message: &MessageView, animation_frame: u8) -> Ve
             }
             spans.extend(effort_spans("sending…", animation_frame));
         }
-        DeliveryState::Sent => push_metadata(&mut spans, "✓", Style::default().fg(MUTED_TEXT)),
-        DeliveryState::Read => push_metadata(&mut spans, "✓✓", Style::default().fg(MUTED_TEXT)),
-        DeliveryState::Failed => {
-            push_metadata(&mut spans, "failed !", Style::default().fg(MUTED_TEXT))
-        }
+        DeliveryState::Sent => push_metadata(spans, "✓", Style::default().fg(MUTED_TEXT)),
+        DeliveryState::Read => push_metadata(spans, "✓✓", Style::default().fg(MUTED_TEXT)),
+        DeliveryState::Failed => push_metadata(spans, "failed !", Style::default().fg(MUTED_TEXT)),
     }
-    spans
 }
 
 fn push_metadata(spans: &mut Vec<Span<'static>>, text: impl Into<String>, style: Style) {

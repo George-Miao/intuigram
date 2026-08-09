@@ -51,6 +51,7 @@ mod render_details;
 mod render_folder_manager;
 mod render_headers;
 pub(crate) mod render_layout;
+mod render_outbox;
 mod render_overlays;
 mod render_rich_media;
 mod render_saved_dialogs;

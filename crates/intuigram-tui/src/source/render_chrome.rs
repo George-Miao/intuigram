@@ -73,7 +73,7 @@ pub(super) fn render_bottom_chrome(
     semantics: &mut Vec<SemanticNode>,
 ) {
     let content_area = mode.padded(area);
-    let mut spans = status_spans(view);
+    let mut spans = status_spans(view, content_area.width);
     let mut x = content_area
         .x
         .saturating_add(u16::try_from(Line::from(spans.clone()).width()).unwrap_or(u16::MAX));
@@ -141,16 +141,20 @@ const fn action_bar_rank(key: KeyChord) -> u8 {
     }
 }
 
-fn status_spans(view: &View) -> Vec<Span<'static>> {
+fn status_spans(view: &View, width: u16) -> Vec<Span<'static>> {
     let mut spans = Vec::new();
     let sending = view.messages.iter().any(|message| {
         matches!(
             message.delivery,
             DeliveryState::Saving | DeliveryState::Pending
-        )
+        ) && render_outbox::message_outbox(view, message).is_none()
     });
+    let outbox = render_outbox::pending_status(view, width);
     let synchronizing = view.chat_loading != ChatLoadingState::Idle;
-    let idle = view.connection == ConnectionState::Connected && !sending && !synchronizing;
+    let idle = view.connection == ConnectionState::Connected
+        && !sending
+        && outbox.is_none()
+        && !synchronizing;
 
     match view.connection {
         ConnectionState::Connected if idle => spans.push(Span::raw("connected")),
@@ -166,6 +170,10 @@ fn status_spans(view: &View) -> Vec<Span<'static>> {
             "sending",
             view.animation_frame.wrapping_add(3),
         ));
+    }
+    if let Some(outbox) = outbox {
+        append_separator(&mut spans);
+        spans.extend(outbox);
     }
     if synchronizing {
         append_separator(&mut spans);

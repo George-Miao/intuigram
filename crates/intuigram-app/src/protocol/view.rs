@@ -193,6 +193,15 @@ impl View {
                 .scheduled
                 .as_ref()
                 .is_some_and(|manager| manager.pending)
+            || self.outbox.iter().any(|item| {
+                matches!(
+                    item.state,
+                    OutboxStateView::Ready
+                        | OutboxStateView::InFlight
+                        | OutboxStateView::Deferred
+                        | OutboxStateView::CancelRequested
+                )
+            })
             || !self.media_preview_loads.is_empty()
             || self.messages.iter().any(|message| {
                 matches!(
