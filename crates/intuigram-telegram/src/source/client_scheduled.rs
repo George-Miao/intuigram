@@ -53,17 +53,41 @@ impl Client {
         delivery: ScheduledDelivery,
         random_id: i64,
     ) -> Result<()> {
-        self.send_text(TextSend {
+        self.schedule_text_with_policy(
             chat,
-            text,
-            entities: Vec::new(),
-            link_preview: true,
-            reply_to: None,
-            thread_root: None,
             monoforum_peer,
+            text,
+            delivery,
             random_id,
-            schedule_date: Some(delivery.telegram_date()),
-        })
+            InvocationPolicy::WaitForFlood,
+        )
+        .await
+    }
+
+    /// Schedules text using the requested invocation policy.
+    pub async fn schedule_text_with_policy(
+        &mut self,
+        chat: ChatId,
+        monoforum_peer: Option<ChatId>,
+        text: String,
+        delivery: ScheduledDelivery,
+        random_id: i64,
+        policy: InvocationPolicy,
+    ) -> Result<()> {
+        self.send_text_with_policy(
+            TextSend {
+                chat,
+                text,
+                entities: Vec::new(),
+                link_preview: true,
+                reply_to: None,
+                thread_root: None,
+                monoforum_peer,
+                random_id,
+                schedule_date: Some(delivery.telegram_date()),
+            },
+            policy,
+        )
         .await
         .map(|_| ())
     }
@@ -95,9 +119,28 @@ impl Client {
         text: Option<String>,
         delivery: Option<ScheduledDelivery>,
     ) -> Result<()> {
+        self.edit_scheduled_message_with_policy(
+            chat,
+            message_id,
+            text,
+            delivery,
+            InvocationPolicy::WaitForFlood,
+        )
+        .await
+    }
+
+    /// Changes a Scheduled Message using the requested invocation policy.
+    pub async fn edit_scheduled_message_with_policy(
+        &mut self,
+        chat: ChatId,
+        message_id: i32,
+        text: Option<String>,
+        delivery: Option<ScheduledDelivery>,
+        policy: InvocationPolicy,
+    ) -> Result<()> {
         let peer = self.peers.resolve(chat)?;
-        self.connection
-            .invoke(&tl::functions::messages::EditMessage {
+        self.invoke_outbound(
+            &tl::functions::messages::EditMessage {
                 no_webpage: false,
                 invert_media: false,
                 peer,
@@ -110,35 +153,60 @@ impl Client {
                 schedule_repeat_period: None,
                 quick_reply_shortcut_id: None,
                 rich_message: None,
-            })
-            .await
-            .context(InvokeSnafu)?;
+            },
+            policy,
+        )
+        .await?;
         Ok(())
     }
 
     /// Deletes a Scheduled Message without sending it.
     pub async fn delete_scheduled_message(&mut self, chat: ChatId, message_id: i32) -> Result<()> {
+        self.delete_scheduled_message_with_policy(chat, message_id, InvocationPolicy::WaitForFlood)
+            .await
+    }
+
+    /// Deletes a Scheduled Message using the requested invocation policy.
+    pub async fn delete_scheduled_message_with_policy(
+        &mut self,
+        chat: ChatId,
+        message_id: i32,
+        policy: InvocationPolicy,
+    ) -> Result<()> {
         let peer = self.peers.resolve(chat)?;
-        self.connection
-            .invoke(&tl::functions::messages::DeleteScheduledMessages {
+        self.invoke_outbound(
+            &tl::functions::messages::DeleteScheduledMessages {
                 peer,
                 id: vec![message_id],
-            })
-            .await
-            .context(InvokeSnafu)?;
+            },
+            policy,
+        )
+        .await?;
         Ok(())
     }
 
     /// Requests immediate server delivery of a Scheduled Message.
     pub async fn send_scheduled_now(&mut self, chat: ChatId, message_id: i32) -> Result<()> {
+        self.send_scheduled_now_with_policy(chat, message_id, InvocationPolicy::WaitForFlood)
+            .await
+    }
+
+    /// Sends a Scheduled Message now using the requested invocation policy.
+    pub async fn send_scheduled_now_with_policy(
+        &mut self,
+        chat: ChatId,
+        message_id: i32,
+        policy: InvocationPolicy,
+    ) -> Result<()> {
         let peer = self.peers.resolve(chat)?;
-        self.connection
-            .invoke(&tl::functions::messages::SendScheduledMessages {
+        self.invoke_outbound(
+            &tl::functions::messages::SendScheduledMessages {
                 peer,
                 id: vec![message_id],
-            })
-            .await
-            .context(InvokeSnafu)?;
+            },
+            policy,
+        )
+        .await?;
         Ok(())
     }
 }

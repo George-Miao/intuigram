@@ -1,115 +1,18 @@
 use super::*;
 
-/// One rich text Message submission.
-pub struct TextSend {
-    /// Destination Chat.
-    pub chat: ChatId,
-
-    /// Plain text after composer markup is removed.
-    pub text: String,
-
-    /// Telegram rich-text entities using UTF-16 offsets.
-    pub entities: Vec<TextEntity>,
-
-    /// Whether Telegram may generate a webpage preview.
-    pub link_preview: bool,
-
-    /// Direct reply target.
-    pub reply_to: Option<MessageId>,
-
-    /// Active Thread root.
-    pub thread_root: Option<MessageId>,
-
-    /// User topic inside an administrator-owned monoforum.
-    pub monoforum_peer: Option<ChatId>,
-
-    /// Stable idempotency token for this operation.
-    pub random_id: i64,
-
-    /// Server-side delivery time, or immediate delivery when absent.
-    pub schedule_date: Option<i32>,
-}
-
-/// One uploaded photo, video, or file submission.
-pub struct UploadSend {
-    /// Destination Chat.
-    pub chat: ChatId,
-
-    /// Complete upload payload.
-    pub upload: Upload,
-
-    /// Plain caption text.
-    pub caption: String,
-
-    /// Caption entities using UTF-16 offsets.
-    pub entities: Vec<TextEntity>,
-
-    /// Direct reply target.
-    pub reply_to: Option<MessageId>,
-
-    /// Active Thread root.
-    pub thread_root: Option<MessageId>,
-
-    /// User topic inside an administrator-owned monoforum.
-    pub monoforum_peer: Option<ChatId>,
-
-    /// Stable upload and Message idempotency identifiers.
-    pub ids: UploadIds,
-}
-
 impl Client {
-    /// Sends a rich text Message, optionally as a reply.
-    pub async fn send_text(&mut self, request: TextSend) -> Result<MessageId> {
-        let TextSend {
-            chat,
-            text,
-            entities,
-            link_preview,
-            reply_to,
-            thread_root,
-            monoforum_peer,
-            random_id,
-            schedule_date,
-        } = request;
-        let peer = self.peers.resolve(chat)?;
-        let monoforum_peer = monoforum_peer
-            .map(|peer| self.peers.resolve(peer))
-            .transpose()?;
-        let reply_to = input_reply_to(reply_to, thread_root, monoforum_peer)?;
-        let entities = serialize_entities(entities)?;
-        let updates = self
-            .connection
-            .invoke(&tl::functions::messages::SendMessage {
-                no_webpage: !link_preview,
-                silent: false,
-                background: false,
-                clear_draft: true,
-                noforwards: false,
-                update_stickersets_order: false,
-                invert_media: false,
-                allow_paid_floodskip: false,
-                peer,
-                reply_to,
-                message: text,
-                random_id,
-                reply_markup: None,
-                entities,
-                schedule_date,
-                schedule_repeat_period: None,
-                send_as: None,
-                quick_reply_shortcut: None,
-                effect: None,
-                allow_paid_stars: None,
-                suggested_post: None,
-                rich_message: None,
-            })
-            .await
-            .context(InvokeSnafu)?;
-        sent_message_id(updates, random_id)
-    }
-
     /// Uploads and sends one photo or generic document.
     pub async fn send_upload(&mut self, request: UploadSend) -> Result<MessageId> {
+        self.send_upload_with_policy(request, InvocationPolicy::WaitForFlood)
+            .await
+    }
+
+    /// Uploads and sends one photo or document using the invocation policy.
+    pub async fn send_upload_with_policy(
+        &mut self,
+        request: UploadSend,
+        policy: InvocationPolicy,
+    ) -> Result<MessageId> {
         let UploadSend {
             chat,
             upload,
@@ -124,42 +27,46 @@ impl Client {
         let monoforum_peer = monoforum_peer
             .map(|peer| self.peers.resolve(peer))
             .transpose()?;
-        let media = self.upload_media(upload, ids.file).await?;
+        let media = self
+            .upload_media_with_policy(upload, ids.file, policy)
+            .await?;
         let entities = serialize_entities(entities)?;
         let updates = self
-            .connection
-            .invoke(&tl::functions::messages::SendMedia {
-                silent: false,
-                background: false,
-                clear_draft: true,
-                noforwards: false,
-                update_stickersets_order: false,
-                invert_media: false,
-                allow_paid_floodskip: false,
-                peer,
-                reply_to: input_reply_to(reply_to, thread_root, monoforum_peer)?,
-                media,
-                message: caption,
-                random_id: ids.message,
-                reply_markup: None,
-                entities,
-                schedule_date: None,
-                schedule_repeat_period: None,
-                send_as: None,
-                quick_reply_shortcut: None,
-                effect: None,
-                allow_paid_stars: None,
-                suggested_post: None,
-            })
-            .await
-            .context(InvokeSnafu)?;
+            .invoke_outbound(
+                &tl::functions::messages::SendMedia {
+                    silent: false,
+                    background: false,
+                    clear_draft: true,
+                    noforwards: false,
+                    update_stickersets_order: false,
+                    invert_media: false,
+                    allow_paid_floodskip: false,
+                    peer,
+                    reply_to: input_reply_to(reply_to, thread_root, monoforum_peer)?,
+                    media,
+                    message: caption,
+                    random_id: ids.message,
+                    reply_markup: None,
+                    entities,
+                    schedule_date: None,
+                    schedule_repeat_period: None,
+                    send_as: None,
+                    quick_reply_shortcut: None,
+                    effect: None,
+                    allow_paid_stars: None,
+                    suggested_post: None,
+                },
+                policy,
+            )
+            .await?;
         sent_message_id(updates, ids.message)
     }
 
-    pub(super) async fn upload_media(
+    pub(in crate::source) async fn upload_media_with_policy(
         &mut self,
         upload: Upload,
         file_id: i64,
+        policy: InvocationPolicy,
     ) -> Result<tl::enums::InputMedia> {
         const PART_BYTES: usize = 512 * 1024;
         const BIG_FILE_BYTES: usize = 10 * 1024 * 1024;
@@ -173,24 +80,26 @@ impl Client {
             let part = i32::try_from(part)
                 .expect("an in-memory upload cannot exceed Telegram's signed part index");
             let accepted = if big {
-                self.connection
-                    .invoke(&tl::functions::upload::SaveBigFilePart {
+                self.invoke_outbound(
+                    &tl::functions::upload::SaveBigFilePart {
                         file_id,
                         file_part: part,
                         file_total_parts: part_count,
                         bytes: bytes.to_vec(),
-                    })
-                    .await
-                    .context(InvokeSnafu)?
+                    },
+                    policy,
+                )
+                .await?
             } else {
-                self.connection
-                    .invoke(&tl::functions::upload::SaveFilePart {
+                self.invoke_outbound(
+                    &tl::functions::upload::SaveFilePart {
                         file_id,
                         file_part: part,
                         bytes: bytes.to_vec(),
-                    })
-                    .await
-                    .context(InvokeSnafu)?
+                    },
+                    policy,
+                )
+                .await?
             };
             if !accepted {
                 return UploadPartRejectedSnafu { part }.fail();
@@ -213,12 +122,6 @@ impl Client {
             .into()
         };
         Ok(uploaded_media(upload, input_file))
-    }
-
-    /// Returns a direct IPv4 endpoint advertised by Telegram for a data center.
-    #[must_use]
-    pub fn data_center_endpoint(&self, dc_id: i32) -> Option<SocketAddr> {
-        self.data_centers.get(&dc_id).copied()
     }
 }
 

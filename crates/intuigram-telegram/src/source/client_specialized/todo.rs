@@ -9,6 +9,25 @@ impl Client {
         item: i32,
         completed: bool,
     ) -> Result<MediaCard> {
+        self.toggle_todo_item_with_policy(
+            chat,
+            message,
+            item,
+            completed,
+            InvocationPolicy::WaitForFlood,
+        )
+        .await
+    }
+
+    /// Toggles one TODO item using the requested mutation invocation policy.
+    pub async fn toggle_todo_item_with_policy(
+        &mut self,
+        chat: ChatId,
+        message: MessageId,
+        item: i32,
+        completed: bool,
+        policy: InvocationPolicy,
+    ) -> Result<MediaCard> {
         let media = self.message_media(chat, message).await?;
         let tl::enums::MessageMedia::ToDo(todo) = &media else {
             return SpecializedMediaUnavailableSnafu {
@@ -30,15 +49,16 @@ impl Client {
         }
         let peer = self.peers.resolve(chat)?;
         let msg_id = telegram_message_id(message)?;
-        self.connection
-            .invoke(&tl::functions::messages::ToggleTodoCompleted {
+        self.invoke_outbound(
+            &tl::functions::messages::ToggleTodoCompleted {
                 peer,
                 msg_id,
                 completed: completed.then_some(vec![item]).unwrap_or_default(),
                 incompleted: (!completed).then_some(vec![item]).unwrap_or_default(),
-            })
-            .await
-            .context(InvokeSnafu)?;
+            },
+            policy,
+        )
+        .await?;
         self.refreshed_family(chat, message, "a TODO list", |media| {
             matches!(media, tl::enums::MessageMedia::ToDo(_))
         })
@@ -51,6 +71,18 @@ impl Client {
         chat: ChatId,
         message: MessageId,
         title: String,
+    ) -> Result<MediaCard> {
+        self.append_todo_item_with_policy(chat, message, title, InvocationPolicy::WaitForFlood)
+            .await
+    }
+
+    /// Appends one TODO item using the requested mutation invocation policy.
+    pub async fn append_todo_item_with_policy(
+        &mut self,
+        chat: ChatId,
+        message: MessageId,
+        title: String,
+        policy: InvocationPolicy,
     ) -> Result<MediaCard> {
         let media = self.message_media(chat, message).await?;
         let tl::enums::MessageMedia::ToDo(todo) = &media else {
@@ -73,8 +105,8 @@ impl Client {
             .saturating_add(1);
         let peer = self.peers.resolve(chat)?;
         let msg_id = telegram_message_id(message)?;
-        self.connection
-            .invoke(&tl::functions::messages::AppendTodoList {
+        self.invoke_outbound(
+            &tl::functions::messages::AppendTodoList {
                 peer,
                 msg_id,
                 list: vec![
@@ -88,9 +120,10 @@ impl Client {
                     }
                     .into(),
                 ],
-            })
-            .await
-            .context(InvokeSnafu)?;
+            },
+            policy,
+        )
+        .await?;
         self.refreshed_family(chat, message, "a TODO list", |media| {
             matches!(media, tl::enums::MessageMedia::ToDo(_))
         })

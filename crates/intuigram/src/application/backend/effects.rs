@@ -239,23 +239,43 @@ impl Backend {
                     }
                     result => result,
                 };
-                self.persist_poll(PollPersistence {
-                    chat,
-                    local_id,
-                    question: &question,
-                    options: &options,
-                    reply_to,
-                    thread_root,
-                    saved_peer,
-                    delivery: if result.is_ok() {
-                        DeliveryState::Sent
-                    } else {
-                        DeliveryState::Failed
-                    },
-                })
-                .await?;
+                match &result {
+                    Ok(server_id) => {
+                        self.acknowledge_poll(
+                            PollPersistence {
+                                chat,
+                                local_id,
+                                question: &question,
+                                options: &options,
+                                reply_to,
+                                thread_root,
+                                saved_peer,
+                                delivery: DeliveryState::Sent,
+                            },
+                            *server_id,
+                        )
+                        .await?;
+                    }
+                    Err(_) => {
+                        self.persist_poll(PollPersistence {
+                            chat,
+                            local_id,
+                            question: &question,
+                            options: &options,
+                            reply_to,
+                            thread_root,
+                            saved_peer,
+                            delivery: DeliveryState::Failed,
+                        })
+                        .await?;
+                    }
+                }
                 Ok(Some(match result {
-                    Ok(()) => AdapterEvent::MessageAcknowledged { chat, local_id },
+                    Ok(server_id) => AdapterEvent::RichMediaAcknowledged {
+                        chat,
+                        local_id,
+                        server_id,
+                    },
                     Err(error) => AdapterEvent::PollFailed {
                         chat,
                         local_id,

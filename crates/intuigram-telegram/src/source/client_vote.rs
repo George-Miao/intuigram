@@ -9,6 +9,18 @@ impl Client {
         message: MessageId,
         selected: Vec<usize>,
     ) -> Result<MediaCard> {
+        self.vote_poll_with_policy(chat, message, selected, InvocationPolicy::WaitForFlood)
+            .await
+    }
+
+    /// Submits poll options using the requested mutation invocation policy.
+    pub async fn vote_poll_with_policy(
+        &mut self,
+        chat: ChatId,
+        message: MessageId,
+        selected: Vec<usize>,
+        policy: InvocationPolicy,
+    ) -> Result<MediaCard> {
         let media = self.message_media(chat, message).await?;
         let tl::enums::MessageMedia::Poll(media) = media else {
             return PollUnavailableSnafu {
@@ -31,14 +43,15 @@ impl Client {
         let msg_id = i32::try_from(message.0).map_err(|_| Error::InvalidMessageId {
             message_id: message.0,
         })?;
-        self.connection
-            .invoke(&tl::functions::messages::SendVote {
+        self.invoke_outbound(
+            &tl::functions::messages::SendVote {
                 peer,
                 msg_id,
                 options,
-            })
-            .await
-            .context(InvokeSnafu)?;
+            },
+            policy,
+        )
+        .await?;
         let refreshed = self.message_media(chat, message).await?;
         let tl::enums::MessageMedia::Poll(_) = refreshed else {
             return PollUnavailableSnafu {

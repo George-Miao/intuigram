@@ -21,6 +21,16 @@ pub struct MessageEdit {
 impl Client {
     /// Replaces the text, caption, or media of one existing outgoing Message.
     pub async fn edit_message(&mut self, request: MessageEdit) -> Result<()> {
+        self.edit_message_with_policy(request, InvocationPolicy::WaitForFlood)
+            .await
+    }
+
+    /// Replaces one outgoing Message using the requested invocation policy.
+    pub async fn edit_message_with_policy(
+        &mut self,
+        request: MessageEdit,
+        policy: InvocationPolicy,
+    ) -> Result<()> {
         let MessageEdit {
             chat,
             message,
@@ -34,11 +44,14 @@ impl Client {
         })?;
         let entities = serialize_entities(entities)?;
         let media = match upload {
-            Some((upload, file_id)) => Some(self.upload_media(upload, file_id).await?),
+            Some((upload, file_id)) => Some(
+                self.upload_media_with_policy(upload, file_id, policy)
+                    .await?,
+            ),
             None => None,
         };
-        self.connection
-            .invoke(&tl::functions::messages::EditMessage {
+        self.invoke_outbound(
+            &tl::functions::messages::EditMessage {
                 no_webpage: false,
                 invert_media: false,
                 peer,
@@ -51,14 +64,26 @@ impl Client {
                 schedule_repeat_period: None,
                 quick_reply_shortcut_id: None,
                 rich_message: None,
-            })
-            .await
-            .context(InvokeSnafu)?;
+            },
+            policy,
+        )
+        .await?;
         Ok(())
     }
 
     /// Deletes Messages for both participants where Telegram permits it.
     pub async fn delete_messages(&mut self, chat: ChatId, messages: Vec<MessageId>) -> Result<()> {
+        self.delete_messages_with_policy(chat, messages, InvocationPolicy::WaitForFlood)
+            .await
+    }
+
+    /// Deletes Messages using the requested invocation policy.
+    pub async fn delete_messages_with_policy(
+        &mut self,
+        chat: ChatId,
+        messages: Vec<MessageId>,
+        policy: InvocationPolicy,
+    ) -> Result<()> {
         let peer = self.peers.resolve(chat)?;
         let ids = messages
             .into_iter()
@@ -69,25 +94,27 @@ impl Client {
             })
             .collect::<Result<Vec<_>>>()?;
         if let tl::enums::InputPeer::Channel(channel) = peer {
-            self.connection
-                .invoke(&tl::functions::channels::DeleteMessages {
+            self.invoke_outbound(
+                &tl::functions::channels::DeleteMessages {
                     channel: tl::types::InputChannel {
                         channel_id: channel.channel_id,
                         access_hash: channel.access_hash,
                     }
                     .into(),
                     id: ids,
-                })
-                .await
-                .context(InvokeSnafu)?;
+                },
+                policy,
+            )
+            .await?;
         } else {
-            self.connection
-                .invoke(&tl::functions::messages::DeleteMessages {
+            self.invoke_outbound(
+                &tl::functions::messages::DeleteMessages {
                     revoke: true,
                     id: ids,
-                })
-                .await
-                .context(InvokeSnafu)?;
+                },
+                policy,
+            )
+            .await?;
         }
         Ok(())
     }
@@ -100,6 +127,27 @@ impl Client {
         destination_monoforum_peer: Option<ChatId>,
         messages: Vec<MessageId>,
         first_random_id: i64,
+    ) -> Result<()> {
+        self.forward_messages_with_policy(
+            source,
+            destination,
+            destination_monoforum_peer,
+            messages,
+            first_random_id,
+            InvocationPolicy::WaitForFlood,
+        )
+        .await
+    }
+
+    /// Forwards Messages using the requested invocation policy.
+    pub async fn forward_messages_with_policy(
+        &mut self,
+        source: ChatId,
+        destination: ChatId,
+        destination_monoforum_peer: Option<ChatId>,
+        messages: Vec<MessageId>,
+        first_random_id: i64,
+        policy: InvocationPolicy,
     ) -> Result<()> {
         let from_peer = self.peers.resolve(source)?;
         let to_peer = self.peers.resolve(destination)?;
@@ -117,8 +165,8 @@ impl Client {
         let random_ids = (0..messages.len())
             .map(|offset| first_random_id.wrapping_add(i64::try_from(offset).unwrap_or(i64::MAX)))
             .collect();
-        self.connection
-            .invoke(&tl::functions::messages::ForwardMessages {
+        self.invoke_outbound(
+            &tl::functions::messages::ForwardMessages {
                 silent: false,
                 background: false,
                 with_my_score: false,
@@ -142,9 +190,10 @@ impl Client {
                 video_timestamp: None,
                 allow_paid_stars: None,
                 suggested_post: None,
-            })
-            .await
-            .context(InvokeSnafu)?;
+            },
+            policy,
+        )
+        .await?;
         Ok(())
     }
 
@@ -155,20 +204,33 @@ impl Client {
         message: MessageId,
         reaction: String,
     ) -> Result<()> {
+        self.react_message_with_policy(chat, message, reaction, InvocationPolicy::WaitForFlood)
+            .await
+    }
+
+    /// Sets one Message reaction using the requested invocation policy.
+    pub async fn react_message_with_policy(
+        &mut self,
+        chat: ChatId,
+        message: MessageId,
+        reaction: String,
+        policy: InvocationPolicy,
+    ) -> Result<()> {
         let peer = self.peers.resolve(chat)?;
         let msg_id = i32::try_from(message.0).map_err(|_| Error::InvalidMessageId {
             message_id: message.0,
         })?;
-        self.connection
-            .invoke(&tl::functions::messages::SendReaction {
+        self.invoke_outbound(
+            &tl::functions::messages::SendReaction {
                 big: false,
                 add_to_recent: true,
                 peer,
                 msg_id,
                 reaction: Some(vec![tl::types::ReactionEmoji { emoticon: reaction }.into()]),
-            })
-            .await
-            .context(InvokeSnafu)?;
+            },
+            policy,
+        )
+        .await?;
         Ok(())
     }
 
@@ -179,21 +241,34 @@ impl Client {
         message: MessageId,
         pinned: bool,
     ) -> Result<LiveEvent> {
+        self.set_message_pinned_with_policy(chat, message, pinned, InvocationPolicy::WaitForFlood)
+            .await
+    }
+
+    /// Pins or unpins one Message using the requested invocation policy.
+    pub async fn set_message_pinned_with_policy(
+        &mut self,
+        chat: ChatId,
+        message: MessageId,
+        pinned: bool,
+        policy: InvocationPolicy,
+    ) -> Result<LiveEvent> {
         let peer = self.peers.resolve(chat)?;
         let id = i32::try_from(message.0).map_err(|_| Error::InvalidMessageId {
             message_id: message.0,
         })?;
         let response = self
-            .connection
-            .invoke(&tl::functions::messages::UpdatePinnedMessage {
-                silent: false,
-                unpin: !pinned,
-                pm_oneside: false,
-                peer,
-                id,
-            })
-            .await
-            .context(InvokeSnafu)?;
+            .invoke_outbound(
+                &tl::functions::messages::UpdatePinnedMessage {
+                    silent: false,
+                    unpin: !pinned,
+                    pm_oneside: false,
+                    peer,
+                    id,
+                },
+                policy,
+            )
+            .await?;
         let normalized = normalize_live_update(&response.to_bytes(), &mut self.names)?;
         self.peers.merge(normalized.peers.clone());
         Ok(LiveEvent {

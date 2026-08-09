@@ -54,6 +54,27 @@ pub struct ContactCardSend {
     pub random_id: i64,
 }
 
+/// One Telegram-owned media-library submission.
+pub struct LibraryMediaSend {
+    /// Destination Chat.
+    pub chat: ChatId,
+
+    /// Previously browsed Telegram media entry.
+    pub entry: MediaLibraryEntry,
+
+    /// Direct reply target.
+    pub reply_to: Option<MessageId>,
+
+    /// Active Thread root.
+    pub thread_root: Option<MessageId>,
+
+    /// User topic inside an administrator-owned monoforum.
+    pub monoforum_peer: Option<ChatId>,
+
+    /// Stable Message idempotency identifier.
+    pub random_id: i64,
+}
+
 pub(super) struct InputMediaSend {
     pub(super) peer: tl::enums::InputPeer,
     pub(super) media: tl::enums::InputMedia,
@@ -155,6 +176,34 @@ impl Client {
         monoforum_peer: Option<ChatId>,
         random_id: i64,
     ) -> Result<MessageId> {
+        self.send_library_media_with_policy(
+            LibraryMediaSend {
+                chat,
+                entry: entry.clone(),
+                reply_to,
+                thread_root,
+                monoforum_peer,
+                random_id,
+            },
+            InvocationPolicy::WaitForFlood,
+        )
+        .await
+    }
+
+    /// Sends one library entry using the requested invocation policy.
+    pub async fn send_library_media_with_policy(
+        &mut self,
+        request: LibraryMediaSend,
+        policy: InvocationPolicy,
+    ) -> Result<MessageId> {
+        let LibraryMediaSend {
+            chat,
+            entry,
+            reply_to,
+            thread_root,
+            monoforum_peer,
+            random_id,
+        } = request;
         if entry.kind == MediaLibraryKind::CustomEmoji {
             let text = if entry.label.is_empty() {
                 "🙂".to_owned()
@@ -162,23 +211,26 @@ impl Client {
                 entry.label.clone()
             };
             return self
-                .send_text(TextSend {
-                    chat,
-                    entities: vec![TextEntity {
-                        offset: 0,
-                        length: text.encode_utf16().count(),
-                        kind: TextEntityKind::CustomEmoji {
-                            document_id: entry.id,
-                        },
-                    }],
-                    text,
-                    link_preview: false,
-                    reply_to,
-                    thread_root,
-                    monoforum_peer,
-                    random_id,
-                    schedule_date: None,
-                })
+                .send_text_with_policy(
+                    TextSend {
+                        chat,
+                        entities: vec![TextEntity {
+                            offset: 0,
+                            length: text.encode_utf16().count(),
+                            kind: TextEntityKind::CustomEmoji {
+                                document_id: entry.id,
+                            },
+                        }],
+                        text,
+                        link_preview: false,
+                        reply_to,
+                        thread_root,
+                        monoforum_peer,
+                        random_id,
+                        schedule_date: None,
+                    },
+                    policy,
+                )
                 .await;
         }
         let peer = self.peers.resolve(chat)?;
@@ -196,20 +248,33 @@ impl Client {
             query: None,
         }
         .into();
-        self.send_input_media(InputMediaSend {
-            peer,
-            media,
-            message: String::new(),
-            reply_to,
-            thread_root,
-            monoforum_peer,
-            random_id,
-        })
+        self.send_input_media_with_policy(
+            InputMediaSend {
+                peer,
+                media,
+                message: String::new(),
+                reply_to,
+                thread_root,
+                monoforum_peer,
+                random_id,
+            },
+            policy,
+        )
         .await
     }
 
     /// Sends a Telegram contact card.
     pub async fn send_contact(&mut self, request: ContactCardSend) -> Result<MessageId> {
+        self.send_contact_with_policy(request, InvocationPolicy::WaitForFlood)
+            .await
+    }
+
+    /// Sends a Telegram contact card using the requested invocation policy.
+    pub async fn send_contact_with_policy(
+        &mut self,
+        request: ContactCardSend,
+        policy: InvocationPolicy,
+    ) -> Result<MessageId> {
         let ContactCardSend {
             chat,
             phone_number,
@@ -228,19 +293,26 @@ impl Client {
             vcard: String::new(),
         }
         .into();
-        self.send_input_media(InputMediaSend {
-            peer,
-            media,
-            message: String::new(),
-            reply_to,
-            thread_root,
-            monoforum_peer,
-            random_id,
-        })
+        self.send_input_media_with_policy(
+            InputMediaSend {
+                peer,
+                media,
+                message: String::new(),
+                reply_to,
+                thread_root,
+                monoforum_peer,
+                random_id,
+            },
+            policy,
+        )
         .await
     }
 
-    pub(super) async fn send_input_media(&mut self, request: InputMediaSend) -> Result<MessageId> {
+    pub(super) async fn send_input_media_with_policy(
+        &mut self,
+        request: InputMediaSend,
+        policy: InvocationPolicy,
+    ) -> Result<MessageId> {
         let InputMediaSend {
             peer,
             media,
@@ -254,32 +326,33 @@ impl Client {
             .map(|peer| self.peers.resolve(peer))
             .transpose()?;
         let updates = self
-            .connection
-            .invoke(&tl::functions::messages::SendMedia {
-                silent: false,
-                background: false,
-                clear_draft: true,
-                noforwards: false,
-                update_stickersets_order: false,
-                invert_media: false,
-                allow_paid_floodskip: false,
-                peer,
-                reply_to: input_reply_to(reply_to, thread_root, monoforum_peer)?,
-                media,
-                message,
-                random_id,
-                reply_markup: None,
-                entities: None,
-                schedule_date: None,
-                schedule_repeat_period: None,
-                send_as: None,
-                quick_reply_shortcut: None,
-                effect: None,
-                allow_paid_stars: None,
-                suggested_post: None,
-            })
-            .await
-            .context(InvokeSnafu)?;
+            .invoke_outbound(
+                &tl::functions::messages::SendMedia {
+                    silent: false,
+                    background: false,
+                    clear_draft: true,
+                    noforwards: false,
+                    update_stickersets_order: false,
+                    invert_media: false,
+                    allow_paid_floodskip: false,
+                    peer,
+                    reply_to: input_reply_to(reply_to, thread_root, monoforum_peer)?,
+                    media,
+                    message,
+                    random_id,
+                    reply_markup: None,
+                    entities: None,
+                    schedule_date: None,
+                    schedule_repeat_period: None,
+                    send_as: None,
+                    quick_reply_shortcut: None,
+                    effect: None,
+                    allow_paid_stars: None,
+                    suggested_post: None,
+                },
+                policy,
+            )
+            .await?;
         sent_message_id(updates, random_id)
     }
 }

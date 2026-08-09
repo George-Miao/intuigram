@@ -69,32 +69,58 @@ impl Client {
     /// Sends one explicit static coordinate through the ordinary reply
     /// pipeline.
     pub async fn send_static_location(&mut self, request: StaticLocationSend) -> Result<MessageId> {
+        self.send_static_location_with_policy(request, InvocationPolicy::WaitForFlood)
+            .await
+    }
+
+    /// Sends one static coordinate using the requested invocation policy.
+    pub async fn send_static_location_with_policy(
+        &mut self,
+        request: StaticLocationSend,
+        policy: InvocationPolicy,
+    ) -> Result<MessageId> {
         let peer = self.peers.resolve(request.chat)?;
-        self.send_input_media(InputMediaSend {
-            peer,
-            media: location_media(request.point),
-            message: String::new(),
-            reply_to: request.reply_to,
-            thread_root: request.thread_root,
-            monoforum_peer: request.monoforum_peer,
-            random_id: request.random_id,
-        })
+        self.send_input_media_with_policy(
+            InputMediaSend {
+                peer,
+                media: location_media(request.point),
+                message: String::new(),
+                reply_to: request.reply_to,
+                thread_root: request.thread_root,
+                monoforum_peer: request.monoforum_peer,
+                random_id: request.random_id,
+            },
+            policy,
+        )
         .await
     }
 
     /// Sends one normalized venue without relying on an ephemeral inline result
     /// ID.
     pub async fn send_venue(&mut self, request: VenueSend) -> Result<MessageId> {
+        self.send_venue_with_policy(request, InvocationPolicy::WaitForFlood)
+            .await
+    }
+
+    /// Sends one venue using the requested invocation policy.
+    pub async fn send_venue_with_policy(
+        &mut self,
+        request: VenueSend,
+        policy: InvocationPolicy,
+    ) -> Result<MessageId> {
         let peer = self.peers.resolve(request.chat)?;
-        self.send_input_media(InputMediaSend {
-            peer,
-            media: venue_media(request.venue),
-            message: String::new(),
-            reply_to: request.reply_to,
-            thread_root: request.thread_root,
-            monoforum_peer: request.monoforum_peer,
-            random_id: request.random_id,
-        })
+        self.send_input_media_with_policy(
+            InputMediaSend {
+                peer,
+                media: venue_media(request.venue),
+                message: String::new(),
+                reply_to: request.reply_to,
+                thread_root: request.thread_root,
+                monoforum_peer: request.monoforum_peer,
+                random_id: request.random_id,
+            },
+            policy,
+        )
         .await
     }
 

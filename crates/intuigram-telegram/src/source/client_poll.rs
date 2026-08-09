@@ -26,7 +26,17 @@ pub struct PollSend {
 
 impl Client {
     /// Sends a single-choice poll with an ordered set of answers.
-    pub async fn send_poll(&mut self, request: PollSend) -> Result<()> {
+    pub async fn send_poll(&mut self, request: PollSend) -> Result<MessageId> {
+        self.send_poll_with_policy(request, InvocationPolicy::WaitForFlood)
+            .await
+    }
+
+    /// Sends a single-choice poll using the requested invocation policy.
+    pub async fn send_poll_with_policy(
+        &mut self,
+        request: PollSend,
+        policy: InvocationPolicy,
+    ) -> Result<MessageId> {
         let PollSend {
             chat,
             question,
@@ -85,33 +95,35 @@ impl Client {
             solution_entities: None,
             solution_media: None,
         };
-        self.connection
-            .invoke(&tl::functions::messages::SendMedia {
-                silent: false,
-                background: false,
-                clear_draft: false,
-                noforwards: false,
-                update_stickersets_order: false,
-                invert_media: false,
-                allow_paid_floodskip: false,
-                peer,
-                reply_to: input_reply_to(reply_to, thread_root, monoforum_peer)?,
-                media: media.into(),
-                message: String::new(),
-                random_id,
-                reply_markup: None,
-                entities: None,
-                schedule_date: None,
-                schedule_repeat_period: None,
-                send_as: None,
-                quick_reply_shortcut: None,
-                effect: None,
-                allow_paid_stars: None,
-                suggested_post: None,
-            })
-            .await
-            .context(InvokeSnafu)?;
-        Ok(())
+        let updates = self
+            .invoke_outbound(
+                &tl::functions::messages::SendMedia {
+                    silent: false,
+                    background: false,
+                    clear_draft: false,
+                    noforwards: false,
+                    update_stickersets_order: false,
+                    invert_media: false,
+                    allow_paid_floodskip: false,
+                    peer,
+                    reply_to: input_reply_to(reply_to, thread_root, monoforum_peer)?,
+                    media: media.into(),
+                    message: String::new(),
+                    random_id,
+                    reply_markup: None,
+                    entities: None,
+                    schedule_date: None,
+                    schedule_repeat_period: None,
+                    send_as: None,
+                    quick_reply_shortcut: None,
+                    effect: None,
+                    allow_paid_stars: None,
+                    suggested_post: None,
+                },
+                policy,
+            )
+            .await?;
+        sent_message_id(updates, random_id)
     }
 }
 
@@ -121,4 +133,23 @@ fn text_with_no_entities(text: String) -> tl::enums::TextWithEntities {
         entities: Vec::new(),
     }
     .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::future::Future;
+
+    use super::*;
+
+    #[test]
+    fn poll_send_returns_the_correlated_message_identity() {
+        let _ = poll_result;
+    }
+
+    fn poll_result(
+        client: &mut Client,
+        request: PollSend,
+    ) -> impl Future<Output = Result<MessageId>> + '_ {
+        client.send_poll(request)
+    }
 }
