@@ -19,6 +19,7 @@ struct MessageState {
     active: bool,
     selected: bool,
     forwarded: bool,
+    content_indent: usize,
 }
 
 pub(super) fn message_lines(
@@ -32,11 +33,13 @@ pub(super) fn message_lines(
         active: view.active_message == Some(index),
         selected: view.selected_messages.contains(&message.id),
         forwarded: message.details.forwarded_from.is_some(),
+        content_indent: avatar_width(view, message.details.sender_peer, &message.sender),
     };
-    let mut lines = message_heading(message, state, &layout);
+    let mut lines = message_heading(view, message, state, &layout, graphics);
     if let Some(source) = &message.details.forwarded_from {
         lines.push(message_spacing(state.active));
-        let mut provenance = content_prefix(state.active, state.selected, true);
+        let mut provenance =
+            content_prefix(state.active, state.selected, true, state.content_indent);
         provenance.push(Span::styled(
             format!("Forwarded from {source}"),
             Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
@@ -45,7 +48,12 @@ pub(super) fn message_lines(
     }
     if let Some(reply) = message.reply_to {
         lines.push(message_spacing(state.active));
-        let mut spans = content_prefix(state.active, state.selected, state.forwarded);
+        let mut spans = content_prefix(
+            state.active,
+            state.selected,
+            state.forwarded,
+            state.content_indent,
+        );
         spans.push(Span::styled("│ ", Style::default().fg(SECONDARY)));
         spans.push(Span::styled(
             reply_preview(view, reply),
@@ -69,9 +77,11 @@ pub(super) fn message_lines(
 }
 
 fn message_heading(
+    view: &View,
     message: &MessageView,
     state: MessageState,
     layout: &MessageLayout,
+    graphics: &mut GraphicsFrame,
 ) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
     if layout.unread {
@@ -93,19 +103,26 @@ fn message_heading(
         );
     }
     if !layout.grouped_with_previous {
-        let direction = match message.direction {
-            MessageDirection::Incoming => "←",
-            MessageDirection::Outgoing => "→",
-        };
-        lines.push(Line::from(vec![
+        let avatar_id = active_chat(view)
+            .zip(message.details.sender_peer)
+            .map(|(chat, peer)| avatar_image_id(peer, chat.0 ^ message.id.0 ^ 0x4d53_4741));
+        let mut heading = vec![
             selection_rule(state.active),
             message_selection_marker(state.selected),
-            avatar_badge(&message.sender),
-            Span::styled(
-                format!("{direction} {}", message.sender),
-                Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
-            ),
-        ]));
+        ];
+        heading.extend(avatar_spans(
+            view,
+            message.details.sender_peer,
+            &message.sender,
+            avatar_id,
+            graphics,
+            layout.focused,
+        ));
+        heading.push(Span::styled(
+            message.sender.clone(),
+            Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
+        ));
+        lines.push(Line::from(heading));
     }
     lines
 }
@@ -123,7 +140,12 @@ fn append_content(
     let loading = media_preview_is_loading(view, message.id);
     let inline_media = message.details.media.is_some() && (preview.is_some() || loading);
     let show_body = !inline_media || !body_is_media_fallback(message);
-    let prefix = content_prefix(state.active, state.selected, state.forwarded);
+    let prefix = content_prefix(
+        state.active,
+        state.selected,
+        state.forwarded,
+        state.content_indent,
+    );
     let content_width =
         usize::from(layout.content_width).saturating_sub(Line::from(prefix.as_slice()).width());
     let media_lines = message
@@ -144,6 +166,7 @@ fn append_content(
                     animation_frame: view.animation_frame,
                     max_width: u16::try_from(content_width).unwrap_or(u16::MAX).max(1),
                     max_height: layout.available_height.saturating_sub(5).max(1),
+                    content_indent: state.content_indent,
                 },
                 active_chat(view).map(|chat| image_id(chat, message.id)),
                 graphics,
@@ -155,10 +178,15 @@ fn append_content(
         .flatten()
         .map(|body| {
             Line::from(
-                content_prefix(state.active, state.selected, state.forwarded)
-                    .into_iter()
-                    .chain(body)
-                    .collect::<Vec<_>>(),
+                content_prefix(
+                    state.active,
+                    state.selected,
+                    state.forwarded,
+                    state.content_indent,
+                )
+                .into_iter()
+                .chain(body)
+                .collect::<Vec<_>>(),
             )
         });
     if inline_media {
@@ -224,7 +252,12 @@ fn append_message_metadata(
         line.extend(metadata);
         return;
     }
-    let mut spans = content_prefix(state.active, state.selected, state.forwarded);
+    let mut spans = content_prefix(
+        state.active,
+        state.selected,
+        state.forwarded,
+        state.content_indent,
+    );
     let prefix_width = Line::from(spans.clone()).width();
     spans.push(Span::raw(
         " ".repeat(
@@ -237,11 +270,17 @@ fn append_message_metadata(
     lines.push(Line::from(spans));
 }
 
-pub(super) fn content_prefix(active: bool, selected: bool, forwarded: bool) -> Vec<Span<'static>> {
+pub(super) fn content_prefix(
+    active: bool,
+    selected: bool,
+    forwarded: bool,
+    indent: usize,
+) -> Vec<Span<'static>> {
     let mut spans = vec![selection_rule(active), message_selection_marker(selected)];
     if forwarded {
         spans.push(Span::styled("│ ", Style::default().fg(PRIMARY)));
     }
+    spans.push(Span::raw(" ".repeat(indent)));
     spans
 }
 

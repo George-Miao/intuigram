@@ -86,6 +86,7 @@ fn pending_poll(
         delivery: DeliveryState::Pending,
         reply_to,
         details: MessageDetails {
+            sender_peer: None,
             media: Some(MediaCard {
                 kind: MediaKind::Poll,
                 title: "Poll".to_owned(),

@@ -53,6 +53,7 @@ impl App {
         self.refresh_active_history_at(None, transcript_anchor);
         self.view.has_newer_messages = false;
         self.queue_active_media_previews();
+        self.queue_visible_avatars();
         self.active_chat_id()
             .and_then(|chat| self.request_chat_load(chat))
             .or_else(|| Some(self.selection_effect()))
@@ -185,6 +186,7 @@ impl App {
             .and_then(|queued| self.start_history_load(queued));
         foreground
             .or_else(|| self.request_next_media_preview())
+            .or_else(|| self.request_next_avatar())
             .or_else(|| self.request_next_background_history())
             .or_else(|| {
                 self.history_loads

@@ -100,6 +100,7 @@ impl App {
             .media_preview_loads
             .retain(|loading| loading.chat != key.chat || loading.message != key.message);
         self.request_next_media_preview()
+            .or_else(|| self.request_next_avatar())
             .or_else(|| {
                 (!self.history_load_is_active())
                     .then(|| self.request_next_background_history())

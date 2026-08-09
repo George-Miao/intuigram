@@ -8,6 +8,7 @@ fn transcript_groups_senders_and_shows_dates_and_reply_previews() {
         title: "Intuigram".to_owned(),
         preview: String::new(),
         preview_sender: None,
+        preview_sender_peer: None,
         preview_timestamp: String::new(),
         status: String::new(),
         unread: 0,
@@ -34,8 +35,8 @@ fn transcript_groups_senders_and_shows_dates_and_reply_previews() {
         .map(|cell| cell.symbol())
         .collect::<String>();
 
-    assert_eq!(rendered.matches("← Lin").count(), 1);
-    assert_eq!(rendered.matches("← Ada").count(), 1);
+    assert_eq!(rendered.matches("[LI] Lin").count(), 1);
+    assert_eq!(rendered.matches("[AD] Ada").count(), 1);
     assert!(rendered.contains("2026-08-07"));
     assert!(rendered.contains("2026-08-08"));
     assert!(rendered.contains("│ Lin: first"));

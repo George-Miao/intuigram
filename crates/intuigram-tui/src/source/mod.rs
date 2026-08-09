@@ -58,11 +58,11 @@ pub(crate) mod terminal;
 mod test_renderer;
 mod view_mode;
 
-use avatar::avatar_badge;
+use avatar::{avatar_spans, avatar_width};
 use effort::effort_spans;
 pub use events::*;
 pub use graphics::Error as GraphicsError;
-use graphics::{GraphicsFrame, GraphicsProtocol, GraphicsWorker, image_id};
+use graphics::{GraphicsFrame, GraphicsProtocol, GraphicsWorker, avatar_image_id, image_id};
 pub use key_chord::{Binding, Key, KeyChord};
 pub use login::{LoginField, LoginInput, LoginPrompt, LoginUi};
 pub(crate) use palette::*;

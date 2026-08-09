@@ -6,6 +6,7 @@ fn semantic_nodes_are_generated_with_the_cells_they_describe() {
         title: "Rust".to_owned(),
         preview: "hello".to_owned(),
         preview_sender: None,
+        preview_sender_peer: None,
         preview_timestamp: String::new(),
         status: String::new(),
         unread: 0,
@@ -78,6 +79,7 @@ fn folder_membership_overlay_shows_selection_and_current_membership() {
         title: "Intuigram".to_owned(),
         preview: String::new(),
         preview_sender: None,
+        preview_sender_peer: None,
         preview_timestamp: String::new(),
         status: String::new(),
         unread: 0,
@@ -115,6 +117,7 @@ fn chat_list_scroll_waits_for_each_directional_cap() {
             title: format!("Chat {index}"),
             preview: format!("Preview {index}"),
             preview_sender: None,
+            preview_sender_peer: None,
             preview_timestamp: String::new(),
             status: String::new(),
             unread: 0,
@@ -157,6 +160,7 @@ fn transcript_scroll_keeps_the_active_message_visible() {
         title: "Intuigram".to_owned(),
         preview: String::new(),
         preview_sender: None,
+        preview_sender_peer: None,
         preview_timestamp: String::new(),
         status: String::new(),
         unread: 0,
@@ -189,7 +193,7 @@ fn transcript_scroll_keeps_the_active_message_visible() {
         .expect("active Message should remain visible");
 
     assert_eq!(rendered.buffer[(34, active.bounds.y)].symbol(), "│");
-    assert_eq!(rendered.buffer[(36, active.bounds.y)].symbol(), "M");
+    assert_eq!(rendered.buffer[(41, active.bounds.y)].symbol(), "M");
 }
 
 #[test]
@@ -200,6 +204,7 @@ fn transcript_scroll_preserves_an_inactive_anchor() {
         title: "Intuigram".to_owned(),
         preview: String::new(),
         preview_sender: None,
+        preview_sender_peer: None,
         preview_timestamp: String::new(),
         status: String::new(),
         unread: 0,
@@ -232,7 +237,7 @@ fn transcript_scroll_preserves_an_inactive_anchor() {
     let buffer = terminal.backend().buffer();
 
     assert_eq!(buffer[(34, 11)].symbol(), " ");
-    assert_eq!(buffer[(36, 12)].symbol(), "M");
+    assert_eq!(buffer[(41, 12)].symbol(), "M");
 }
 
 #[test]
@@ -243,6 +248,7 @@ fn a_short_latest_transcript_is_anchored_above_the_composer() {
         title: "Intuigram".to_owned(),
         preview: String::new(),
         preview_sender: None,
+        preview_sender_peer: None,
         preview_timestamp: String::new(),
         status: String::new(),
         unread: 0,

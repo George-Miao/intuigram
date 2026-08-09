@@ -63,6 +63,20 @@ impl TelegramScenario {
         }
     }
 
+    pub(crate) fn load_avatar(
+        &mut self,
+        avatar: intuigram_app::AvatarRef,
+    ) -> Result<(), ScenarioMismatch> {
+        let observed = format!("load avatar {} for peer {}", avatar.id.0, avatar.peer.0);
+        let expected = self.next_expected(&observed)?;
+        match expected {
+            ExpectedCommand::LoadAvatar {
+                avatar: expected_avatar,
+            } if expected_avatar == avatar => Ok(()),
+            expected => Err(mismatch(expected, observed)),
+        }
+    }
+
     pub fn read_thread(
         &mut self,
         chat: ChatId,

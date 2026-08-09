@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use compio::runtime::ResumeUnwind;
-use intuigram_app::{AdapterEvent, DownloadView, InlineImage, MediaPreviewView};
+use intuigram_app::{AdapterEvent, AvatarView, DownloadView, InlineImage, MediaPreviewView};
 use snafu::ResultExt;
 
 use super::super::super::{MediaCacheSnafu, Result, SaveDownloadSnafu};
@@ -20,6 +20,22 @@ pub(super) async fn cached_preview(
     .await
     .resume_unwind()
     .expect("an awaited cache read cannot be cancelled")
+    .context(MediaCacheSnafu)?;
+    Ok(cached.and_then(|bytes| decode_cached_preview(&bytes)))
+}
+
+pub(super) async fn cached_avatar(
+    state: &RefCell<State>,
+    avatar: intuigram_app::AvatarRef,
+) -> Result<Option<InlineImage>> {
+    let cache = state.borrow().media_cache.clone();
+    let key = avatar_cache_key(avatar);
+    let cached = compio::runtime::spawn_blocking(move || {
+        cache.get(intuigram_media::CacheKind::Thumbnail, &key)
+    })
+    .await
+    .resume_unwind()
+    .expect("an awaited avatar cache read cannot be cancelled")
     .context(MediaCacheSnafu)?;
     Ok(cached.and_then(|bytes| decode_cached_preview(&bytes)))
 }
@@ -57,6 +73,40 @@ pub(super) async fn finish_preview(
             image,
         }),
         None => AdapterEvent::MediaPreviewFailed { chat, message },
+    })
+}
+
+pub(super) async fn finish_avatar(
+    state: &RefCell<State>,
+    avatar_ref: intuigram_app::AvatarRef,
+    media: Option<intuigram_telegram::DownloadedMedia>,
+) -> Result<AdapterEvent> {
+    let Some(media) = media else {
+        return Ok(AdapterEvent::AvatarFailed { avatar: avatar_ref });
+    };
+    let cache = state.borrow().media_cache.clone();
+    let key = avatar_cache_key(avatar_ref);
+    let avatar = compio::runtime::spawn_blocking(move || {
+        let avatar = intuigram_media::decode_preview(&media.bytes).ok();
+        if let Some(avatar) = &avatar {
+            cache.put(
+                intuigram_media::CacheKind::Thumbnail,
+                &key,
+                &encode_cached_preview(avatar),
+            )?;
+        }
+        Ok::<_, intuigram_media::CacheError>(avatar)
+    })
+    .await
+    .resume_unwind()
+    .expect("an awaited blocking avatar task cannot be cancelled")
+    .context(MediaCacheSnafu)?;
+    Ok(match avatar {
+        Some(image) => AdapterEvent::AvatarReady(AvatarView {
+            avatar: avatar_ref,
+            image,
+        }),
+        None => AdapterEvent::AvatarFailed { avatar: avatar_ref },
     })
 }
 
@@ -104,6 +154,10 @@ fn cache_key(
     message: intuigram_app::MessageId,
 ) -> intuigram_media::CacheKey {
     intuigram_media::CacheKey::new(format!("preview-v2:{}:{}", chat.0, message.0))
+}
+
+fn avatar_cache_key(avatar: intuigram_app::AvatarRef) -> intuigram_media::CacheKey {
+    intuigram_media::CacheKey::new(format!("avatar-v2:{}:{}", avatar.peer.0, avatar.id.0))
 }
 
 fn encode_cached_preview(image: &InlineImage) -> Vec<u8> {

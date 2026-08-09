@@ -315,6 +315,14 @@ impl Backend {
                     Err(_) => AdapterEvent::MediaPreviewFailed { chat, message },
                 }))
             }
+            Effect::LoadAvatar { avatar } => Ok(Some(match self.load_avatar(avatar).await {
+                Ok(Some(image)) => AdapterEvent::AvatarReady(AvatarView { avatar, image }),
+                Ok(None) => AdapterEvent::AvatarFailed { avatar },
+                Err(Error::Telegram { source }) if source.is_connection_failure() => {
+                    return Err(Error::Telegram { source });
+                }
+                Err(_) => AdapterEvent::AvatarFailed { avatar },
+            })),
             Effect::DownloadMedia {
                 chat,
                 message,

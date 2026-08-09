@@ -13,6 +13,7 @@ fn bootstrap() -> Bootstrap {
         muted_chats: Vec::new(),
         accounts: Vec::new(),
         folder_details: Vec::new(),
+        avatar_peers: Vec::new(),
         restored_selection: None,
         transcript_anchors: Vec::new(),
         folders: vec![FolderView {
@@ -25,6 +26,7 @@ fn bootstrap() -> Bootstrap {
             title: "Intuigram".to_owned(),
             preview: "daily driver".to_owned(),
             preview_sender: None,
+            preview_sender_peer: None,
             preview_timestamp: String::new(),
             status: String::new(),
             unread: 2,
@@ -63,6 +65,7 @@ fn hierarchy_bootstrap() -> Bootstrap {
         title: "Rust".to_owned(),
         preview: "owned buffers".to_owned(),
         preview_sender: None,
+        preview_sender_peer: None,
         preview_timestamp: String::new(),
         status: String::new(),
         unread: 0,
@@ -384,6 +387,7 @@ fn search_scope_and_reply_send_follow_current_context() {
     );
     assert_eq!(sent.view.focus, Focus::Composer);
 }
+mod avatar_loading;
 mod click_activation;
 mod clipboard;
 mod history_loading;

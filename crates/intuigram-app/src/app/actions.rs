@@ -115,10 +115,12 @@ impl App {
                 if let Some(chat) = self.active_chat_id() {
                     self.focus_composer_at_anchor();
                     self.queue_active_media_previews();
+                    self.queue_visible_avatars();
                     self.defer_active_read();
                     return self
                         .request_chat_load(chat)
                         .or_else(|| self.request_next_media_preview())
+                        .or_else(|| self.request_next_avatar())
                         .or_else(|| {
                             (!self.history_load_is_active())
                                 .then(|| self.take_pending_read())

@@ -25,6 +25,7 @@ fn rich_media_and_album_state_round_trip_through_the_cache() {
         delivery: DeliveryState::Read,
         reply_to: Some(MessageId(40)),
         details: MessageDetails {
+            sender_peer: None,
             date_label: "2026-08-07".to_owned(),
             media: Some(MediaCard {
                 kind: MediaKind::Poll,

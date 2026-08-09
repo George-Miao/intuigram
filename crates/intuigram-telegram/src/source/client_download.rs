@@ -2,6 +2,7 @@ use super::*;
 
 const DOWNLOAD_PART_BYTES: i32 = 512 * 1024;
 const MAX_INLINE_PREVIEW_BYTES: usize = 8 * 1024 * 1024;
+const MAX_AVATAR_BYTES: usize = 2 * 1024 * 1024;
 
 struct DownloadLocation {
     location: tl::enums::InputFileLocation,
@@ -12,6 +13,21 @@ struct DownloadLocation {
 }
 
 impl Client {
+    /// Fetches the current small cloud avatar for a normalized peer.
+    pub async fn download_avatar(&mut self, avatar: AvatarRef) -> Result<Option<DownloadedMedia>> {
+        let Some((location, dc_id)) = self.peers.avatar_location(avatar)? else {
+            return Ok(None);
+        };
+        let media = if dc_id == self.dc_id {
+            self.download_unknown_from_current_connection(location)
+                .await?
+        } else {
+            self.download_avatar_from_data_center(location, dc_id)
+                .await?
+        };
+        Ok(Some(media))
+    }
+
     /// Fetches one Message's full photo or document bytes from Telegram.
     pub async fn download_media(
         &mut self,
@@ -79,6 +95,80 @@ impl Client {
         media_client
             .download_from_current_connection(download)
             .await
+    }
+
+    async fn download_avatar_from_data_center(
+        &mut self,
+        location: tl::enums::InputFileLocation,
+        dc_id: i32,
+    ) -> Result<DownloadedMedia> {
+        let endpoint = self
+            .data_centers
+            .get(&dc_id)
+            .copied()
+            .context(MediaDataCenterUnavailableSnafu { dc_id })?;
+        let exported = self
+            .connection
+            .invoke(&tl::functions::auth::ExportAuthorization { dc_id })
+            .await
+            .context(InvokeSnafu)?;
+        let tl::enums::auth::ExportedAuthorization::Authorization(exported) = exported;
+        let (mut media_client, _) = Client::connect_new_media(
+            dc_id,
+            endpoint,
+            self.credentials.clone(),
+            self.route.clone(),
+        )
+        .await?;
+        media_client
+            .connection
+            .invoke(&tl::functions::auth::ImportAuthorization {
+                id: exported.id,
+                bytes: exported.bytes,
+            })
+            .await
+            .context(InvokeSnafu)?;
+        media_client
+            .download_unknown_from_current_connection(location)
+            .await
+    }
+
+    async fn download_unknown_from_current_connection(
+        &mut self,
+        location: tl::enums::InputFileLocation,
+    ) -> Result<DownloadedMedia> {
+        let mut bytes = Vec::new();
+        while bytes.len() < MAX_AVATAR_BYTES {
+            let offset = i64::try_from(bytes.len())
+                .map_err(|_| Error::InvalidDownloadSize { size: i64::MAX })?;
+            let file = self
+                .connection
+                .invoke(&tl::functions::upload::GetFile {
+                    precise: false,
+                    cdn_supported: false,
+                    location: location.clone(),
+                    offset,
+                    limit: DOWNLOAD_PART_BYTES,
+                })
+                .await
+                .context(InvokeSnafu)?;
+            let tl::enums::upload::File::File(part) = file else {
+                return DownloadCdnRedirectSnafu.fail();
+            };
+            let complete = part.bytes.len() < DOWNLOAD_PART_BYTES as usize;
+            bytes.extend_from_slice(&part.bytes);
+            if complete {
+                return Ok(DownloadedMedia {
+                    name: "avatar.jpg".to_owned(),
+                    mime_type: "image/jpeg".to_owned(),
+                    bytes,
+                });
+            }
+        }
+        AvatarTooLargeSnafu {
+            limit: MAX_AVATAR_BYTES,
+        }
+        .fail()
     }
 
     async fn download_from_current_connection(

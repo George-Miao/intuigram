@@ -87,6 +87,7 @@ impl App {
         self.refresh_active_history_at(None, transcript_anchor);
         self.view.has_newer_messages = false;
         self.queue_active_media_previews();
+        self.queue_visible_avatars();
         self.request_chat_load(chat)
             .or_else(|| Some(self.selection_effect()))
     }

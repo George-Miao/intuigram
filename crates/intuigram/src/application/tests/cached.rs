@@ -17,6 +17,7 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
         delivery: DeliveryState::Read,
         reply_to: Some(MessageId(40)),
         details: MessageDetails {
+            sender_peer: None,
             entities: vec![TextEntity {
                 offset: 0,
                 length: 6,

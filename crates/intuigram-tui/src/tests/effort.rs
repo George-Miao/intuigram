@@ -8,6 +8,7 @@ fn pending_work_uses_a_moving_highlight_and_stops_when_complete() {
         title: "Intuigram".to_owned(),
         preview: String::new(),
         preview_sender: None,
+        preview_sender_peer: None,
         preview_timestamp: String::new(),
         status: String::new(),
         unread: 0,

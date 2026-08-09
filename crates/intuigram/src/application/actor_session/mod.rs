@@ -55,6 +55,16 @@ impl ActorSession {
         effect: AdapterEffect,
         peers: intuigram_telegram::PeerDirectory,
     ) -> Result<BackendOutput> {
+        if let Effect::LoadAvatar { avatar } = &effect.effect
+            && let Some(image) = local_effect::cached_avatar(&self.owner.local, *avatar).await?
+        {
+            return Ok(BackendOutput::event(Some(AdapterEvent::AvatarReady(
+                intuigram_app::AvatarView {
+                    avatar: *avatar,
+                    image,
+                },
+            ))));
+        }
         if let Effect::LoadMediaPreview { chat, message } = &effect.effect
             && let Some(image) =
                 local_effect::cached_preview(&self.owner.local, *chat, *message).await?
@@ -106,6 +116,11 @@ impl ActorSession {
             )
             .await
             .map(|event| BackendOutput::event(Some(event))),
+            ActorResponse::Avatar { avatar, media } => {
+                local_effect::finish_avatar(&self.owner.local, avatar, media.map(|media| *media))
+                    .await
+                    .map(|event| BackendOutput::event(Some(event)))
+            }
             ActorResponse::MediaDownload {
                 chat,
                 message,

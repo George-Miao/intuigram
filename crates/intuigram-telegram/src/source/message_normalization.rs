@@ -47,9 +47,11 @@ pub(super) fn message_chat_id(message: &tl::enums::Message) -> ChatId {
 pub(super) fn dialog_message_summary(
     message: &tl::enums::Message,
     names: &HashMap<ChatId, String>,
-) -> (String, Option<String>, String) {
+) -> (String, Option<String>, Option<ChatId>, String) {
     let (outgoing, sender, date) = match message {
-        tl::enums::Message::Empty(_) => return (String::new(), None, String::new()),
+        tl::enums::Message::Empty(_) => {
+            return (String::new(), None, None, String::new());
+        }
         tl::enums::Message::Message(message) => {
             (message.out, message.from_id.as_ref(), message.date)
         }
@@ -57,14 +59,18 @@ pub(super) fn dialog_message_summary(
             (message.out, message.from_id.as_ref(), message.date)
         }
     };
+    let sender_peer = sender.map(marked_peer_id);
     let sender = if outgoing {
         Some("You".to_owned())
     } else {
-        sender
-            .map(marked_peer_id)
-            .and_then(|id| names.get(&id).cloned())
+        sender_peer.and_then(|id| names.get(&id).cloned())
     };
-    (message_body(message), sender, format_timestamp(date))
+    (
+        message_body(message),
+        sender,
+        sender_peer,
+        format_timestamp(date),
+    )
 }
 
 pub(super) fn normalize_message(
@@ -104,6 +110,7 @@ pub(super) fn normalize_message(
                 delivery: DeliveryState::Sent,
                 reply_to,
                 details: MessageDetails {
+                    sender_peer: sender_id,
                     date_label: format_date(message.date),
                     entities: normalize_entities(message.entities.as_deref()),
                     forwarded_from: normalize_forward(message.fwd_from.as_ref(), names),
@@ -126,6 +133,7 @@ pub(super) fn normalize_message(
         }
         tl::enums::Message::Service(message) => {
             let description = service_event_description(&message.action);
+            let sender_peer = message.from_id.as_ref().map(marked_peer_id);
             Some(MessageView {
                 id: MessageId(i64::from(message.id)),
                 sender: message
@@ -144,6 +152,7 @@ pub(super) fn normalize_message(
                 delivery: DeliveryState::Sent,
                 reply_to: message.reply_to.as_ref().and_then(reply_message_id),
                 details: MessageDetails {
+                    sender_peer,
                     date_label: format_date(message.date),
                     service: Some(description),
                     ..MessageDetails::default()

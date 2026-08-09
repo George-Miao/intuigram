@@ -374,6 +374,11 @@ pub enum Effect {
         /// Message containing the image.
         message: MessageId,
     },
+    /// Fetch and decode one known peer avatar.
+    LoadAvatar {
+        /// Versioned peer avatar whose bytes should be loaded.
+        avatar: AvatarRef,
+    },
     /// Open or reveal a completed download through the platform adapter.
     OpenDownload {
         /// Opaque adapter-owned download handle.

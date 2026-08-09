@@ -3,6 +3,48 @@ use compio::runtime::ResumeUnwind;
 use super::*;
 
 impl Backend {
+    pub(super) async fn load_avatar(&mut self, avatar: AvatarRef) -> Result<Option<InlineImage>> {
+        let key = avatar_cache_key(avatar);
+        let cache = self.media_cache.clone();
+        let cached = compio::runtime::spawn_blocking({
+            let key = key.clone();
+            move || cache.get(intuigram_media::CacheKind::Thumbnail, &key)
+        })
+        .await
+        .resume_unwind()
+        .expect("an awaited avatar cache read cannot be cancelled")
+        .context(MediaCacheSnafu)?;
+        if let Some(bytes) = cached
+            && let Some(image) = decode_cached_preview(&bytes)
+        {
+            return Ok(Some(image));
+        }
+        let Some(media) = self
+            .client
+            .download_avatar(avatar)
+            .await
+            .context(TelegramSnafu)?
+        else {
+            return Ok(None);
+        };
+        let cache = self.media_cache.clone();
+        compio::runtime::spawn_blocking(move || {
+            let avatar = intuigram_media::decode_preview(&media.bytes).ok();
+            if let Some(avatar) = &avatar {
+                cache.put(
+                    intuigram_media::CacheKind::Thumbnail,
+                    &key,
+                    &encode_cached_preview(avatar),
+                )?;
+            }
+            Ok::<_, intuigram_media::CacheError>(avatar)
+        })
+        .await
+        .resume_unwind()
+        .expect("an awaited blocking avatar task cannot be cancelled")
+        .context(MediaCacheSnafu)
+    }
+
     pub(super) async fn load_media_preview(
         &mut self,
         chat: ChatId,
@@ -91,6 +133,10 @@ impl Backend {
 
 fn cache_key(chat: ChatId, message: MessageId) -> intuigram_media::CacheKey {
     intuigram_media::CacheKey::new(format!("{}:{}", chat.0, message.0))
+}
+
+fn avatar_cache_key(avatar: AvatarRef) -> intuigram_media::CacheKey {
+    intuigram_media::CacheKey::new(format!("avatar-v2:{}:{}", avatar.peer.0, avatar.id.0))
 }
 
 fn encode_cached_preview(image: &InlineImage) -> Vec<u8> {

@@ -205,6 +205,7 @@ fn pointer_view() -> View {
         title: "Ada".to_owned(),
         preview: "hello".to_owned(),
         preview_sender: None,
+        preview_sender_peer: None,
         preview_timestamp: String::new(),
         status: "online".to_owned(),
         unread: 0,

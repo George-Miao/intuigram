@@ -68,6 +68,7 @@ fn open_multiple_choice_poll_can_be_voted_from_the_transcript() -> Result<()> {
 fn poll_message(voted: bool) -> intuigram_app::MessageView {
     let mut message = incoming(40, "Lin", "");
     message.details = MessageDetails {
+        sender_peer: None,
         media: Some(MediaCard {
             kind: MediaKind::Poll,
             title: "Poll".to_owned(),

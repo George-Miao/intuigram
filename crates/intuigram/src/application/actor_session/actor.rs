@@ -3,11 +3,12 @@ use compio_actor::{Actor, Call, Handler, Mailbox};
 use intuigram_app::{AdapterEvent, Bootstrap, Effect};
 use intuigram_store::{AccountRecord, StoreLayout};
 use intuigram_telegram::ApplicationCredentials;
+use snafu::ResultExt;
 
 use super::super::{
     AdapterBatch, AdapterEffect, AdapterStorage, AttachmentPayload, Backend, BackendEvents,
     BackendOutput, Error, PreparedRichMedia, Result, RetainedBackend, SubmittedUpdates,
-    resume_account,
+    TelegramSnafu, resume_account,
 };
 use super::cancellation::{ActorCancellation, until_cancelled};
 use super::driver::{DriverStop, SessionEvent, run_driver};
@@ -48,6 +49,10 @@ pub(super) enum ActorResponse {
     MediaPreview {
         chat: intuigram_app::ChatId,
         message: intuigram_app::MessageId,
+        media: Option<Box<intuigram_telegram::DownloadedMedia>>,
+    },
+    Avatar {
+        avatar: intuigram_app::AvatarRef,
         media: Option<Box<intuigram_telegram::DownloadedMedia>>,
     },
     MediaDownload {
@@ -157,6 +162,7 @@ impl Handler<Call<ExecuteEffect, ActorResponse>> for TelegramActor {
         let cancellation = state.cancellation.clone();
         let AdapterEffect { effect, random_id } = request.effect;
         let response = match effect {
+            Effect::LoadAvatar { avatar } => avatar_response(state, &cancellation, avatar).await,
             Effect::LoadMediaPreview { chat, message } => {
                 preview_response(state, &cancellation, chat, message).await
             }
@@ -195,6 +201,39 @@ impl Handler<Call<ExecuteEffect, ActorResponse>> for TelegramActor {
     }
 }
 
+async fn avatar_response(
+    state: &mut TelegramState,
+    cancellation: &ActorCancellation,
+    avatar: intuigram_app::AvatarRef,
+) -> ActorResponse {
+    let result = until_cancelled(
+        async {
+            state
+                .backend
+                .client
+                .download_avatar(avatar)
+                .await
+                .context(TelegramSnafu)
+        },
+        cancellation,
+    )
+    .await;
+    match result {
+        Ok(media) => ActorResponse::Avatar {
+            avatar,
+            media: media.map(Box::new),
+        },
+        Err(Error::Telegram { source }) if !source.is_connection_failure() => {
+            ActorResponse::Avatar {
+                avatar,
+                media: None,
+            }
+        }
+        Err(Error::TelegramActorCancelled) => ActorResponse::Cancelled,
+        Err(error) => ActorResponse::Failed(Box::new(error)),
+    }
+}
+
 async fn preview_response(
     state: &mut TelegramState,
     cancellation: &ActorCancellation,
@@ -208,7 +247,7 @@ async fn preview_response(
                 .client
                 .download_media_preview(chat, message)
                 .await
-                .map_err(|source| Error::Telegram { source })
+                .context(TelegramSnafu)
         },
         cancellation,
     )
@@ -245,7 +284,7 @@ async fn download_response(
                 .client
                 .download_media(chat, message)
                 .await
-                .map_err(|source| Error::Telegram { source })
+                .context(TelegramSnafu)
         },
         cancellation,
     )

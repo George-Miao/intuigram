@@ -20,6 +20,20 @@ pub use scheduled::*;
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct ChatId(pub i64);
 
+/// Stable Telegram revision of one peer's avatar image.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct AvatarId(pub i64);
+
+/// One versioned peer avatar available from the Telegram adapter.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct AvatarRef {
+    /// Stable normalized peer owning the avatar.
+    pub peer: ChatId,
+
+    /// Telegram photo identity used to invalidate stale cached bytes.
+    pub id: AvatarId,
+}
+
 /// Stable identifier for a Telegram message.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct MessageId(pub i64);
@@ -191,6 +205,9 @@ pub struct ChatView {
 
     /// Last Message sender shown by group Chat rows.
     pub preview_sender: Option<String>,
+
+    /// Stable normalized peer for the last Message sender.
+    pub preview_sender_peer: Option<ChatId>,
 
     /// Compact local time of the last Message.
     pub preview_timestamp: String,

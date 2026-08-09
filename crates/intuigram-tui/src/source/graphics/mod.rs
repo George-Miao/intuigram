@@ -132,7 +132,22 @@ pub(crate) fn image_id(chat: ChatId, message: MessageId) -> ImageId {
         .expect("masking and clamping an image hash always produces a nonzero ID")
 }
 
-const fn image_color(id: ImageId) -> Color {
+pub(crate) fn avatar_image_id(peer: ChatId, placement: i64) -> ImageId {
+    let mut hash = 2_166_136_261_u32 ^ 0x4156_4154;
+    for byte in peer
+        .0
+        .to_le_bytes()
+        .into_iter()
+        .chain(placement.to_le_bytes())
+    {
+        hash ^= u32::from(byte);
+        hash = hash.wrapping_mul(16_777_619);
+    }
+    ImageId::new((hash & 0x00ff_ffff).max(1))
+        .expect("masking and clamping an avatar hash always produces a nonzero ID")
+}
+
+pub(crate) const fn image_color(id: ImageId) -> Color {
     let id = id.get();
     Color::Rgb(
         ((id >> 16) & 0xff) as u8,

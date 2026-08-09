@@ -121,6 +121,9 @@ pub struct View {
     /// Automatically loaded inline image previews for visible histories.
     pub media_previews: Vec<MediaPreviewView>,
 
+    /// Decoded avatars retained by normalized peer identity.
+    pub avatars: Vec<AvatarView>,
+
     /// Image previews with final Transcript space currently reserved.
     pub media_preview_loads: Vec<MediaPreviewLoadView>,
 

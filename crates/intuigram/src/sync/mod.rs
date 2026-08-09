@@ -299,6 +299,7 @@ fn discovered_chat(id: ChatId, preview: String, unread: u32) -> ChatView {
         title: format!("Chat {}", id.0),
         preview,
         preview_sender: None,
+        preview_sender_peer: None,
         preview_timestamp: String::new(),
         status: "unavailable".to_owned(),
         unread,

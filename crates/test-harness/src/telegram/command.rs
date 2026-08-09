@@ -1,4 +1,4 @@
-use intuigram_app::{ChatId, MessageId, MessageView, TextEntity};
+use intuigram_app::{AvatarRef, ChatId, MessageId, MessageView, TextEntity};
 
 #[derive(Clone, Debug)]
 pub(super) enum ExpectedCommand {
@@ -17,6 +17,10 @@ pub(super) enum ExpectedCommand {
     LoadMediaPreview {
         chat: ChatId,
         message: MessageId,
+    },
+
+    LoadAvatar {
+        avatar: AvatarRef,
     },
 
     LoadThread {
@@ -111,6 +115,9 @@ impl ExpectedCommand {
                     "load image preview for Message {} in Chat {}",
                     message.0, chat.0
                 )
+            }
+            Self::LoadAvatar { avatar } => {
+                format!("load avatar {} for peer {}", avatar.id.0, avatar.peer.0)
             }
             Self::LoadThread { chat, root, .. } => {
                 format!("load Thread {} in Chat {}", root.0, chat.0)

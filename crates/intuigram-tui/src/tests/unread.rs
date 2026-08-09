@@ -6,6 +6,7 @@ fn unread_divider_is_rendered_immediately_before_the_boundary_message() {
         title: "Intuigram".to_owned(),
         preview: String::new(),
         preview_sender: None,
+        preview_sender_peer: None,
         preview_timestamp: String::new(),
         status: String::new(),
         unread: 2,

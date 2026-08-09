@@ -1,68 +1,10 @@
 use intuigram_app::ChatKind;
 use test_harness::{Result, TelegramScenario, TestSystem, account, chat, incoming, key};
 
-#[test]
-fn default_view_separates_chats_and_messages_and_uses_a_three_line_folder_bar() -> Result<()> {
-    let mut app = TestSystem::builder()
-        .name("layout-default-spacing")
-        .terminal(100, 24)
-        .telegram(
-            TelegramScenario::new()
-                .bootstrap(
-                    account("Ada")
-                        .with_chat(chat(10, "Rust"))
-                        .with_chat(chat(11, "Telegram")),
-                )
-                .expect_load_history(11, [])
-                .expect_load_history(
-                    10,
-                    [
-                        incoming(40, "Lin", "first message"),
-                        incoming(41, "Lin", "second message"),
-                    ],
-                ),
-        )
-        .start()?;
-
-    app.press(key::ENTER)?;
-    let rows = app.screen().rows();
-    let rust = row_within(&rows, "Rust", 0, 30);
-    let telegram = row_within(&rows, "Telegram", 0, 30);
-    let first = row_within(&rows, "first message", 31, 100);
-    let second = row_within(&rows, "second message", 31, 100);
-
-    assert_eq!(telegram.saturating_sub(rust), 3);
-    assert_eq!(second.saturating_sub(first), 1);
-    let folder = rows
-        .iter()
-        .position(|row| row.contains("All"))
-        .expect("folder strip should render");
-    assert!(rows[folder - 1].trim().is_empty());
-    assert!(rows[folder + 1].trim().is_empty());
-    app.expect_no_unhandled_work()
-}
-
-#[test]
-fn group_chat_rows_show_last_sender_preview_and_message_time() -> Result<()> {
-    let mut group = chat(10, "Intuigram Team");
-    group.kind = ChatKind::Supergroup;
-    group.preview = "daily driver".to_owned();
-    group.preview_sender = Some("Lin Qiao".to_owned());
-    group.preview_timestamp = "12:34".to_owned();
-    let mut app = TestSystem::builder()
-        .name("layout-group-chat-row")
-        .terminal(100, 24)
-        .telegram(TelegramScenario::new().bootstrap(account("Ada").with_chat(group)))
-        .start()?;
-
-    let rows = app.screen().rows();
-    let title_row = row_within(&rows, "Intuigram Team", 0, 32);
-    let preview_row = row_within(&rows, "daily driver", 0, 32);
-
-    assert!(row_segment(&rows, title_row, 0, 32).contains("12:34"));
-    assert!(row_segment(&rows, preview_row, 0, 32).contains("[LQ] daily driver"));
-    app.expect_no_unhandled_work()
-}
+#[path = "layout/avatars.rs"]
+mod avatars;
+#[path = "layout/density.rs"]
+mod density;
 
 #[test]
 fn long_transcript_messages_wrap_inside_the_active_chat() -> Result<()> {
@@ -171,7 +113,7 @@ fn chat_list_uses_dense_left_edge_while_transcript_and_chrome_stay_padded() -> R
     let message_row = row_within(&rows, "hello", 33, 100);
 
     assert!(row_segment(&rows, 4, 33, 100).trim().is_empty());
-    assert_eq!(row_segment(&rows, message_row, 33, 37), "   h");
+    assert_eq!(row_segment(&rows, message_row, 33, 42), "        h");
     let folder = rows
         .iter()
         .position(|row| row.contains("All"))

@@ -52,6 +52,7 @@ fn active_chat() -> View {
         title: "Intuigram".to_owned(),
         preview: String::new(),
         preview_sender: None,
+        preview_sender_peer: None,
         preview_timestamp: String::new(),
         status: String::new(),
         unread: 0,

@@ -40,6 +40,7 @@ pub(super) fn cached_bootstrap(
             title: chat.title,
             preview: chat.preview,
             preview_sender: None,
+            preview_sender_peer: None,
             preview_timestamp: String::new(),
             status: chat.status,
             unread: chat.unread,
@@ -73,6 +74,7 @@ pub(super) fn cached_bootstrap(
             continue;
         };
         chat.preview_sender = Some(message.sender.clone());
+        chat.preview_sender_peer = message.details.sender_peer;
         chat.preview_timestamp.clone_from(&message.timestamp);
     }
     let mut grouped_pins = BTreeMap::<i64, Vec<MessageView>>::new();
@@ -118,6 +120,7 @@ pub(super) fn cached_bootstrap(
         transcript_anchors,
         folders,
         chats,
+        avatar_peers: Vec::new(),
         messages,
         pinned_messages,
         drafts: cached

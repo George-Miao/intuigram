@@ -160,6 +160,10 @@ pub enum Error {
     #[snafu(display("Telegram media size {size} cannot be downloaded on this platform"))]
     InvalidDownloadSize { size: i64 },
 
+    /// A peer avatar exceeded the bounded automatic-download budget.
+    #[snafu(display("Telegram avatar exceeds the {limit}-byte inline limit"))]
+    AvatarTooLarge { limit: usize },
+
     /// Telegram redirected the file to its encrypted CDN protocol.
     #[snafu(display("Telegram CDN download redirection is not implemented yet"))]
     DownloadCdnRedirect,

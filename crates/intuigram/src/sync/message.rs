@@ -146,6 +146,7 @@ pub fn decode_stored_message(message: StoredMessage) -> MessageView {
         },
         reply_to: message.reply_to.map(MessageId),
         details: MessageDetails {
+            sender_peer: None,
             date_label: metadata.date_label,
             entities: metadata.entities.into_iter().map(cached_entity).collect(),
             forwarded_from: metadata.forwarded_from,

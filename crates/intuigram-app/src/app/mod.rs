@@ -11,6 +11,8 @@ pub struct App {
     unread_boundaries: HashMap<HistoryKey, MessageId>,
     history_loads: HistoryLoads,
     media_preview_loads: MediaPreviewLoads,
+    avatar_peers: HashMap<ChatId, AvatarId>,
+    avatar_loads: AvatarLoads,
     next_local_message_id: i64,
     pending_drafts: HashMap<MessageId, PendingDraft>,
     saved_poll_draft: Option<ComposerView>,
@@ -52,14 +54,18 @@ impl App {
                     return None;
                 }
                 self.queue_active_media_previews();
+                self.queue_visible_avatars();
                 self.request_next_media_preview()
+                    .or_else(|| self.request_next_avatar())
                     .or_else(|| self.request_next_background_history())
             }
             Input::Adapter(AdapterEvent::ConnectionRestored(bootstrap)) => {
                 self.merge_restored_connection(bootstrap);
                 self.queue_active_media_previews();
+                self.queue_visible_avatars();
                 self.request_next_background_history()
                     .or_else(|| self.request_next_media_preview())
+                    .or_else(|| self.request_next_avatar())
             }
             Input::Adapter(AdapterEvent::ConnectionChanged(connection)) => {
                 self.view.connection = connection;
@@ -127,6 +133,9 @@ impl App {
                 self.replace_message(chat, *message);
                 None
             }
+            Input::Adapter(AdapterEvent::AvatarChanged { peer, id }) => {
+                self.update_avatar(peer, id)
+            }
             Input::Adapter(AdapterEvent::MessagesPinChanged { chat, ids, pinned }) => {
                 self.reconcile_message_pins(chat, &ids, pinned)
             }
@@ -175,6 +184,7 @@ impl App {
                 self.store_loaded_history(key, messages);
                 if self.active_history_key() == Some(key) {
                     self.queue_active_media_previews();
+                    self.queue_visible_avatars();
                     self.defer_active_read();
                 }
                 self.complete_history_load(key, true)
@@ -205,6 +215,7 @@ impl App {
                 self.store_loaded_history(key, messages);
                 if self.active_history_key() == Some(key) {
                     self.queue_active_media_previews();
+                    self.queue_visible_avatars();
                     self.defer_active_read();
                 }
                 self.complete_history_load(key, true)
@@ -338,7 +349,9 @@ impl App {
             Input::Adapter(event @ AdapterEvent::TelegramLinkResolved { .. })
             | Input::Adapter(event @ AdapterEvent::DownloadReady { .. })
             | Input::Adapter(event @ AdapterEvent::MediaPreviewReady(_))
-            | Input::Adapter(event @ AdapterEvent::MediaPreviewFailed { .. }) => {
+            | Input::Adapter(event @ AdapterEvent::MediaPreviewFailed { .. })
+            | Input::Adapter(event @ AdapterEvent::AvatarReady(_))
+            | Input::Adapter(event @ AdapterEvent::AvatarFailed { .. }) => {
                 self.apply_link_media_event(event)
             }
             Input::Intent(intent) => self.apply_intent(intent),
@@ -355,6 +368,7 @@ mod account_management;
 mod action_availability;
 mod action_menu;
 mod actions;
+mod avatar_loads;
 mod bootstrap;
 mod chat_reconciliation;
 mod click_activation;
@@ -378,6 +392,7 @@ mod state;
 mod unread;
 
 use action_availability::move_index;
+use avatar_loads::AvatarLoads;
 use history_navigation::HistoryLoads;
 use media_preview::{MediaPreviewLoads, PreviewKey};
 use state::{HistoryKey, PendingDraft, PendingPoll};

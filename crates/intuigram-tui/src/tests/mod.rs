@@ -60,6 +60,7 @@ fn view(actions: Vec<Action>) -> View {
         link_confirmation: None,
         downloads: Vec::new(),
         media_previews: Vec::new(),
+        avatars: Vec::new(),
         media_preview_loads: Vec::new(),
         poll_composer: false,
         notice: None,
@@ -315,5 +316,6 @@ mod pointer;
 mod qr;
 mod rendering;
 mod semantics;
+mod surface;
 mod transcript_refinement;
 mod unread;

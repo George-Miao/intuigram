@@ -1,7 +1,7 @@
 use intuigram_app::{
-    AccountKey, AccountView, Bootstrap, ChatId, ChatKind, ChatView, ConnectionState, DeliveryState,
-    DraftView, FolderDetailsView, FolderRulesView, FolderView, MessageDetails, MessageDirection,
-    MessageId, MessageView,
+    AccountKey, AccountView, AvatarId, AvatarRef, Bootstrap, ChatId, ChatKind, ChatView,
+    ConnectionState, DeliveryState, DraftView, FolderDetailsView, FolderRulesView, FolderView,
+    MessageDetails, MessageDirection, MessageId, MessageView,
 };
 
 #[derive(Clone, Debug)]
@@ -15,6 +15,7 @@ pub struct AccountFixture {
     messages: Vec<MessageView>,
     drafts: Vec<DraftView>,
     muted_chats: Vec<ChatId>,
+    avatar_peers: Vec<AvatarRef>,
 }
 
 impl AccountFixture {
@@ -81,6 +82,15 @@ impl AccountFixture {
         self
     }
 
+    #[must_use]
+    pub fn with_avatar(mut self, peer: i64) -> Self {
+        self.avatar_peers.push(AvatarRef {
+            peer: ChatId(peer),
+            id: AvatarId(peer),
+        });
+        self
+    }
+
     /// Seeds the recent history for the first Chat in this Account fixture.
     #[must_use]
     pub fn with_history(mut self, messages: impl IntoIterator<Item = MessageView>) -> Self {
@@ -100,6 +110,7 @@ impl AccountFixture {
             transcript_anchors: Vec::new(),
             folders: self.folders,
             chats: self.chats,
+            avatar_peers: self.avatar_peers,
             messages: self.messages,
             pinned_messages: Vec::new(),
             drafts: self.drafts,
@@ -136,6 +147,7 @@ pub fn account(name: impl Into<String>) -> AccountFixture {
         messages: Vec::new(),
         drafts: Vec::new(),
         muted_chats: Vec::new(),
+        avatar_peers: Vec::new(),
     }
 }
 
@@ -146,6 +158,7 @@ pub fn chat(id: i64, title: impl Into<String>) -> ChatView {
         title: title.into(),
         preview: String::new(),
         preview_sender: None,
+        preview_sender_peer: None,
         preview_timestamp: String::new(),
         status: "last seen recently".to_owned(),
         unread: 0,

@@ -17,7 +17,7 @@ pub(crate) fn normalize_live_update(
     if let Ok(updates) = tl::enums::Updates::from_bytes(bytes) {
         let cursors = updates_cursors(&updates);
         let mut peers = PeerDirectory::default();
-        let events = match updates {
+        let mut events = match updates {
             tl::enums::Updates::TooLong | tl::enums::Updates::UpdateShortSentMessage(_) => {
                 Vec::new()
             }
@@ -37,6 +37,12 @@ pub(crate) fn normalize_live_update(
                 normalize_updates(updates.updates, &updates.chats, &updates.users, names)
             }
         };
+        events.extend(
+            peers
+                .avatar_changes()
+                .into_iter()
+                .map(|(peer, id)| AdapterEvent::AvatarChanged { peer, id }),
+        );
         return Ok(NormalizedLive {
             events,
             cursors,
@@ -68,6 +74,7 @@ fn short_user_message(
             delivery: DeliveryState::Sent,
             reply_to: message.reply_to.as_ref().and_then(reply_message_id),
             details: MessageDetails {
+                sender_peer: (!message.out).then_some(chat),
                 date_label: format_date(message.date),
                 entities: normalize_entities(message.entities.as_deref()),
                 ..MessageDetails::default()
@@ -93,6 +100,7 @@ fn short_chat_message(
             delivery: DeliveryState::Sent,
             reply_to: message.reply_to.as_ref().and_then(reply_message_id),
             details: MessageDetails {
+                sender_peer: Some(sender),
                 date_label: format_date(message.date),
                 entities: normalize_entities(message.entities.as_deref()),
                 ..MessageDetails::default()

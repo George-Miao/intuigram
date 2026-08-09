@@ -17,8 +17,6 @@
 - [ ] **p-core:** Send static locations through coordinates, pasted map links, or place search.
 - [ ] **p-core:** Add a durable Outbox that survives restart, preserves operation ordering and referenced media, and exposes safe retry, cancellation, expiry, and conflict handling.
 - [ ] **p-core:** Allow selected Chats to keep media offline outside ordinary Media Cache eviction.
-- [ ] **p-core:** Render sender avatar images in the Transcript and use a two-row `[avatar] [username]` / `[avatar] [message]` layout. Fall back to the current two-character name avatar when an image cannot be rendered.
-- [ ] **p-core:** Render group Chat-list rows as `[Chat avatar] [Chat name] [Message time]` above `[sender avatar] [message preview]`, preserving unread count, selection, truncation, and narrow-terminal behavior.
 - [ ] **p-high:** Make keyboard bindings configurable through a Figment-based configuration system. Support layered TOML, YAML, JSON, environment, and command-line sources; keep a complete default keymap; and generate the on-screen Action Bar and Help from the active configuration.
 - [ ] **p-high:** Make the terminal palette configurable, keep Everforest Light as a built-in bright theme, and add automatic light/dark terminal-background detection with an explicit configuration override.
 - [ ] **p-high:** Add sender, date-range, and media-type filters to Chat Search and Global Search.

@@ -353,6 +353,9 @@ impl TestSystem {
                             image,
                         }));
                 }
+                Effect::LoadAvatar { avatar } => {
+                    self.handle_avatar_load(avatar)?;
+                }
                 Effect::OpenDownload { download, reveal } => {
                     self.opened_downloads.push((download, reveal));
                     self.application

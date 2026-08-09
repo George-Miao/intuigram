@@ -1,6 +1,9 @@
 /// Rich and status metadata kept alongside a dense Message row.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MessageDetails {
+    /// Stable normalized sender peer used for avatar lookup.
+    pub sender_peer: Option<ChatId>,
+
     /// Local calendar date used for Transcript day boundaries.
     pub date_label: String,
 
@@ -219,6 +222,16 @@ pub struct MediaPreviewView {
     pub message: MessageId,
 
     /// Bounded decoded image rendered by the terminal adapter.
+    pub image: super::InlineImage,
+}
+
+/// One decoded peer avatar ready for terminal presentation.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AvatarView {
+    /// Versioned peer avatar represented by these pixels.
+    pub avatar: AvatarRef,
+
+    /// Bounded decoded avatar image.
     pub image: super::InlineImage,
 }
 

@@ -62,6 +62,7 @@ fn image_message_view() -> View {
         title: "Intuigram".to_owned(),
         preview: String::new(),
         preview_sender: None,
+        preview_sender_peer: None,
         preview_timestamp: String::new(),
         status: String::new(),
         unread: 0,
@@ -80,6 +81,7 @@ fn image_message_view() -> View {
         delivery: DeliveryState::Read,
         reply_to: None,
         details: MessageDetails {
+            sender_peer: None,
             media: Some(MediaCard {
                 kind: MediaKind::Photo,
                 title: "Photo".to_owned(),

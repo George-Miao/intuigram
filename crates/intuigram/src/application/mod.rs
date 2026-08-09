@@ -18,13 +18,13 @@ use intuigram::{
 };
 use intuigram_app::{
     AccountKey, AccountLifecycle, AccountView, AdapterEvent, App, AttachmentId, AttachmentKind,
-    AttachmentView, Bootstrap, ChatId, ChatKind, ChatView, ConnectionState, DeliveryState,
-    DownloadId, DownloadView, DraftView, Effect, FolderId, FolderOperation, FolderOperationResult,
-    FolderView, HistoryView, InlineImage, Input, Intent, MediaCard, MediaKind, MediaPreviewView,
-    MessageDetails, MessageDirection, MessageId, MessageView, PollOptionView, PollView,
-    RichMediaItemId, RichMediaItemView, RichMediaLibraryKind, RichMediaUploadKind,
-    ScheduledDeliveryView, ScheduledMessageId, ScheduledMessageView, ScheduledRequest,
-    SelectionView, TextEntity, TranscriptAnchorView, Update,
+    AttachmentView, AvatarRef, AvatarView, Bootstrap, ChatId, ChatKind, ChatView, ConnectionState,
+    DeliveryState, DownloadId, DownloadView, DraftView, Effect, FolderId, FolderOperation,
+    FolderOperationResult, FolderView, HistoryView, InlineImage, Input, Intent, MediaCard,
+    MediaKind, MediaPreviewView, MessageDetails, MessageDirection, MessageId, MessageView,
+    PollOptionView, PollView, RichMediaItemId, RichMediaItemView, RichMediaLibraryKind,
+    RichMediaUploadKind, ScheduledDeliveryView, ScheduledMessageId, ScheduledMessageView,
+    ScheduledRequest, SelectionView, TextEntity, TranscriptAnchorView, Update,
 };
 use intuigram_config::{
     Config, ConfigLoader, Overrides, PlatformDefaults, ViewMode as ConfigViewMode,

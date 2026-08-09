@@ -44,6 +44,8 @@ impl App {
             AdapterEvent::MediaPreviewFailed { chat, message } => {
                 self.complete_media_preview(PreviewKey { chat, message })
             }
+            AdapterEvent::AvatarReady(avatar) => self.complete_avatar(avatar.avatar, Some(avatar)),
+            AdapterEvent::AvatarFailed { avatar } => self.complete_avatar(avatar, None),
             _ => None,
         }
     }

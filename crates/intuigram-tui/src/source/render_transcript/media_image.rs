@@ -13,6 +13,7 @@ pub(super) struct ImageRenderContext {
     pub(super) focused: bool,
     pub(super) max_width: u16,
     pub(super) max_height: u16,
+    pub(super) content_indent: usize,
 }
 
 pub(super) fn render_image(
@@ -44,15 +45,22 @@ pub(super) fn render_loading_image(
     animation_frame: u8,
     max_width: u16,
     max_height: u16,
+    content_indent: usize,
 ) -> Vec<Line<'static>> {
     let width = WIDTH.min(max_width);
     let highlight = u16::from(animation_frame) % width;
     let height = HEIGHT.min(max_height);
+    let label = " loading image ";
+    let label_width = u16::try_from(label.len()).expect("the loading label width fits in u16");
+    let visible_label_width = label_width.min(width);
+    let visible_label = &label[..usize::from(visible_label_width)];
+    let label_start = width.saturating_sub(visible_label_width) / 2;
+    let label_end = label_start.saturating_add(visible_label_width);
     (0..height)
         .map(|row| {
             let mut spans = Vec::with_capacity(usize::from(width).saturating_add(1));
-            spans.extend(content_prefix(active, selected, forwarded));
-            spans.extend((0..width).map(|column| {
+            spans.extend(content_prefix(active, selected, forwarded, content_indent));
+            spans.extend((0..label_start).map(|column| {
                 let highlighted = column == highlight;
                 Span::styled(
                     if highlighted { "▒" } else { "░" },
@@ -61,10 +69,22 @@ pub(super) fn render_loading_image(
             }));
             if row == height / 2 {
                 spans.push(Span::styled(
-                    "  loading image",
+                    visible_label.to_owned(),
+                    Style::default().fg(MUTED_TEXT),
+                ));
+            } else {
+                spans.push(Span::styled(
+                    "░".repeat(usize::from(label_end.saturating_sub(label_start))),
                     Style::default().fg(MUTED_TEXT),
                 ));
             }
+            spans.extend((label_end..width).map(|column| {
+                let highlighted = column == highlight;
+                Span::styled(
+                    if highlighted { "▒" } else { "░" },
+                    Style::default().fg(if highlighted { PRIMARY } else { MUTED_TEXT }),
+                )
+            }));
             Line::from(spans)
         })
         .collect()
@@ -91,6 +111,7 @@ fn render_native_image(
                 context.active,
                 context.selected,
                 context.forwarded,
+                context.content_indent,
             ));
             spans.extend((0..size.columns).map(|column| {
                 let symbol = if graphics.protocol().uses_unicode_placeholders() {
@@ -131,6 +152,7 @@ fn render_text_image(
                 context.active,
                 context.selected,
                 context.forwarded,
+                context.content_indent,
             ));
             let offset = usize::from(line) * usize::from(size.columns);
             spans.extend(

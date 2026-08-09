@@ -31,8 +31,9 @@ pub(super) fn render_active_chat_header(
     view: &View,
     mode: ViewMode,
     focused: bool,
+    graphics: &mut GraphicsFrame,
 ) {
-    let (title, status) = title_and_status(view);
+    let (title, status) = title_and_status(view, graphics, focused);
     let context = active_context(view);
     let lines = match mode {
         ViewMode::Default => {
@@ -56,7 +57,11 @@ pub(super) fn render_active_chat_header(
     );
 }
 
-fn title_and_status(view: &View) -> (Line<'static>, Line<'static>) {
+fn title_and_status(
+    view: &View,
+    graphics: &mut GraphicsFrame,
+    focused: bool,
+) -> (Line<'static>, Line<'static>) {
     view.active_chat
         .and_then(|index| view.chats.get(index))
         .map_or_else(
@@ -86,16 +91,19 @@ fn title_and_status(view: &View) -> (Line<'static>, Line<'static>) {
                         Line::from(Span::styled(status, Style::default().fg(MUTED_TEXT)))
                     }
                 };
-                (
-                    Line::from(vec![
-                        avatar_badge(&chat.title),
-                        Span::styled(
-                            chat.title.clone(),
-                            Style::default().add_modifier(Modifier::BOLD),
-                        ),
-                    ]),
-                    status,
-                )
+                let mut title = avatar_spans(
+                    view,
+                    Some(chat.id),
+                    &chat.title,
+                    Some(avatar_image_id(chat.id, 0x4845_4144)),
+                    graphics,
+                    focused,
+                );
+                title.push(Span::styled(
+                    chat.title.clone(),
+                    Style::default().add_modifier(Modifier::BOLD),
+                ));
+                (Line::from(title), status)
             },
         )
 }

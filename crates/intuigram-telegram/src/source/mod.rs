@@ -18,9 +18,10 @@ use grammers_crypto::two_factor_auth::{calculate_2fa, check_p_and_g};
 use grammers_tl_types as tl;
 use grammers_tl_types::{Deserializable as _, Identifiable as _};
 use intuigram_app::{
-    AdapterEvent, Bootstrap, ChatId, ChatKind, ChatView, DeliveryState, FolderDetailsView,
-    FolderId, FolderRulesView, FolderView, MediaCard, MediaKind, MessageDetails, MessageDirection,
-    MessageId, MessageView, PollOptionView, PollView, ReactionView, TextEntity, TextEntityKind,
+    AdapterEvent, AvatarRef, Bootstrap, ChatId, ChatKind, ChatView, DeliveryState,
+    FolderDetailsView, FolderId, FolderRulesView, FolderView, MediaCard, MediaKind, MessageDetails,
+    MessageDirection, MessageId, MessageView, PollOptionView, PollView, ReactionView, TextEntity,
+    TextEntityKind,
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 

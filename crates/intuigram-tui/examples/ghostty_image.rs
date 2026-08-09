@@ -23,6 +23,7 @@ fn main() -> intuigram_tui::Result<()> {
         title: "Ghostty image probe".to_owned(),
         preview: String::new(),
         preview_sender: None,
+        preview_sender_peer: None,
         preview_timestamp: String::new(),
         status: "Press q to exit".to_owned(),
         unread: 0,
@@ -42,6 +43,7 @@ fn main() -> intuigram_tui::Result<()> {
         delivery: DeliveryState::Read,
         reply_to: None,
         details: MessageDetails {
+            sender_peer: None,
             media: Some(MediaCard {
                 kind: MediaKind::Photo,
                 title: "Photo".to_owned(),

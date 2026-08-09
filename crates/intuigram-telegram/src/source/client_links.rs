@@ -28,6 +28,7 @@ impl Client {
                 .unwrap_or_else(|| "Inaccessible peer".to_owned()),
             preview: String::new(),
             preview_sender: None,
+            preview_sender_peer: None,
             preview_timestamp: String::new(),
             status: traits
                 .get(&chat)

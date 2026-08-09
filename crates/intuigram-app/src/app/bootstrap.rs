@@ -41,6 +41,7 @@ impl App {
                 link_confirmation: None,
                 downloads: Vec::new(),
                 media_previews: Vec::new(),
+                avatars: Vec::new(),
                 media_preview_loads: Vec::new(),
                 poll_composer: false,
                 notice: None,
@@ -57,6 +58,8 @@ impl App {
             unread_boundaries: HashMap::new(),
             history_loads: HistoryLoads::default(),
             media_preview_loads: MediaPreviewLoads::default(),
+            avatar_peers: HashMap::new(),
+            avatar_loads: AvatarLoads::default(),
             next_local_message_id: 0,
             pending_drafts: HashMap::new(),
             saved_poll_draft: None,
@@ -155,6 +158,14 @@ impl App {
         self.view.accounts = bootstrap.accounts;
         self.view.folders = bootstrap.folders;
         self.view.folder_details = bootstrap.folder_details;
+        self.avatar_peers = bootstrap
+            .avatar_peers
+            .into_iter()
+            .map(|avatar| (avatar.peer, avatar.id))
+            .collect();
+        self.view
+            .avatars
+            .retain(|avatar| self.avatar_peers.get(&avatar.avatar.peer) == Some(&avatar.avatar.id));
         self.all_chats = bootstrap.chats;
         self.drafts = bootstrap
             .drafts
@@ -290,6 +301,7 @@ impl App {
         self.reset_background_history();
         self.media_preview_loads = MediaPreviewLoads::default();
         self.view.media_preview_loads.clear();
+        self.avatar_loads = AvatarLoads::default();
     }
 
     pub(super) fn merge_restored_connection(&mut self, bootstrap: Bootstrap) {

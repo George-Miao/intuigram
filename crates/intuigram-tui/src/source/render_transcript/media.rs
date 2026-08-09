@@ -21,6 +21,7 @@ pub(super) struct MediaRenderContext {
     pub(super) animation_frame: u8,
     pub(super) max_width: u16,
     pub(super) max_height: u16,
+    pub(super) content_indent: usize,
 }
 
 impl AlbumPosition {
@@ -61,6 +62,7 @@ pub(super) fn render_media(
         animation_frame,
         max_width,
         max_height,
+        content_indent,
     } = context;
     let mut lines = Vec::new();
     if let Some(preview) = preview {
@@ -75,6 +77,7 @@ pub(super) fn render_media(
                 focused,
                 max_width,
                 max_height,
+                content_indent,
             },
             graphics,
         ));
@@ -88,10 +91,11 @@ pub(super) fn render_media(
             animation_frame,
             max_width,
             max_height,
+            content_indent,
         ));
         lines.push(message_spacing(active));
     } else {
-        let mut card = content_prefix(active, selected, forwarded);
+        let mut card = content_prefix(active, selected, forwarded, content_indent);
         card.extend([
             Span::styled(
                 format!("[{}{}]", album.label(), media.title),
@@ -106,7 +110,7 @@ pub(super) fn render_media(
     }
     if preview.is_none() && !loading {
         lines.extend(media.details.iter().map(|detail| {
-            let mut spans = content_prefix(active, selected, forwarded);
+            let mut spans = content_prefix(active, selected, forwarded, content_indent);
             spans.push(Span::styled(
                 format!("  {detail}"),
                 Style::default().fg(MUTED_TEXT),
@@ -116,9 +120,9 @@ pub(super) fn render_media(
     }
     if let Some(poll) = &media.poll {
         lines.extend(
-            poll.options
-                .iter()
-                .map(|option| poll_option_line(option, active, selected, forwarded)),
+            poll.options.iter().map(|option| {
+                poll_option_line(option, active, selected, forwarded, content_indent)
+            }),
         );
         if let Some(total) = poll.total_voters {
             let state = if poll.closed { " · closed" } else { "" };
@@ -127,7 +131,7 @@ pub(super) fn render_media(
             } else {
                 ""
             };
-            let mut spans = content_prefix(active, selected, forwarded);
+            let mut spans = content_prefix(active, selected, forwarded, content_indent);
             spans.push(Span::styled(
                 format!("  {total} voters{choice}{state}"),
                 Style::default().fg(MUTED_TEXT),
@@ -135,7 +139,7 @@ pub(super) fn render_media(
             lines.push(Line::from(spans));
         }
         if let Some(solution) = &poll.solution {
-            let mut spans = content_prefix(active, selected, forwarded);
+            let mut spans = content_prefix(active, selected, forwarded, content_indent);
             spans.push(Span::styled(
                 format!("  Explanation: {solution}"),
                 Style::default().fg(PRIMARY),
@@ -151,6 +155,7 @@ fn poll_option_line(
     active: bool,
     selected: bool,
     forwarded: bool,
+    content_indent: usize,
 ) -> Line<'static> {
     let marker = if option.correct {
         "✓"
@@ -167,7 +172,7 @@ fn poll_option_line(
     } else {
         Style::default()
     };
-    let mut spans = content_prefix(active, selected, forwarded);
+    let mut spans = content_prefix(active, selected, forwarded, content_indent);
     spans.push(Span::styled(
         format!("  {marker} {}{votes}", option.text),
         style,

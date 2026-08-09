@@ -18,6 +18,7 @@ use super::telegram::TelegramScenario;
 use super::trace::Trace;
 
 mod assertions;
+mod avatar_effects;
 mod builder;
 mod downloads;
 mod effects;

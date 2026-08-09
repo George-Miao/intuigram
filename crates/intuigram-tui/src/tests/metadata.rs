@@ -8,6 +8,7 @@ fn message_metadata_is_right_aligned_and_omits_zero_counters_except_views() {
         title: "Intuigram".to_owned(),
         preview: String::new(),
         preview_sender: None,
+        preview_sender_peer: None,
         preview_timestamp: String::new(),
         status: String::new(),
         unread: 0,
@@ -26,6 +27,7 @@ fn message_metadata_is_right_aligned_and_omits_zero_counters_except_views() {
         delivery: DeliveryState::Sent,
         reply_to: None,
         details: MessageDetails {
+            sender_peer: None,
             reactions: vec![ReactionView {
                 label: "👍".to_owned(),
                 count: 0,
@@ -59,7 +61,7 @@ fn message_metadata_is_right_aligned_and_omits_zero_counters_except_views() {
     assert!(rows.iter().all(|row| !row.contains("👍 0")));
     let sender = rows
         .iter()
-        .find(|row| row.contains("→ Lin"))
+        .find(|row| row.contains("[LI] Lin"))
         .expect("sender header should render");
     assert!(!sender.contains("12:34"));
 }

@@ -8,6 +8,7 @@ fn forwarded_provenance_rule_spans_source_caption_and_media() {
         title: "Intuigram".to_owned(),
         preview: String::new(),
         preview_sender: None,
+        preview_sender_peer: None,
         preview_timestamp: String::new(),
         status: String::new(),
         unread: 0,
@@ -26,6 +27,7 @@ fn forwarded_provenance_rule_spans_source_caption_and_media() {
         delivery: DeliveryState::Read,
         reply_to: None,
         details: MessageDetails {
+            sender_peer: None,
             forwarded_from: Some("Runtime News".to_owned()),
             media: Some(MediaCard {
                 kind: MediaKind::Photo,
@@ -56,7 +58,7 @@ fn forwarded_provenance_rule_spans_source_caption_and_media() {
 
     let sender = rows
         .iter()
-        .position(|row| row.contains("← Lin"))
+        .position(|row| row.contains("[LI] Lin"))
         .expect("the sender heading should render");
     let forwarded = rows
         .iter()

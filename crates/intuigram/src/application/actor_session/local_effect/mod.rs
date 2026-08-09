@@ -87,6 +87,13 @@ pub(super) async fn cached_preview(
     media::cached_preview(state, chat, message).await
 }
 
+pub(super) async fn cached_avatar(
+    state: &RefCell<State>,
+    avatar: intuigram_app::AvatarRef,
+) -> Result<Option<intuigram_app::InlineImage>> {
+    media::cached_avatar(state, avatar).await
+}
+
 pub(super) async fn finish_preview(
     state: &RefCell<State>,
     chat: intuigram_app::ChatId,
@@ -94,6 +101,14 @@ pub(super) async fn finish_preview(
     media: Option<intuigram_telegram::DownloadedMedia>,
 ) -> Result<AdapterEvent> {
     media::finish_preview(state, chat, message, media).await
+}
+
+pub(super) async fn finish_avatar(
+    state: &RefCell<State>,
+    avatar: intuigram_app::AvatarRef,
+    media: Option<intuigram_telegram::DownloadedMedia>,
+) -> Result<AdapterEvent> {
+    media::finish_avatar(state, avatar, media).await
 }
 
 pub(super) async fn finish_download(

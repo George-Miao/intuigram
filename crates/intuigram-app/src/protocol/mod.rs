@@ -1,49 +1,3 @@
-/// Initial synchronized data supplied by an adapter.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Bootstrap {
-    /// Connectivity represented by this initial data source.
-    pub connection: ConnectionState,
-
-    /// Active Account display name.
-    pub account_name: String,
-
-    /// Stable Account-scoped identity for notification replacement.
-    pub notification_identity: String,
-
-    /// Chats whose effective Telegram notification setting is muted.
-    pub muted_chats: Vec<ChatId>,
-
-    /// Registered Accounts available without restarting Intuigram.
-    pub accounts: Vec<AccountView>,
-
-    /// Last durable Folder and Chat selection, when one has been saved.
-    pub restored_selection: Option<SelectionView>,
-
-    /// Durable Transcript positions for every previously visited history.
-    pub transcript_anchors: Vec<TranscriptAnchorView>,
-
-    /// Synchronized Telegram Folders.
-    pub folders: Vec<FolderView>,
-
-    /// Editable metadata for synchronized custom Folders.
-    pub folder_details: Vec<FolderDetailsView>,
-
-    /// Chats in the active Folder.
-    pub chats: Vec<ChatView>,
-
-    /// Messages for the initially active Chat.
-    pub messages: Vec<MessageView>,
-
-    /// Cached pinned-Message projections by Chat.
-    pub pinned_messages: Vec<HistoryView>,
-
-    /// Durable root and Thread Drafts for cached Chats.
-    pub drafts: Vec<DraftView>,
-
-    /// Cached histories for immediate Chat switching.
-    pub histories: Vec<HistoryView>,
-}
-
 /// Results reported by external adapters.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AdapterEvent {
@@ -380,6 +334,24 @@ pub enum AdapterEvent {
     /// An image preview became available without creating a user download.
     MediaPreviewReady(MediaPreviewView),
 
+    /// A peer avatar became available for rendering.
+    AvatarReady(AvatarView),
+
+    /// Telegram changed or removed one peer's avatar revision.
+    AvatarChanged {
+        /// Stable normalized peer whose avatar changed.
+        peer: ChatId,
+
+        /// Current Telegram photo identity, or `None` when removed.
+        id: Option<AvatarId>,
+    },
+
+    /// A known peer avatar could not be loaded or decoded.
+    AvatarFailed {
+        /// Versioned peer avatar that failed.
+        avatar: AvatarRef,
+    },
+
     /// An automatic image preview could not be loaded.
     MediaPreviewFailed {
         /// Chat containing the Message.
@@ -392,12 +364,14 @@ pub enum AdapterEvent {
 use crate::domain::*;
 
 mod action_menu;
+mod bootstrap;
 mod effects;
 mod input;
 mod intents;
 mod view;
 
 pub use action_menu::*;
+pub use bootstrap::*;
 pub use effects::*;
 pub use input::*;
 pub use intents::*;

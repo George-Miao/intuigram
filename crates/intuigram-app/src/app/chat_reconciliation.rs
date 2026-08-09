@@ -89,6 +89,7 @@ impl App {
         {
             chat_view.preview.clone_from(&message.body);
             chat_view.preview_sender = Some(message.sender.clone());
+            chat_view.preview_sender_peer = message.details.sender_peer;
             chat_view.preview_timestamp.clone_from(&message.timestamp);
         }
         if self.active_chat_id() == Some(chat) {

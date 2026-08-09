@@ -47,6 +47,7 @@ fn dialog_filters_include_custom_and_shared_folders_in_server_order() {
             title: "Ada".to_owned(),
             preview: String::new(),
             preview_sender: None,
+            preview_sender_peer: None,
             preview_timestamp: String::new(),
             status: String::new(),
             unread: 5,
@@ -60,6 +61,7 @@ fn dialog_filters_include_custom_and_shared_folders_in_server_order() {
             title: "Archived".to_owned(),
             preview: String::new(),
             preview_sender: None,
+            preview_sender_peer: None,
             preview_timestamp: String::new(),
             status: String::new(),
             unread: 2,
@@ -209,6 +211,16 @@ fn live_update_exposes_operation_peers_for_new_root_chats() {
     let channel_id = ChatId(-1_001_195_461_650);
     let mut live_user = user(user_id.0, false, false);
     live_user.access_hash = Some(11);
+    live_user.photo = Some(
+        tl::types::UserProfilePhoto {
+            has_video: false,
+            personal: false,
+            photo_id: 99,
+            stripped_thumb: None,
+            dc_id: 2,
+        }
+        .into(),
+    );
     let mut live_channel = channel(false, false);
     live_channel.id = 1_195_461_650;
     live_channel.access_hash = Some(12);
@@ -227,6 +239,20 @@ fn live_update_exposes_operation_peers_for_new_root_chats() {
 
     assert!(normalized.peers.resolve(channel_id).is_ok());
     assert!(normalized.peers.resolve(user_id).is_ok());
+    assert!(
+        normalized
+            .peers
+            .avatar_peers()
+            .iter()
+            .any(|avatar| avatar.peer == user_id && avatar.id.0 == 99)
+    );
+    assert!(normalized.events.iter().any(|event| matches!(
+        event,
+        AdapterEvent::AvatarChanged {
+            peer,
+            id: Some(id),
+        } if *peer == user_id && id.0 == 99
+    )));
     assert!(normalized.events.iter().any(|event| matches!(
         event,
         AdapterEvent::ChatPinPermissionChanged {
@@ -234,6 +260,35 @@ fn live_update_exposes_operation_peers_for_new_root_chats() {
             can_pin_messages: true,
         } if *chat == channel_id
     )));
+}
+
+#[test]
+fn authoritative_peer_updates_remove_stale_avatar_revisions() {
+    let peer = ChatId(42);
+    let mut with_photo = user(peer.0, false, false);
+    with_photo.access_hash = Some(7);
+    with_photo.photo = Some(
+        tl::types::UserProfilePhoto {
+            has_video: false,
+            personal: false,
+            photo_id: 99,
+            stripped_thumb: None,
+            dc_id: 2,
+        }
+        .into(),
+    );
+    let mut directory = PeerDirectory::default();
+    directory.update(&[], &[with_photo.into()]);
+    assert_eq!(directory.avatar_peers()[0].id.0, 99);
+
+    let mut without_photo = user(peer.0, false, false);
+    without_photo.access_hash = Some(7);
+    let mut update = PeerDirectory::default();
+    update.update(&[], &[without_photo.into()]);
+    assert_eq!(update.avatar_changes(), vec![(peer, None)]);
+    directory.merge(update);
+
+    assert!(directory.avatar_peers().is_empty());
 }
 
 #[test]
