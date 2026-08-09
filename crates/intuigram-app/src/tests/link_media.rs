@@ -1,8 +1,38 @@
 use super::{apply, bootstrap};
 use crate::{
-    Action, AdapterEvent, ChatId, DownloadId, DownloadView, Effect, Input, Intent, MediaCard,
-    MediaKind, MessageId, TextEntity, TextEntityKind,
+    Action, AdapterEvent, ChatId, DownloadId, DownloadView, Effect, InlineImage, Input, Intent,
+    MediaCard, MediaKind, MediaPreviewView, MessageId, TextEntity, TextEntityKind,
 };
+
+#[test]
+fn displayed_media_previews_are_not_evicted_by_unrelated_preview_completions() {
+    let mut app = crate::App::new();
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::Bootstrap(bootstrap())),
+    );
+    let image = InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
+        .expect("fixture pixels should match their dimensions");
+
+    for message in 1..=65 {
+        apply(
+            &mut app,
+            Input::Adapter(AdapterEvent::MediaPreviewReady(MediaPreviewView {
+                chat: ChatId(10),
+                message: MessageId(message),
+                image: image.clone(),
+            })),
+        );
+    }
+
+    let view = app.view();
+    assert_eq!(view.media_previews.len(), 65);
+    assert!(
+        view.media_previews
+            .iter()
+            .any(|preview| preview.message == MessageId(1))
+    );
+}
 
 #[test]
 fn image_preview_space_is_reserved_only_while_loading() {

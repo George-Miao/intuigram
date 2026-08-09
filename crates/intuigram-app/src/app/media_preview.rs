@@ -3,7 +3,6 @@ use std::collections::VecDeque;
 use super::*;
 
 const MAX_QUEUED_PREVIEWS: usize = 8;
-const MAX_RETAINED_PREVIEWS: usize = 64;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) struct PreviewKey {
@@ -23,9 +22,6 @@ impl App {
             existing.chat != preview.chat || existing.message != preview.message
         });
         self.view.media_previews.push(preview);
-        if self.view.media_previews.len() > MAX_RETAINED_PREVIEWS {
-            self.view.media_previews.remove(0);
-        }
     }
 
     pub(super) fn queue_active_media_previews(&mut self) {

@@ -192,6 +192,47 @@ fn downloaded_photos_keep_independent_inline_previews() -> Result<()> {
 }
 
 #[test]
+fn loaded_preview_survives_redraw_scroll_and_chat_reselection() -> Result<()> {
+    let mut photo = incoming(46, "Lin", "retained preview");
+    photo.details.media = Some(MediaCard {
+        kind: MediaKind::Sticker,
+        title: "sticker.webp".to_owned(),
+        description: "image/webp".to_owned(),
+        details: Vec::new(),
+        poll: None,
+        remote_id: Some("sticker:46".to_owned()),
+    });
+    let fixture = account("Ada")
+        .with_chat(chat(10, "Rust"))
+        .with_chat(chat(20, "Design"))
+        .with_history([photo.clone()]);
+    let mut app = TestSystem::builder()
+        .name("media-retained-inline-preview")
+        .terminal(100, 40)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(fixture)
+                .expect_media_preview(10, 46)
+                .expect_load_history(20, [])
+                .expect_load_history(10, [photo]),
+        )
+        .start()?;
+
+    assert!(app.screen().rows().iter().any(|row| row.contains('▀')));
+    app.resize(120, 42)?;
+    app.press(key::DOWN)?;
+    app.press(key::UP)?;
+    app.press(key::ENTER)?;
+    app.press(key::ALT_UP)?;
+
+    let rows = app.screen().rows();
+    assert!(rows.iter().any(|row| row.contains('▀')));
+    assert!(rows.iter().all(|row| !row.contains("[sticker.webp]")));
+    assert!(rows.iter().all(|row| !row.contains("image/webp")));
+    app.expect_no_unhandled_work()
+}
+
+#[test]
 fn failed_background_channel_refresh_does_not_block_an_image_preview() -> Result<()> {
     let mut photo = incoming(43, "Lin", "channel-safe preview");
     photo.details.media = Some(MediaCard {
