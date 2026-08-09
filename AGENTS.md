@@ -145,7 +145,7 @@ Enforce owner-only permissions for authorization and Account data. Never log aut
 - Use `snafu` for error definition, propagation, and context. Each fallible module owns a module-scoped `Error` enum and `Result<T>` alias; do not create a workspace-wide catch-all error enum.
 - Add semantic context at every module seam with SNAFU context selectors and `.context(...)`. Error variants must explain the operation that failed and retain the lower-level source where useful.
 - Translate dependency and adapter errors into the owning module's error type before they cross its interface. Do not expose `rusqlite`, Compio, Telegram TL, ratatui, clipboard, or other implementation errors through unrelated module interfaces.
-- Prefer `.context(...)` over ad hoc `map_err`. Use `map_err` only when propagation requires a real value transformation that a SNAFU context selector cannot express clearly.
+- Use SNAFU `.context(...)` selectors whenever possible, and use `.with_context(...)` when constructing the selector's context should be evaluated lazily only on failure. Avoid `map_err`; use it only when propagation requires a genuine value-shape transformation that a SNAFU context selector cannot express clearly, never merely to rename or wrap an error.
 - Do not use `anyhow`, `Box<dyn Error>`, opaque string errors, or SNAFU's unstructured catch-all facilities in production interfaces. Model expected failure categories as explicit variants.
 - Do not use `unwrap` in production paths. Use `expect` only for a genuine invariant and explain that invariant in the message.
 - Use newtypes where raw integers or strings from different domains could be confused, especially Account, peer, Chat, Message, and request identifiers.
