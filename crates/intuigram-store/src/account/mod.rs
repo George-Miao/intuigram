@@ -25,6 +25,7 @@ mod security;
 mod selection;
 mod session;
 mod sync_write;
+mod topic_write;
 mod worker;
 
 use cache_read::load_cache;
@@ -37,7 +38,7 @@ pub(crate) use migration::open_and_migrate;
 use migration::read_account_id;
 pub use model::{
     CachedAccount, SessionMaterial, StoredChat, StoredDraft, StoredFolder, StoredMessage,
-    StoredMutation, StoredSelection, StoredTranscriptAnchor, SyncBatch, SyncCursor,
+    StoredMutation, StoredSelection, StoredTopic, StoredTranscriptAnchor, SyncBatch, SyncCursor,
 };
 use offline_media::{load_offline_chats, set_chat_media_offline};
 pub use security::{
@@ -47,6 +48,7 @@ pub use security::{
 use selection::save_selection;
 use session::read_session;
 use sync_write::{apply_sync_mutation, commit_sync};
+use topic_write::save_topics;
 use worker::Command;
 pub use worker::{AccountStore, DatabaseRequest};
 
@@ -292,6 +294,16 @@ pub enum Error {
     /// Normalized history or local delivery state could not be persisted.
     #[snafu(display("failed to persist normalized Message records"))]
     SaveMessages {
+        /// Underlying database failure.
+        source: rusqlite::Error,
+    },
+
+    /// One Chat's complete Topic projection could not be persisted.
+    #[snafu(display("failed to persist Topic projection for Chat {chat_id}"))]
+    SaveTopics {
+        /// Forum or topic-enabled bot Chat.
+        chat_id: i64,
+
         /// Underlying database failure.
         source: rusqlite::Error,
     },

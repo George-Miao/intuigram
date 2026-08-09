@@ -165,6 +165,7 @@ pub(crate) struct ChatTraits {
     pub(super) kind: ChatKind,
     pub(crate) status: String,
     pub(crate) can_pin_messages: bool,
+    pub(crate) has_topics: bool,
     contact: bool,
 }
 
@@ -177,12 +178,14 @@ pub(crate) fn chat_traits(
     for user in users {
         let contact = matches!(user, tl::enums::User::User(user) if user.contact);
         let kind = user_chat_kind(user, account_id);
+        let has_topics = matches!(user, tl::enums::User::User(user) if user.bot_forum_view);
         result.insert(
             ChatId(user.id()),
             ChatTraits {
                 kind,
                 status: user_status(user, kind),
                 can_pin_messages: !matches!(user, tl::enums::User::Empty(_)),
+                has_topics,
                 contact,
             },
         );
@@ -201,6 +204,7 @@ pub(crate) fn chat_traits(
                 kind: cloud_chat_kind(chat),
                 status: cloud_chat_status(chat),
                 can_pin_messages: cloud_chat_can_pin(chat),
+                has_topics: matches!(chat, tl::enums::Chat::Channel(channel) if channel.forum),
                 contact: false,
             },
         );

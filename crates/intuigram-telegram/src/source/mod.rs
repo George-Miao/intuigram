@@ -21,7 +21,7 @@ use intuigram_app::{
     AdapterEvent, AvatarRef, Bootstrap, ChatId, ChatKind, ChatView, DeliveryState,
     FolderDetailsView, FolderId, FolderRulesView, FolderView, MediaCard, MediaKind, MessageDetails,
     MessageDirection, MessageId, MessageView, PollOptionView, PollView, ReactionView, TextEntity,
-    TextEntityKind,
+    TextEntityKind, TopicAvailability,
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 
@@ -45,6 +45,7 @@ mod client_rich_media;
 mod client_scheduled;
 mod client_send;
 mod client_session;
+mod client_topics;
 mod client_vote;
 mod connection;
 mod dialog_normalization;

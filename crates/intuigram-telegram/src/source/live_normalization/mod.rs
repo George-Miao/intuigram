@@ -136,19 +136,25 @@ fn normalize_updates(
         .into_iter()
         .flat_map(|update| normalize_update(update, names))
         .collect::<Vec<_>>();
-    events.extend(chats.iter().filter_map(|chat| {
+    events.extend(chats.iter().flat_map(|chat| {
         let id = match chat {
             tl::enums::Chat::Chat(chat) => ChatId(-chat.id),
             tl::enums::Chat::Channel(chat) if !chat.min => ChatId(mark_channel_id(chat.id)),
             tl::enums::Chat::Channel(_)
             | tl::enums::Chat::Forbidden(_)
             | tl::enums::Chat::ChannelForbidden(_)
-            | tl::enums::Chat::Empty(_) => return None,
+            | tl::enums::Chat::Empty(_) => return Vec::new(),
         };
-        Some(AdapterEvent::ChatPinPermissionChanged {
-            chat: id,
-            can_pin_messages: cloud_chat_can_pin(chat),
-        })
+        vec![
+            AdapterEvent::ChatPinPermissionChanged {
+                chat: id,
+                can_pin_messages: cloud_chat_can_pin(chat),
+            },
+            AdapterEvent::ChatTopicsChanged(TopicAvailability {
+                chat: id,
+                has_topics: matches!(chat, tl::enums::Chat::Channel(channel) if channel.forum),
+            }),
+        ]
     }));
     events
 }

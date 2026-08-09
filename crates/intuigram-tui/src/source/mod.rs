@@ -15,9 +15,9 @@ use crossterm::terminal::{
 };
 use futures_util::{Stream, StreamExt};
 use intuigram_app::{
-    Action, ActivationTarget, ChatId, ChatKind, ChatLoadingState, ComposerMovement,
+    Action, ActivationTarget, ChatId, ChatKind, ChatLoadingState, ChatView, ComposerMovement,
     ConnectionState, DeliveryState, Focus, Intent, MessageDirection, MessageId, MessageView,
-    ScrollDirection, ScrollTarget, SearchScope, TextEntityKind, View,
+    ScrollDirection, ScrollTarget, SearchScope, TextEntityKind, TopicId, View,
 };
 use qrcode::render::unicode::Dense1x2;
 use qrcode::types::Color as QrColor;
@@ -47,12 +47,15 @@ mod qr_session;
 mod render_accounts;
 mod render_chrome;
 mod render_composer;
+mod render_details;
 mod render_folder_manager;
 mod render_headers;
 pub(crate) mod render_layout;
 mod render_overlays;
 mod render_rich_media;
 mod render_scheduled;
+pub(crate) mod render_text;
+mod render_topics;
 mod render_transcript;
 pub(crate) mod terminal;
 mod test_renderer;
@@ -76,6 +79,7 @@ use render_chrome::{
     render_help, selection_rule, surface_style,
 };
 use render_composer::{composer_cursor_at, composer_height, render_composer};
+use render_details::render_thread_details;
 use render_folder_manager::render_folder_manager;
 use render_headers::{render_active_chat_header, render_chat_list_header};
 use render_layout::render_with_graphics;
@@ -85,6 +89,8 @@ use render_overlays::{
 };
 use render_rich_media::render_rich_media;
 use render_scheduled::render_scheduled;
+use render_text::capped_text;
+use render_topics::render_topics;
 use render_transcript::render_transcript;
 pub use terminal::*;
 use terminal::{enter_terminal, restore_terminal};

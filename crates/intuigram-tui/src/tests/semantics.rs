@@ -12,6 +12,7 @@ fn semantic_nodes_are_generated_with_the_cells_they_describe() {
         unread: 0,
         pinned: false,
         can_pin_messages: true,
+        has_topics: false,
         kind: ChatKind::Private,
         folders: vec![0],
     }];
@@ -85,6 +86,7 @@ fn folder_membership_overlay_shows_selection_and_current_membership() {
         unread: 0,
         pinned: false,
         can_pin_messages: true,
+        has_topics: false,
         kind: ChatKind::Private,
         folders: vec![0, 2],
     }];
@@ -123,6 +125,7 @@ fn chat_list_scroll_waits_for_each_directional_cap() {
             unread: 0,
             pinned: false,
             can_pin_messages: true,
+            has_topics: false,
             kind: ChatKind::Private,
             folders: vec![0],
         })
@@ -166,6 +169,7 @@ fn transcript_scroll_keeps_the_active_message_visible() {
         unread: 0,
         pinned: false,
         can_pin_messages: true,
+        has_topics: false,
         kind: ChatKind::Private,
         folders: vec![0],
     }];
@@ -210,6 +214,7 @@ fn transcript_scroll_preserves_an_inactive_anchor() {
         unread: 0,
         pinned: false,
         can_pin_messages: true,
+        has_topics: false,
         kind: ChatKind::Private,
         folders: vec![0],
     }];
@@ -254,6 +259,7 @@ fn a_short_latest_transcript_is_anchored_above_the_composer() {
         unread: 0,
         pinned: false,
         can_pin_messages: true,
+        has_topics: false,
         kind: ChatKind::Private,
         folders: vec![0],
     }];

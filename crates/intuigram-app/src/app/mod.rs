@@ -5,6 +5,7 @@ pub struct App {
     muted_chats: HashSet<ChatId>,
     drafts: HashMap<HistoryKey, ComposerView>,
     histories: HashMap<HistoryKey, Vec<MessageView>>,
+    topic_lists: HashMap<ChatId, Vec<TopicView>>,
     pinned_histories: HashMap<ChatId, Vec<MessageView>>,
     projected_pin: bool,
     transcript_anchors: HashMap<HistoryKey, MessageId>,
@@ -62,6 +63,11 @@ impl App {
                     self.muted_chats.remove(&chat);
                 }
                 None
+            }
+            Input::Adapter(event @ AdapterEvent::TopicsLoaded(_))
+            | Input::Adapter(event @ AdapterEvent::TopicsLoadFailed(_))
+            | Input::Adapter(event @ AdapterEvent::ChatTopicsChanged(_)) => {
+                self.apply_topic_event(event)
             }
             Input::Adapter(
                 event @ (AdapterEvent::ChatMediaOfflineChanged(_)
@@ -368,6 +374,7 @@ mod editing;
 mod folder_management;
 mod folder_navigation;
 mod folder_reconciliation;
+mod history_loading;
 mod history_navigation;
 mod history_reconciliation;
 mod interface;
@@ -382,13 +389,12 @@ mod poll_vote;
 mod rich_media;
 mod scheduled;
 mod state;
+mod topic_navigation;
 mod unread;
 
 use action_availability::move_index;
 use avatar_loads::AvatarLoads;
-use history_navigation::HistoryLoads;
+use history_loading::HistoryLoads;
 use media_preview::{MediaPreviewLoads, PreviewKey};
 use offline_media::OfflineMedia;
 use state::{HistoryKey, PendingDraft, PendingPoll};
-
-const BACKGROUND_HISTORY_LIMIT: usize = 16;

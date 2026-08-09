@@ -112,3 +112,34 @@ fn reply_sent_from_channel_comments_stays_in_that_thread() -> Result<()> {
         .expect_delivery(DeliveryState::Sent)?;
     app.expect_no_unhandled_work()
 }
+
+#[test]
+fn wide_channel_comments_keep_the_parent_transcript_beside_details() -> Result<()> {
+    let mut channel = chat(10, "Intuigram News");
+    channel.kind = ChatKind::Channel;
+    let root = incoming(40, "Intuigram", "Parent release notes");
+    let mut comment = incoming(41, "Lin", "Comment details");
+    comment.reply_to = Some(MessageId(40));
+    comment.details.thread_root = Some(MessageId(40));
+
+    let mut app = TestSystem::builder()
+        .name("threads-wide-details")
+        .terminal(180, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(channel))
+                .expect_load_history(10, [root])
+                .expect_load_thread(10, 40, [comment])
+                .expect_read_thread(10, 40, 41),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.press(key::ALT_UP)?;
+    app.choose_action("Open Thread")?;
+
+    let rows = app.screen().rows();
+    assert!(rows.iter().any(|row| row.contains("Parent release notes")));
+    assert!(rows.iter().any(|row| row.contains("Comment details")));
+    app.expect_no_unhandled_work()
+}

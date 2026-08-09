@@ -82,6 +82,7 @@ impl App {
             Focus::Transcript => ("Message Actions", self.available_message_actions()),
             Focus::Composer => ("Composer Actions", self.available_composer_actions()),
             Focus::Chats => ("Chat Actions", self.available_chat_actions()),
+            Focus::Topics => ("Topic Actions", Vec::new()),
             Focus::Search => ("Actions", Vec::new()),
         };
         let items = actions

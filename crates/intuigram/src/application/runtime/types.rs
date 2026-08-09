@@ -144,11 +144,14 @@ pub(in crate::application) fn enqueue_effect(
     if matches!(effect, Effect::SaveSelection { .. }) {
         pending.retain(|pending| !matches!(pending.effect, Effect::SaveSelection { .. }));
     }
-    if matches!(effect, Effect::LoadChat { .. } | Effect::LoadThread { .. }) {
+    if matches!(
+        effect,
+        Effect::LoadChat { .. } | Effect::LoadThread { .. } | Effect::LoadTopics(_)
+    ) {
         pending.retain(|pending| {
             !matches!(
                 pending.effect,
-                Effect::LoadChat { .. } | Effect::LoadThread { .. }
+                Effect::LoadChat { .. } | Effect::LoadThread { .. } | Effect::LoadTopics(_)
             )
         });
     }

@@ -14,6 +14,7 @@ fn message_metadata_is_right_aligned_and_omits_zero_counters_except_views() {
         unread: 0,
         pinned: false,
         can_pin_messages: true,
+        has_topics: false,
         kind: ChatKind::Private,
         folders: vec![0],
     }];

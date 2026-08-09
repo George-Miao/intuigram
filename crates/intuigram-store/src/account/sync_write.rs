@@ -38,11 +38,11 @@ pub(super) fn commit_sync(connection: &Connection, batch: SyncBatch) -> Result<(
         transaction
             .execute(
                 "INSERT INTO chats(chat_id, kind, title, preview, status, unread_count, pinned, \
-                 can_pin_messages) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) ON CONFLICT(chat_id) \
-                 DO UPDATE SET kind=excluded.kind, title=excluded.title, \
+                 can_pin_messages, has_topics) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) ON \
+                 CONFLICT(chat_id) DO UPDATE SET kind=excluded.kind, title=excluded.title, \
                  preview=excluded.preview, status=excluded.status, \
                  unread_count=excluded.unread_count, pinned=excluded.pinned, \
-                 can_pin_messages=excluded.can_pin_messages",
+                 can_pin_messages=excluded.can_pin_messages, has_topics=excluded.has_topics",
                 params![
                     chat.id,
                     chat.kind,
@@ -51,7 +51,8 @@ pub(super) fn commit_sync(connection: &Connection, batch: SyncBatch) -> Result<(
                     chat.status,
                     chat.unread,
                     chat.pinned,
-                    chat.can_pin_messages
+                    chat.can_pin_messages,
+                    chat.has_topics
                 ],
             )
             .context(CommitSyncSnafu)?;
@@ -107,6 +108,15 @@ pub(super) fn apply_sync_mutation(
             connection.execute(
                 "UPDATE chats SET can_pin_messages = ?2 WHERE chat_id = ?1",
                 params![chat_id, can_pin_messages],
+            )?;
+        }
+        StoredMutation::SetChatHasTopics {
+            chat_id,
+            has_topics,
+        } => {
+            connection.execute(
+                "UPDATE chats SET has_topics = ?2 WHERE chat_id = ?1",
+                params![chat_id, has_topics],
             )?;
         }
         StoredMutation::SetMessagesPinned {

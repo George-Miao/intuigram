@@ -13,6 +13,7 @@ use crate::{AccountId, StoreLayout};
 mod lifecycle;
 mod offline_media;
 mod pinned;
+mod topics;
 
 #[test]
 fn version_three_chats_receive_safe_pin_permission_defaults() {
@@ -319,6 +320,7 @@ pub(super) fn sync_batch() -> SyncBatch {
             unread: 1,
             pinned: false,
             can_pin_messages: true,
+            has_topics: false,
             folders: vec![0],
         }],
         chat_order: Some(vec![7]),

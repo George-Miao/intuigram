@@ -28,6 +28,12 @@ pub enum AdapterEvent {
     /// One Chat's offline-media policy could not be changed.
     ChatMediaOfflineFailed(OfflineMediaFailure),
 
+    /// One forum or topic-enabled bot Chat's Topic projection loaded.
+    TopicsLoaded(TopicListView),
+
+    /// A Topic projection could not be refreshed.
+    TopicsLoadFailed(TopicLoadFailure),
+
     /// One Message's original media is protected from ordinary eviction.
     MediaCachedOffline(OfflineMediaTarget),
 
@@ -222,6 +228,8 @@ pub enum AdapterEvent {
         /// Whether Message pinning is currently permitted.
         can_pin_messages: bool,
     },
+    /// Telegram changed whether one Chat presents Topic navigation.
+    ChatTopicsChanged(TopicAvailability),
     /// A requested Chat history became available.
     ChatLoaded {
         /// Chat whose history was loaded.

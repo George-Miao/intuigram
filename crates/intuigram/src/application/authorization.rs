@@ -38,6 +38,7 @@ pub(super) async fn resume_account(
     );
     bootstrap.drafts = cached.drafts;
     bootstrap.histories = cached.histories;
+    bootstrap.topic_lists = cached.topic_lists;
     bootstrap.offline_chats = cached.offline_chats;
     let current_cursors = client
         .synchronization_cursors()

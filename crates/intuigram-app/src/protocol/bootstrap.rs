@@ -36,6 +36,9 @@ pub struct Bootstrap {
     /// Chats in the active Folder.
     pub chats: Vec<ChatView>,
 
+    /// Cached Topic lists available before Telegram reconnects.
+    pub topic_lists: Vec<TopicListView>,
+
     /// Versioned peer avatars known by the adapter.
     pub avatar_peers: Vec<AvatarRef>,
 

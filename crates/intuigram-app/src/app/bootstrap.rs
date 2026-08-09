@@ -12,8 +12,12 @@ impl App {
                 chats: Vec::new(),
                 offline_chats: Vec::new(),
                 active_chat: None,
+                topics: Vec::new(),
+                active_topic: None,
+                topics_loading: false,
                 chat_scroll_direction: ScrollDirection::Down,
                 messages: Vec::new(),
+                parent_messages: Vec::new(),
                 chat_loading: ChatLoadingState::Idle,
                 pinned_messages: Vec::new(),
                 active_message: None,
@@ -53,6 +57,7 @@ impl App {
             muted_chats: HashSet::new(),
             drafts: HashMap::new(),
             histories: HashMap::new(),
+            topic_lists: HashMap::new(),
             pinned_histories: HashMap::new(),
             projected_pin: false,
             transcript_anchors: HashMap::new(),
@@ -95,7 +100,9 @@ impl App {
                     return None;
                 } else if let Some(search) = &mut self.view.search {
                     search.query.push_str(&text);
-                } else if self.view.active_chat.is_some() && self.view.focus != Focus::Chats {
+                } else if self.view.active_chat.is_some()
+                    && !matches!(self.view.focus, Focus::Chats | Focus::Topics)
+                {
                     self.focus_composer_at_anchor();
                     self.insert_composer_text(&text);
                 }
@@ -171,6 +178,7 @@ impl App {
             .avatars
             .retain(|avatar| self.avatar_peers.get(&avatar.avatar.peer) == Some(&avatar.avatar.id));
         self.all_chats = bootstrap.chats;
+        self.replace_topic_lists(bootstrap.topic_lists);
         self.drafts = bootstrap
             .drafts
             .into_iter()
@@ -223,6 +231,7 @@ impl App {
             self.refresh_folder_chats(None);
             self.view.active_chat = None;
         }
+        self.restore_active_topics();
         self.histories = bootstrap
             .histories
             .into_iter()
@@ -318,17 +327,20 @@ impl App {
             .get(self.view.active_folder)
             .map(|folder| folder.id);
         let active_thread = self.view.active_thread;
+        let active_topic = self.active_topic_id();
         let active_message = self.active_message_id();
         let selected_messages = self.view.selected_messages.clone();
         let transcript_anchor = self.transcript_anchor_id();
         let focus = self.view.focus;
         let drafts = std::mem::take(&mut self.drafts);
         let histories = std::mem::take(&mut self.histories);
+        let topic_lists = std::mem::take(&mut self.topic_lists);
         let pinned_histories = std::mem::take(&mut self.pinned_histories);
 
         self.replace_bootstrap(bootstrap);
 
         self.drafts.extend(drafts);
+        self.topic_lists.extend(topic_lists);
         for pending in self.pending_drafts.values() {
             self.drafts.remove(&pending.history);
         }
@@ -364,6 +376,7 @@ impl App {
             })
             .or_else(|| (!self.view.chats.is_empty()).then_some(0));
         self.view.active_thread = active_thread.filter(|_| self.active_chat_id() == active_chat);
+        self.restore_reconnected_topics(active_topic);
         self.view.selected_messages = selected_messages;
         self.view.focus = focus;
         self.view.notice = None;

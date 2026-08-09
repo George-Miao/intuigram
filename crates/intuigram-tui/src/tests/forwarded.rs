@@ -14,6 +14,7 @@ fn forwarded_provenance_rule_spans_source_caption_and_media() {
         unread: 0,
         pinned: false,
         can_pin_messages: true,
+        has_topics: false,
         kind: ChatKind::Private,
         folders: vec![0],
     }];

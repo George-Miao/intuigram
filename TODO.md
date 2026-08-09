@@ -9,8 +9,6 @@
 
 ## TODO
 
-- [ ] **p-core:** Add first-class forum Topics. Opening a forum Chat shows its Topic list; each Topic keeps independent unread state, Draft, pin state, and position; General remains visible; and Channel replies open in Details or the narrow-screen navigation stack.
-- [ ] **p-core:** Add topic-enabled bot Private Chats.
 - [ ] **p-core:** Add Saved Messages 2.0 per-origin dialogs.
 - [ ] **p-core:** Add Channel direct messages backed by monoforum dialogs.
 - [ ] **p-core:** Add specialized interactive rendering for live locations, games, invoices, paid media, giveaways, gifts, shared Stories, and TODO lists.

@@ -12,6 +12,7 @@ fn unread_divider_is_rendered_immediately_before_the_boundary_message() {
         unread: 2,
         pinned: false,
         can_pin_messages: true,
+        has_topics: false,
         kind: ChatKind::Private,
         folders: vec![0],
     }];

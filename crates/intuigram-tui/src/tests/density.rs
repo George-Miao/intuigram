@@ -1,5 +1,5 @@
 use super::*;
-use crate::source::render_layout::capped_text;
+use crate::source::render_text::capped_text;
 
 #[test]
 fn chat_text_cap_counts_terminal_cells_and_keeps_three_dots_inside_the_width() {
@@ -29,6 +29,7 @@ fn compact_view_preserves_the_original_dense_layout() {
             unread: 0,
             pinned: false,
             can_pin_messages: true,
+            has_topics: false,
             kind: ChatKind::Private,
             folders: vec![0],
         },
@@ -43,6 +44,7 @@ fn compact_view_preserves_the_original_dense_layout() {
             unread: 0,
             pinned: false,
             can_pin_messages: true,
+            has_topics: false,
             kind: ChatKind::Private,
             folders: vec![0],
         },
@@ -175,6 +177,7 @@ fn responsive_view() -> View {
         unread: 0,
         pinned: false,
         can_pin_messages: true,
+        has_topics: false,
         kind: ChatKind::Private,
         folders: vec![0],
     }];

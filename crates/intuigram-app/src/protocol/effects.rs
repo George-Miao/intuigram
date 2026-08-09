@@ -137,8 +137,7 @@ pub enum Effect {
     },
     /// Persist whether one Chat's media is protected from ordinary eviction.
     SetChatMediaOffline(OfflineMediaPolicy),
-    /// Download and retain one Message's original media outside ordinary
-    /// eviction.
+    /// Retain one Message's original media outside ordinary eviction.
     CacheMediaOffline(OfflineMediaTarget),
     /// Load recent history for the selected Chat.
     LoadChat {
@@ -151,6 +150,8 @@ pub enum Effect {
         /// Complete Account-local Transcript positions to persist atomically.
         transcript_anchors: Vec<TranscriptAnchorView>,
     },
+    /// Load the complete ordered Topic projection for one Chat.
+    LoadTopics(ChatId),
     /// Persist navigation when no Chat load is needed.
     SaveSelection {
         /// Selected Telegram Folder ID.

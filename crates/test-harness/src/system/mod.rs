@@ -30,6 +30,7 @@ mod pointer;
 mod rich_media_effects;
 mod scheduled_effects;
 mod telegram_control;
+mod topic_effects;
 
 pub use builder::TestSystemBuilder;
 pub use input::{TestKey, key};

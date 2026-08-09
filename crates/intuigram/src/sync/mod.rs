@@ -305,6 +305,7 @@ fn discovered_chat(id: ChatId, preview: String, unread: u32) -> ChatView {
         unread,
         pinned: false,
         can_pin_messages: false,
+        has_topics: false,
         kind: ChatKind::Inaccessible,
         folders: vec![0],
     }
@@ -318,6 +319,10 @@ fn stored_mutation(event: &AdapterEvent) -> Option<StoredMutation> {
         } => Some(StoredMutation::SetChatPinPermission {
             chat_id: chat.0,
             can_pin_messages: *can_pin_messages,
+        }),
+        AdapterEvent::ChatTopicsChanged(availability) => Some(StoredMutation::SetChatHasTopics {
+            chat_id: availability.chat.0,
+            has_topics: availability.has_topics,
         }),
         AdapterEvent::MessagesPinChanged { chat, ids, pinned } => {
             Some(StoredMutation::SetMessagesPinned {
@@ -369,6 +374,7 @@ fn stored_chat(chat: &ChatView) -> StoredChat {
         unread: chat.unread,
         pinned: chat.pinned,
         can_pin_messages: chat.can_pin_messages,
+        has_topics: chat.has_topics,
         folders: chat.folders.clone(),
     }
 }

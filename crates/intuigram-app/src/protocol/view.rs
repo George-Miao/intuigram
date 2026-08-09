@@ -33,12 +33,24 @@ pub struct View {
     /// Active Chat index.
     pub active_chat: Option<usize>,
 
+    /// Topics for the Active Chat, in Telegram order.
+    pub topics: Vec<TopicView>,
+
+    /// Selected Topic while the Topic list is active.
+    pub active_topic: Option<usize>,
+
+    /// Whether the Active Chat's Topic projection is being refreshed.
+    pub topics_loading: bool,
+
     /// Direction of the most recent Chat-list movement, used for viewport
     /// anchoring.
     pub chat_scroll_direction: ScrollDirection,
 
     /// Loaded messages for the active Chat.
     pub messages: Vec<MessageView>,
+
+    /// Root Chat history retained beside an ordinary Thread in wide layouts.
+    pub parent_messages: Vec<MessageView>,
 
     /// Foreground loading state for the history presented in the Transcript.
     pub chat_loading: ChatLoadingState,
@@ -149,6 +161,7 @@ impl View {
     pub fn has_pending_effort(&self) -> bool {
         self.connection == ConnectionState::Connecting
             || self.chat_loading != ChatLoadingState::Idle
+            || self.topics_loading
             || self
                 .folder_manager
                 .as_ref()

@@ -81,7 +81,18 @@ fn title_and_status(
                     }
                     ChatLoadingState::Fresh => Line::from(""),
                     ChatLoadingState::Idle => {
-                        let status = if let Some(root) = view.active_thread {
+                        let status = if view.focus == Focus::Topics {
+                            if view.topics_loading {
+                                return (
+                                    Line::from(title_spans(view, chat, graphics, focused)),
+                                    Line::from(effort_spans(
+                                        "updating Topics",
+                                        view.animation_frame,
+                                    )),
+                                );
+                            }
+                            format!("{} Topics", view.topics.len())
+                        } else if let Some(root) = view.active_thread {
                             format!("Thread {}", root.0)
                         } else if !chat.status.is_empty() {
                             chat.status.clone()
@@ -91,21 +102,31 @@ fn title_and_status(
                         Line::from(Span::styled(status, Style::default().fg(MUTED_TEXT)))
                     }
                 };
-                let mut title = avatar_spans(
-                    view,
-                    Some(chat.id),
-                    &chat.title,
-                    Some(avatar_image_id(chat.id, 0x4845_4144)),
-                    graphics,
-                    focused,
-                );
-                title.push(Span::styled(
-                    chat.title.clone(),
-                    Style::default().add_modifier(Modifier::BOLD),
-                ));
+                let title = title_spans(view, chat, graphics, focused);
                 (Line::from(title), status)
             },
         )
+}
+
+fn title_spans(
+    view: &View,
+    chat: &ChatView,
+    graphics: &mut GraphicsFrame,
+    focused: bool,
+) -> Vec<Span<'static>> {
+    let mut title = avatar_spans(
+        view,
+        Some(chat.id),
+        &chat.title,
+        Some(avatar_image_id(chat.id, 0x4845_4144)),
+        graphics,
+        focused,
+    );
+    title.push(Span::styled(
+        chat.title.clone(),
+        Style::default().add_modifier(Modifier::BOLD),
+    ));
+    title
 }
 
 fn fallback_status(kind: ChatKind) -> &'static str {

@@ -11,6 +11,7 @@ mod poll;
 mod rich_media;
 mod scheduled;
 mod send;
+mod topics;
 
 use history_failure::history_failure_event;
 use poll::PollPersistence;

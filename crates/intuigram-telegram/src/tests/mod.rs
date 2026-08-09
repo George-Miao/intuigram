@@ -385,5 +385,6 @@ mod dialogs_and_peers;
 mod live_updates;
 mod media_fixtures;
 mod notifications;
+mod topics;
 
 use media_fixtures::{basic_group, channel, dc_option, user};

@@ -1,7 +1,7 @@
 use intuigram_app::{
     AccountKey, AccountView, AvatarId, AvatarRef, Bootstrap, ChatId, ChatKind, ChatView,
     ConnectionState, DeliveryState, DraftView, FolderDetailsView, FolderRulesView, FolderView,
-    MessageDetails, MessageDirection, MessageId, MessageView,
+    MessageDetails, MessageDirection, MessageId, MessageView, TopicListView,
 };
 
 #[derive(Clone, Debug)]
@@ -16,6 +16,7 @@ pub struct AccountFixture {
     drafts: Vec<DraftView>,
     muted_chats: Vec<ChatId>,
     avatar_peers: Vec<AvatarRef>,
+    topic_lists: Vec<TopicListView>,
 }
 
 impl AccountFixture {
@@ -98,6 +99,20 @@ impl AccountFixture {
         self
     }
 
+    /// Seeds one cached Topic projection.
+    #[must_use]
+    pub fn with_topics(
+        mut self,
+        chat: i64,
+        topics: impl IntoIterator<Item = intuigram_app::TopicView>,
+    ) -> Self {
+        self.topic_lists.push(TopicListView {
+            chat: ChatId(chat),
+            topics: topics.into_iter().collect(),
+        });
+        self
+    }
+
     pub(crate) fn into_bootstrap(self) -> Bootstrap {
         Bootstrap {
             connection: ConnectionState::Connected,
@@ -111,6 +126,7 @@ impl AccountFixture {
             transcript_anchors: Vec::new(),
             folders: self.folders,
             chats: self.chats,
+            topic_lists: self.topic_lists,
             avatar_peers: self.avatar_peers,
             messages: self.messages,
             pinned_messages: Vec::new(),
@@ -149,6 +165,7 @@ pub fn account(name: impl Into<String>) -> AccountFixture {
         drafts: Vec::new(),
         muted_chats: Vec::new(),
         avatar_peers: Vec::new(),
+        topic_lists: Vec::new(),
     }
 }
 
@@ -165,6 +182,7 @@ pub fn chat(id: i64, title: impl Into<String>) -> ChatView {
         unread: 0,
         pinned: false,
         can_pin_messages: true,
+        has_topics: false,
         kind: ChatKind::Private,
         folders: vec![0],
     }

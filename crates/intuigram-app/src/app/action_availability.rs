@@ -248,6 +248,14 @@ impl App {
                     actions.push(Action::ManageFolderLifecycle);
                 }
             }
+            Focus::Topics => {
+                actions.extend([
+                    Action::MoveUp,
+                    Action::MoveDown,
+                    Action::Open,
+                    Action::Cancel,
+                ]);
+            }
             Focus::Transcript => {
                 actions.extend([
                     Action::NavigatePinned,

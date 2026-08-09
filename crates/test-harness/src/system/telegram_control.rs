@@ -12,7 +12,7 @@ use snafu::ResultExt;
 
 use super::TestSystem;
 use crate::error::{Error, Result, SyncSnafu};
-use crate::telegram::AccountFixture;
+use crate::telegram::{AccountFixture, ScenarioMismatch};
 
 /// Explicit Telegram events and completions available to behavior scenarios.
 pub struct TelegramControl<'a> {
@@ -105,6 +105,16 @@ impl TelegramControl<'_> {
         self.system.application.handle_adapter(event);
         self.system.render();
         self.system.drain_effects()
+    }
+}
+
+impl TestSystem {
+    pub(super) fn scenario_error(&self, error: ScenarioMismatch) -> Error {
+        Error::TelegramMismatch {
+            expected: error.expected,
+            observed: error.observed,
+            artifact: self.trace.borrow().persist(),
+        }
     }
 }
 

@@ -104,4 +104,17 @@ impl TelegramScenario {
         });
         self
     }
+
+    #[must_use]
+    pub fn expect_load_topics(
+        mut self,
+        chat: i64,
+        topics: impl IntoIterator<Item = TopicView>,
+    ) -> Self {
+        self.expected.push_back(ExpectedCommand::LoadTopics {
+            chat: ChatId(chat),
+            topics: topics.into_iter().collect(),
+        });
+        self
+    }
 }

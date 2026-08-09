@@ -33,6 +33,11 @@ pub(super) enum Command {
         keep: bool,
         reply: SyncSender<Result<()>>,
     },
+    SaveTopics {
+        chat: i64,
+        topics: Vec<StoredTopic>,
+        reply: SyncSender<Result<()>>,
+    },
     CommitSyncAsync {
         batch: Box<SyncBatch>,
         reply: AsyncReply<()>,
@@ -52,6 +57,11 @@ pub(super) enum Command {
     },
     SaveMessagesAsync {
         messages: Vec<StoredMessage>,
+        reply: AsyncReply<()>,
+    },
+    SaveTopicsAsync {
+        chat: i64,
+        topics: Vec<StoredTopic>,
         reply: AsyncReply<()>,
     },
     ReplaceMessageAsync {
@@ -189,6 +199,19 @@ impl AccountStore {
         let (reply, request) = async_response();
         self.commands
             .try_send(Command::SaveMessagesAsync { messages, reply })
+            .map_err(map_try_send_error)?;
+        Ok(request)
+    }
+
+    /// Atomically replaces one Chat's complete ordered Topic projection.
+    pub fn save_topics(&self, chat: i64, topics: Vec<StoredTopic>) -> Result<DatabaseRequest<()>> {
+        let (reply, request) = async_response();
+        self.commands
+            .try_send(Command::SaveTopicsAsync {
+                chat,
+                topics,
+                reply,
+            })
             .map_err(map_try_send_error)?;
         Ok(request)
     }

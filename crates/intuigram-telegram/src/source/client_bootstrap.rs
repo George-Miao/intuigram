@@ -83,6 +83,7 @@ impl Client {
                         can_pin_messages: traits
                             .get(&chat_id)
                             .is_some_and(|traits| traits.can_pin_messages),
+                        has_topics: traits.get(&chat_id).is_some_and(|traits| traits.has_topics),
                         kind: traits
                             .get(&chat_id)
                             .map_or(ChatKind::Inaccessible, |traits| traits.kind),
@@ -121,6 +122,7 @@ impl Client {
             folders,
             folder_details,
             chats: chat_views,
+            topic_lists: Vec::new(),
             avatar_peers: self.peers.avatar_peers(),
             messages: initial_messages,
             pinned_messages: Vec::new(),

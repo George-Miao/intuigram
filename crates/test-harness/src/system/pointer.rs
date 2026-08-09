@@ -18,6 +18,7 @@ impl TestSystem {
         let frame = render_test_frame(self.application.view(), self.terminal.0, self.terminal.1);
         let role = match target {
             ScrollTarget::Chats => SemanticRole::ChatList,
+            ScrollTarget::Topics => SemanticRole::TopicList,
             ScrollTarget::Transcript => SemanticRole::Transcript,
         };
         let Some(bounds) = frame

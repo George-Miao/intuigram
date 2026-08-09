@@ -13,7 +13,7 @@ use super::TestSystem;
 use super::downloads::ONE_PIXEL_PNG;
 use super::telegram_control::block_on;
 use crate::error::{Error, Result, StoreSnafu};
-use crate::telegram::{ObservedSend, ScenarioMismatch};
+use crate::telegram::ObservedSend;
 
 impl TestSystem {
     pub(super) fn drain_effects(&mut self) -> Result<()> {
@@ -82,6 +82,7 @@ impl TestSystem {
                         messages,
                     });
                 }
+                Effect::LoadTopics(chat) => self.handle_topic_load(chat)?,
                 Effect::ReadThread { chat, root, max_id } => {
                     self.telegram
                         .read_thread(chat, root, max_id)
@@ -388,13 +389,5 @@ impl TestSystem {
             self.render();
         }
         Ok(())
-    }
-
-    pub(super) fn scenario_error(&self, error: ScenarioMismatch) -> Error {
-        Error::TelegramMismatch {
-            expected: error.expected,
-            observed: error.observed,
-            artifact: self.trace.borrow().persist(),
-        }
     }
 }

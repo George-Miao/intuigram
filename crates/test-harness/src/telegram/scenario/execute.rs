@@ -1,4 +1,4 @@
-use intuigram_app::{ChatId, MessageId, MessageView};
+use intuigram_app::{ChatId, MessageId, MessageView, TopicView};
 
 use super::{
     ExpectedCommand, HeldSend, HistoryResult, ObservedSend, ScenarioMismatch, TelegramScenario,
@@ -40,6 +40,18 @@ impl TelegramScenario {
                 root: expected_root,
                 messages,
             } if expected_chat == chat && expected_root == root => Ok(messages),
+            expected => Err(mismatch(expected, observed)),
+        }
+    }
+
+    pub fn load_topics(&mut self, chat: ChatId) -> Result<Vec<TopicView>, ScenarioMismatch> {
+        let observed = format!("load Topics for Chat {}", chat.0);
+        let expected = self.next_expected(&observed)?;
+        match expected {
+            ExpectedCommand::LoadTopics {
+                chat: expected_chat,
+                topics,
+            } if expected_chat == chat => Ok(topics),
             expected => Err(mismatch(expected, observed)),
         }
     }

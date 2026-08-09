@@ -46,10 +46,41 @@ pub(super) fn cached_bootstrap(
             unread: chat.unread,
             pinned: chat.pinned,
             can_pin_messages: chat.can_pin_messages,
+            has_topics: chat.has_topics,
             kind: stored_chat_kind(&chat.kind),
             folders: chat.folders,
         })
         .collect::<Vec<_>>();
+    let mut grouped_topics = BTreeMap::<i64, Vec<TopicView>>::new();
+    for topic in cached.topics {
+        grouped_topics
+            .entry(topic.chat_id)
+            .or_default()
+            .push(TopicView {
+                id: TopicId(topic.id),
+                title: topic.title,
+                preview: topic.preview,
+                timestamp: topic.timestamp,
+                unread: topic.unread,
+                pinned: topic.pinned,
+                closed: topic.closed,
+                hidden: topic.hidden,
+                icon_color: topic.icon_color,
+                icon_emoji_id: topic.icon_emoji_id,
+                top_message: topic.top_message_id.map(MessageId),
+                draft: topic.draft_text.map(|text| TopicDraftView {
+                    text,
+                    reply_to: topic.draft_reply_to.map(MessageId),
+                }),
+            });
+    }
+    let topic_lists = grouped_topics
+        .into_iter()
+        .map(|(chat, topics)| TopicListView {
+            chat: ChatId(chat),
+            topics,
+        })
+        .collect();
     let mut grouped = BTreeMap::<(i64, Option<i64>), Vec<MessageView>>::new();
     for message in cached.messages {
         grouped
@@ -121,6 +152,7 @@ pub(super) fn cached_bootstrap(
         transcript_anchors,
         folders,
         chats,
+        topic_lists,
         avatar_peers: Vec::new(),
         messages,
         pinned_messages,

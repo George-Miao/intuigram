@@ -118,6 +118,17 @@ pub(super) fn render_main(
         }
         return;
     }
+    if render_thread_details(
+        frame,
+        area,
+        view,
+        options,
+        semantics,
+        graphics,
+        chat_viewport,
+    ) {
+        return;
+    }
     let columns = if area.width >= 140 {
         Layout::horizontal([
             Constraint::Length(40),
@@ -318,29 +329,6 @@ pub(super) fn render_chats(
     frame.render_widget(List::new(items).style(surface_style(focused)), items_area);
 }
 
-pub(crate) fn capped_text(text: &str, max_width: usize) -> String {
-    if Line::from(text).width() <= max_width {
-        return text.to_owned();
-    }
-    const SUFFIX: &str = "...";
-    if max_width <= SUFFIX.len() {
-        return ".".repeat(max_width);
-    }
-    let content_width = max_width - SUFFIX.len();
-    let mut result = String::new();
-    let mut width = 0_usize;
-    for character in text.chars() {
-        let character_width = Line::from(character.to_string()).width();
-        if width.saturating_add(character_width) > content_width {
-            break;
-        }
-        result.push(character);
-        width = width.saturating_add(character_width);
-    }
-    result.push_str(SUFFIX);
-    result
-}
-
 pub(super) fn render_active_chat(
     frame: &mut Frame<'_>,
     area: Rect,
@@ -350,6 +338,16 @@ pub(super) fn render_active_chat(
     graphics: &mut GraphicsFrame,
 ) {
     let mode = options.mode;
+    if view.focus == Focus::Topics {
+        let rows = Layout::vertical([
+            Constraint::Length(mode.active_chat_header_height()),
+            Constraint::Min(1),
+        ])
+        .split(area);
+        render_active_chat_header(frame, rows[0], view, mode, true, graphics);
+        render_topics(frame, rows[1], view, mode, semantics);
+        return;
+    }
     let composer_height = composer_height(area, view);
     let rows = Layout::vertical([
         Constraint::Length(mode.active_chat_header_height()),
@@ -362,7 +360,7 @@ pub(super) fn render_active_chat(
         rows[0],
         view,
         mode,
-        view.focus == Focus::Transcript,
+        matches!(view.focus, Focus::Transcript | Focus::Composer),
         graphics,
     );
     render_transcript(

@@ -24,14 +24,15 @@ use intuigram_app::{
     MediaKind, MediaPreviewView, MessageDetails, MessageDirection, MessageId, MessageView,
     PollOptionView, PollView, RichMediaItemId, RichMediaItemView, RichMediaLibraryKind,
     RichMediaUploadKind, ScheduledDeliveryView, ScheduledMessageId, ScheduledMessageView,
-    ScheduledRequest, SelectionView, TextEntity, TranscriptAnchorView, Update,
+    ScheduledRequest, SelectionView, TextEntity, TopicDraftView, TopicId, TopicListView,
+    TopicLoadFailure, TopicView, TranscriptAnchorView, Update,
 };
 use intuigram_config::{
     Config, ConfigLoader, Overrides, PlatformDefaults, ViewMode as ConfigViewMode,
 };
 use intuigram_store::{
     AccountCipher, AccountDatabase, AccountId, AccountOpen, AccountRecord, AccountStore,
-    CachedAccount, GlobalDatabase, SessionMaterial, StoreLayout,
+    CachedAccount, GlobalDatabase, SessionMaterial, StoreLayout, StoredTopic,
 };
 use intuigram_telegram::{
     ApplicationCredentials, AuthorizedUser, Client, CodeRequest, CodeSignIn, FolderRules,

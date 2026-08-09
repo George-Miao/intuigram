@@ -12,6 +12,7 @@ pub(super) fn load_cache(connection: &Connection) -> Result<CachedAccount> {
             .collect::<std::result::Result<_, _>>()
             .context(LoadCacheSnafu)?;
     }
+    let topics = load_topics(connection)?;
     let messages = load_messages(connection)?;
     let pinned_messages = load_pinned_messages(connection)?;
     let drafts = load_drafts(connection)?;
@@ -36,6 +37,7 @@ pub(super) fn load_cache(connection: &Connection) -> Result<CachedAccount> {
         cursors,
         folders,
         chats,
+        topics,
         messages,
         pinned_messages,
         drafts,
@@ -103,8 +105,9 @@ pub(super) fn load_folders(connection: &Connection) -> Result<Vec<StoredFolder>>
 pub(super) fn load_chats(connection: &Connection) -> Result<Vec<StoredChat>> {
     let mut statement = connection
         .prepare(
-            "SELECT chat_id, kind, title, preview, status, unread_count, pinned, can_pin_messages \
-             FROM chats ORDER BY position IS NULL, position, pinned DESC, chat_id DESC",
+            "SELECT chat_id, kind, title, preview, status, unread_count, pinned, \
+             can_pin_messages, has_topics FROM chats ORDER BY position IS NULL, position, pinned \
+             DESC, chat_id DESC",
         )
         .context(LoadCacheSnafu)?;
     statement
@@ -119,7 +122,40 @@ pub(super) fn load_chats(connection: &Connection) -> Result<Vec<StoredChat>> {
                 unread: u32::try_from(unread).unwrap_or(0),
                 pinned: row.get(6)?,
                 can_pin_messages: row.get(7)?,
+                has_topics: row.get(8)?,
                 folders: Vec::new(),
+            })
+        })
+        .context(LoadCacheSnafu)?
+        .collect::<std::result::Result<_, _>>()
+        .context(LoadCacheSnafu)
+}
+
+pub(super) fn load_topics(connection: &Connection) -> Result<Vec<StoredTopic>> {
+    let mut statement = connection
+        .prepare(
+            "SELECT chat_id, topic_id, title, preview, timestamp, unread_count, pinned, closed, \
+             hidden, icon_color, icon_emoji_id, top_message_id, draft_text, \
+             draft_reply_to_message_id FROM topics ORDER BY chat_id, position",
+        )
+        .context(LoadCacheSnafu)?;
+    statement
+        .query_map([], |row| {
+            Ok(StoredTopic {
+                chat_id: row.get(0)?,
+                id: row.get(1)?,
+                title: row.get(2)?,
+                preview: row.get(3)?,
+                timestamp: row.get(4)?,
+                unread: u32::try_from(row.get::<_, i64>(5)?).unwrap_or(0),
+                pinned: row.get(6)?,
+                closed: row.get(7)?,
+                hidden: row.get(8)?,
+                icon_color: u32::try_from(row.get::<_, i64>(9)?).unwrap_or(0),
+                icon_emoji_id: row.get(10)?,
+                top_message_id: row.get(11)?,
+                draft_text: row.get(12)?,
+                draft_reply_to: row.get(13)?,
             })
         })
         .context(LoadCacheSnafu)?

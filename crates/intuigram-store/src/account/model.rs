@@ -111,8 +111,57 @@ pub struct StoredChat {
     /// Whether current server rights permit pinning Messages.
     pub can_pin_messages: bool,
 
+    /// Whether opening this Chat descends through a Topic list.
+    pub has_topics: bool,
+
     /// Folder IDs in which the Chat appears.
     pub folders: Vec<i32>,
+}
+
+/// Store-owned normalized forum Topic record.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StoredTopic {
+    /// Owning Chat.
+    pub chat_id: i64,
+
+    /// Stable Topic identity and root Message.
+    pub id: i64,
+
+    /// Display title.
+    pub title: String,
+
+    /// Latest Message fallback.
+    pub preview: String,
+
+    /// Latest Message timestamp.
+    pub timestamp: String,
+
+    /// Topic-local unread count.
+    pub unread: u32,
+
+    /// Telegram pin state.
+    pub pinned: bool,
+
+    /// Whether posting is closed.
+    pub closed: bool,
+
+    /// Whether General is hidden by Telegram.
+    pub hidden: bool,
+
+    /// Telegram RGB icon color.
+    pub icon_color: u32,
+
+    /// Custom emoji icon, when any.
+    pub icon_emoji_id: Option<i64>,
+
+    /// Latest Message identity, when any.
+    pub top_message_id: Option<i64>,
+
+    /// Server Draft text, when any.
+    pub draft_text: Option<String>,
+
+    /// Server Draft reply target, when any.
+    pub draft_reply_to: Option<i64>,
 }
 
 /// Store-owned normalized Message record.
@@ -162,6 +211,15 @@ pub enum StoredMutation {
 
         /// Current effective permission.
         can_pin_messages: bool,
+    },
+
+    /// Change whether opening one Chat descends through a Topic list.
+    SetChatHasTopics {
+        /// Owning Chat.
+        chat_id: i64,
+
+        /// Current Telegram feature state.
+        has_topics: bool,
     },
 
     /// Change pinned state for Message IDs in one Chat.
@@ -292,6 +350,9 @@ pub struct CachedAccount {
 
     /// Cached Chats.
     pub chats: Vec<StoredChat>,
+
+    /// Cached ordered Topic projections.
+    pub topics: Vec<StoredTopic>,
 
     /// Cached Messages.
     pub messages: Vec<StoredMessage>,

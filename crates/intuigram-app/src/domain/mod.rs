@@ -7,6 +7,7 @@ mod message;
 mod offline_media;
 mod rich_media;
 mod scheduled;
+mod topic;
 
 pub use account::*;
 pub use folder::*;
@@ -17,6 +18,7 @@ pub use message::*;
 pub use offline_media::*;
 pub use rich_media::*;
 pub use scheduled::*;
+pub use topic::*;
 
 /// Stable identifier for a Telegram chat.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -77,6 +79,8 @@ pub enum ChatLoadingState {
 pub enum Focus {
     /// Chat list.
     Chats,
+    /// Topic list nested inside a forum or topic-enabled bot Chat.
+    Topics,
     /// Active Chat transcript.
     Transcript,
     /// Message Draft editor.
@@ -140,6 +144,9 @@ pub enum ActivationTarget {
     /// Select a Chat while retaining Chat-list interaction.
     Chat(ChatId),
 
+    /// Select one Topic while retaining Topic-list interaction.
+    Topic(TopicId),
+
     /// Select a Message and descend to Transcript interaction.
     Message(MessageId),
 
@@ -152,6 +159,9 @@ pub enum ActivationTarget {
 pub enum ScrollTarget {
     /// The active Folder's Chat list.
     Chats,
+
+    /// The Active Chat's Topic list.
+    Topics,
 
     /// The active Chat's Transcript.
     Transcript,
@@ -224,6 +234,9 @@ pub struct ChatView {
 
     /// Whether current Telegram rights permit pinning Messages in this Chat.
     pub can_pin_messages: bool,
+
+    /// Whether opening this Chat descends through a Topic list.
+    pub has_topics: bool,
 
     /// Normalized cloud Chat category.
     pub kind: ChatKind,

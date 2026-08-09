@@ -68,8 +68,22 @@ impl App {
                 Some(Effect::Reconnect)
             }
             Action::Reconnect => None,
-            Action::MoveUp => self.move_chat(false),
-            Action::MoveDown => self.move_chat(true),
+            Action::MoveUp => {
+                if self.view.focus == Focus::Topics {
+                    self.move_topic(false);
+                    None
+                } else {
+                    self.move_chat(false)
+                }
+            }
+            Action::MoveDown => {
+                if self.view.focus == Focus::Topics {
+                    self.move_topic(true);
+                    None
+                } else {
+                    self.move_chat(true)
+                }
+            }
             Action::PreviousFolder => self.move_folder(false),
             Action::NextFolder => self.move_folder(true),
             Action::ManageFolders => {
@@ -112,7 +126,13 @@ impl App {
             | Action::ConfirmAccountOperation => None,
             Action::ToggleFolderMembership => None,
             Action::Open => {
+                if self.view.focus == Focus::Topics {
+                    return self.open_active_topic();
+                }
                 if let Some(chat) = self.active_chat_id() {
+                    if self.active_chat_has_topics() {
+                        return self.open_topics(chat);
+                    }
                     self.focus_composer_at_anchor();
                     self.queue_active_media_previews();
                     self.queue_visible_avatars();
@@ -244,11 +264,15 @@ impl App {
                 } else if self.view.focus == Focus::Transcript {
                     self.focus_composer_at_anchor();
                 } else if self.view.focus == Focus::Composer {
-                    if self.view.active_thread.is_some() {
+                    if self.view.active_topic.is_some() {
+                        self.leave_topic();
+                    } else if self.view.active_thread.is_some() {
                         self.leave_thread();
                     } else {
                         self.view.focus = Focus::Chats;
                     }
+                } else if self.view.focus == Focus::Topics {
+                    self.view.focus = Focus::Chats;
                 }
                 None
             }

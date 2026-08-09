@@ -104,6 +104,13 @@ pub(super) fn run_worker(
             } => {
                 let _ = reply.send(set_chat_media_offline(&connection, chat_id, keep));
             }
+            Command::SaveTopics {
+                chat,
+                topics,
+                reply,
+            } => {
+                let _ = reply.send(save_topics(&connection, chat, topics));
+            }
             Command::CommitSyncAsync { batch, reply } => {
                 reply.finish(commit_sync(&connection, *batch));
             }
@@ -122,6 +129,13 @@ pub(super) fn run_worker(
             }
             Command::SaveMessagesAsync { messages, reply } => {
                 reply.finish(save_messages(&connection, messages));
+            }
+            Command::SaveTopicsAsync {
+                chat,
+                topics,
+                reply,
+            } => {
+                reply.finish(save_topics(&connection, chat, topics));
             }
             Command::ReplaceMessageAsync {
                 chat,

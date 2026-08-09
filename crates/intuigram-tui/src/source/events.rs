@@ -16,6 +16,12 @@ pub enum SemanticRole {
     /// One Chat-list entry.
     Chat,
 
+    /// One forum Topic entry.
+    Topic,
+
+    /// The Active Chat's Topic list.
+    TopicList,
+
     /// The scrollable Transcript region.
     Transcript,
 

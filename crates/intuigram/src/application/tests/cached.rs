@@ -55,8 +55,10 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
             unread: 1,
             pinned: false,
             can_pin_messages: true,
+            has_topics: false,
             folders: vec![0],
         }],
+        topics: Vec::new(),
         messages: vec![encode_stored_message(ChatId(7), &message)],
         pinned_messages: vec![encode_stored_message(ChatId(7), &old_pin)],
         drafts: vec![StoredDraft {
