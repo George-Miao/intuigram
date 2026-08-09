@@ -5,6 +5,7 @@ mod download;
 mod effects;
 mod folders;
 mod history_failure;
+mod location;
 mod message_actions;
 mod pins;
 mod poll;

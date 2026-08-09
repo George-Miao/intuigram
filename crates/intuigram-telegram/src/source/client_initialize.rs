@@ -22,6 +22,7 @@ impl Client {
         let tl::enums::Config::Config(config) = config;
         ensure_production_environment(config.test_mode)?;
         self.data_centers = direct_data_centers(config.dc_options);
+        self.venue_search_username = config.venue_search_username;
         Ok(())
     }
 

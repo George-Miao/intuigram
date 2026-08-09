@@ -1,3 +1,5 @@
+use super::PlaceView;
+
 /// Telegram-owned library selected from the Composer.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RichMediaLibraryKind {
@@ -117,5 +119,21 @@ pub enum RichMediaComposerMode {
 
         /// Optional contact last name.
         last_name: String,
+    },
+    /// Explicit coordinates or a direct supported map URL.
+    StaticLocation {
+        /// Coordinate or map URL being validated.
+        input: String,
+    },
+    /// Telegram place search and its normalized results.
+    PlaceSearch {
+        /// Human-readable venue query.
+        query: String,
+
+        /// Optional explicit coordinate or supported map URL bias.
+        near: String,
+
+        /// Current normalized venue results.
+        results: Vec<PlaceView>,
     },
 }

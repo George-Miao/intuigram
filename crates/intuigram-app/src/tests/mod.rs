@@ -363,6 +363,7 @@ mod clipboard;
 mod history_loading;
 mod history_loading_fixtures;
 mod link_media;
+mod location;
 mod messaging;
 mod offline_media;
 mod reconciliation;

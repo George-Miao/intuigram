@@ -66,6 +66,8 @@ impl App {
             Input::Adapter(
                 event @ (AdapterEvent::RichMediaLibraryReady { .. }
                 | AdapterEvent::RichMediaLibraryFailed(_)
+                | AdapterEvent::PlaceSearchReady { .. }
+                | AdapterEvent::PlaceSearchFailed { .. }
                 | AdapterEvent::RichMediaAcknowledged { .. }
                 | AdapterEvent::RichMediaFailed { .. }),
             ) => {
@@ -363,6 +365,7 @@ mod history_navigation;
 mod history_reconciliation;
 mod interface;
 mod link_media;
+mod location;
 mod media_preview;
 mod message_selection;
 mod messaging;

@@ -25,7 +25,12 @@ pub(super) fn render_rich_media(frame: &mut Frame<'_>, area: Rect, view: &View) 
     };
     let popup = centered_rect(68, 55, area);
     let heading = if composer.pending {
-        Line::from(effort_spans("Loading media", view.animation_frame))
+        let label = if matches!(composer.mode, RichMediaComposerMode::PlaceSearch { .. }) {
+            "Searching places"
+        } else {
+            "Loading media"
+        };
+        Line::from(effort_spans(label, view.animation_frame))
     } else {
         Line::from(Span::styled(
             title(&composer.mode),
@@ -43,6 +48,8 @@ pub(super) fn render_rich_media(frame: &mut Frame<'_>, area: Rect, view: &View) 
                 "Voice message",
                 "Video note",
                 "Contact",
+                "Location",
+                "Place search",
             ]
             .into_iter()
             .enumerate()
@@ -94,6 +101,34 @@ pub(super) fn render_rich_media(frame: &mut Frame<'_>, area: Rect, view: &View) 
             lines.push(field_line(composer.selected == 1, "First name", first_name));
             lines.push(field_line(composer.selected == 2, "Last name", last_name));
         }
+        RichMediaComposerMode::StaticLocation { input } => {
+            lines.push(field_line(composer.selected == 0, "Coordinates", input));
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                "Enter latitude, longitude or a direct Apple, Google, or OpenStreetMap URL.",
+                Style::default().fg(MUTED_TEXT),
+            )));
+        }
+        RichMediaComposerMode::PlaceSearch {
+            query,
+            near,
+            results,
+        } => {
+            lines.push(field_line(composer.selected == 0, "Search", query));
+            lines.push(field_line(composer.selected == 1, "Near", near));
+            for (index, place) in results.iter().enumerate() {
+                lines.push(selected_line(
+                    composer.selected == index + 2,
+                    &format!("{} · {}", place.title, place.address),
+                ));
+            }
+            if results.is_empty() && !composer.pending {
+                lines.push(Line::from(Span::styled(
+                    "Near is optional and only accepts an explicit coordinate or direct map URL.",
+                    Style::default().fg(MUTED_TEXT),
+                )));
+            }
+        }
     }
     render_overlays::render_overlay(frame, popup, lines);
     render_cursor(frame, popup, composer);
@@ -110,6 +145,8 @@ fn title(mode: &RichMediaComposerMode) -> &'static str {
         RichMediaComposerMode::File { .. } => "Send local file",
         RichMediaComposerMode::Recording { kind, .. } => upload_kind(*kind),
         RichMediaComposerMode::Contact { .. } => "Send contact",
+        RichMediaComposerMode::StaticLocation { .. } => "Send location",
+        RichMediaComposerMode::PlaceSearch { .. } => "Search places",
     }
 }
 
@@ -146,6 +183,9 @@ fn render_cursor(frame: &mut Frame<'_>, popup: Rect, composer: &RichMediaCompose
         (RichMediaComposerMode::Contact { phone, .. }, 0) => Some(phone),
         (RichMediaComposerMode::Contact { first_name, .. }, 1) => Some(first_name),
         (RichMediaComposerMode::Contact { last_name, .. }, 2) => Some(last_name),
+        (RichMediaComposerMode::StaticLocation { input }, 0) => Some(input),
+        (RichMediaComposerMode::PlaceSearch { query, .. }, 0) => Some(query),
+        (RichMediaComposerMode::PlaceSearch { near, .. }, 1) => Some(near),
         _ => None,
     };
     let Some(value) = value else { return };

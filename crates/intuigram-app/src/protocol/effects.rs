@@ -9,6 +9,43 @@ pub enum Effect {
     RefreshFolders,
     /// Load recent or saved Telegram media for Composer selection.
     BrowseRichMedia { kind: RichMediaLibraryKind },
+    /// Search Telegram's configured venue provider around an optional point.
+    SearchPlaces {
+        chat: ChatId,
+
+        query: String,
+
+        near: Option<GeoPointView>,
+    },
+    /// Send one validated static coordinate.
+    SendStaticLocation {
+        chat: ChatId,
+
+        point: GeoPointView,
+
+        local_id: MessageId,
+
+        reply_to: Option<MessageId>,
+
+        thread_root: Option<MessageId>,
+
+        saved_peer: Option<ChatId>,
+    },
+    /// Send one normalized place result without relying on an ephemeral result
+    /// ID.
+    SendVenue {
+        chat: ChatId,
+
+        venue: PlaceView,
+
+        local_id: MessageId,
+
+        reply_to: Option<MessageId>,
+
+        thread_root: Option<MessageId>,
+
+        saved_peer: Option<ChatId>,
+    },
     /// Send a previously browsed Telegram media item.
     SendLibraryMedia {
         chat: ChatId,

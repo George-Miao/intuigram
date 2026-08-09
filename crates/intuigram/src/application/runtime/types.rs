@@ -77,6 +77,8 @@ impl AdapterEffect {
                 | Effect::SendRichMediaFile { .. }
                 | Effect::RecordRichMedia { .. }
                 | Effect::SendContact { .. }
+                | Effect::SendStaticLocation { .. }
+                | Effect::SendVenue { .. }
                 | Effect::ScheduledOperation { .. }
         ) {
             let mut bytes = [0_u8; 8];

@@ -78,7 +78,7 @@ impl App {
         }
         if let Some(composer) = &self.view.rich_media {
             if composer.pending {
-                self.view.actions = vec![Action::Quit];
+                self.view.actions = vec![Action::Quit, Action::Cancel];
                 return;
             }
             let mut actions = vec![
@@ -99,6 +99,10 @@ impl App {
                 RichMediaComposerMode::Contact {
                     phone, first_name, ..
                 } => !phone.trim().is_empty() && !first_name.trim().is_empty(),
+                RichMediaComposerMode::StaticLocation { input } => !input.trim().is_empty(),
+                RichMediaComposerMode::PlaceSearch { query, results, .. } => {
+                    composer.selected >= 2 || (!query.trim().is_empty() && results.is_empty())
+                }
             };
             if can_choose {
                 actions.push(Action::ChooseRichMedia);

@@ -10,6 +10,7 @@ use super::fixture::AccountFixture;
 mod channel_direct;
 mod execute;
 mod expectations;
+mod location;
 mod message_actions;
 mod specialized;
 

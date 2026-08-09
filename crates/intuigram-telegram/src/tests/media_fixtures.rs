@@ -99,7 +99,7 @@ fn text_entities(text: &str) -> tl::enums::TextWithEntities {
     .into()
 }
 
-pub(super) fn user(id: i64, is_self: bool, bot: bool) -> tl::types::User {
+pub(crate) fn user(id: i64, is_self: bool, bot: bool) -> tl::types::User {
     tl::types::User {
         is_self,
         contact: false,

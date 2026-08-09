@@ -10,6 +10,9 @@ impl Backend {
     ) -> Result<Option<AdapterEvent>> {
         let AdapterEffect { effect, random_id } = effect;
         match effect {
+            effect @ (Effect::SearchPlaces { .. }
+            | Effect::SendStaticLocation { .. }
+            | Effect::SendVenue { .. }) => self.execute_location(effect, random_id).await.map(Some),
             effect @ (Effect::BrowseRichMedia { .. }
             | Effect::SendLibraryMedia { .. }
             | Effect::SendRichMediaFile { .. }

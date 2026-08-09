@@ -21,7 +21,7 @@ fn library_loading_and_send_failure_remain_typed_application_state() {
             kind: RichMediaLibraryKind::Stickers,
         })
     );
-    assert_eq!(loading.view.actions, vec![Action::Quit]);
+    assert_eq!(loading.view.actions, vec![Action::Quit, Action::Cancel]);
 
     apply(
         &mut app,

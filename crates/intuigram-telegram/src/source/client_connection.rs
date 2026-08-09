@@ -86,6 +86,8 @@ impl Client {
             names: HashMap::new(),
             channel_pts: HashMap::new(),
             data_centers: HashMap::new(),
+            venue_search_username: None,
+            venue_search_bot: None,
         };
         client.initialize().await?;
         Ok((client, session))
@@ -185,6 +187,8 @@ impl Client {
             names: HashMap::new(),
             channel_pts: HashMap::new(),
             data_centers: HashMap::new(),
+            venue_search_username: None,
+            venue_search_bot: None,
         };
         client.initialize().await?;
         Ok(client)
@@ -205,6 +209,8 @@ impl Client {
             names,
             channel_pts,
             data_centers,
+            venue_search_username,
+            venue_search_bot,
         } = self;
         let directory = peers.clone();
         let Connection::Login(connection) = connection else {
@@ -223,6 +229,8 @@ impl Client {
                 names: names.clone(),
                 channel_pts,
                 data_centers,
+                venue_search_username,
+                venue_search_bot,
             },
             LiveUpdates {
                 driver: Box::pin(driver),

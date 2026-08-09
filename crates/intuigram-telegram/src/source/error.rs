@@ -112,6 +112,15 @@ pub enum Error {
     #[snafu(display("Telegram has no available custom Folder slot"))]
     FolderLimitReached,
 
+    /// Telegram did not advertise a venue-search bot for this Account.
+    #[snafu(display("Telegram place search is unavailable for this Account"))]
+    VenueSearchUnavailable,
+
+    /// Telegram's advertised venue-search username did not resolve to a usable
+    /// bot.
+    #[snafu(display("Telegram's place-search provider is unavailable"))]
+    VenueSearchBotUnavailable,
+
     /// A Intuigram Message ID could not be represented by Telegram's API.
     #[snafu(display("Message ID {message_id} is outside Telegram's signed 32-bit domain"))]
     InvalidMessageId {

@@ -53,6 +53,8 @@ pub struct Client {
     pub(super) names: HashMap<ChatId, String>,
     pub(super) channel_pts: HashMap<ChatId, i32>,
     pub(super) data_centers: HashMap<i32, SocketAddr>,
+    pub(super) venue_search_username: Option<String>,
+    pub(super) venue_search_bot: Option<tl::enums::InputUser>,
 }
 
 /// Passive normalized Telegram updates driven by one persistent MTProto

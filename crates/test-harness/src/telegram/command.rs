@@ -1,6 +1,6 @@
 use intuigram_app::{
-    AvatarRef, ChatId, MessageId, MessageView, SavedDialogView, SpecializedRefreshTarget,
-    TextEntity, TopicView,
+    AvatarRef, ChatId, GeoPointView, MessageId, MessageView, PlaceView, SavedDialogView,
+    SpecializedRefreshTarget, TextEntity, TopicView,
 };
 
 #[derive(Clone, Debug)]
@@ -90,6 +90,27 @@ pub(super) enum ExpectedCommand {
         chat: ChatId,
         question: String,
         options: Vec<String>,
+        reply_to: Option<MessageId>,
+        thread_root: Option<MessageId>,
+    },
+
+    SearchPlaces {
+        chat: ChatId,
+        query: String,
+        near: Option<GeoPointView>,
+        places: Vec<PlaceView>,
+    },
+
+    SendLocation {
+        chat: ChatId,
+        point: GeoPointView,
+        reply_to: Option<MessageId>,
+        thread_root: Option<MessageId>,
+    },
+
+    SendVenue {
+        chat: ChatId,
+        venue: PlaceView,
         reply_to: Option<MessageId>,
         thread_root: Option<MessageId>,
     },
@@ -243,6 +264,33 @@ impl ExpectedCommand {
                 chat.0,
                 reply_to.map(|message| message.0),
                 thread_root.map(|message| message.0)
+            ),
+            Self::SearchPlaces {
+                chat, query, near, ..
+            } => {
+                format!(
+                    "search for places {query:?} near {near:?} in Chat {}",
+                    chat.0
+                )
+            }
+            Self::SendLocation {
+                chat,
+                point,
+                reply_to,
+                thread_root,
+            } => format!(
+                "send location {} to Chat {} replying to {reply_to:?} in Thread {thread_root:?}",
+                point.coordinates(),
+                chat.0,
+            ),
+            Self::SendVenue {
+                chat,
+                venue,
+                reply_to,
+                thread_root,
+            } => format!(
+                "send venue {:?} to Chat {} replying to {reply_to:?} in Thread {thread_root:?}",
+                venue.title, chat.0,
             ),
             Self::EditMessage {
                 chat,

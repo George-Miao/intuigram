@@ -15,11 +15,12 @@ impl App {
     }
 
     pub(super) fn apply_rich_media_action(&mut self, action: Action) -> Option<Effect> {
-        if self
-            .view
-            .rich_media
-            .as_ref()
-            .is_some_and(|composer| composer.pending)
+        if action != Action::Cancel
+            && self
+                .view
+                .rich_media
+                .as_ref()
+                .is_some_and(|composer| composer.pending)
         {
             return None;
         }
@@ -69,6 +70,14 @@ impl App {
         let Some(composer) = &mut self.view.rich_media else {
             return false;
         };
+        if composer.pending {
+            return true;
+        }
+        if let RichMediaComposerMode::PlaceSearch { results, .. } = &mut composer.mode
+            && composer.selected < 2
+        {
+            results.clear();
+        }
         let Some(field) = rich_media_field(composer) else {
             return true;
         };
@@ -80,6 +89,14 @@ impl App {
         let Some(composer) = &mut self.view.rich_media else {
             return false;
         };
+        if composer.pending {
+            return true;
+        }
+        if let RichMediaComposerMode::PlaceSearch { results, .. } = &mut composer.mode
+            && composer.selected < 2
+        {
+            results.clear();
+        }
         let Some(field) = rich_media_field(composer) else {
             return true;
         };
@@ -105,6 +122,8 @@ impl App {
                 }
                 self.view.notice = Some(reason);
             }
+            event @ (AdapterEvent::PlaceSearchReady { .. }
+            | AdapterEvent::PlaceSearchFailed { .. }) => self.apply_place_search_event(event),
             AdapterEvent::RichMediaAcknowledged {
                 chat,
                 local_id,
@@ -208,6 +227,8 @@ impl App {
                         saved_peer,
                     },
                 ),
+            RichMediaComposerMode::StaticLocation { .. }
+            | RichMediaComposerMode::PlaceSearch { .. } => self.choose_location(composer),
             _ => None,
         }
     }
@@ -250,14 +271,37 @@ impl App {
                 first_name: String::new(),
                 last_name: String::new(),
             },
+            7 => RichMediaComposerMode::StaticLocation {
+                input: String::new(),
+            },
+            8 => RichMediaComposerMode::PlaceSearch {
+                query: String::new(),
+                near: String::new(),
+                results: Vec::new(),
+            },
             _ => return None,
         };
         None
     }
 
-    fn queue_rich_media(
+    pub(super) fn queue_rich_media(
         &mut self,
         body: String,
+        effect: impl FnOnce(
+            ChatId,
+            MessageId,
+            Option<MessageId>,
+            Option<MessageId>,
+            Option<ChatId>,
+        ) -> Effect,
+    ) -> Option<Effect> {
+        self.queue_rich_media_with_card(body, None, effect)
+    }
+
+    pub(super) fn queue_rich_media_with_card(
+        &mut self,
+        body: String,
+        media: Option<MediaCard>,
         effect: impl FnOnce(
             ChatId,
             MessageId,
@@ -279,6 +323,7 @@ impl App {
             delivery: DeliveryState::Pending,
             reply_to,
             details: MessageDetails {
+                media,
                 thread_root: key.thread,
                 saved_peer: key.saved_peer,
                 ..MessageDetails::default()
@@ -297,11 +342,13 @@ impl App {
 
     fn rich_media_row_count(&self) -> usize {
         match self.view.rich_media.as_ref().map(|composer| &composer.mode) {
-            Some(RichMediaComposerMode::Menu) => 7,
+            Some(RichMediaComposerMode::Menu) => 9,
             Some(RichMediaComposerMode::Library { items, .. }) => items.len(),
             Some(RichMediaComposerMode::File { .. })
             | Some(RichMediaComposerMode::Recording { .. }) => 2,
             Some(RichMediaComposerMode::Contact { .. }) => 3,
+            Some(RichMediaComposerMode::StaticLocation { .. }) => 1,
+            Some(RichMediaComposerMode::PlaceSearch { results, .. }) => 2 + results.len(),
             None => 0,
         }
     }
@@ -315,6 +362,9 @@ fn rich_media_field(composer: &mut RichMediaComposerView) -> Option<&mut String>
         (RichMediaComposerMode::Contact { phone, .. }, 0) => Some(phone),
         (RichMediaComposerMode::Contact { first_name, .. }, 1) => Some(first_name),
         (RichMediaComposerMode::Contact { last_name, .. }, 2) => Some(last_name),
+        (RichMediaComposerMode::StaticLocation { input }, 0) => Some(input),
+        (RichMediaComposerMode::PlaceSearch { query, .. }, 0) => Some(query),
+        (RichMediaComposerMode::PlaceSearch { near, .. }, 1) => Some(near),
         _ => None,
     }
 }

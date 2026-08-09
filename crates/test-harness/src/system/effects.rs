@@ -33,6 +33,9 @@ impl TestSystem {
                     request,
                 } => self.handle_scheduled_operation(chat, saved_peer, request),
                 Effect::BrowseRichMedia { kind } => self.handle_rich_media_browse(kind),
+                effect @ (Effect::SearchPlaces { .. }
+                | Effect::SendStaticLocation { .. }
+                | Effect::SendVenue { .. }) => self.handle_location_effect(effect)?,
                 Effect::SendLibraryMedia { chat, local_id, .. }
                 | Effect::SendRichMediaFile { chat, local_id, .. }
                 | Effect::RecordRichMedia { chat, local_id, .. }

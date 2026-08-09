@@ -39,6 +39,9 @@ mod client_folders;
 mod client_history;
 mod client_initialize;
 mod client_links;
+mod client_location;
+#[cfg(test)]
+mod client_location_tests;
 mod client_metadata;
 mod client_notifications;
 mod client_phone;
@@ -70,6 +73,7 @@ mod session_types;
 use authorization::{normalize_authorization, password_parameters};
 use client_dialogs::DialogBatch;
 pub use client_folders::FolderRules;
+pub use client_location::{StaticLocationSend, VenueSend};
 pub use client_poll::PollSend;
 pub use client_rich_media::{ContactCardSend, MediaLibraryEntry, MediaLibraryKind};
 pub use client_scheduled::{ScheduledDelivery, ScheduledMessage};

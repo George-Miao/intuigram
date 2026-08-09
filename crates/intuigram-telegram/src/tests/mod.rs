@@ -387,7 +387,7 @@ fn direct_data_center_selection_ignores_incompatible_endpoints() {
 }
 mod dialogs_and_peers;
 mod live_updates;
-mod media_fixtures;
+pub(crate) mod media_fixtures;
 mod notifications;
 mod specialized_media;
 mod topics;

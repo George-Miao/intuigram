@@ -76,6 +76,28 @@ pub enum AdapterEvent {
     /// A Telegram media library query failed without changing the Draft.
     RichMediaLibraryFailed(String),
 
+    /// A correlated Telegram place search completed.
+    PlaceSearchReady {
+        chat: ChatId,
+
+        query: String,
+
+        near: Option<GeoPointView>,
+
+        places: Vec<PlaceView>,
+    },
+
+    /// A correlated Telegram place search failed.
+    PlaceSearchFailed {
+        chat: ChatId,
+
+        query: String,
+
+        near: Option<GeoPointView>,
+
+        reason: String,
+    },
+
     /// One rich-media send was accepted by Telegram.
     RichMediaAcknowledged {
         chat: ChatId,

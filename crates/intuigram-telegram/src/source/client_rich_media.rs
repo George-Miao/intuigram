@@ -54,14 +54,14 @@ pub struct ContactCardSend {
     pub random_id: i64,
 }
 
-struct InputMediaSend {
-    peer: tl::enums::InputPeer,
-    media: tl::enums::InputMedia,
-    message: String,
-    reply_to: Option<MessageId>,
-    thread_root: Option<MessageId>,
-    monoforum_peer: Option<ChatId>,
-    random_id: i64,
+pub(super) struct InputMediaSend {
+    pub(super) peer: tl::enums::InputPeer,
+    pub(super) media: tl::enums::InputMedia,
+    pub(super) message: String,
+    pub(super) reply_to: Option<MessageId>,
+    pub(super) thread_root: Option<MessageId>,
+    pub(super) monoforum_peer: Option<ChatId>,
+    pub(super) random_id: i64,
 }
 
 impl Client {
@@ -240,7 +240,7 @@ impl Client {
         .await
     }
 
-    async fn send_input_media(&mut self, request: InputMediaSend) -> Result<MessageId> {
+    pub(super) async fn send_input_media(&mut self, request: InputMediaSend) -> Result<MessageId> {
         let InputMediaSend {
             peer,
             media,
