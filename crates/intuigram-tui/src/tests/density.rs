@@ -30,6 +30,7 @@ fn compact_view_preserves_the_original_dense_layout() {
             pinned: false,
             can_pin_messages: true,
             has_topics: false,
+            has_direct_messages: false,
             kind: ChatKind::Private,
             folders: vec![0],
         },
@@ -45,6 +46,7 @@ fn compact_view_preserves_the_original_dense_layout() {
             pinned: false,
             can_pin_messages: true,
             has_topics: false,
+            has_direct_messages: false,
             kind: ChatKind::Private,
             folders: vec![0],
         },
@@ -178,6 +180,7 @@ fn responsive_view() -> View {
         pinned: false,
         can_pin_messages: true,
         has_topics: false,
+        has_direct_messages: false,
         kind: ChatKind::Private,
         folders: vec![0],
     }];

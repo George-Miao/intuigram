@@ -7,8 +7,11 @@ use intuigram_app::{
 use super::command::ExpectedCommand;
 use super::fixture::AccountFixture;
 
+mod channel_direct;
 mod execute;
 mod expectations;
+
+pub(crate) use channel_direct::ObservedSavedSend;
 
 #[derive(Clone, Debug)]
 pub struct HeldSend {

@@ -81,11 +81,12 @@ fn copy_unique_records(
     for draft in records.drafts {
         transaction
             .execute(
-                "INSERT INTO drafts (chat_id, thread_root_message_id, text, reply_to_message_id, \
-                 modified_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                "INSERT INTO drafts (chat_id, thread_root_message_id, saved_peer_id, text, \
+                 reply_to_message_id, modified_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 params![
                     draft.chat_id,
                     draft.thread_root.unwrap_or(0),
+                    draft.saved_peer.unwrap_or(0),
                     draft.text,
                     draft.reply_to,
                     draft.modified_at
@@ -98,11 +99,12 @@ fn copy_unique_records(
     for draft in records.draft_history {
         transaction
             .execute(
-                "INSERT INTO draft_history (chat_id, thread_root_message_id, text, \
-                 reply_to_message_id, displaced_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                "INSERT INTO draft_history (chat_id, thread_root_message_id, saved_peer_id, text, \
+                 reply_to_message_id, displaced_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 params![
                     draft.chat_id,
                     draft.thread_root.unwrap_or(0),
+                    draft.saved_peer.unwrap_or(0),
                     draft.text,
                     draft.reply_to,
                     draft.displaced_at

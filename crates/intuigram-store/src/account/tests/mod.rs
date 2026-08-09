@@ -220,6 +220,7 @@ fn replacing_a_draft_keeps_the_current_value_durable() {
         .save_draft(StoredDraft {
             chat_id: 7,
             thread_root: None,
+            saved_peer: None,
             text: "first".to_owned(),
             reply_to: None,
             modified_at: 10,
@@ -228,6 +229,7 @@ fn replacing_a_draft_keeps_the_current_value_durable() {
     let replacement = StoredDraft {
         chat_id: 7,
         thread_root: None,
+        saved_peer: None,
         text: "second".to_owned(),
         reply_to: Some(3),
         modified_at: 20,
@@ -324,6 +326,7 @@ pub(super) fn sync_batch() -> SyncBatch {
             pinned: false,
             can_pin_messages: true,
             has_topics: false,
+            has_direct_messages: false,
             folders: vec![0],
         }],
         chat_order: Some(vec![7]),

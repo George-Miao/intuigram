@@ -112,8 +112,8 @@ pub(super) fn load_chats(connection: &Connection) -> Result<Vec<StoredChat>> {
     let mut statement = connection
         .prepare(
             "SELECT chat_id, kind, title, preview, status, unread_count, pinned, \
-             can_pin_messages, has_topics FROM chats ORDER BY position IS NULL, position, pinned \
-             DESC, chat_id DESC",
+             can_pin_messages, has_topics, has_direct_messages FROM chats ORDER BY position IS \
+             NULL, position, pinned DESC, chat_id DESC",
         )
         .context(LoadCacheSnafu)?;
     statement
@@ -129,6 +129,7 @@ pub(super) fn load_chats(connection: &Connection) -> Result<Vec<StoredChat>> {
                 pinned: row.get(6)?,
                 can_pin_messages: row.get(7)?,
                 has_topics: row.get(8)?,
+                has_direct_messages: row.get(9)?,
                 folders: Vec::new(),
             })
         })
@@ -172,8 +173,9 @@ pub(super) fn load_topics(connection: &Connection) -> Result<Vec<StoredTopic>> {
 pub(super) fn load_saved_dialogs(connection: &Connection) -> Result<Vec<StoredSavedDialog>> {
     let mut statement = connection
         .prepare(
-            "SELECT chat_id, saved_peer_id, title, preview, timestamp, pinned, top_message_id \
-             FROM saved_dialogs ORDER BY chat_id, position",
+            "SELECT chat_id, saved_peer_id, title, preview, timestamp, pinned, top_message_id, \
+             unread_count, unread_mark, draft_text, draft_reply_to_message_id FROM saved_dialogs \
+             ORDER BY chat_id, position",
         )
         .context(LoadCacheSnafu)?;
     statement
@@ -186,6 +188,10 @@ pub(super) fn load_saved_dialogs(connection: &Connection) -> Result<Vec<StoredSa
                 timestamp: row.get(4)?,
                 pinned: row.get(5)?,
                 top_message_id: row.get(6)?,
+                unread: u32::try_from(row.get::<_, i64>(7)?).unwrap_or(0),
+                unread_mark: row.get(8)?,
+                draft_text: row.get(9)?,
+                draft_reply_to: row.get(10)?,
             })
         })
         .context(LoadCacheSnafu)?
@@ -259,8 +265,8 @@ pub(super) fn load_pinned_messages(connection: &Connection) -> Result<Vec<Stored
 pub(super) fn load_drafts(connection: &Connection) -> Result<Vec<StoredDraft>> {
     let mut statement = connection
         .prepare(
-            "SELECT chat_id, thread_root_message_id, text, reply_to_message_id, modified_at FROM \
-             drafts ORDER BY chat_id, thread_root_message_id",
+            "SELECT chat_id, thread_root_message_id, saved_peer_id, text, reply_to_message_id, \
+             modified_at FROM drafts ORDER BY chat_id, thread_root_message_id, saved_peer_id",
         )
         .context(LoadCacheSnafu)?;
     statement
@@ -271,9 +277,13 @@ pub(super) fn load_drafts(connection: &Connection) -> Result<Vec<StoredDraft>> {
                     0 => None,
                     root => Some(root),
                 },
-                text: row.get(2)?,
-                reply_to: row.get(3)?,
-                modified_at: row.get(4)?,
+                saved_peer: match row.get::<_, i64>(2)? {
+                    0 => None,
+                    peer => Some(peer),
+                },
+                text: row.get(3)?,
+                reply_to: row.get(4)?,
+                modified_at: row.get(5)?,
             })
         })
         .context(LoadCacheSnafu)?

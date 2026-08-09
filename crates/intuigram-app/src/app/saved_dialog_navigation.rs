@@ -8,10 +8,19 @@ impl App {
             .is_some_and(|chat| chat.kind == ChatKind::SavedMessages)
     }
 
-    pub(super) fn saved_history_is_read_only(&self) -> bool {
+    pub(super) fn active_chat_has_saved_dialogs(&self) -> bool {
         self.view
-            .active_saved_peer
-            .is_some_and(|peer| self.active_chat_id() != Some(peer))
+            .active_chat
+            .and_then(|index| self.view.chats.get(index))
+            .is_some_and(|chat| chat.kind == ChatKind::SavedMessages || chat.has_direct_messages)
+    }
+
+    pub(super) fn saved_history_is_read_only(&self) -> bool {
+        self.active_chat_is_saved_messages()
+            && self
+                .view
+                .active_saved_peer
+                .is_some_and(|peer| self.active_chat_id() != Some(peer))
     }
 
     pub(super) fn restore_active_saved_dialogs(&mut self) {
@@ -44,6 +53,19 @@ impl App {
                             .map(|dialog| dialog.peer)
                     })
                     .flatten();
+                for dialog in &list.dialogs {
+                    if let Some(draft) = &dialog.draft {
+                        self.drafts
+                            .entry(HistoryKey::saved(list.chat, dialog.peer))
+                            .or_insert_with(|| ComposerView {
+                                text: draft.text.clone(),
+                                cursor: draft.text.len(),
+                                reply_to: draft.reply_to,
+                                editing: None,
+                                attachments: Vec::new(),
+                            });
+                    }
+                }
                 self.saved_dialog_lists.insert(list.chat, list.dialogs);
                 if self.active_chat_id() == Some(list.chat) {
                     self.view.saved_dialogs = self
@@ -99,6 +121,7 @@ impl App {
             if self.active_history_key() == Some(key) {
                 self.queue_active_media_previews();
                 self.queue_visible_avatars();
+                self.defer_active_read();
             }
             self.complete_history_load(key, true)
         } else {
@@ -116,6 +139,53 @@ impl App {
             .collect();
     }
 
+    pub(super) fn seed_saved_dialog_drafts(&mut self) {
+        for (chat, dialogs) in &self.saved_dialog_lists {
+            for dialog in dialogs {
+                if let Some(draft) = &dialog.draft {
+                    self.drafts
+                        .entry(HistoryKey::saved(*chat, dialog.peer))
+                        .or_insert_with(|| ComposerView {
+                            text: draft.text.clone(),
+                            cursor: draft.text.len(),
+                            reply_to: draft.reply_to,
+                            editing: None,
+                            attachments: Vec::new(),
+                        });
+                }
+            }
+        }
+    }
+
+    pub(super) fn update_saved_dialog_from_message(
+        &mut self,
+        chat: ChatId,
+        peer: ChatId,
+        message: &MessageView,
+        unread_increment: u32,
+    ) {
+        if let Some(dialogs) = self.saved_dialog_lists.get_mut(&chat) {
+            update_dialog_message(dialogs, peer, message, unread_increment);
+        }
+        if self.active_chat_id() == Some(chat) {
+            update_dialog_message(
+                &mut self.view.saved_dialogs,
+                peer,
+                message,
+                unread_increment,
+            );
+        }
+    }
+
+    pub(super) fn set_saved_dialog_unread(&mut self, chat: ChatId, peer: ChatId, unread: u32) {
+        if let Some(dialogs) = self.saved_dialog_lists.get_mut(&chat) {
+            set_dialog_unread(dialogs, peer, unread);
+        }
+        if self.active_chat_id() == Some(chat) {
+            set_dialog_unread(&mut self.view.saved_dialogs, peer, unread);
+        }
+    }
+
     pub(super) fn open_active_saved_dialog(&mut self) -> Option<Effect> {
         let chat = self.active_chat_id()?;
         let peer = self
@@ -129,10 +199,11 @@ impl App {
         self.view.active_message = None;
         self.view.transcript_anchor = None;
         self.refresh_active_history();
-        self.view.focus = if peer == chat {
-            Focus::Composer
-        } else {
+        self.restore_active_draft();
+        self.view.focus = if self.saved_history_is_read_only() {
             Focus::Transcript
+        } else {
+            Focus::Composer
         };
         self.request_history_load(HistoryKey::saved(chat, peer))
     }
@@ -147,5 +218,26 @@ impl App {
         self.view.pinned_messages.clear();
         self.view.composer = ComposerView::default();
         self.view.focus = Focus::SavedDialogs;
+    }
+}
+
+fn update_dialog_message(
+    dialogs: &mut [SavedDialogView],
+    peer: ChatId,
+    message: &MessageView,
+    unread_increment: u32,
+) {
+    if let Some(dialog) = dialogs.iter_mut().find(|dialog| dialog.peer == peer) {
+        dialog.preview.clone_from(&message.body);
+        dialog.timestamp.clone_from(&message.timestamp);
+        dialog.top_message = message.id;
+        dialog.unread = dialog.unread.saturating_add(unread_increment);
+    }
+}
+
+fn set_dialog_unread(dialogs: &mut [SavedDialogView], peer: ChatId, unread: u32) {
+    if let Some(dialog) = dialogs.iter_mut().find(|dialog| dialog.peer == peer) {
+        dialog.unread = unread;
+        dialog.unread_mark = false;
     }
 }

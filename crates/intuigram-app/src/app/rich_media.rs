@@ -136,15 +136,17 @@ impl App {
                 } else {
                     item.label.clone()
                 };
-                self.queue_rich_media(label, |chat, local_id, reply_to, thread_root| {
-                    Effect::SendLibraryMedia {
+                self.queue_rich_media(
+                    label,
+                    |chat, local_id, reply_to, thread_root, saved_peer| Effect::SendLibraryMedia {
                         chat,
                         item: item.id,
                         local_id,
                         reply_to,
                         thread_root,
-                    }
-                })
+                        saved_peer,
+                    },
+                )
             }
             RichMediaComposerMode::File { path, kind } if !path.trim().is_empty() => {
                 let display = std::path::Path::new(path.trim()).file_name().map_or_else(
@@ -153,13 +155,14 @@ impl App {
                 );
                 self.queue_rich_media(
                     format!("[{kind:?}] {display}"),
-                    |chat, local_id, reply_to, thread_root| Effect::SendRichMediaFile {
+                    |chat, local_id, reply_to, thread_root, saved_peer| Effect::SendRichMediaFile {
                         chat,
                         path: path.trim().to_owned(),
                         kind,
                         local_id,
                         reply_to,
                         thread_root,
+                        saved_peer,
                     },
                 )
             }
@@ -175,7 +178,7 @@ impl App {
                 let seconds = seconds.parse::<u32>().ok().filter(|value| *value > 0)?;
                 self.queue_rich_media(
                     format!("[{kind:?}]"),
-                    |chat, local_id, reply_to, thread_root| Effect::RecordRichMedia {
+                    |chat, local_id, reply_to, thread_root, saved_peer| Effect::RecordRichMedia {
                         chat,
                         kind,
                         seconds,
@@ -183,6 +186,7 @@ impl App {
                         local_id,
                         reply_to,
                         thread_root,
+                        saved_peer,
                     },
                 )
             }
@@ -193,7 +197,7 @@ impl App {
             } if !phone.trim().is_empty() && !first_name.trim().is_empty() => self
                 .queue_rich_media(
                     format!("[Contact] {} {}", first_name.trim(), last_name.trim()),
-                    |chat, local_id, reply_to, thread_root| Effect::SendContact {
+                    |chat, local_id, reply_to, thread_root, saved_peer| Effect::SendContact {
                         chat,
                         phone: phone.trim().to_owned(),
                         first_name: first_name.trim().to_owned(),
@@ -201,6 +205,7 @@ impl App {
                         local_id,
                         reply_to,
                         thread_root,
+                        saved_peer,
                     },
                 ),
             _ => None,
@@ -253,7 +258,13 @@ impl App {
     fn queue_rich_media(
         &mut self,
         body: String,
-        effect: impl FnOnce(ChatId, MessageId, Option<MessageId>, Option<MessageId>) -> Effect,
+        effect: impl FnOnce(
+            ChatId,
+            MessageId,
+            Option<MessageId>,
+            Option<MessageId>,
+            Option<ChatId>,
+        ) -> Effect,
     ) -> Option<Effect> {
         let key = self.active_history_key()?;
         self.next_local_message_id = self.next_local_message_id.saturating_sub(1);
@@ -269,12 +280,19 @@ impl App {
             reply_to,
             details: MessageDetails {
                 thread_root: key.thread,
+                saved_peer: key.saved_peer,
                 ..MessageDetails::default()
             },
         });
         self.refresh_active_history();
         self.view.rich_media = None;
-        Some(effect(key.chat, local_id, reply_to, key.thread))
+        Some(effect(
+            key.chat,
+            local_id,
+            reply_to,
+            key.thread,
+            key.saved_peer,
+        ))
     }
 
     fn rich_media_row_count(&self) -> usize {

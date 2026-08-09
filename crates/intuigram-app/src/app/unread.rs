@@ -3,13 +3,13 @@ use super::*;
 impl App {
     pub(super) fn active_read_effect(&self) -> Option<Effect> {
         let key = self.active_history_key()?;
-        if key.saved_peer.is_some() {
+        if self.saved_history_is_read_only() {
             return None;
         }
         if self.view.focus == Focus::Chats || !self.at_latest() {
             return None;
         }
-        if key.thread.is_none() && self.chat_unread(key.chat) == 0 {
+        if key.thread.is_none() && self.history_unread(key) == 0 {
             return None;
         }
         let max_id = self
@@ -24,10 +24,12 @@ impl App {
                 chat: key.chat,
                 root,
                 max_id,
+                saved_peer: key.saved_peer,
             },
             None => Effect::ReadHistory {
                 chat: key.chat,
                 max_id,
+                saved_peer: key.saved_peer,
             },
         })
     }
@@ -37,28 +39,29 @@ impl App {
         let boundaries = self
             .histories
             .iter()
-            .filter(|(key, _)| key.thread.is_none() && key.saved_peer.is_none())
+            .filter(|(key, _)| key.thread.is_none())
             .filter_map(|(key, messages)| {
-                unread_boundary(messages, self.chat_unread(key.chat)).map(|id| (*key, id))
+                unread_boundary(messages, self.history_unread(*key)).map(|id| (*key, id))
             })
             .collect::<Vec<_>>();
         self.unread_boundaries.extend(boundaries);
     }
 
     pub(super) fn ensure_unread_boundary(&mut self, key: HistoryKey, messages: &[MessageView]) {
-        if key.thread.is_some()
-            || key.saved_peer.is_some()
-            || self.unread_boundaries.contains_key(&key)
-        {
+        if key.thread.is_some() || self.unread_boundaries.contains_key(&key) {
             return;
         }
-        if let Some(boundary) = unread_boundary(messages, self.chat_unread(key.chat)) {
+        if let Some(boundary) = unread_boundary(messages, self.history_unread(key)) {
             self.unread_boundaries.insert(key, boundary);
         }
     }
 
-    pub(super) fn advance_unread_boundary(&mut self, chat: ChatId, max_id: MessageId, unread: u32) {
-        let key = HistoryKey::root(chat);
+    pub(super) fn advance_unread_boundary(
+        &mut self,
+        key: HistoryKey,
+        max_id: MessageId,
+        unread: u32,
+    ) {
         if unread == 0 {
             self.unread_boundaries.remove(&key);
             return;
@@ -86,6 +89,18 @@ impl App {
             .iter()
             .find(|candidate| candidate.id == chat)
             .map_or(0, |candidate| candidate.unread)
+    }
+
+    fn history_unread(&self, key: HistoryKey) -> u32 {
+        key.saved_peer.map_or_else(
+            || self.chat_unread(key.chat),
+            |peer| {
+                self.saved_dialog_lists
+                    .get(&key.chat)
+                    .and_then(|dialogs| dialogs.iter().find(|dialog| dialog.peer == peer))
+                    .map_or(0, |dialog| dialog.unread)
+            },
+        )
     }
 }
 

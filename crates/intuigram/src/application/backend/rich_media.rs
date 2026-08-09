@@ -14,6 +14,7 @@ impl Backend {
                 local_id,
                 reply_to,
                 thread_root,
+                saved_peer,
             } => {
                 let body = self
                     .media_library
@@ -27,6 +28,7 @@ impl Backend {
                         body,
                         reply_to,
                         thread_root,
+                        saved_peer,
                     },
                     item,
                     random_id: rich_media_random_id(random_id),
@@ -44,6 +46,7 @@ impl Backend {
                 local_id,
                 reply_to,
                 thread_root,
+                saved_peer,
             } => {
                 self.send_contact_rich_media(ContactSend {
                     record: RichMediaRecord {
@@ -52,6 +55,7 @@ impl Backend {
                         body: format!("[Contact] {first_name} {last_name}"),
                         reply_to,
                         thread_root,
+                        saved_peer,
                     },
                     phone,
                     first_name,
@@ -77,6 +81,7 @@ impl Backend {
                 local_id,
                 reply_to,
                 thread_root,
+                saved_peer,
                 ..
             } => RichMediaRecord {
                 chat,
@@ -84,6 +89,7 @@ impl Backend {
                 body: format!("[{kind:?}] {}", prepared.name),
                 reply_to,
                 thread_root,
+                saved_peer,
             },
             Effect::RecordRichMedia {
                 chat,
@@ -91,6 +97,7 @@ impl Backend {
                 local_id,
                 reply_to,
                 thread_root,
+                saved_peer,
                 ..
             } => RichMediaRecord {
                 chat,
@@ -98,6 +105,7 @@ impl Backend {
                 body: format!("[{kind:?}]"),
                 reply_to,
                 thread_root,
+                saved_peer,
             },
             _ => return Err(Error::UnpreparedRichMedia),
         };
@@ -147,6 +155,7 @@ impl Backend {
                     &entry,
                     request.record.reply_to,
                     request.record.thread_root,
+                    request.record.saved_peer,
                     request.random_id,
                 )
                 .await
@@ -180,6 +189,7 @@ impl Backend {
                 last_name: request.last_name,
                 reply_to: request.record.reply_to,
                 thread_root: request.record.thread_root,
+                monoforum_peer: request.record.saved_peer,
                 random_id: request.random_id,
             })
             .await
@@ -201,6 +211,7 @@ impl Backend {
                 entities: Vec::new(),
                 reply_to: request.record.reply_to,
                 thread_root: request.record.thread_root,
+                monoforum_peer: request.record.saved_peer,
                 ids: intuigram_telegram::UploadIds {
                     file: derived_random_id(request.random_id, 0, 0x4649_4c45),
                     message: derived_random_id(request.random_id, 0, 0x4d45_5353),
@@ -230,6 +241,7 @@ impl Backend {
                         entities: &[],
                         reply_to: record.reply_to,
                         thread_root: record.thread_root,
+                        saved_peer: record.saved_peer,
                         delivery: DeliveryState::Sent,
                     },
                     *server_id,
@@ -267,6 +279,7 @@ impl Backend {
             entities: &[],
             reply_to: record.reply_to,
             thread_root: record.thread_root,
+            saved_peer: record.saved_peer,
             delivery,
         })
         .await
@@ -280,6 +293,7 @@ pub(super) struct RichMediaRecord {
     pub(super) body: String,
     pub(super) reply_to: Option<MessageId>,
     pub(super) thread_root: Option<MessageId>,
+    pub(super) saved_peer: Option<ChatId>,
 }
 
 pub(super) struct LibrarySend {

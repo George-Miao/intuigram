@@ -166,6 +166,7 @@ pub(crate) struct ChatTraits {
     pub(crate) status: String,
     pub(crate) can_pin_messages: bool,
     pub(crate) has_topics: bool,
+    pub(crate) has_direct_messages: bool,
     contact: bool,
 }
 
@@ -186,6 +187,7 @@ pub(crate) fn chat_traits(
                 status: user_status(user, kind),
                 can_pin_messages: !matches!(user, tl::enums::User::Empty(_)),
                 has_topics,
+                has_direct_messages: false,
                 contact,
             },
         );
@@ -205,11 +207,25 @@ pub(crate) fn chat_traits(
                 status: cloud_chat_status(chat),
                 can_pin_messages: cloud_chat_can_pin(chat),
                 has_topics: matches!(chat, tl::enums::Chat::Channel(channel) if channel.forum),
+                has_direct_messages: channel_direct_messages(chat),
                 contact: false,
             },
         );
     }
     result
+}
+
+fn channel_direct_messages(chat: &tl::enums::Chat) -> bool {
+    matches!(
+        chat,
+        tl::enums::Chat::Channel(channel)
+            if channel.monoforum
+                && (channel.creator
+                    || channel.admin_rights.as_ref().is_some_and(|rights| {
+                        let tl::enums::ChatAdminRights::Rights(rights) = rights;
+                        rights.manage_direct_messages
+                    }))
+    )
 }
 
 pub(crate) fn cloud_chat_can_pin(chat: &tl::enums::Chat) -> bool {

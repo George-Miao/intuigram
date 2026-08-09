@@ -17,6 +17,7 @@ pub(super) async fn execute(
         Effect::SaveDraft {
             chat,
             thread_root,
+            saved_peer,
             text,
             reply_to,
         } => {
@@ -24,6 +25,7 @@ pub(super) async fn execute(
                 .save_draft(StoredDraft {
                     chat_id: chat.0,
                     thread_root: thread_root.map(|message| message.0),
+                    saved_peer: saved_peer.map(|peer| peer.0),
                     text,
                     reply_to: reply_to.map(|message| message.0),
                     modified_at: unix_timestamp(),

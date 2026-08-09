@@ -1,7 +1,7 @@
 use tempfile::tempdir;
 
 use super::{AccountDatabase, StoredSelection, sync_batch};
-use crate::{StoreLayout, StoredSavedDialog, StoredTranscriptAnchor};
+use crate::{StoreLayout, StoredDraft, StoredSavedDialog, StoredTranscriptAnchor};
 
 #[test]
 fn saved_dialog_order_and_filtered_anchor_survive_restart() {
@@ -51,6 +51,34 @@ fn saved_dialog_order_and_filtered_anchor_survive_restart() {
     );
 }
 
+#[test]
+fn monoforum_user_drafts_remain_independent() {
+    let temporary = tempdir().expect("temporary directory should be created");
+    let layout = StoreLayout::new(temporary.path().join("intuigram"));
+    let database =
+        AccountDatabase::begin_login(&layout).expect("pending login database should open");
+
+    for (peer, text) in [(9, "reply to Ada"), (11, "reply to Lin")] {
+        database
+            .save_draft(StoredDraft {
+                chat_id: 7,
+                thread_root: None,
+                saved_peer: Some(peer),
+                text: text.to_owned(),
+                reply_to: None,
+                modified_at: peer,
+            })
+            .expect("peer-scoped Draft should persist");
+    }
+
+    let cached = database
+        .cached_account()
+        .expect("peer-scoped Drafts should load");
+    assert_eq!(cached.drafts.len(), 2);
+    assert_eq!(cached.drafts[0].saved_peer, Some(9));
+    assert_eq!(cached.drafts[1].saved_peer, Some(11));
+}
+
 fn dialog(chat_id: i64, peer_id: i64, title: &str, pinned: bool) -> StoredSavedDialog {
     StoredSavedDialog {
         chat_id,
@@ -59,6 +87,10 @@ fn dialog(chat_id: i64, peer_id: i64, title: &str, pinned: bool) -> StoredSavedD
         preview: format!("saved from {title}"),
         timestamp: "12:00".to_owned(),
         pinned,
+        unread: 0,
+        unread_mark: false,
         top_message_id: peer_id + 100,
+        draft_text: None,
+        draft_reply_to: None,
     }
 }

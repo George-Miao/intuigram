@@ -59,12 +59,28 @@ pub(super) enum ExpectedCommand {
         acknowledge: bool,
     },
 
+    ReadSavedHistory {
+        chat: ChatId,
+        saved_peer: ChatId,
+        max_id: MessageId,
+        acknowledge: bool,
+    },
+
     SendText {
         label: String,
         chat: ChatId,
         text: String,
         entities: Option<Vec<TextEntity>>,
         link_preview: Option<bool>,
+        reply_to: Option<MessageId>,
+        thread_root: Option<MessageId>,
+    },
+
+    SendSavedText {
+        label: String,
+        chat: ChatId,
+        saved_peer: ChatId,
+        text: String,
         reply_to: Option<MessageId>,
         thread_root: Option<MessageId>,
     },
@@ -155,6 +171,15 @@ impl ExpectedCommand {
             Self::ReadHistory { chat, max_id, .. } => {
                 format!("read Chat {} through Message {}", chat.0, max_id.0)
             }
+            Self::ReadSavedHistory {
+                chat,
+                saved_peer,
+                max_id,
+                ..
+            } => format!(
+                "read peer {} in Chat {} through Message {}",
+                saved_peer.0, chat.0, max_id.0
+            ),
             Self::SendText {
                 chat,
                 text,
@@ -165,6 +190,20 @@ impl ExpectedCommand {
             } => format!(
                 "send {text:?} to Chat {} with link preview {link_preview:?} replying to {:?} in \
                  Thread {:?}",
+                chat.0,
+                reply_to.map(|message| message.0),
+                thread_root.map(|message| message.0)
+            ),
+            Self::SendSavedText {
+                chat,
+                saved_peer,
+                text,
+                reply_to,
+                thread_root,
+                ..
+            } => format!(
+                "send {text:?} to peer {} in Chat {} replying to {:?} in Thread {:?}",
+                saved_peer.0,
                 chat.0,
                 reply_to.map(|message| message.0),
                 thread_root.map(|message| message.0)

@@ -110,9 +110,10 @@ impl App {
                         chat: key.chat,
                         peer,
                     },
-                    (None, Some(root)) => Effect::LoadThread {
+                    (saved_peer, Some(root)) => Effect::LoadThread {
                         chat: key.chat,
                         root,
+                        saved_peer,
                     },
                     (None, None) => Effect::LoadChat {
                         chat: key.chat,
@@ -120,9 +121,6 @@ impl App {
                             .then(|| self.selection_view()),
                         transcript_anchors: self.transcript_anchor_views(),
                     },
-                    (Some(_), Some(_)) => {
-                        unreachable!("a history cannot be both a Thread and Saved Messages dialog")
-                    }
                 })
             }
             Some(loading) if loading == key => {

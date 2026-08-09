@@ -48,6 +48,7 @@ pub(super) fn cached_bootstrap(
             pinned: chat.pinned,
             can_pin_messages: chat.can_pin_messages,
             has_topics: chat.has_topics,
+            has_direct_messages: chat.has_direct_messages,
             kind: stored_chat_kind(&chat.kind),
             folders: chat.folders,
         })
@@ -92,8 +93,14 @@ pub(super) fn cached_bootstrap(
                 title: dialog.title,
                 preview: dialog.preview,
                 timestamp: dialog.timestamp,
+                unread: dialog.unread,
+                unread_mark: dialog.unread_mark,
                 pinned: dialog.pinned,
                 top_message: MessageId(dialog.top_message_id),
+                draft: dialog.draft_text.map(|text| SavedDialogDraftView {
+                    text,
+                    reply_to: dialog.draft_reply_to.map(MessageId),
+                }),
             });
     }
     let saved_dialog_lists = grouped_saved_dialogs
@@ -110,12 +117,12 @@ pub(super) fn cached_bootstrap(
         let saved_peer = message.saved_peer;
         let message = decode_stored_message(message);
         grouped
-            .entry((chat, thread, None))
+            .entry((chat, None, None))
             .or_default()
             .push(message.clone());
-        if let Some(saved_peer) = saved_peer {
+        if thread.is_some() || saved_peer.is_some() {
             grouped
-                .entry((chat, None, Some(saved_peer)))
+                .entry((chat, thread, saved_peer))
                 .or_default()
                 .push(message);
         }
@@ -205,6 +212,7 @@ pub(super) fn cached_bootstrap(
             .map(|draft| DraftView {
                 chat: ChatId(draft.chat_id),
                 thread_root: draft.thread_root.map(MessageId),
+                saved_peer: draft.saved_peer.map(ChatId),
                 text: draft.text,
                 reply_to: draft.reply_to.map(MessageId),
             })

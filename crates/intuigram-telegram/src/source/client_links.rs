@@ -39,6 +39,9 @@ impl Client {
                 .get(&chat)
                 .is_some_and(|traits| traits.can_pin_messages),
             has_topics: traits.get(&chat).is_some_and(|traits| traits.has_topics),
+            has_direct_messages: traits
+                .get(&chat)
+                .is_some_and(|traits| traits.has_direct_messages),
             kind: traits
                 .get(&chat)
                 .map_or(ChatKind::Inaccessible, |traits| traits.kind),

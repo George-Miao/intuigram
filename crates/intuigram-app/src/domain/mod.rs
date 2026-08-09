@@ -251,6 +251,9 @@ pub struct ChatView {
     /// Whether opening this Chat descends through a Topic list.
     pub has_topics: bool,
 
+    /// Whether opening this Channel descends through direct-message dialogs.
+    pub has_direct_messages: bool,
+
     /// Normalized cloud Chat category.
     pub kind: ChatKind,
 

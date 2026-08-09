@@ -30,6 +30,7 @@ fn main() -> intuigram_tui::Result<()> {
         pinned: false,
         can_pin_messages: false,
         has_topics: false,
+        has_direct_messages: false,
         kind: ChatKind::Private,
         folders: vec![0],
     });

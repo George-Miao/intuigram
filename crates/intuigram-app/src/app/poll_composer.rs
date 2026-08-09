@@ -43,7 +43,12 @@ impl App {
             },
         );
         self.histories.entry(key).or_default().push(pending_poll(
-            local_id, &question, &options, reply_to, key.thread,
+            local_id,
+            &question,
+            &options,
+            reply_to,
+            key.thread,
+            key.saved_peer,
         ));
         self.view.composer = self.saved_poll_draft.take().unwrap_or_default();
         self.view.poll_composer = false;
@@ -58,6 +63,7 @@ impl App {
             options,
             reply_to,
             thread_root: key.thread,
+            saved_peer: key.saved_peer,
             local_id,
         })
     }
@@ -76,6 +82,7 @@ fn pending_poll(
     options: &[String],
     reply_to: Option<MessageId>,
     thread_root: Option<MessageId>,
+    saved_peer: Option<ChatId>,
 ) -> MessageView {
     MessageView {
         id,
@@ -111,6 +118,7 @@ fn pending_poll(
                 remote_id: None,
             }),
             thread_root,
+            saved_peer,
             ..MessageDetails::default()
         },
     }

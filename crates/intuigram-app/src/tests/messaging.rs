@@ -26,6 +26,7 @@ fn failed_optimistic_send_restores_the_draft_and_marks_the_message_failed() {
         chat: ChatId(10),
         local_id,
         thread_root: None,
+        saved_peer: None,
         text: "retry me".to_owned(),
         reason: "Telegram is unavailable".to_owned(),
     }));
@@ -44,6 +45,7 @@ fn failed_optimistic_send_restores_the_draft_and_marks_the_message_failed() {
         Some(Effect::SaveDraft {
             chat: ChatId(10),
             thread_root: None,
+            saved_peer: None,
             text: "retry me".to_owned(),
             reply_to: None,
         })
@@ -76,6 +78,7 @@ fn thread_navigation_preserves_parent_history_and_an_independent_draft() {
         Some(Effect::LoadThread {
             chat: ChatId(10),
             root: MessageId(3),
+            saved_peer: None,
         })
     );
     assert_eq!(opened.view.active_thread, Some(MessageId(3)));
@@ -98,6 +101,7 @@ fn thread_navigation_preserves_parent_history_and_an_independent_draft() {
         Input::Adapter(AdapterEvent::ThreadLoaded {
             chat: ChatId(10),
             root: MessageId(3),
+            saved_peer: None,
             messages: vec![thread_message],
         }),
     );

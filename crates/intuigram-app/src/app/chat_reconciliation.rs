@@ -71,8 +71,8 @@ impl App {
         {
             let root = key.thread.is_none() && key.saved_peer.is_none();
             let belongs = root
-                || (key.thread.is_some() && key.thread == message.details.thread_root)
-                || (key.saved_peer.is_some() && key.saved_peer == message.details.saved_peer);
+                || (key.thread == message.details.thread_root
+                    && key.saved_peer == message.details.saved_peer);
             if belongs {
                 upsert_history_message(history, &message);
             } else {
@@ -83,20 +83,20 @@ impl App {
             self.histories.entry(HistoryKey::root(chat)).or_default(),
             &message,
         );
-        if let Some(root) = message.details.thread_root {
+        if message.details.thread_root.is_some() || message.details.saved_peer.is_some() {
             upsert_history_message(
                 self.histories
-                    .entry(HistoryKey::thread(chat, root))
+                    .entry(HistoryKey::scoped(
+                        chat,
+                        message.details.thread_root,
+                        message.details.saved_peer,
+                    ))
                     .or_default(),
                 &message,
             );
-        } else if let Some(peer) = message.details.saved_peer {
-            upsert_history_message(
-                self.histories
-                    .entry(HistoryKey::saved(chat, peer))
-                    .or_default(),
-                &message,
-            );
+        }
+        if let Some(peer) = message.details.saved_peer {
+            self.update_saved_dialog_from_message(chat, peer, &message, 0);
         }
         for chat_view in self
             .all_chats
@@ -130,13 +130,18 @@ impl App {
     pub(super) fn apply_read_state(
         &mut self,
         chat: ChatId,
+        saved_peer: Option<ChatId>,
         max_id: MessageId,
         outgoing: bool,
         unread: Option<u32>,
     ) {
         if outgoing {
             for (key, history) in &mut self.histories {
-                if key.chat == chat {
+                if key.chat == chat
+                    && (saved_peer.is_none()
+                        || key.saved_peer.is_none()
+                        || key.saved_peer == saved_peer)
+                {
                     for message in history.iter_mut().filter(|message| {
                         message.direction == MessageDirection::Outgoing && message.id.0 <= max_id.0
                     }) {
@@ -145,7 +150,12 @@ impl App {
                 }
             }
         }
-        if let Some(unread) = unread {
+        if let (Some(peer), Some(unread)) = (saved_peer, unread) {
+            self.set_saved_dialog_unread(chat, peer, unread);
+            if !outgoing {
+                self.advance_unread_boundary(HistoryKey::saved(chat, peer), max_id, unread);
+            }
+        } else if let Some(unread) = unread {
             for chat_view in self
                 .all_chats
                 .iter_mut()
@@ -156,7 +166,7 @@ impl App {
             }
             self.refresh_folder_unread();
             if !outgoing {
-                self.advance_unread_boundary(chat, max_id, unread);
+                self.advance_unread_boundary(HistoryKey::root(chat), max_id, unread);
             }
         }
         if self.active_chat_id() == Some(chat) {

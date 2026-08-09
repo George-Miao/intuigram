@@ -93,8 +93,8 @@ fn read_session(connection: &Connection, path: &Path) -> RecoveryResult<Option<S
 fn read_drafts(connection: &Connection, path: &Path) -> RecoveryResult<Vec<StoredDraft>> {
     let mut statement = connection
         .prepare(
-            "SELECT chat_id, thread_root_message_id, text, reply_to_message_id, modified_at FROM \
-             drafts ORDER BY chat_id, thread_root_message_id",
+            "SELECT chat_id, thread_root_message_id, saved_peer_id, text, reply_to_message_id, \
+             modified_at FROM drafts ORDER BY chat_id, thread_root_message_id, saved_peer_id",
         )
         .context(ReadUniqueRecordsSnafu {
             path: path.to_path_buf(),
@@ -105,9 +105,13 @@ fn read_drafts(connection: &Connection, path: &Path) -> RecoveryResult<Vec<Store
             Ok(StoredDraft {
                 chat_id: row.get(0)?,
                 thread_root: (thread != 0).then_some(thread),
-                text: row.get(2)?,
-                reply_to: row.get(3)?,
-                modified_at: row.get(4)?,
+                saved_peer: match row.get::<_, i64>(2)? {
+                    0 => None,
+                    peer => Some(peer),
+                },
+                text: row.get(3)?,
+                reply_to: row.get(4)?,
+                modified_at: row.get(5)?,
             })
         })
         .and_then(Iterator::collect)
@@ -119,8 +123,8 @@ fn read_drafts(connection: &Connection, path: &Path) -> RecoveryResult<Vec<Store
 fn read_draft_history(connection: &Connection, path: &Path) -> RecoveryResult<Vec<DraftHistory>> {
     let mut statement = connection
         .prepare(
-            "SELECT chat_id, thread_root_message_id, text, reply_to_message_id, displaced_at FROM \
-             draft_history ORDER BY version_id",
+            "SELECT chat_id, thread_root_message_id, saved_peer_id, text, reply_to_message_id, \
+             displaced_at FROM draft_history ORDER BY version_id",
         )
         .context(ReadUniqueRecordsSnafu {
             path: path.to_path_buf(),
@@ -131,9 +135,13 @@ fn read_draft_history(connection: &Connection, path: &Path) -> RecoveryResult<Ve
             Ok(DraftHistory {
                 chat_id: row.get(0)?,
                 thread_root: (thread != 0).then_some(thread),
-                text: row.get(2)?,
-                reply_to: row.get(3)?,
-                displaced_at: row.get(4)?,
+                saved_peer: match row.get::<_, i64>(2)? {
+                    0 => None,
+                    peer => Some(peer),
+                },
+                text: row.get(3)?,
+                reply_to: row.get(4)?,
+                displaced_at: row.get(5)?,
             })
         })
         .and_then(Iterator::collect)

@@ -15,6 +15,7 @@ fn pending_work_uses_a_moving_highlight_and_stops_when_complete() {
         pinned: false,
         can_pin_messages: true,
         has_topics: false,
+        has_direct_messages: false,
         kind: ChatKind::Private,
         folders: vec![0],
     }];

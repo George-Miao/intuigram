@@ -23,10 +23,10 @@ use intuigram_app::{
     FolderOperationResult, FolderView, HistoryView, InlineImage, Input, Intent, MediaCard,
     MediaKind, MediaPreviewView, MessageDetails, MessageDirection, MessageId, MessageView,
     PollOptionView, PollView, RichMediaItemId, RichMediaItemView, RichMediaLibraryKind,
-    RichMediaUploadKind, SavedDialogListView, SavedDialogLoadFailure, SavedDialogView,
-    ScheduledDeliveryView, ScheduledMessageId, ScheduledMessageView, ScheduledRequest,
-    SelectionView, TextEntity, TopicDraftView, TopicId, TopicListView, TopicLoadFailure, TopicView,
-    TranscriptAnchorView, Update,
+    RichMediaUploadKind, SavedDialogDraftView, SavedDialogListView, SavedDialogLoadFailure,
+    SavedDialogView, ScheduledDeliveryView, ScheduledMessageId, ScheduledMessageView,
+    ScheduledRequest, SelectionView, TextEntity, TopicDraftView, TopicId, TopicListView,
+    TopicLoadFailure, TopicView, TranscriptAnchorView, Update,
 };
 use intuigram_config::{
     Config, ConfigLoader, Overrides, PlatformDefaults, ViewMode as ConfigViewMode,

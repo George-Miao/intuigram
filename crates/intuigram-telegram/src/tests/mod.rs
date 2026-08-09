@@ -229,6 +229,7 @@ fn passive_mutations_are_normalized_before_cursor_exposure() {
         &batch.events[1],
         AdapterEvent::HistoryRead {
             chat: ChatId(7),
+            saved_peer: None,
             max_id: MessageId(42),
             outgoing: true,
             unread: None,

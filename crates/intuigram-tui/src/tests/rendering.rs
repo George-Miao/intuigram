@@ -13,6 +13,7 @@ fn transcript_keeps_media_card_fallback_visible_beside_a_caption() {
         pinned: false,
         can_pin_messages: true,
         has_topics: false,
+        has_direct_messages: false,
         kind: ChatKind::Private,
         folders: vec![0],
     }];
@@ -132,6 +133,7 @@ fn redrawing_shorter_chat_text_clears_the_previous_frame() {
         pinned: false,
         can_pin_messages: true,
         has_topics: false,
+        has_direct_messages: false,
         kind: ChatKind::Private,
         folders: vec![0],
     }];
@@ -190,6 +192,7 @@ fn transcript_renders_rich_metadata_album_and_quiz_fallbacks() {
         pinned: false,
         can_pin_messages: true,
         has_topics: false,
+        has_direct_messages: false,
         kind: ChatKind::Private,
         folders: vec![0],
     }];

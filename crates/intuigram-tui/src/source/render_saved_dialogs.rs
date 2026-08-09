@@ -10,11 +10,20 @@ pub(super) fn render_saved_dialogs(
     graphics: &mut GraphicsFrame,
 ) {
     let focused = view.focus == Focus::SavedDialogs;
+    let direct_messages = view
+        .active_chat
+        .and_then(|index| view.chats.get(index))
+        .is_some_and(|chat| chat.has_direct_messages);
+    let list_name = if direct_messages {
+        "Direct Messages"
+    } else {
+        "Saved Messages"
+    };
     frame.render_widget(Paragraph::new("").style(surface_style(focused)), area);
     let area = mode.horizontally_padded(area);
     semantics.push(SemanticNode {
         role: SemanticRole::SavedDialogList,
-        name: "Saved Messages".to_owned(),
+        name: list_name.to_owned(),
         description: None,
         domain_id: view
             .active_chat
@@ -30,12 +39,20 @@ pub(super) fn render_saved_dialogs(
     if view.saved_dialogs.is_empty() {
         let text = if view.saved_dialogs_loading {
             Line::from(effort_spans(
-                "⌁ intuigram · sorting Saved Messages",
+                if direct_messages {
+                    "⌁ intuigram · connecting conversations"
+                } else {
+                    "⌁ intuigram · sorting Saved Messages"
+                },
                 view.animation_frame,
             ))
         } else {
             Line::from(Span::styled(
-                "No saved dialogs",
+                if direct_messages {
+                    "No direct messages"
+                } else {
+                    "No saved dialogs"
+                },
                 Style::default().fg(MUTED_TEXT),
             ))
         };
@@ -89,7 +106,14 @@ pub(super) fn render_saved_dialogs(
         .map(|(offset, dialog)| {
             let selected = view.active_saved_dialog == Some(start + offset);
             let marker = if dialog.pinned { " ●" } else { "" };
-            let metadata = format!("{}{}", dialog.timestamp, marker);
+            let unread = if dialog.unread > 0 {
+                format!(" {}", dialog.unread)
+            } else if dialog.unread_mark {
+                " unread".to_owned()
+            } else {
+                String::new()
+            };
+            let metadata = format!("{}{}{}", dialog.timestamp, marker, unread);
             let rule_width = Line::from(selection_rule(selected)).width();
             let avatar_width = avatar_width(view, Some(dialog.peer), &dialog.title);
             let title_width = usize::from(area.width)
@@ -118,12 +142,16 @@ pub(super) fn render_saved_dialogs(
                 Span::styled(metadata, Style::default().fg(MUTED_TEXT)),
             ]);
             let mut lines = vec![Line::from(title_line)];
+            let preview = dialog.draft.as_ref().map_or_else(
+                || dialog.preview.replace('\n', " "),
+                |draft| format!("Draft · {}", draft.text.replace('\n', " ")),
+            );
             lines.push(Line::from(vec![
                 selection_rule(selected),
                 Span::raw(" ".repeat(avatar_width)),
                 Span::styled(
                     capped_text(
-                        &dialog.preview.replace('\n', " "),
+                        &preview,
                         usize::from(area.width)
                             .saturating_sub(rule_width)
                             .saturating_sub(avatar_width),

@@ -5,10 +5,11 @@ use intuigram_app::{
 use super::TestSystem;
 
 impl TestSystem {
-    pub(super) fn handle_scheduled_load(&mut self, chat: ChatId) {
+    pub(super) fn handle_scheduled_load(&mut self, chat: ChatId, saved_peer: Option<ChatId>) {
         self.application
             .handle_adapter(AdapterEvent::ScheduledMessagesReady {
                 chat,
+                saved_peer,
                 messages: self
                     .scheduled_messages
                     .get(&chat)
@@ -17,7 +18,12 @@ impl TestSystem {
             });
     }
 
-    pub(super) fn handle_scheduled_operation(&mut self, chat: ChatId, request: ScheduledRequest) {
+    pub(super) fn handle_scheduled_operation(
+        &mut self,
+        chat: ChatId,
+        saved_peer: Option<ChatId>,
+        request: ScheduledRequest,
+    ) {
         let notice = match request {
             ScheduledRequest::Create { delivery, text } => {
                 self.next_scheduled_id = self.next_scheduled_id.saturating_add(1);
@@ -55,6 +61,7 @@ impl TestSystem {
         self.application
             .handle_adapter(AdapterEvent::ScheduledOperationCompleted {
                 chat,
+                saved_peer,
                 messages: self
                     .scheduled_messages
                     .get(&chat)

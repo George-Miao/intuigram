@@ -65,7 +65,11 @@ impl App {
         self.restore_active_draft();
         self.refresh_active_history();
         self.view.focus = Focus::Composer;
-        self.request_history_load(HistoryKey::thread(chat, root))
+        self.request_history_load(HistoryKey::scoped(
+            chat,
+            Some(root),
+            self.view.active_saved_peer,
+        ))
     }
 
     pub(super) fn leave_thread(&mut self) {
@@ -159,15 +163,19 @@ impl App {
             .active_history_key()
             .and_then(|key| self.histories.get(&key).cloned())
             .unwrap_or_default();
-        self.view.parent_messages =
-            if self.view.active_thread.is_some() && self.view.active_topic.is_none() {
-                self.active_chat_id()
-                    .and_then(|chat| self.histories.get(&HistoryKey::root(chat)))
-                    .cloned()
-                    .unwrap_or_default()
-            } else {
-                Vec::new()
-            };
+        self.view.parent_messages = if self.view.active_thread.is_some()
+            && self.view.active_topic.is_none()
+        {
+            self.active_chat_id()
+                .and_then(|chat| {
+                    self.histories
+                        .get(&HistoryKey::scoped(chat, None, self.view.active_saved_peer))
+                })
+                .cloned()
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         self.view.unread_boundary = self
             .active_history_key()
             .filter(|key| key.thread.is_none())
@@ -216,10 +224,7 @@ impl App {
 
     pub(super) fn active_history_key(&self) -> Option<HistoryKey> {
         self.active_chat_id().map(|chat| {
-            self.view.active_saved_peer.map_or_else(
-                || HistoryKey::from_thread(chat, self.view.active_thread),
-                |peer| HistoryKey::saved(chat, peer),
-            )
+            HistoryKey::scoped(chat, self.view.active_thread, self.view.active_saved_peer)
         })
     }
 }

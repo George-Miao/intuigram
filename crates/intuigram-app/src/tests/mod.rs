@@ -34,6 +34,7 @@ fn bootstrap() -> Bootstrap {
             pinned: true,
             can_pin_messages: true,
             has_topics: false,
+            has_direct_messages: false,
             kind: ChatKind::Supergroup,
             folders: vec![0],
         }],
@@ -76,6 +77,7 @@ fn hierarchy_bootstrap() -> Bootstrap {
         pinned: false,
         can_pin_messages: true,
         has_topics: false,
+        has_direct_messages: false,
         kind: ChatKind::Supergroup,
         folders: vec![0, 1],
     });
@@ -103,12 +105,14 @@ fn bootstrap_restores_persisted_root_and_thread_drafts() {
         super::DraftView {
             chat: ChatId(10),
             thread_root: None,
+            saved_peer: None,
             text: "root draft".to_owned(),
             reply_to: Some(MessageId(2)),
         },
         super::DraftView {
             chat: ChatId(10),
             thread_root: Some(MessageId(3)),
+            saved_peer: None,
             text: "thread draft".to_owned(),
             reply_to: None,
         },
@@ -353,9 +357,11 @@ fn passive_message_updates_refresh_the_chat_list_without_a_history_reload() {
 }
 
 mod avatar_loading;
+mod channel_direct_messages;
 mod click_activation;
 mod clipboard;
 mod history_loading;
+mod history_loading_fixtures;
 mod link_media;
 mod messaging;
 mod offline_media;
@@ -363,3 +369,4 @@ mod reconciliation;
 mod rich_media;
 mod scheduled;
 mod search;
+mod unread_reconciliation;

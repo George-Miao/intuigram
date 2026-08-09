@@ -1,6 +1,6 @@
 use super::*;
 
-/// Store-owned Saved Messages per-origin dialog record.
+/// Store-owned Saved Messages origin or monoforum direct-message dialog.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StoredSavedDialog {
     /// Owning Saved Messages Chat.
@@ -21,8 +21,20 @@ pub struct StoredSavedDialog {
     /// Telegram pin state.
     pub pinned: bool,
 
+    /// Dialog-local unread Message count.
+    pub unread: u32,
+
+    /// Whether Telegram manually marks the dialog unread.
+    pub unread_mark: bool,
+
     /// Latest Message identity in the Saved Messages Chat.
     pub top_message_id: i64,
+
+    /// Server Draft text for a writable monoforum dialog.
+    pub draft_text: Option<String>,
+
+    /// Server Draft reply target for a writable monoforum dialog.
+    pub draft_reply_to: Option<i64>,
 }
 
 pub(super) fn save_saved_dialogs(
@@ -45,7 +57,9 @@ pub(super) fn save_saved_dialogs(
         transaction
             .execute(
                 "INSERT INTO saved_dialogs(chat_id, saved_peer_id, title, preview, timestamp, \
-                 pinned, top_message_id, position) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                 pinned, top_message_id, position, unread_count, unread_mark, draft_text, \
+                 draft_reply_to_message_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, \
+                 ?12)",
                 params![
                     chat_id,
                     dialog.peer_id,
@@ -55,6 +69,10 @@ pub(super) fn save_saved_dialogs(
                     dialog.pinned,
                     dialog.top_message_id,
                     position,
+                    dialog.unread,
+                    dialog.unread_mark,
+                    dialog.draft_text,
+                    dialog.draft_reply_to,
                 ],
             )
             .context(SaveSavedDialogsSnafu { chat_id })?;

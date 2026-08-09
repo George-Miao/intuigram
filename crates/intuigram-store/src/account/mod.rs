@@ -21,6 +21,7 @@ mod message_write;
 mod migration;
 mod model;
 mod offline_media;
+mod records;
 mod saved_dialog;
 mod security;
 mod selection;
@@ -38,10 +39,11 @@ use message_write::{
 pub(crate) use migration::open_and_migrate;
 use migration::read_account_id;
 pub use model::{
-    CachedAccount, SessionMaterial, StoredChat, StoredDraft, StoredFolder, StoredMessage,
-    StoredMutation, StoredSelection, StoredTopic, StoredTranscriptAnchor, SyncBatch, SyncCursor,
+    SessionMaterial, StoredChat, StoredFolder, StoredMessage, StoredMutation, StoredTopic,
+    SyncBatch, SyncCursor,
 };
 use offline_media::{load_offline_chats, set_chat_media_offline};
+pub use records::{CachedAccount, StoredDraft, StoredSelection, StoredTranscriptAnchor};
 pub use saved_dialog::StoredSavedDialog;
 use saved_dialog::save_saved_dialogs;
 pub use security::{

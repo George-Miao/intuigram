@@ -25,6 +25,7 @@ fn local_lock_encrypts_new_and_existing_account_records() {
         .save_draft(StoredDraft {
             chat_id: 9,
             thread_root: None,
+            saved_peer: None,
             text: "private draft".to_owned(),
             reply_to: None,
             modified_at: 1,

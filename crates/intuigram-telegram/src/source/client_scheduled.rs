@@ -38,6 +38,9 @@ pub struct ScheduledMessage {
     pub delivery: ScheduledDelivery,
     /// Text or a stable media fallback.
     pub summary: String,
+
+    /// Original peer when scheduled inside a Channel direct-message dialog.
+    pub saved_peer: Option<ChatId>,
 }
 
 impl Client {
@@ -45,6 +48,7 @@ impl Client {
     pub async fn schedule_text(
         &mut self,
         chat: ChatId,
+        monoforum_peer: Option<ChatId>,
         text: String,
         delivery: ScheduledDelivery,
         random_id: i64,
@@ -56,6 +60,7 @@ impl Client {
             link_preview: true,
             reply_to: None,
             thread_root: None,
+            monoforum_peer,
             random_id,
             schedule_date: Some(delivery.telegram_date()),
         })
@@ -64,7 +69,11 @@ impl Client {
     }
 
     /// Lists the Scheduled Messages Telegram currently owns for one Chat.
-    pub async fn scheduled_messages(&mut self, chat: ChatId) -> Result<Vec<ScheduledMessage>> {
+    pub async fn scheduled_messages(
+        &mut self,
+        chat: ChatId,
+        saved_peer: Option<ChatId>,
+    ) -> Result<Vec<ScheduledMessage>> {
         let peer = self.peers.resolve(chat)?;
         let response = self
             .connection
@@ -74,6 +83,7 @@ impl Client {
         Ok(message_list(response)
             .into_iter()
             .filter_map(scheduled_summary)
+            .filter(|message| message.saved_peer == saved_peer)
             .collect())
     }
 
@@ -147,6 +157,7 @@ fn scheduled_summary(message: tl::enums::Message) -> Option<ScheduledMessage> {
         tl::enums::Message::Message(message) => Some(ScheduledMessage {
             id: message.id,
             delivery: ScheduledDelivery::from_telegram_date(message.date),
+            saved_peer: message.saved_peer_id.as_ref().map(marked_peer_id),
             summary: if message.message.is_empty() && message.media.is_some() {
                 "[media]".to_owned()
             } else {
@@ -156,6 +167,7 @@ fn scheduled_summary(message: tl::enums::Message) -> Option<ScheduledMessage> {
         tl::enums::Message::Service(message) => Some(ScheduledMessage {
             id: message.id,
             delivery: ScheduledDelivery::from_telegram_date(message.date),
+            saved_peer: None,
             summary: "[service message]".to_owned(),
         }),
         tl::enums::Message::Empty(_) => None,

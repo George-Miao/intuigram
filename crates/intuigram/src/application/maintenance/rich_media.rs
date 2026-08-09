@@ -33,7 +33,7 @@ pub(crate) async fn run_rich_media_maintenance(
                 .get(index)
                 .context(MediaIndexUnavailableSnafu { index })?;
             client
-                .send_library_media(chat, entry, None, None, operation_id()?)
+                .send_library_media(chat, entry, None, None, None, operation_id()?)
                 .await
                 .context(TelegramSnafu)?;
             println!("Sent {} to Chat {}.", entry.label, chat.0);
@@ -66,6 +66,7 @@ pub(crate) async fn run_rich_media_maintenance(
                     last_name,
                     reply_to: None,
                     thread_root: None,
+                    monoforum_peer: None,
                     random_id: operation_id()?,
                 })
                 .await
@@ -103,6 +104,7 @@ async fn send_file(
             entities: Vec::new(),
             reply_to: None,
             thread_root: None,
+            monoforum_peer: None,
             ids: intuigram_telegram::UploadIds {
                 file: derived_random_id(id, 0, 0x4649_4c45),
                 message: derived_random_id(id, 0, 0x4d45_5353),

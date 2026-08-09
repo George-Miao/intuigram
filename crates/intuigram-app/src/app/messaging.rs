@@ -26,22 +26,26 @@ impl App {
             && self.view.focus != Focus::Chats
             && was_latest;
         let unread_increment = u32::from(incoming && !visibly_read);
-        if unread_increment > 0 && message_thread.is_none() && saved_peer.is_none() {
+        if unread_increment > 0 && message_thread.is_none() {
             self.unread_boundaries
-                .entry(HistoryKey::root(chat))
+                .entry(HistoryKey::scoped(chat, None, saved_peer))
                 .or_insert(message.id);
         }
-        for chat_view in self
-            .all_chats
-            .iter_mut()
-            .chain(self.view.chats.iter_mut())
-            .filter(|view| view.id == chat)
-        {
-            chat_view.preview.clone_from(&message.body);
-            chat_view.preview_sender = Some(message.sender.clone());
-            chat_view.preview_sender_peer = message.details.sender_peer;
-            chat_view.preview_timestamp.clone_from(&message.timestamp);
-            chat_view.unread = chat_view.unread.saturating_add(unread_increment);
+        if let Some(peer) = saved_peer {
+            self.update_saved_dialog_from_message(chat, peer, &message, unread_increment);
+        } else {
+            for chat_view in self
+                .all_chats
+                .iter_mut()
+                .chain(self.view.chats.iter_mut())
+                .filter(|view| view.id == chat)
+            {
+                chat_view.preview.clone_from(&message.body);
+                chat_view.preview_sender = Some(message.sender.clone());
+                chat_view.preview_sender_peer = message.details.sender_peer;
+                chat_view.preview_timestamp.clone_from(&message.timestamp);
+                chat_view.unread = chat_view.unread.saturating_add(unread_increment);
+            }
         }
         let reconciled = self.reconcile_pending_message(chat, &message);
         if !reconciled {
@@ -49,14 +53,9 @@ impl App {
                 .entry(HistoryKey::root(chat))
                 .or_default()
                 .push(message.clone());
-            if let Some(root) = message_thread {
+            if message_thread.is_some() || saved_peer.is_some() {
                 self.histories
-                    .entry(HistoryKey::thread(chat, root))
-                    .or_default()
-                    .push(message);
-            } else if let Some(peer) = saved_peer {
-                self.histories
-                    .entry(HistoryKey::saved(chat, peer))
+                    .entry(HistoryKey::scoped(chat, message_thread, saved_peer))
                     .or_default()
                     .push(message);
             }
@@ -65,18 +64,19 @@ impl App {
             self.refresh_active_history_at(active_message, transcript_anchor);
             self.view.has_newer_messages = !was_latest;
         }
-        let read_effect =
-            (incoming && visibly_read && saved_peer.is_none()).then_some(match message_thread {
-                Some(root) => Effect::ReadThread {
-                    chat,
-                    root,
-                    max_id: message_id,
-                },
-                None => Effect::ReadHistory {
-                    chat,
-                    max_id: message_id,
-                },
-            });
+        let read_effect = (incoming && visibly_read).then_some(match message_thread {
+            Some(root) => Effect::ReadThread {
+                chat,
+                root,
+                max_id: message_id,
+                saved_peer,
+            },
+            None => Effect::ReadHistory {
+                chat,
+                max_id: message_id,
+                saved_peer,
+            },
+        });
         read_effect.or_else(|| {
             (incoming && !visibly_read && !self.muted_chats.contains(&chat)).then(|| {
                 Effect::Notify {
@@ -135,6 +135,7 @@ impl App {
             link_preview: true,
             reply_to: self.view.composer.reply_to,
             thread_root: self.view.active_thread,
+            saved_peer: self.view.active_saved_peer,
             attachments: self
                 .view
                 .composer
@@ -162,6 +163,7 @@ impl App {
             .then(|| Effect::SaveDraft {
                 chat: key.chat,
                 thread_root: key.thread,
+                saved_peer: key.saved_peer,
                 text: self.view.composer.text.clone(),
                 reply_to: self.view.composer.reply_to,
             })

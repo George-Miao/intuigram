@@ -87,12 +87,19 @@ impl Backend {
         &mut self,
         source: ChatId,
         destination: ChatId,
+        destination_saved_peer: Option<ChatId>,
         messages: Vec<MessageId>,
         random_id: i64,
     ) -> Result<Option<AdapterEvent>> {
         match self
             .client
-            .forward_messages(source, destination, messages, random_id)
+            .forward_messages(
+                source,
+                destination,
+                destination_saved_peer,
+                messages,
+                random_id,
+            )
             .await
         {
             Ok(()) => Ok(None),

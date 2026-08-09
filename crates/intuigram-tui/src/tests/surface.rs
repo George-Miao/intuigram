@@ -25,6 +25,7 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
         pinned: true,
         can_pin_messages: true,
         has_topics: false,
+        has_direct_messages: false,
         kind: ChatKind::Supergroup,
         folders: vec![0],
     }];

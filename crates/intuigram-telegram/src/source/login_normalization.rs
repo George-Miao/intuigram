@@ -44,34 +44,40 @@ pub(crate) fn normalize_code_delivery(
 pub(crate) fn input_reply_to(
     reply_to: Option<MessageId>,
     thread_root: Option<MessageId>,
+    monoforum_peer: Option<tl::enums::InputPeer>,
 ) -> Result<Option<tl::enums::InputReplyTo>> {
-    reply_to
-        .or(thread_root)
-        .map(|message| {
+    match (reply_to.or(thread_root), monoforum_peer) {
+        (None, None) => Ok(None),
+        (None, Some(monoforum_peer_id)) => Ok(Some(
+            tl::types::InputReplyToMonoForum { monoforum_peer_id }.into(),
+        )),
+        (Some(message), monoforum_peer_id) => {
             let reply_to_msg_id =
                 i32::try_from(message.0).map_err(|_| Error::InvalidMessageId {
                     message_id: message.0,
                 })?;
-            Ok(tl::types::InputReplyToMessage {
-                reply_to_msg_id,
-                top_msg_id: thread_root
-                    .filter(|root| *root != message)
-                    .map(|root| {
-                        i32::try_from(root.0)
-                            .map_err(|_| Error::InvalidMessageId { message_id: root.0 })
-                    })
-                    .transpose()?,
-                reply_to_peer_id: None,
-                quote_text: None,
-                quote_entities: None,
-                quote_offset: None,
-                monoforum_peer_id: None,
-                todo_item_id: None,
-                poll_option: None,
-            }
-            .into())
-        })
-        .transpose()
+            Ok(Some(
+                tl::types::InputReplyToMessage {
+                    reply_to_msg_id,
+                    top_msg_id: thread_root
+                        .filter(|root| *root != message)
+                        .map(|root| {
+                            i32::try_from(root.0)
+                                .map_err(|_| Error::InvalidMessageId { message_id: root.0 })
+                        })
+                        .transpose()?,
+                    reply_to_peer_id: None,
+                    quote_text: None,
+                    quote_entities: None,
+                    quote_offset: None,
+                    monoforum_peer_id,
+                    todo_item_id: None,
+                    poll_option: None,
+                }
+                .into(),
+            ))
+        }
+    }
 }
 
 pub(crate) const fn normalize_code_delivery_method(
@@ -133,5 +139,35 @@ pub(crate) fn login_error_action(error: &InvocationError) -> LoginErrorAction {
 pub(crate) fn qr_login_uri(token: &[u8]) -> String {
     let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(token);
     format!("tg://login?token={encoded}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn peer() -> tl::enums::InputPeer {
+        tl::types::InputPeerUser {
+            user_id: 20,
+            access_hash: 30,
+        }
+        .into()
+    }
+
+    #[test]
+    fn monoforum_sends_address_the_user_dialog_with_or_without_a_reply() {
+        let direct = input_reply_to(None, None, Some(peer()))
+            .expect("a monoforum peer should be valid")
+            .expect("a monoforum send always has reply addressing");
+        assert!(matches!(direct, tl::enums::InputReplyTo::MonoForum(_)));
+
+        let reply = input_reply_to(Some(MessageId(7)), None, Some(peer()))
+            .expect("a monoforum reply should be valid")
+            .expect("a reply should have addressing");
+        assert!(matches!(
+            reply,
+            tl::enums::InputReplyTo::Message(message)
+                if message.reply_to_msg_id == 7 && message.monoforum_peer_id.is_some()
+        ));
+    }
 }
 use super::*;

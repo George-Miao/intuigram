@@ -132,6 +132,7 @@ pub(super) struct UniqueRecords {
 pub(super) struct DraftHistory {
     pub(super) chat_id: i64,
     pub(super) thread_root: Option<i64>,
+    pub(super) saved_peer: Option<i64>,
     pub(super) text: String,
     pub(super) reply_to: Option<i64>,
     pub(super) displaced_at: i64,

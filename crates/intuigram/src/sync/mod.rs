@@ -306,6 +306,7 @@ fn discovered_chat(id: ChatId, preview: String, unread: u32) -> ChatView {
         pinned: false,
         can_pin_messages: false,
         has_topics: false,
+        has_direct_messages: false,
         kind: ChatKind::Inaccessible,
         folders: vec![0],
     }
@@ -337,11 +338,13 @@ fn stored_mutation(event: &AdapterEvent) -> Option<StoredMutation> {
         }),
         AdapterEvent::HistoryRead {
             chat,
+            saved_peer,
             max_id,
             outgoing,
             unread,
         } => Some(StoredMutation::ReadHistory {
             chat_id: chat.0,
+            saved_peer: saved_peer.map(|peer| peer.0),
             max_id: max_id.0,
             outgoing: *outgoing,
             unread: *unread,
@@ -375,6 +378,7 @@ fn stored_chat(chat: &ChatView) -> StoredChat {
         pinned: chat.pinned,
         can_pin_messages: chat.can_pin_messages,
         has_topics: chat.has_topics,
+        has_direct_messages: chat.has_direct_messages,
         folders: chat.folders.clone(),
     }
 }

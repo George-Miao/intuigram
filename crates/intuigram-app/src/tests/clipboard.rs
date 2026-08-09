@@ -30,6 +30,7 @@ fn clipboard_text_and_media_candidates_join_the_active_composer() {
     let pasted = app.transition(Input::Adapter(AdapterEvent::ClipboardReady {
         chat: ChatId(10),
         thread_root: None,
+        saved_peer: None,
         text: Some("caption".to_owned()),
         attachments: attachments.clone(),
     }));
@@ -83,11 +84,13 @@ fn attachment_shortcut_collects_an_exact_path_as_a_typed_effect() {
         Some(Effect::PickAttachment {
             chat: ChatId(10),
             thread_root: None,
+            saved_peer: None,
         })
     );
     let fallback = app.transition(Input::Adapter(AdapterEvent::AttachmentPathRequired {
         chat: ChatId(10),
         thread_root: None,
+        saved_peer: None,
     }));
     assert!(fallback.view.attachment_path.is_some());
     apply(
@@ -102,6 +105,7 @@ fn attachment_shortcut_collects_an_exact_path_as_a_typed_effect() {
         Some(Effect::SelectAttachment {
             chat: ChatId(10),
             thread_root: None,
+            saved_peer: None,
             ref path,
         }) if path == "/tmp/photo.png"
     ));

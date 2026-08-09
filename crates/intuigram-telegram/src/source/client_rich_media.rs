@@ -47,6 +47,9 @@ pub struct ContactCardSend {
     /// Active Thread root.
     pub thread_root: Option<MessageId>,
 
+    /// User topic inside an administrator-owned monoforum.
+    pub monoforum_peer: Option<ChatId>,
+
     /// Stable Message idempotency identifier.
     pub random_id: i64,
 }
@@ -139,6 +142,7 @@ impl Client {
         entry: &MediaLibraryEntry,
         reply_to: Option<MessageId>,
         thread_root: Option<MessageId>,
+        monoforum_peer: Option<ChatId>,
         random_id: i64,
     ) -> Result<MessageId> {
         if entry.kind == MediaLibraryKind::CustomEmoji {
@@ -161,6 +165,7 @@ impl Client {
                     link_preview: false,
                     reply_to,
                     thread_root,
+                    monoforum_peer,
                     random_id,
                     schedule_date: None,
                 })
@@ -181,8 +186,16 @@ impl Client {
             query: None,
         }
         .into();
-        self.send_input_media(peer, media, String::new(), reply_to, thread_root, random_id)
-            .await
+        self.send_input_media(
+            peer,
+            media,
+            String::new(),
+            reply_to,
+            thread_root,
+            monoforum_peer,
+            random_id,
+        )
+        .await
     }
 
     /// Sends a Telegram contact card.
@@ -194,6 +207,7 @@ impl Client {
             last_name,
             reply_to,
             thread_root,
+            monoforum_peer,
             random_id,
         } = request;
         let peer = self.peers.resolve(chat)?;
@@ -204,8 +218,16 @@ impl Client {
             vcard: String::new(),
         }
         .into();
-        self.send_input_media(peer, media, String::new(), reply_to, thread_root, random_id)
-            .await
+        self.send_input_media(
+            peer,
+            media,
+            String::new(),
+            reply_to,
+            thread_root,
+            monoforum_peer,
+            random_id,
+        )
+        .await
     }
 
     async fn send_input_media(
@@ -215,8 +237,12 @@ impl Client {
         message: String,
         reply_to: Option<MessageId>,
         thread_root: Option<MessageId>,
+        monoforum_peer: Option<ChatId>,
         random_id: i64,
     ) -> Result<MessageId> {
+        let monoforum_peer = monoforum_peer
+            .map(|peer| self.peers.resolve(peer))
+            .transpose()?;
         let updates = self
             .connection
             .invoke(&tl::functions::messages::SendMedia {
@@ -228,7 +254,7 @@ impl Client {
                 invert_media: false,
                 allow_paid_floodskip: false,
                 peer,
-                reply_to: input_reply_to(reply_to, thread_root)?,
+                reply_to: input_reply_to(reply_to, thread_root, monoforum_peer)?,
                 media,
                 message,
                 random_id,

@@ -166,14 +166,15 @@ pub(super) fn upsert_message(
 
 pub(super) fn save_draft(connection: &Connection, draft: StoredDraft) -> Result<()> {
     let thread_root = draft.thread_root.unwrap_or(0);
+    let saved_peer = draft.saved_peer.unwrap_or(0);
     let transaction = connection.unchecked_transaction().context(SaveDraftSnafu {
         chat_id: draft.chat_id,
     })?;
     let prior = transaction
         .query_row(
             "SELECT text, reply_to_message_id, modified_at FROM drafts WHERE chat_id = ?1 AND \
-             thread_root_message_id = ?2",
-            params![draft.chat_id, thread_root],
+             thread_root_message_id = ?2 AND saved_peer_id = ?3",
+            params![draft.chat_id, thread_root, saved_peer],
             |row| {
                 Ok((
                     row.get::<_, String>(0)?,
@@ -191,9 +192,16 @@ pub(super) fn save_draft(connection: &Connection, draft: StoredDraft) -> Result<
     {
         transaction
             .execute(
-                "INSERT INTO draft_history(chat_id, thread_root_message_id, text, \
-                 reply_to_message_id, displaced_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![draft.chat_id, thread_root, text, reply_to, modified_at],
+                "INSERT INTO draft_history(chat_id, thread_root_message_id, saved_peer_id, text, \
+                 reply_to_message_id, displaced_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    draft.chat_id,
+                    thread_root,
+                    saved_peer,
+                    text,
+                    reply_to,
+                    modified_at
+                ],
             )
             .context(SaveDraftSnafu {
                 chat_id: draft.chat_id,
@@ -201,13 +209,15 @@ pub(super) fn save_draft(connection: &Connection, draft: StoredDraft) -> Result<
     }
     transaction
         .execute(
-            "INSERT INTO drafts(chat_id, thread_root_message_id, text, reply_to_message_id, \
-             modified_at) VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT(chat_id, \
-             thread_root_message_id) DO UPDATE SET text=excluded.text, \
-             reply_to_message_id=excluded.reply_to_message_id, modified_at=excluded.modified_at",
+            "INSERT INTO drafts(chat_id, thread_root_message_id, saved_peer_id, text, \
+             reply_to_message_id, modified_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) ON \
+             CONFLICT(chat_id, thread_root_message_id, saved_peer_id) DO UPDATE SET \
+             text=excluded.text, reply_to_message_id=excluded.reply_to_message_id, \
+             modified_at=excluded.modified_at",
             params![
                 draft.chat_id,
                 thread_root,
+                saved_peer,
                 draft.text,
                 draft.reply_to,
                 draft.modified_at
@@ -219,9 +229,10 @@ pub(super) fn save_draft(connection: &Connection, draft: StoredDraft) -> Result<
     transaction
         .execute(
             "DELETE FROM draft_history WHERE chat_id = ?1 AND thread_root_message_id = ?2 AND \
-             version_id NOT IN (SELECT version_id FROM draft_history WHERE chat_id = ?1 AND \
-             thread_root_message_id = ?2 ORDER BY displaced_at DESC, version_id DESC LIMIT 20)",
-            params![draft.chat_id, thread_root],
+             saved_peer_id = ?3 AND version_id NOT IN (SELECT version_id FROM draft_history WHERE \
+             chat_id = ?1 AND thread_root_message_id = ?2 AND saved_peer_id = ?3 ORDER BY \
+             displaced_at DESC, version_id DESC LIMIT 20)",
+            params![draft.chat_id, thread_root, saved_peer],
         )
         .context(SaveDraftSnafu {
             chat_id: draft.chat_id,

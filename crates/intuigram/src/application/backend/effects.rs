@@ -100,55 +100,53 @@ impl Backend {
                     .await?;
                 Ok(None)
             }
-            Effect::LoadThread { chat, root } => match self.load_thread(chat, root).await {
+            Effect::LoadThread {
+                chat,
+                root,
+                saved_peer,
+            } => match self.load_thread(chat, root).await {
                 Ok(messages) => Ok(Some(AdapterEvent::ThreadLoaded {
                     chat,
                     root,
+                    saved_peer,
                     messages,
                 })),
-                Err(error) => history_failure_event(chat, Some(root), error),
+                Err(error) => history_failure_event(chat, Some(root), saved_peer, error),
             },
             Effect::LoadTopics(chat) => self.load_topics(chat).await,
             Effect::LoadSavedDialogs(chat) => self.load_saved_dialogs(chat).await,
             Effect::LoadSavedHistory { chat, peer } => self.load_saved_history(chat, peer).await,
-            Effect::ReadThread { chat, root, max_id } => {
-                match self.client.read_thread(chat, root, max_id).await {
-                    Ok(()) => Ok(None),
-                    Err(source) if source.is_connection_failure() => {
-                        Err(Error::Telegram { source })
-                    }
-                    Err(error) => Ok(Some(AdapterEvent::OperationFailed(error.to_string()))),
-                }
-            }
-            Effect::ReadHistory { chat, max_id } => {
-                match self.client.read_history(chat, max_id).await {
-                    Ok(()) => Ok(Some(AdapterEvent::HistoryRead {
-                        chat,
-                        max_id,
-                        outgoing: false,
-                        unread: Some(0),
-                    })),
-                    Err(source) if source.is_connection_failure() => {
-                        Err(Error::Telegram { source })
-                    }
-                    Err(error) => Ok(Some(AdapterEvent::OperationFailed(error.to_string()))),
-                }
-            }
-            Effect::ReadClipboard { chat, thread_root } => {
-                Ok(Some(match self.read_clipboard(chat, thread_root).await {
+            Effect::ReadThread {
+                chat, root, max_id, ..
+            } => self.execute_thread_read(chat, root, max_id).await,
+            Effect::ReadHistory {
+                chat,
+                max_id,
+                saved_peer,
+            } => self.execute_history_read(chat, saved_peer, max_id).await,
+            Effect::ReadClipboard {
+                chat,
+                thread_root,
+                saved_peer,
+            } => Ok(Some(
+                match self.read_clipboard(chat, thread_root, saved_peer).await {
                     Ok(event) => event,
                     Err(error) => AdapterEvent::OperationFailed(error.to_string()),
-                }))
-            }
-            Effect::PickAttachment { chat, thread_root } => {
-                Ok(Some(AdapterEvent::AttachmentPathRequired {
-                    chat,
-                    thread_root,
-                }))
-            }
+                },
+            )),
+            Effect::PickAttachment {
+                chat,
+                thread_root,
+                saved_peer,
+            } => Ok(Some(AdapterEvent::AttachmentPathRequired {
+                chat,
+                thread_root,
+                saved_peer,
+            })),
             Effect::SelectAttachment {
                 chat,
                 thread_root,
+                saved_peer,
                 path,
             } => {
                 let path = PathBuf::from(path);
@@ -175,6 +173,7 @@ impl Backend {
                         AdapterEvent::ClipboardReady {
                             chat,
                             thread_root,
+                            saved_peer,
                             text: None,
                             attachments: vec![AttachmentView { id, kind, name }],
                         }
@@ -188,10 +187,12 @@ impl Backend {
             Effect::SaveDraft {
                 chat,
                 thread_root,
+                saved_peer,
                 text,
                 reply_to,
             } => {
-                self.save_draft(chat, thread_root, text, reply_to).await?;
+                self.save_draft(chat, thread_root, saved_peer, text, reply_to)
+                    .await?;
                 Ok(None)
             }
             effect @ Effect::SendMessage { .. } => {
@@ -203,6 +204,7 @@ impl Backend {
                 options,
                 reply_to,
                 thread_root,
+                saved_peer,
                 local_id,
             } => {
                 self.persist_poll(PollPersistence {
@@ -212,6 +214,7 @@ impl Backend {
                     options: &options,
                     reply_to,
                     thread_root,
+                    saved_peer,
                     delivery: DeliveryState::Pending,
                 })
                 .await?;
@@ -223,6 +226,7 @@ impl Backend {
                         options.clone(),
                         reply_to,
                         thread_root,
+                        saved_peer,
                         random_id.expect("every queued poll has an idempotency token"),
                     )
                     .await;
@@ -239,6 +243,7 @@ impl Backend {
                     options: &options,
                     reply_to,
                     thread_root,
+                    saved_peer,
                     delivery: if result.is_ok() {
                         DeliveryState::Sent
                     } else {
@@ -252,6 +257,7 @@ impl Backend {
                         chat,
                         local_id,
                         thread_root,
+                        saved_peer,
                         text: std::iter::once(question)
                             .chain(options)
                             .collect::<Vec<_>>()
@@ -281,11 +287,13 @@ impl Backend {
             Effect::ForwardMessages {
                 source,
                 destination,
+                destination_saved_peer,
                 messages,
             } => {
                 self.forward_messages(
                     source,
                     destination,
+                    destination_saved_peer,
                     messages,
                     random_id.expect("every queued forward has an idempotency token"),
                 )

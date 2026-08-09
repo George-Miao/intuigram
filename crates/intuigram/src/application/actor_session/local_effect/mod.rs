@@ -164,12 +164,14 @@ mod tests {
         assert!(handles(&Effect::SaveDraft {
             chat: ChatId(7),
             thread_root: None,
+            saved_peer: None,
             text: "draft".to_owned(),
             reply_to: Some(MessageId(9)),
         }));
         assert!(handles(&Effect::ReadClipboard {
             chat: ChatId(7),
             thread_root: None,
+            saved_peer: None,
         }));
         assert!(handles(&Effect::SetChatMediaOffline(
             intuigram_app::OfflineMediaPolicy {
@@ -191,6 +193,7 @@ mod tests {
             local_id: MessageId(-1),
             reply_to: None,
             thread_root: None,
+            saved_peer: None,
         };
         let runtime = compio::runtime::Runtime::new().expect("test runtime should initialize");
 

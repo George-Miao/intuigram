@@ -77,6 +77,7 @@ impl TestSystem {
             HistoryResult::Failed(reason) => AdapterEvent::HistoryLoadFailed {
                 chat,
                 thread_root: None,
+                saved_peer: None,
                 reason,
             },
         });

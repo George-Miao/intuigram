@@ -16,6 +16,7 @@ fn text_avatar_fallbacks_render_in_chat_list_header_and_transcript() {
         pinned: false,
         can_pin_messages: true,
         has_topics: false,
+        has_direct_messages: false,
         kind: ChatKind::Supergroup,
         folders: vec![0],
     }];
@@ -60,6 +61,7 @@ fn decoded_avatar_images_replace_badges_in_every_visible_peer_position() {
         pinned: false,
         can_pin_messages: true,
         has_topics: false,
+        has_direct_messages: false,
         kind: ChatKind::Supergroup,
         folders: vec![0],
     }];

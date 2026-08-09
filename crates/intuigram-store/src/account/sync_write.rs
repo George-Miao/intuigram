@@ -38,11 +38,12 @@ pub(super) fn commit_sync(connection: &Connection, batch: SyncBatch) -> Result<(
         transaction
             .execute(
                 "INSERT INTO chats(chat_id, kind, title, preview, status, unread_count, pinned, \
-                 can_pin_messages, has_topics) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) ON \
-                 CONFLICT(chat_id) DO UPDATE SET kind=excluded.kind, title=excluded.title, \
-                 preview=excluded.preview, status=excluded.status, \
+                 can_pin_messages, has_topics, has_direct_messages) VALUES (?1, ?2, ?3, ?4, ?5, \
+                 ?6, ?7, ?8, ?9, ?10) ON CONFLICT(chat_id) DO UPDATE SET kind=excluded.kind, \
+                 title=excluded.title, preview=excluded.preview, status=excluded.status, \
                  unread_count=excluded.unread_count, pinned=excluded.pinned, \
-                 can_pin_messages=excluded.can_pin_messages, has_topics=excluded.has_topics",
+                 can_pin_messages=excluded.can_pin_messages, has_topics=excluded.has_topics, \
+                 has_direct_messages=excluded.has_direct_messages",
                 params![
                     chat.id,
                     chat.kind,
@@ -52,7 +53,8 @@ pub(super) fn commit_sync(connection: &Connection, batch: SyncBatch) -> Result<(
                     chat.unread,
                     chat.pinned,
                     chat.can_pin_messages,
-                    chat.has_topics
+                    chat.has_topics,
+                    chat.has_direct_messages,
                 ],
             )
             .context(CommitSyncSnafu)?;
@@ -119,6 +121,15 @@ pub(super) fn apply_sync_mutation(
                 params![chat_id, has_topics],
             )?;
         }
+        StoredMutation::SetChatHasDirectMessages {
+            chat_id,
+            has_direct_messages,
+        } => {
+            connection.execute(
+                "UPDATE chats SET has_direct_messages = ?2 WHERE chat_id = ?1",
+                params![chat_id, has_direct_messages],
+            )?;
+        }
         StoredMutation::SetMessagesPinned {
             chat_id,
             ids,
@@ -166,6 +177,7 @@ pub(super) fn apply_sync_mutation(
         }
         StoredMutation::ReadHistory {
             chat_id,
+            saved_peer,
             max_id,
             outgoing,
             unread,
@@ -173,15 +185,23 @@ pub(super) fn apply_sync_mutation(
             if outgoing {
                 connection.execute(
                     "UPDATE messages SET delivery = 'read' WHERE chat_id = ?1 AND message_id <= \
-                     ?2 AND direction = 'outgoing'",
-                    params![chat_id, max_id],
+                     ?2 AND saved_peer_id IS ?3 AND direction = 'outgoing'",
+                    params![chat_id, max_id, saved_peer],
                 )?;
             }
             if let Some(unread) = unread {
-                connection.execute(
-                    "UPDATE chats SET unread_count = ?2 WHERE chat_id = ?1",
-                    params![chat_id, unread],
-                )?;
+                if let Some(saved_peer) = saved_peer {
+                    connection.execute(
+                        "UPDATE saved_dialogs SET unread_count = ?3, unread_mark = 0 WHERE \
+                         chat_id = ?1 AND saved_peer_id = ?2",
+                        params![chat_id, saved_peer, unread],
+                    )?;
+                } else {
+                    connection.execute(
+                        "UPDATE chats SET unread_count = ?2 WHERE chat_id = ?1",
+                        params![chat_id, unread],
+                    )?;
+                }
             }
         }
         StoredMutation::MoveArchive { chat_id, archived } => {

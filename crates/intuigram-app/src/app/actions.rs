@@ -139,7 +139,7 @@ impl App {
                     return self.open_active_saved_dialog();
                 }
                 if let Some(chat) = self.active_chat_id() {
-                    if self.active_chat_is_saved_messages() {
+                    if self.active_chat_has_saved_dialogs() {
                         return self.open_saved_dialogs(chat);
                     }
                     if self.active_chat_has_topics() {
@@ -226,10 +226,12 @@ impl App {
             Action::Paste => self.active_history_key().map(|key| Effect::ReadClipboard {
                 chat: key.chat,
                 thread_root: key.thread,
+                saved_peer: key.saved_peer,
             }),
             Action::Attach => self.active_history_key().map(|key| Effect::PickAttachment {
                 chat: key.chat,
                 thread_root: key.thread,
+                saved_peer: key.saved_peer,
             }),
             Action::ConfirmAttachment => self.confirm_attachment(),
             Action::CreatePoll => {
@@ -275,17 +277,18 @@ impl App {
                     return self.draft_effect();
                 } else if self.view.focus == Focus::Transcript
                     && self.view.active_saved_peer.is_some()
+                    && self.view.active_thread.is_none()
                 {
                     self.leave_saved_dialog();
                 } else if self.view.focus == Focus::Transcript {
                     self.focus_composer_at_anchor();
                 } else if self.view.focus == Focus::Composer {
-                    if self.view.active_saved_peer.is_some() {
+                    if self.view.active_thread.is_some() {
+                        self.leave_thread();
+                    } else if self.view.active_saved_peer.is_some() {
                         self.leave_saved_dialog();
                     } else if self.view.active_topic.is_some() {
                         self.leave_topic();
-                    } else if self.view.active_thread.is_some() {
-                        self.leave_thread();
                     } else {
                         self.view.focus = Focus::Chats;
                     }
@@ -328,6 +331,7 @@ impl App {
         Some(Effect::SelectAttachment {
             chat: key.chat,
             thread_root: key.thread,
+            saved_peer: key.saved_peer,
             path,
         })
     }

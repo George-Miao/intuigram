@@ -1,19 +1,16 @@
 //! Synchronous execution of application effects against scripted adapters.
 
 use intuigram::encode_stored_message;
-use intuigram_app::{
-    AdapterEvent, AttachmentId, AttachmentKind, AttachmentView, ConnectionState, Effect,
-    MediaPreviewView,
-};
-use intuigram_store::{StoredDraft, StoredSelection};
+use intuigram_app::{AdapterEvent, ConnectionState, Effect, MediaPreviewView};
+use intuigram_store::StoredSelection;
 use intuigram_telegram::{LiveEvent, UpdateCursor, UpdateScope};
 use snafu::ResultExt;
 
 use super::TestSystem;
+use super::composer_effects::ComposerSend;
 use super::downloads::ONE_PIXEL_PNG;
 use super::telegram_control::block_on;
 use crate::error::{Error, Result, StoreSnafu};
-use crate::telegram::ObservedSend;
 
 impl TestSystem {
     pub(super) fn drain_effects(&mut self) -> Result<()> {
@@ -27,10 +24,14 @@ impl TestSystem {
                 effect @ (Effect::SetChatMediaOffline(_) | Effect::CacheMediaOffline(_)) => {
                     self.handle_offline_media_effect(effect)?;
                 }
-                Effect::LoadScheduledMessages { chat } => self.handle_scheduled_load(chat),
-                Effect::ScheduledOperation { chat, request } => {
-                    self.handle_scheduled_operation(chat, request)
+                Effect::LoadScheduledMessages { chat, saved_peer } => {
+                    self.handle_scheduled_load(chat, saved_peer)
                 }
+                Effect::ScheduledOperation {
+                    chat,
+                    saved_peer,
+                    request,
+                } => self.handle_scheduled_operation(chat, saved_peer, request),
                 Effect::BrowseRichMedia { kind } => self.handle_rich_media_browse(kind),
                 Effect::SendLibraryMedia { chat, local_id, .. }
                 | Effect::SendRichMediaFile { chat, local_id, .. }
@@ -72,7 +73,11 @@ impl TestSystem {
                         })
                         .context(StoreSnafu)?;
                 }
-                Effect::LoadThread { chat, root } => {
+                Effect::LoadThread {
+                    chat,
+                    root,
+                    saved_peer,
+                } => {
                     let messages = self
                         .telegram
                         .load_thread(chat, root)
@@ -80,6 +85,7 @@ impl TestSystem {
                     self.application.handle_adapter(AdapterEvent::ThreadLoaded {
                         chat,
                         root,
+                        saved_peer,
                         messages,
                     });
                 }
@@ -88,19 +94,27 @@ impl TestSystem {
                 Effect::LoadSavedHistory { chat, peer } => {
                     self.handle_saved_history_load(chat, peer)?
                 }
-                Effect::ReadThread { chat, root, max_id } => {
+                Effect::ReadThread {
+                    chat, root, max_id, ..
+                } => {
                     self.telegram
                         .read_thread(chat, root, max_id)
                         .map_err(|error| self.scenario_error(error))?;
                 }
-                Effect::ReadHistory { chat, max_id } => {
-                    let acknowledge = self
-                        .telegram
-                        .read_history(chat, max_id)
-                        .map_err(|error| self.scenario_error(error))?;
+                Effect::ReadHistory {
+                    chat,
+                    max_id,
+                    saved_peer,
+                } => {
+                    let acknowledge = match saved_peer {
+                        Some(peer) => self.telegram.read_saved_history(chat, peer, max_id),
+                        None => self.telegram.read_history(chat, max_id),
+                    }
+                    .map_err(|error| self.scenario_error(error))?;
                     if acknowledge {
                         self.application.handle_adapter(AdapterEvent::HistoryRead {
                             chat,
+                            saved_peer,
                             max_id,
                             outgoing: false,
                             unread: Some(0),
@@ -110,44 +124,16 @@ impl TestSystem {
                 Effect::SaveDraft {
                     chat,
                     thread_root,
+                    saved_peer,
                     text,
                     reply_to,
-                } => {
-                    self.database
-                        .save_draft(StoredDraft {
-                            chat_id: chat.0,
-                            thread_root: thread_root.map(|message| message.0),
-                            text,
-                            reply_to: reply_to.map(|message| message.0),
-                            modified_at: 0,
-                        })
-                        .context(StoreSnafu)?;
-                }
+                } => self.persist_composer_draft(chat, thread_root, saved_peer, text, reply_to)?,
                 Effect::SelectAttachment {
                     chat,
                     thread_root,
+                    saved_peer,
                     path,
-                } => {
-                    self.next_attachment_id = self.next_attachment_id.saturating_add(1);
-                    let id = AttachmentId(self.next_attachment_id);
-                    let name = std::path::Path::new(&path).file_name().map_or_else(
-                        || "attachment".to_owned(),
-                        |name| name.to_string_lossy().into_owned(),
-                    );
-                    let kind = if name.ends_with(".png") || name.ends_with(".jpg") {
-                        AttachmentKind::Photo
-                    } else {
-                        AttachmentKind::File
-                    };
-                    self.attachment_names.insert(id, name.clone());
-                    self.application
-                        .handle_adapter(AdapterEvent::ClipboardReady {
-                            chat,
-                            thread_root,
-                            text: None,
-                            attachments: vec![AttachmentView { id, kind, name }],
-                        });
-                }
+                } => self.select_composer_attachment(chat, thread_root, saved_peer, path),
                 Effect::SendMessage {
                     chat,
                     text,
@@ -155,30 +141,19 @@ impl TestSystem {
                     link_preview,
                     reply_to,
                     thread_root,
+                    saved_peer,
                     attachments,
                     local_id,
-                } if attachments.is_empty() => {
-                    self.database
-                        .save_draft(StoredDraft {
-                            chat_id: chat.0,
-                            thread_root: thread_root.map(|message| message.0),
-                            text: String::new(),
-                            reply_to: None,
-                            modified_at: 0,
-                        })
-                        .context(StoreSnafu)?;
-                    self.telegram
-                        .hold_send(ObservedSend {
-                            chat,
-                            text,
-                            entities,
-                            link_preview,
-                            reply_to,
-                            thread_root,
-                            local_id,
-                        })
-                        .map_err(|error| self.scenario_error(error))?;
-                }
+                } if attachments.is_empty() => self.hold_composer_send(ComposerSend {
+                    chat,
+                    text,
+                    entities,
+                    link_preview,
+                    reply_to,
+                    thread_root,
+                    saved_peer,
+                    local_id,
+                })?,
                 Effect::SendPoll {
                     chat,
                     question,
@@ -186,6 +161,7 @@ impl TestSystem {
                     reply_to,
                     thread_root,
                     local_id,
+                    ..
                 } => {
                     self.telegram
                         .send_poll(chat, question, options, reply_to, thread_root)
@@ -249,6 +225,7 @@ impl TestSystem {
                     source,
                     destination,
                     messages,
+                    ..
                 } => {
                     self.telegram
                         .forward_messages(source, destination, messages)
@@ -370,9 +347,17 @@ impl TestSystem {
                             "Opened completed download".to_owned(),
                         ));
                 }
-                Effect::PickAttachment { chat, thread_root } => {
+                Effect::PickAttachment {
+                    chat,
+                    thread_root,
+                    saved_peer,
+                } => {
                     self.application
-                        .handle_adapter(AdapterEvent::AttachmentPathRequired { chat, thread_root });
+                        .handle_adapter(AdapterEvent::AttachmentPathRequired {
+                            chat,
+                            thread_root,
+                            saved_peer,
+                        });
                 }
                 Effect::Reconnect => {
                     self.telegram

@@ -66,7 +66,26 @@ impl TelegramControl<'_> {
     }
 
     /// Completes a previously held send with Telegram's acknowledged Message.
-    pub fn complete(&mut self, label: &str, mut message: MessageView) -> Result<()> {
+    pub fn complete(&mut self, label: &str, message: MessageView) -> Result<()> {
+        self.complete_in_saved_dialog(label, None, message)
+    }
+
+    /// Completes a held send while preserving its per-peer monoforum scope.
+    pub fn complete_saved(
+        &mut self,
+        label: &str,
+        saved_peer: intuigram_app::ChatId,
+        message: MessageView,
+    ) -> Result<()> {
+        self.complete_in_saved_dialog(label, Some(saved_peer), message)
+    }
+
+    fn complete_in_saved_dialog(
+        &mut self,
+        label: &str,
+        saved_peer: Option<intuigram_app::ChatId>,
+        mut message: MessageView,
+    ) -> Result<()> {
         let Some(held) = self.system.telegram.take_held(label) else {
             return Err(Error::TelegramMismatch {
                 expected: format!("held send {label:?}"),
@@ -77,6 +96,7 @@ impl TelegramControl<'_> {
         message.body.clone_from(&held.text);
         message.reply_to = held.reply_to;
         message.details.thread_root = held.thread_root;
+        message.details.saved_peer = saved_peer;
         self.system.trace.borrow_mut().record(
             "telegram-event",
             format!(

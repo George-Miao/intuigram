@@ -8,13 +8,17 @@ impl App {
         }
         self.view.scheduled = Some(ScheduledManagerView {
             chat,
+            saved_peer: self.view.active_saved_peer,
             messages: Vec::new(),
             selected: 0,
             editor: None,
             confirmation: None,
             pending: true,
         });
-        Some(Effect::LoadScheduledMessages { chat })
+        Some(Effect::LoadScheduledMessages {
+            chat,
+            saved_peer: self.view.active_saved_peer,
+        })
     }
 
     pub(super) fn apply_scheduled_action(&mut self, action: Action) -> Option<Effect> {
@@ -120,16 +124,26 @@ impl App {
     }
 
     pub(super) fn apply_scheduled_event(&mut self, event: AdapterEvent) -> Option<Effect> {
-        let (chat, messages, notice) = match event {
-            AdapterEvent::ScheduledMessagesReady { chat, messages } => (chat, messages, None),
+        let (chat, saved_peer, messages, notice) = match event {
+            AdapterEvent::ScheduledMessagesReady {
+                chat,
+                saved_peer,
+                messages,
+            } => (chat, saved_peer, messages, None),
             AdapterEvent::ScheduledOperationCompleted {
                 chat,
+                saved_peer,
                 messages,
                 notice,
-            } => (chat, messages, Some(notice)),
-            AdapterEvent::ScheduledOperationFailed { chat, reason } => {
+            } => (chat, saved_peer, messages, Some(notice)),
+            AdapterEvent::ScheduledOperationFailed {
+                chat,
+                saved_peer,
+                reason,
+            } => {
                 if let Some(manager) = &mut self.view.scheduled
                     && manager.chat == chat
+                    && manager.saved_peer == saved_peer
                 {
                     manager.pending = false;
                 }
@@ -140,6 +154,7 @@ impl App {
         };
         if let Some(manager) = &mut self.view.scheduled
             && manager.chat == chat
+            && manager.saved_peer == saved_peer
         {
             manager.messages = messages;
             manager.selected = manager
@@ -225,6 +240,7 @@ impl App {
         manager.confirmation = None;
         Some(Effect::ScheduledOperation {
             chat: manager.chat,
+            saved_peer: manager.saved_peer,
             request,
         })
     }

@@ -66,6 +66,7 @@ fn unread_divider_survives_live_updates_and_clears_when_read_state_advances() ->
         cursor(2),
         AdapterEvent::HistoryRead {
             chat: ChatId(10),
+            saved_peer: None,
             max_id: MessageId(42),
             outgoing: false,
             unread: Some(1),
@@ -77,6 +78,7 @@ fn unread_divider_survives_live_updates_and_clears_when_read_state_advances() ->
         cursor(3),
         AdapterEvent::HistoryRead {
             chat: ChatId(10),
+            saved_peer: None,
             max_id: MessageId(43),
             outgoing: false,
             unread: Some(0),

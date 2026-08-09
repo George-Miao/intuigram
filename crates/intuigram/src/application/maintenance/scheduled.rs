@@ -17,14 +17,14 @@ pub(crate) async fn run_scheduled_maintenance(
             text,
         } => {
             client
-                .schedule_text(chat, text, delivery, operation_id()?)
+                .schedule_text(chat, None, text, delivery, operation_id()?)
                 .await
                 .context(TelegramSnafu)?;
             println!("Scheduled a Message for Chat {}.", chat.0);
         }
         ScheduledMaintenance::List { chat } => {
             for message in client
-                .scheduled_messages(chat)
+                .scheduled_messages(chat, None)
                 .await
                 .context(TelegramSnafu)?
             {

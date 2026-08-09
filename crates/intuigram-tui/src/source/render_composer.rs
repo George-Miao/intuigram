@@ -12,7 +12,7 @@ pub(super) fn composer_height(area: Rect, view: &View) -> u16 {
     if view.active_saved_peer.is_some_and(|peer| {
         view.active_chat
             .and_then(|index| view.chats.get(index))
-            .is_none_or(|chat| chat.id != peer)
+            .is_none_or(|chat| chat.kind == ChatKind::SavedMessages && chat.id != peer)
     }) {
         return 0;
     }

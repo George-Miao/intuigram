@@ -42,6 +42,7 @@ mod tests {
         let route = effect_route(&Effect::SaveDraft {
             chat: ChatId(7),
             thread_root: None,
+            saved_peer: None,
             text: "draft".to_owned(),
             reply_to: Some(MessageId(9)),
         });
@@ -56,6 +57,7 @@ mod tests {
             effect_route(&Effect::ReadClipboard {
                 chat: ChatId(7),
                 thread_root: None,
+                saved_peer: None,
             })
             .runs_independently()
         );

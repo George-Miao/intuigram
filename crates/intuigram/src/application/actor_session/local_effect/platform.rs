@@ -34,19 +34,26 @@ pub(super) async fn execute(
                 Err(error) => AdapterEvent::OperationFailed(error.to_string()),
             },
         ),
-        Effect::ReadClipboard { chat, thread_root } => Some(
-            read_clipboard(state, chat, thread_root)
+        Effect::ReadClipboard {
+            chat,
+            thread_root,
+            saved_peer,
+        } => Some(
+            read_clipboard(state, chat, thread_root, saved_peer)
                 .await
                 .unwrap_or_else(|error| AdapterEvent::OperationFailed(error.to_string())),
         ),
-        Effect::PickAttachment { chat, thread_root } => {
-            Some(pick_attachment(state, chat, thread_root).await)
-        }
+        Effect::PickAttachment {
+            chat,
+            thread_root,
+            saved_peer,
+        } => Some(pick_attachment(state, chat, thread_root, saved_peer).await),
         Effect::SelectAttachment {
             chat,
             thread_root,
+            saved_peer,
             path,
-        } => Some(select_attachment(state, chat, thread_root, path).await),
+        } => Some(select_attachment(state, chat, thread_root, saved_peer, path).await),
         Effect::OpenDownload { download, reveal } => {
             let path = state.borrow().downloaded.paths.get(&download).cloned();
             Some(match path {
@@ -66,11 +73,16 @@ async fn pick_attachment(
     state: &RefCell<State>,
     chat: intuigram_app::ChatId,
     thread_root: Option<intuigram_app::MessageId>,
+    saved_peer: Option<intuigram_app::ChatId>,
 ) -> AdapterEvent {
     let command = state.borrow().path_picker.clone();
     match super::picker::select(command).await {
-        Ok(Some(path)) => select_attachment(state, chat, thread_root, path).await,
-        Ok(None) => AdapterEvent::AttachmentPathRequired { chat, thread_root },
+        Ok(Some(path)) => select_attachment(state, chat, thread_root, saved_peer, path).await,
+        Ok(None) => AdapterEvent::AttachmentPathRequired {
+            chat,
+            thread_root,
+            saved_peer,
+        },
         Err(error) => AdapterEvent::OperationFailed(error.to_string()),
     }
 }
@@ -79,6 +91,7 @@ async fn read_clipboard(
     state: &RefCell<State>,
     chat: intuigram_app::ChatId,
     thread_root: Option<intuigram_app::MessageId>,
+    saved_peer: Option<intuigram_app::ChatId>,
 ) -> rich_clipboard::Result<AdapterEvent> {
     let content = rich_clipboard::read().await?;
     let (text, attachments) = match content {
@@ -108,6 +121,7 @@ async fn read_clipboard(
     Ok(AdapterEvent::ClipboardReady {
         chat,
         thread_root,
+        saved_peer,
         text,
         attachments,
     })
@@ -117,6 +131,7 @@ async fn select_attachment(
     state: &RefCell<State>,
     chat: intuigram_app::ChatId,
     thread_root: Option<intuigram_app::MessageId>,
+    saved_peer: Option<intuigram_app::ChatId>,
     path: String,
 ) -> AdapterEvent {
     let path = PathBuf::from(path);
@@ -127,6 +142,7 @@ async fn select_attachment(
         Ok(metadata) if metadata.is_file() => AdapterEvent::ClipboardReady {
             chat,
             thread_root,
+            saved_peer,
             text: None,
             attachments: vec![register_file(state, path)],
         },

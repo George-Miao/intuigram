@@ -124,6 +124,7 @@ impl App {
                 Some(Effect::ForwardMessages {
                     source,
                     destination,
+                    destination_saved_peer: None,
                     messages,
                 })
             }
@@ -178,6 +179,7 @@ impl App {
         Some(Effect::SaveDraft {
             chat: key.chat,
             thread_root: key.thread,
+            saved_peer: key.saved_peer,
             text: String::new(),
             reply_to: None,
         })

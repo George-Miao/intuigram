@@ -97,11 +97,15 @@ impl Client {
         &mut self,
         source: ChatId,
         destination: ChatId,
+        destination_monoforum_peer: Option<ChatId>,
         messages: Vec<MessageId>,
         first_random_id: i64,
     ) -> Result<()> {
         let from_peer = self.peers.resolve(source)?;
         let to_peer = self.peers.resolve(destination)?;
+        let destination_monoforum_peer = destination_monoforum_peer
+            .map(|peer| self.peers.resolve(peer))
+            .transpose()?;
         let ids = messages
             .iter()
             .map(|message| {
@@ -125,7 +129,9 @@ impl Client {
                 random_id: random_ids,
                 to_peer,
                 top_msg_id: None,
-                reply_to: None,
+                reply_to: destination_monoforum_peer.map(|monoforum_peer_id| {
+                    tl::types::InputReplyToMonoForum { monoforum_peer_id }.into()
+                }),
                 schedule_date: None,
                 schedule_repeat_period: None,
                 send_as: None,

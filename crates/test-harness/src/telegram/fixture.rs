@@ -72,6 +72,7 @@ impl AccountFixture {
         self.drafts.push(DraftView {
             chat: ChatId(chat),
             thread_root: None,
+            saved_peer: None,
             text: text.into(),
             reply_to: None,
         });
@@ -200,6 +201,7 @@ pub fn chat(id: i64, title: impl Into<String>) -> ChatView {
         pinned: false,
         can_pin_messages: true,
         has_topics: false,
+        has_direct_messages: false,
         kind: ChatKind::Private,
         folders: vec![0],
     }

@@ -7,6 +7,7 @@ impl Backend {
             options,
             reply_to,
             thread_root,
+            saved_peer,
             delivery,
         } = poll;
         let message = MessageView {
@@ -43,6 +44,7 @@ impl Backend {
                     remote_id: None,
                 }),
                 thread_root,
+                saved_peer,
                 ..MessageDetails::default()
             },
         };
@@ -61,6 +63,7 @@ pub(super) struct PollPersistence<'a> {
     pub(super) options: &'a [String],
     pub(super) reply_to: Option<MessageId>,
     pub(super) thread_root: Option<MessageId>,
+    pub(super) saved_peer: Option<ChatId>,
     pub(super) delivery: DeliveryState,
 }
 use super::*;

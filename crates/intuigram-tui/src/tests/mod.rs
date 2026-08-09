@@ -318,6 +318,7 @@ fn terminal_events_resolve_against_the_current_view() {
 
 mod accounts;
 mod avatars;
+mod channel_direct_messages;
 mod density;
 mod effort;
 mod forwarded;

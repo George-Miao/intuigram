@@ -13,13 +13,17 @@ fn scheduled_history_is_separate_and_adapter_failures_leave_it_visible() {
     let open = app.transition(Input::Intent(Intent::Action(Action::OpenScheduled)));
     assert_eq!(
         open.effect,
-        Some(Effect::LoadScheduledMessages { chat: ChatId(10) })
+        Some(Effect::LoadScheduledMessages {
+            chat: ChatId(10),
+            saved_peer: None,
+        })
     );
     assert_eq!(open.view.messages.len(), 3);
     apply(
         &mut app,
         Input::Adapter(AdapterEvent::ScheduledMessagesReady {
             chat: ChatId(10),
+            saved_peer: None,
             messages: vec![ScheduledMessageView {
                 id: ScheduledMessageId(70),
                 delivery: ScheduledDeliveryView::WhenOnline,
@@ -41,6 +45,7 @@ fn scheduled_history_is_separate_and_adapter_failures_leave_it_visible() {
         save.effect,
         Some(Effect::ScheduledOperation {
             chat: ChatId(10),
+            saved_peer: None,
             request: ScheduledRequest::Create {
                 delivery: ScheduledDeliveryView::WhenOnline,
                 text: "new".to_owned(),
@@ -52,6 +57,7 @@ fn scheduled_history_is_separate_and_adapter_failures_leave_it_visible() {
         &mut app,
         Input::Adapter(AdapterEvent::ScheduledOperationFailed {
             chat: ChatId(10),
+            saved_peer: None,
             reason: "schedule rejected".to_owned(),
         }),
     );

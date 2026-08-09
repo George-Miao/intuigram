@@ -80,6 +80,7 @@ impl TestSystemBuilder {
                 .save_draft(StoredDraft {
                     chat_id: draft.chat.0,
                     thread_root: draft.thread_root.map(|message| message.0),
+                    saved_peer: draft.saved_peer.map(|peer| peer.0),
                     text: draft.text.clone(),
                     reply_to: draft.reply_to.map(|message| message.0),
                     modified_at: 0,

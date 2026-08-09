@@ -216,25 +216,43 @@ pub(crate) fn normalize_update(
         }
         tl::enums::Update::ReadHistoryInbox(update) => vec![AdapterEvent::HistoryRead {
             chat: marked_peer_id(&update.peer),
+            saved_peer: None,
             max_id: MessageId(i64::from(update.max_id)),
             outgoing: false,
             unread: u32::try_from(update.still_unread_count).ok(),
         }],
         tl::enums::Update::ReadHistoryOutbox(update) => vec![AdapterEvent::HistoryRead {
             chat: marked_peer_id(&update.peer),
+            saved_peer: None,
             max_id: MessageId(i64::from(update.max_id)),
             outgoing: true,
             unread: None,
         }],
         tl::enums::Update::ReadChannelInbox(update) => vec![AdapterEvent::HistoryRead {
             chat: ChatId(mark_channel_id(update.channel_id)),
+            saved_peer: None,
             max_id: MessageId(i64::from(update.max_id)),
             outgoing: false,
             unread: u32::try_from(update.still_unread_count).ok(),
         }],
         tl::enums::Update::ReadChannelOutbox(update) => vec![AdapterEvent::HistoryRead {
             chat: ChatId(mark_channel_id(update.channel_id)),
+            saved_peer: None,
             max_id: MessageId(i64::from(update.max_id)),
+            outgoing: true,
+            unread: None,
+        }],
+        tl::enums::Update::ReadMonoForumInbox(update) => vec![AdapterEvent::HistoryRead {
+            chat: ChatId(mark_channel_id(update.channel_id)),
+            saved_peer: Some(marked_peer_id(&update.saved_peer_id)),
+            max_id: MessageId(i64::from(update.read_max_id)),
+            outgoing: false,
+            unread: Some(0),
+        }],
+        tl::enums::Update::ReadMonoForumOutbox(update) => vec![AdapterEvent::HistoryRead {
+            chat: ChatId(mark_channel_id(update.channel_id)),
+            saved_peer: Some(marked_peer_id(&update.saved_peer_id)),
+            max_id: MessageId(i64::from(update.read_max_id)),
             outgoing: true,
             unread: None,
         }],

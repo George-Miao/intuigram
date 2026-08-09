@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
-use super::*;
+use intuigram_app::SavedDialogDraftView;
 
+use super::*;
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct SavedDialogOffset {
     pub(super) date: i32,
@@ -77,6 +78,15 @@ pub(super) fn normalize_saved_dialog(
     names: &HashMap<ChatId, String>,
 ) -> SavedDialogView {
     let peer = marked_peer_id(&dialog.peer());
+    let (pinned, unread, unread_mark, draft) = match &dialog {
+        tl::enums::SavedDialog::Dialog(dialog) => (dialog.pinned, 0, false, None),
+        tl::enums::SavedDialog::MonoForumDialog(dialog) => (
+            false,
+            u32::try_from(dialog.unread_count.max(0)).unwrap_or(0),
+            dialog.unread_mark,
+            dialog.draft.clone().and_then(normalize_saved_dialog_draft),
+        ),
+    };
     let (preview, timestamp) = top.map_or_else(
         || (String::new(), String::new()),
         |message| {
@@ -92,9 +102,27 @@ pub(super) fn normalize_saved_dialog(
             .unwrap_or_else(|| "Unknown peer".to_owned()),
         preview,
         timestamp,
-        pinned: matches!(dialog, tl::enums::SavedDialog::Dialog(ref dialog) if dialog.pinned),
+        unread,
+        unread_mark,
+        pinned,
         top_message: MessageId(i64::from(dialog.top_message())),
+        draft,
     }
+}
+
+fn normalize_saved_dialog_draft(draft: tl::enums::DraftMessage) -> Option<SavedDialogDraftView> {
+    let tl::enums::DraftMessage::Message(draft) = draft else {
+        return None;
+    };
+    Some(SavedDialogDraftView {
+        text: draft.message,
+        reply_to: draft.reply_to.and_then(|reply| match reply {
+            tl::enums::InputReplyTo::Message(reply) => {
+                Some(MessageId(i64::from(reply.reply_to_msg_id)))
+            }
+            tl::enums::InputReplyTo::Story(_) | tl::enums::InputReplyTo::MonoForum(_) => None,
+        }),
+    })
 }
 
 pub(super) fn message_id(message: &tl::enums::Message) -> i32 {
@@ -110,5 +138,67 @@ fn message_date(message: &tl::enums::Message) -> i32 {
         tl::enums::Message::Empty(_) => 0,
         tl::enums::Message::Message(message) => message.date,
         tl::enums::Message::Service(message) => message.date,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn monoforum_dialog_preserves_unread_and_draft_state() {
+        let peer = ChatId(42);
+        let dialog: tl::enums::SavedDialog = tl::types::MonoForumDialog {
+            unread_mark: true,
+            nopaid_messages_exception: false,
+            peer: tl::types::PeerUser { user_id: peer.0 }.into(),
+            top_message: 99,
+            read_inbox_max_id: 95,
+            read_outbox_max_id: 98,
+            unread_count: 4,
+            unread_reactions_count: 1,
+            draft: Some(
+                tl::types::DraftMessage {
+                    no_webpage: false,
+                    invert_media: false,
+                    reply_to: Some(
+                        tl::types::InputReplyToMessage {
+                            reply_to_msg_id: 96,
+                            top_msg_id: None,
+                            reply_to_peer_id: None,
+                            quote_text: None,
+                            quote_entities: None,
+                            quote_offset: None,
+                            monoforum_peer_id: None,
+                            todo_item_id: None,
+                            poll_option: None,
+                        }
+                        .into(),
+                    ),
+                    message: "follow up".to_owned(),
+                    entities: None,
+                    media: None,
+                    date: 1_700_000_000,
+                    effect: None,
+                    suggested_post: None,
+                    rich_message: None,
+                }
+                .into(),
+            ),
+        }
+        .into();
+        let names = HashMap::from([(peer, "Ada".to_owned())]);
+
+        let normalized = normalize_saved_dialog(dialog, None, &names);
+
+        assert_eq!(normalized.peer, peer);
+        assert_eq!(normalized.title, "Ada");
+        assert_eq!(normalized.unread, 4);
+        assert!(normalized.unread_mark);
+        assert!(!normalized.pinned);
+        assert_eq!(normalized.top_message, MessageId(99));
+        let draft = normalized.draft.expect("monoforum Draft should normalize");
+        assert_eq!(draft.text, "follow up");
+        assert_eq!(draft.reply_to, Some(MessageId(96)));
     }
 }

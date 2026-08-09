@@ -3,6 +3,7 @@ use super::*;
 pub(super) fn history_failure_event(
     chat: ChatId,
     thread_root: Option<MessageId>,
+    saved_peer: Option<ChatId>,
     error: Error,
 ) -> Result<Option<AdapterEvent>> {
     match error {
@@ -12,6 +13,7 @@ pub(super) fn history_failure_event(
         Error::Telegram { source } => Ok(Some(AdapterEvent::HistoryLoadFailed {
             chat,
             thread_root,
+            saved_peer,
             reason: source.to_string(),
         })),
         error => Err(error),
@@ -26,6 +28,7 @@ mod tests {
     fn rejected_history_request_is_a_nonfatal_failed_history_event() {
         let event = history_failure_event(
             ChatId(-1_001_195_461_650),
+            None,
             None,
             Error::Telegram {
                 source: intuigram_telegram::Error::PeerUnavailable {

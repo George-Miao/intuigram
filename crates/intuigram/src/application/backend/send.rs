@@ -13,6 +13,7 @@ impl Backend {
             link_preview,
             reply_to,
             thread_root,
+            saved_peer,
             attachments,
             local_id,
         } = effect
@@ -26,10 +27,11 @@ impl Backend {
             entities: &entities,
             reply_to,
             thread_root,
+            saved_peer,
             delivery: DeliveryState::Pending,
         })
         .await?;
-        self.save_draft(chat, thread_root, String::new(), None)
+        self.save_draft(chat, thread_root, saved_peer, String::new(), None)
             .await?;
         let result = self
             .send_message(MessageSend {
@@ -39,6 +41,7 @@ impl Backend {
                 link_preview,
                 reply_to,
                 thread_root,
+                saved_peer,
                 attachment_ids: attachments,
                 random_id: random_id.expect("every queued send has an idempotency token"),
             })
@@ -59,6 +62,7 @@ impl Backend {
                         entities: &entities,
                         reply_to,
                         thread_root,
+                        saved_peer,
                         delivery: DeliveryState::Sent,
                     },
                     message.id,
@@ -73,6 +77,7 @@ impl Backend {
                     entities: &entities,
                     reply_to,
                     thread_root,
+                    saved_peer,
                     delivery: DeliveryState::Failed,
                 })
                 .await?;
@@ -84,6 +89,7 @@ impl Backend {
                 chat,
                 local_id,
                 thread_root,
+                saved_peer,
                 text,
                 reason: error.to_string(),
             },
@@ -114,6 +120,7 @@ mod tests {
                     entities: &[],
                     reply_to: None,
                     thread_root: None,
+                    saved_peer: None,
                     delivery: DeliveryState::Sent,
                 },
                 MessageId(41),

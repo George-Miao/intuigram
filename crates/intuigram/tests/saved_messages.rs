@@ -10,8 +10,11 @@ fn opening_saved_messages_descends_through_origin_dialogs_and_returns_there() ->
         title: "Intuigram Contributors".to_owned(),
         preview: "saved design note".to_owned(),
         timestamp: "12:00".to_owned(),
+        unread: 0,
+        unread_mark: false,
         pinned: true,
         top_message: MessageId(42),
+        draft: None,
     };
     let mut message = incoming(42, "Lin", "saved design note");
     message.details.saved_peer = Some(ChatId(200));

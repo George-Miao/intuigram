@@ -7,25 +7,33 @@ impl Backend {
         random_id: Option<i64>,
     ) -> Result<AdapterEvent> {
         match effect {
-            Effect::LoadScheduledMessages { chat } => {
-                let result = self.client.scheduled_messages(chat).await;
-                self.scheduled_result(chat, result, None)
+            Effect::LoadScheduledMessages { chat, saved_peer } => {
+                let result = self.client.scheduled_messages(chat, saved_peer).await;
+                self.scheduled_result(chat, saved_peer, result, None)
             }
-            Effect::ScheduledOperation { chat, request } => {
+            Effect::ScheduledOperation {
+                chat,
+                saved_peer,
+                request,
+            } => {
                 let notice = scheduled_notice(&request);
-                let mutation = self.mutate_scheduled(chat, request, random_id).await;
+                let mutation = self
+                    .mutate_scheduled(chat, saved_peer, request, random_id)
+                    .await;
                 if let Err(source) = mutation {
-                    return self.scheduled_result(chat, Err(source), None);
+                    return self.scheduled_result(chat, saved_peer, Err(source), None);
                 }
-                let result = self.client.scheduled_messages(chat).await;
+                let result = self.client.scheduled_messages(chat, saved_peer).await;
                 Ok(match result {
                     Ok(messages) => AdapterEvent::ScheduledOperationCompleted {
                         chat,
+                        saved_peer,
                         messages: messages.into_iter().map(scheduled_message).collect(),
                         notice,
                     },
                     Err(error) => AdapterEvent::ScheduledOperationFailed {
                         chat,
+                        saved_peer,
                         reason: format!(
                             "{notice}, but refreshing Scheduled Messages failed: {error}"
                         ),
@@ -39,6 +47,7 @@ impl Backend {
     async fn mutate_scheduled(
         &mut self,
         chat: ChatId,
+        saved_peer: Option<ChatId>,
         request: ScheduledRequest,
         random_id: Option<i64>,
     ) -> std::result::Result<(), intuigram_telegram::Error> {
@@ -47,6 +56,7 @@ impl Backend {
                 self.client
                     .schedule_text(
                         chat,
+                        saved_peer,
                         text,
                         telegram_delivery(delivery),
                         random_id.expect("every queued schedule creation has an idempotency token"),
@@ -80,6 +90,7 @@ impl Backend {
     fn scheduled_result(
         &self,
         chat: ChatId,
+        saved_peer: Option<ChatId>,
         result: std::result::Result<
             Vec<intuigram_telegram::ScheduledMessage>,
             intuigram_telegram::Error,
@@ -92,11 +103,16 @@ impl Backend {
                 if let Some(notice) = notice {
                     AdapterEvent::ScheduledOperationCompleted {
                         chat,
+                        saved_peer,
                         messages,
                         notice,
                     }
                 } else {
-                    AdapterEvent::ScheduledMessagesReady { chat, messages }
+                    AdapterEvent::ScheduledMessagesReady {
+                        chat,
+                        saved_peer,
+                        messages,
+                    }
                 }
             }
             Err(source) if source.is_connection_failure() => {
@@ -104,6 +120,7 @@ impl Backend {
             }
             Err(error) => AdapterEvent::ScheduledOperationFailed {
                 chat,
+                saved_peer,
                 reason: error.to_string(),
             },
         })

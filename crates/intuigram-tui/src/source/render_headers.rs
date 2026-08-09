@@ -76,14 +76,23 @@ fn title_and_status(
             },
             |chat| {
                 if view.focus == Focus::SavedDialogs {
+                    let direct_messages = chat.has_direct_messages;
                     let status = if view.saved_dialogs_loading {
                         Line::from(effort_spans(
-                            "updating Saved Messages",
+                            if direct_messages {
+                                "updating Direct Messages"
+                            } else {
+                                "updating Saved Messages"
+                            },
                             view.animation_frame,
                         ))
                     } else {
                         Line::from(Span::styled(
-                            format!("{} saved dialogs", view.saved_dialogs.len()),
+                            if direct_messages {
+                                format!("{} direct conversations", view.saved_dialogs.len())
+                            } else {
+                                format!("{} saved dialogs", view.saved_dialogs.len())
+                            },
                             Style::default().fg(MUTED_TEXT),
                         ))
                     };
@@ -97,11 +106,15 @@ fn title_and_status(
                         .saved_dialogs
                         .iter()
                         .find(|dialog| dialog.peer == peer)
-                        .map_or("Saved Messages", |dialog| dialog.title.as_str());
+                        .map_or("unknown peer", |dialog| dialog.title.as_str());
                     return (
                         Line::from(title_spans(view, chat, graphics, focused)),
                         Line::from(Span::styled(
-                            format!("Saved from {origin}"),
+                            if chat.has_direct_messages {
+                                format!("Direct message with {origin}")
+                            } else {
+                                format!("Saved from {origin}")
+                            },
                             Style::default().fg(MUTED_TEXT),
                         )),
                     );

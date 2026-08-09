@@ -212,6 +212,7 @@ fn pointer_view() -> View {
         pinned: false,
         can_pin_messages: true,
         has_topics: false,
+        has_direct_messages: false,
         kind: ChatKind::Private,
         folders: vec![3],
     });

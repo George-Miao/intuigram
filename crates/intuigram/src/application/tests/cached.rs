@@ -58,6 +58,7 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
             pinned: false,
             can_pin_messages: true,
             has_topics: false,
+            has_direct_messages: false,
             folders: vec![0],
         }],
         topics: Vec::new(),
@@ -67,6 +68,7 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
         drafts: vec![StoredDraft {
             chat_id: 7,
             thread_root: Some(41),
+            saved_peer: None,
             text: "cached Draft".to_owned(),
             reply_to: Some(42),
             modified_at: 10,
@@ -132,6 +134,7 @@ fn cached_saved_message_is_restored_into_root_and_origin_histories() {
             pinned: true,
             can_pin_messages: true,
             has_topics: false,
+            has_direct_messages: false,
             folders: vec![0],
         }],
         saved_dialogs: vec![StoredSavedDialog {
@@ -140,8 +143,12 @@ fn cached_saved_message_is_restored_into_root_and_origin_histories() {
             title: "Ada".to_owned(),
             preview: "saved note".to_owned(),
             timestamp: "12:00".to_owned(),
+            unread: 0,
+            unread_mark: false,
             pinned: false,
             top_message_id: 42,
+            draft_text: None,
+            draft_reply_to: None,
         }],
         messages: vec![encode_stored_message(ChatId(7), &message)],
         ..CachedAccount::default()

@@ -7,9 +7,13 @@ impl Client {
         options: Vec<String>,
         reply_to: Option<MessageId>,
         thread_root: Option<MessageId>,
+        monoforum_peer: Option<ChatId>,
         random_id: i64,
     ) -> Result<()> {
         let peer = self.peers.resolve(chat)?;
+        let monoforum_peer = monoforum_peer
+            .map(|peer| self.peers.resolve(peer))
+            .transpose()?;
         let question = text_with_no_entities(question);
         let answers = options
             .into_iter()
@@ -65,7 +69,7 @@ impl Client {
                 invert_media: false,
                 allow_paid_floodskip: false,
                 peer,
-                reply_to: input_reply_to(reply_to, thread_root)?,
+                reply_to: input_reply_to(reply_to, thread_root, monoforum_peer)?,
                 media: media.into(),
                 message: String::new(),
                 random_id,

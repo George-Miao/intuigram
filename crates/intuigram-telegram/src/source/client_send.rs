@@ -20,6 +20,9 @@ pub struct TextSend {
     /// Active Thread root.
     pub thread_root: Option<MessageId>,
 
+    /// User topic inside an administrator-owned monoforum.
+    pub monoforum_peer: Option<ChatId>,
+
     /// Stable idempotency token for this operation.
     pub random_id: i64,
 
@@ -47,6 +50,9 @@ pub struct UploadSend {
     /// Active Thread root.
     pub thread_root: Option<MessageId>,
 
+    /// User topic inside an administrator-owned monoforum.
+    pub monoforum_peer: Option<ChatId>,
+
     /// Stable upload and Message idempotency identifiers.
     pub ids: UploadIds,
 }
@@ -61,37 +67,15 @@ impl Client {
             link_preview,
             reply_to,
             thread_root,
+            monoforum_peer,
             random_id,
             schedule_date,
         } = request;
         let peer = self.peers.resolve(chat)?;
-        let reply_to = reply_to
-            .or(thread_root)
-            .map(|message| {
-                let reply_to_msg_id =
-                    i32::try_from(message.0).map_err(|_| Error::InvalidMessageId {
-                        message_id: message.0,
-                    })?;
-                Ok(tl::types::InputReplyToMessage {
-                    reply_to_msg_id,
-                    top_msg_id: thread_root
-                        .filter(|root| *root != message)
-                        .map(|root| {
-                            i32::try_from(root.0)
-                                .map_err(|_| Error::InvalidMessageId { message_id: root.0 })
-                        })
-                        .transpose()?,
-                    reply_to_peer_id: None,
-                    quote_text: None,
-                    quote_entities: None,
-                    quote_offset: None,
-                    monoforum_peer_id: None,
-                    todo_item_id: None,
-                    poll_option: None,
-                }
-                .into())
-            })
+        let monoforum_peer = monoforum_peer
+            .map(|peer| self.peers.resolve(peer))
             .transpose()?;
+        let reply_to = input_reply_to(reply_to, thread_root, monoforum_peer)?;
         let entities = serialize_entities(entities)?;
         let updates = self
             .connection
@@ -133,9 +117,13 @@ impl Client {
             entities,
             reply_to,
             thread_root,
+            monoforum_peer,
             ids,
         } = request;
         let peer = self.peers.resolve(chat)?;
+        let monoforum_peer = monoforum_peer
+            .map(|peer| self.peers.resolve(peer))
+            .transpose()?;
         let media = self.upload_media(upload, ids.file).await?;
         let entities = serialize_entities(entities)?;
         let updates = self
@@ -149,7 +137,7 @@ impl Client {
                 invert_media: false,
                 allow_paid_floodskip: false,
                 peer,
-                reply_to: input_reply_to(reply_to, thread_root)?,
+                reply_to: input_reply_to(reply_to, thread_root, monoforum_peer)?,
                 media,
                 message: caption,
                 random_id: ids.message,

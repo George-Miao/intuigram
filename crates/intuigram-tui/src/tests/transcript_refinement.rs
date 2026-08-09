@@ -15,6 +15,7 @@ fn transcript_groups_senders_and_shows_dates_and_reply_previews() {
         pinned: false,
         can_pin_messages: true,
         has_topics: false,
+        has_direct_messages: false,
         kind: ChatKind::Supergroup,
         folders: vec![0],
     }];

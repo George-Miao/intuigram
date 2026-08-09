@@ -58,6 +58,9 @@ pub struct ScheduledManagerView {
     /// Chat whose server-owned history is displayed.
     pub chat: super::ChatId,
 
+    /// Original peer for a Channel direct-message dialog.
+    pub saved_peer: Option<super::ChatId>,
+
     /// Scheduled history, separate from the Transcript.
     pub messages: Vec<ScheduledMessageView>,
 

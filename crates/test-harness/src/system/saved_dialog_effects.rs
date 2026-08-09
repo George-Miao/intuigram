@@ -24,8 +24,16 @@ impl TestSystem {
                         title: dialog.title.clone(),
                         preview: dialog.preview.clone(),
                         timestamp: dialog.timestamp.clone(),
+                        unread: dialog.unread,
+                        unread_mark: dialog.unread_mark,
                         pinned: dialog.pinned,
                         top_message_id: dialog.top_message.0,
+                        draft_text: dialog.draft.as_ref().map(|draft| draft.text.clone()),
+                        draft_reply_to: dialog
+                            .draft
+                            .as_ref()
+                            .and_then(|draft| draft.reply_to)
+                            .map(|message| message.0),
                     })
                     .collect(),
             )

@@ -33,6 +33,7 @@ fn search_scope_and_reply_send_follow_current_context() {
             link_preview: true,
             reply_to: Some(MessageId(3)),
             thread_root: None,
+            saved_peer: None,
             attachments: Vec::new(),
             local_id: MessageId(-1),
         })

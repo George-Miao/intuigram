@@ -1,27 +1,3 @@
-/// Sole owner of mutable application state.
-pub struct App {
-    view: View,
-    all_chats: Vec<ChatView>,
-    muted_chats: HashSet<ChatId>,
-    drafts: HashMap<HistoryKey, ComposerView>,
-    histories: HashMap<HistoryKey, Vec<MessageView>>,
-    topic_lists: HashMap<ChatId, Vec<TopicView>>,
-    saved_dialog_lists: HashMap<ChatId, Vec<SavedDialogView>>,
-    pinned_histories: HashMap<ChatId, Vec<MessageView>>,
-    projected_pin: bool,
-    transcript_anchors: HashMap<HistoryKey, MessageId>,
-    unread_boundaries: HashMap<HistoryKey, MessageId>,
-    history_loads: HistoryLoads,
-    media_preview_loads: MediaPreviewLoads,
-    offline_media: OfflineMedia,
-    avatar_peers: HashMap<ChatId, AvatarId>,
-    avatar_loads: AvatarLoads,
-    next_local_message_id: i64,
-    pending_drafts: HashMap<MessageId, PendingDraft>,
-    saved_poll_draft: Option<ComposerView>,
-    pending_polls: HashMap<MessageId, PendingPoll>,
-}
-
 impl App {
     fn apply(&mut self, input: Input) -> Option<Effect> {
         match input {
@@ -154,11 +130,12 @@ impl App {
             }
             Input::Adapter(AdapterEvent::HistoryRead {
                 chat,
+                saved_peer,
                 max_id,
                 outgoing,
                 unread,
             }) => {
-                self.apply_read_state(chat, max_id, outgoing, unread);
+                self.apply_read_state(chat, saved_peer, max_id, outgoing, unread);
                 None
             }
             Input::Adapter(AdapterEvent::ChatArchiveChanged { chat, archived }) => {
@@ -192,9 +169,10 @@ impl App {
             Input::Adapter(AdapterEvent::HistoryLoadFailed {
                 chat,
                 thread_root,
+                saved_peer,
                 reason,
             }) => {
-                let key = HistoryKey::from_thread(chat, thread_root);
+                let key = HistoryKey::scoped(chat, thread_root, saved_peer);
                 if self.active_history_key() == Some(key) {
                     self.view.notice = Some(reason);
                 }
@@ -203,9 +181,10 @@ impl App {
             Input::Adapter(AdapterEvent::ThreadLoaded {
                 chat,
                 root,
+                saved_peer,
                 messages,
             }) => {
-                let key = HistoryKey::thread(chat, root);
+                let key = HistoryKey::scoped(chat, Some(root), saved_peer);
                 self.store_loaded_history(key, messages);
                 self.queue_offline_media(chat);
                 if self.active_history_key() == Some(key) {
@@ -223,10 +202,11 @@ impl App {
             Input::Adapter(AdapterEvent::ClipboardReady {
                 chat,
                 thread_root,
+                saved_peer,
                 text,
                 attachments,
             }) => {
-                let key = HistoryKey::from_thread(chat, thread_root);
+                let key = HistoryKey::scoped(chat, thread_root, saved_peer);
                 if self.active_history_key() == Some(key) {
                     if let Some(text) = text {
                         self.insert_composer_text(&text);
@@ -248,13 +228,18 @@ impl App {
                     Some(Effect::SaveDraft {
                         chat: key.chat,
                         thread_root: key.thread,
+                        saved_peer: key.saved_peer,
                         text: draft.text.clone(),
                         reply_to: draft.reply_to,
                     })
                 }
             }
-            Input::Adapter(AdapterEvent::AttachmentPathRequired { chat, thread_root }) => {
-                let key = HistoryKey::from_thread(chat, thread_root);
+            Input::Adapter(AdapterEvent::AttachmentPathRequired {
+                chat,
+                thread_root,
+                saved_peer,
+            }) => {
+                let key = HistoryKey::scoped(chat, thread_root, saved_peer);
                 if self.active_history_key() == Some(key) {
                     self.view.attachment_path = Some(AttachmentPathView {
                         path: String::new(),
@@ -273,11 +258,12 @@ impl App {
                 chat,
                 local_id,
                 thread_root,
+                saved_peer,
                 text,
                 reason,
             }) => {
                 self.update_delivery(chat, local_id, DeliveryState::Failed);
-                let key = HistoryKey::from_thread(chat, thread_root);
+                let key = HistoryKey::scoped(chat, thread_root, saved_peer);
                 let failed_draft = self
                     .pending_drafts
                     .remove(&local_id)
@@ -307,6 +293,7 @@ impl App {
                 Some(Effect::SaveDraft {
                     chat,
                     thread_root,
+                    saved_peer,
                     text: draft_text,
                     reply_to: draft_reply_to,
                 })
@@ -315,11 +302,12 @@ impl App {
                 chat,
                 local_id,
                 thread_root,
+                saved_peer,
                 text,
                 reason,
             }) => {
                 self.update_delivery(chat, local_id, DeliveryState::Failed);
-                let key = HistoryKey::from_thread(chat, thread_root);
+                let key = HistoryKey::scoped(chat, thread_root, saved_peer);
                 let text = self
                     .pending_polls
                     .remove(&local_id)
@@ -377,6 +365,7 @@ mod offline_media;
 mod pinned;
 mod poll_composer;
 mod poll_vote;
+mod reconnection;
 mod rich_media;
 mod saved_dialog_navigation;
 mod scheduled;
@@ -389,4 +378,5 @@ use avatar_loads::AvatarLoads;
 use history_loading::HistoryLoads;
 use media_preview::{MediaPreviewLoads, PreviewKey};
 use offline_media::OfflineMedia;
+pub use state::App;
 use state::{HistoryKey, PendingDraft, PendingPoll};

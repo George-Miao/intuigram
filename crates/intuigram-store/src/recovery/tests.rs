@@ -12,6 +12,7 @@ fn rebuild_preserves_unique_records_and_the_broken_database() {
     let draft = StoredDraft {
         chat_id: 9,
         thread_root: None,
+        saved_peer: None,
         text: "keep this".to_owned(),
         reply_to: Some(3),
         modified_at: 10,

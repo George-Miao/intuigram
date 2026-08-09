@@ -20,6 +20,7 @@ use super::trace::Trace;
 mod assertions;
 mod avatar_effects;
 mod builder;
+mod composer_effects;
 mod downloads;
 mod effects;
 mod folder_effects;

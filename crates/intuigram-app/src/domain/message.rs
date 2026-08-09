@@ -157,6 +157,9 @@ pub struct DraftView {
     /// Thread root, or `None` for the root Chat Draft.
     pub thread_root: Option<MessageId>,
 
+    /// Original peer for a Saved Messages or Channel direct-message Draft.
+    pub saved_peer: Option<ChatId>,
+
     /// Unsent text.
     pub text: String,
 

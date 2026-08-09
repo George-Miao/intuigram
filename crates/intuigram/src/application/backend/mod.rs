@@ -8,6 +8,7 @@ mod history_failure;
 mod message_actions;
 mod pins;
 mod poll;
+mod reads;
 mod rich_media;
 mod saved_dialogs;
 mod scheduled;
@@ -25,6 +26,7 @@ pub(super) struct MessageSend {
     pub(super) link_preview: bool,
     pub(super) reply_to: Option<MessageId>,
     pub(super) thread_root: Option<MessageId>,
+    pub(super) saved_peer: Option<ChatId>,
     pub(super) attachment_ids: Vec<AttachmentId>,
     pub(super) random_id: i64,
 }
@@ -36,6 +38,7 @@ pub(super) struct OutgoingRecord<'a> {
     pub(super) entities: &'a [TextEntity],
     pub(super) reply_to: Option<MessageId>,
     pub(super) thread_root: Option<MessageId>,
+    pub(super) saved_peer: Option<ChatId>,
     pub(super) delivery: DeliveryState,
 }
 
@@ -48,6 +51,7 @@ impl Backend {
         &mut self,
         chat: ChatId,
         thread_root: Option<MessageId>,
+        saved_peer: Option<ChatId>,
     ) -> Result<AdapterEvent> {
         let content = rich_clipboard::read().await.context(ClipboardSnafu)?;
         let (text, attachments) = match content {
@@ -90,6 +94,7 @@ impl Backend {
         Ok(AdapterEvent::ClipboardReady {
             chat,
             thread_root,
+            saved_peer,
             text,
             attachments,
         })
@@ -99,6 +104,7 @@ impl Backend {
         &mut self,
         chat: ChatId,
         thread_root: Option<MessageId>,
+        saved_peer: Option<ChatId>,
         text: String,
         reply_to: Option<MessageId>,
     ) -> Result<()> {
@@ -106,6 +112,7 @@ impl Backend {
             .save_draft(intuigram_store::StoredDraft {
                 chat_id: chat.0,
                 thread_root: thread_root.map(|message| message.0),
+                saved_peer: saved_peer.map(|peer| peer.0),
                 text,
                 reply_to: reply_to.map(|message| message.0),
                 modified_at: unix_timestamp(),
@@ -204,7 +211,7 @@ impl Backend {
                 messages,
                 pinned_messages,
             })),
-            Err(error) => history_failure_event(chat, None, error),
+            Err(error) => history_failure_event(chat, None, None, error),
         }
     }
 
@@ -265,6 +272,7 @@ impl Backend {
             link_preview,
             reply_to,
             thread_root,
+            saved_peer,
             attachment_ids,
             random_id,
         } = request;
@@ -283,6 +291,7 @@ impl Backend {
                         link_preview,
                         reply_to,
                         thread_root,
+                        monoforum_peer: saved_peer,
                         random_id,
                         schedule_date: None,
                     })
@@ -319,6 +328,7 @@ impl Backend {
                             },
                             reply_to,
                             thread_root,
+                            monoforum_peer: saved_peer,
                             ids: intuigram_telegram::UploadIds {
                                 file: derived_random_id(random_id, index, 0x4649_4c45),
                                 message: derived_random_id(random_id, index, 0x4d45_5353),
@@ -346,6 +356,7 @@ impl Backend {
             reply_to,
             details: MessageDetails {
                 thread_root,
+                saved_peer,
                 ..MessageDetails::default()
             },
         })
@@ -368,6 +379,7 @@ fn outgoing_message(
         details: MessageDetails {
             entities: record.entities.to_vec(),
             thread_root: record.thread_root,
+            saved_peer: record.saved_peer,
             ..MessageDetails::default()
         },
     }
