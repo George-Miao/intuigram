@@ -78,7 +78,18 @@ fn attachment_shortcut_collects_an_exact_path_as_a_typed_effect() {
     apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
 
     let opened = app.transition(Input::Intent(Intent::Action(Action::Attach)));
-    assert!(opened.view.attachment_path.is_some());
+    assert_eq!(
+        opened.effect,
+        Some(Effect::PickAttachment {
+            chat: ChatId(10),
+            thread_root: None,
+        })
+    );
+    let fallback = app.transition(Input::Adapter(AdapterEvent::AttachmentPathRequired {
+        chat: ChatId(10),
+        thread_root: None,
+    }));
+    assert!(fallback.view.attachment_path.is_some());
     apply(
         &mut app,
         Input::Intent(Intent::Insert("/tmp/photo.png".to_owned())),
