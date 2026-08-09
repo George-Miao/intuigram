@@ -85,6 +85,18 @@ pub(super) fn observe_completion(
     }
 }
 
+pub(super) fn observe_admission(effect: &Effect, state: &RefCell<State>) {
+    let (Effect::SendMessage { attachments, .. } | Effect::EditMessage { attachments, .. }) =
+        effect
+    else {
+        return;
+    };
+    let mut state = state.borrow_mut();
+    for id in attachments {
+        state.attachments.payloads.remove(id);
+    }
+}
+
 pub(super) async fn cached_preview(
     state: &RefCell<State>,
     chat: intuigram_app::ChatId,

@@ -6,7 +6,7 @@ const MAGIC: &[u8; 4] = b"ICMD";
 const V1: u8 = 1;
 
 #[derive(Debug, Snafu)]
-pub(super) enum Error {
+pub(in crate::application) enum Error {
     #[snafu(display("prepared Outbox command ended before its header was decoded"))]
     Truncated,
 

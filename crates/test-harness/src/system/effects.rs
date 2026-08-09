@@ -166,11 +166,16 @@ impl TestSystem {
                     local_id,
                     ..
                 } => {
+                    self.admit_composer_outbox(chat, local_id);
                     self.telegram
                         .send_poll(chat, question, options, reply_to, thread_root)
                         .map_err(|error| self.scenario_error(error))?;
                     self.application
                         .handle_adapter(AdapterEvent::MessageAcknowledged { chat, local_id });
+                    if let Some(item) = self.outbox_items.remove(&local_id) {
+                        self.application
+                            .handle_adapter(AdapterEvent::OutboxRemoved { item });
+                    }
                 }
                 Effect::EditMessage {
                     chat,

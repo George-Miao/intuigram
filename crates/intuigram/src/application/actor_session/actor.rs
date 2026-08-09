@@ -77,6 +77,8 @@ pub(super) struct ExecuteEffect {
 
 pub(super) struct TakeRetained;
 
+pub(super) struct LookupLibraryMedia(pub(super) intuigram_app::RichMediaItemId);
+
 pub(super) struct RestoreRetained(pub(super) RetainedBackend);
 
 impl Actor for TelegramActor {
@@ -208,6 +210,23 @@ impl Handler<Call<ExecuteEffect, ActorResponse>> for TelegramActor {
             }
         };
         reply.reply(response).ok();
+        Ok(())
+    }
+}
+
+impl Handler<Call<LookupLibraryMedia, Option<intuigram_telegram::MediaLibraryEntry>>>
+    for TelegramActor
+{
+    async fn handle(
+        &self,
+        _myself: &Mailbox<Self>,
+        call: Call<LookupLibraryMedia, Option<intuigram_telegram::MediaLibraryEntry>>,
+        state: &mut Self::State,
+    ) -> Result<()> {
+        let (request, reply) = call.into_parts();
+        reply
+            .reply(state.backend.media_library.entries.get(&request.0).cloned())
+            .ok();
         Ok(())
     }
 }

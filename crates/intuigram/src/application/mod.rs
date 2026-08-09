@@ -198,6 +198,12 @@ enum Error {
     #[snafu(display("failed to durably apply a Telegram update"))]
     CommitTelegramUpdate { source: intuigram::SyncError },
 
+    #[snafu(display("failed to allocate durable outbound operation metadata"))]
+    OperationProvider { source: intuigram::ProviderError },
+
+    #[snafu(display("failed to prepare a durable outbound operation"))]
+    PrepareOutbox { source: outbox::admission::Error },
+
     #[snafu(display("Account {} has no saved MTProto session", account.get()))]
     MissingSession { account: AccountId },
 

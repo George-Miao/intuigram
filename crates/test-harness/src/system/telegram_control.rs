@@ -105,6 +105,11 @@ impl TelegramControl<'_> {
             ),
             self.system.application.revision(),
         );
+        if let Some(item) = self.system.outbox_items.remove(&held.local_id) {
+            self.system
+                .application
+                .handle_adapter(AdapterEvent::OutboxRemoved { item });
+        }
         self.system
             .application
             .handle_adapter(AdapterEvent::MessageAdded {

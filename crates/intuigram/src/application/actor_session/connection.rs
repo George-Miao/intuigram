@@ -127,6 +127,7 @@ impl ActorSession {
                         startup.media_cache,
                         startup.path_picker,
                     )),
+                    operation_providers: RefCell::new(intuigram::OperationProviders::production()),
                 }),
             },
             events: ActorEvents::new(event_rx),

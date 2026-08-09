@@ -1,5 +1,6 @@
 use intuigram_app::{
-    AdapterEvent, AttachmentId, AttachmentKind, AttachmentView, ChatId, MessageId, TextEntity,
+    AdapterEvent, AttachmentId, AttachmentKind, AttachmentView, ChatId, MessageId, OutboxItemView,
+    OutboxKey, OutboxStateView, TextEntity,
 };
 use intuigram_store::StoredDraft;
 use snafu::ResultExt;
@@ -20,6 +21,23 @@ pub(super) struct ComposerSend {
 }
 
 impl TestSystem {
+    pub(super) fn admit_composer_outbox(&mut self, chat: ChatId, local_id: MessageId) {
+        self.next_outbox_key = self.next_outbox_key.saturating_add(1);
+        let key = OutboxKey(self.next_outbox_key);
+        self.outbox_items.insert(local_id, key);
+        self.application
+            .handle_adapter(AdapterEvent::OutboxChanged(OutboxItemView {
+                key,
+                chat,
+                local_message: Some(local_id),
+                state: OutboxStateView::Ready,
+                retryable: false,
+                available_at: None,
+                expires_at: None,
+                last_error: None,
+            }));
+    }
+
     pub(super) fn persist_composer_draft(
         &mut self,
         chat: ChatId,
@@ -81,6 +99,7 @@ impl TestSystem {
             local_id,
         } = send;
         self.persist_composer_draft(chat, thread_root, saved_peer, String::new(), None)?;
+        self.admit_composer_outbox(chat, local_id);
         let result = match saved_peer {
             Some(saved_peer) => self.telegram.hold_saved_send(ObservedSavedSend {
                 chat,

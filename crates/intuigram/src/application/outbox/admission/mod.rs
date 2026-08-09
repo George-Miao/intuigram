@@ -14,7 +14,7 @@ mod mutation;
 mod scheduled;
 
 #[derive(Debug, Snafu)]
-pub(super) enum Error {
+pub(in crate::application) enum Error {
     #[snafu(display("durable Outbox input is incomplete: {reason}"))]
     Incomplete { reason: &'static str },
 
@@ -25,9 +25,9 @@ pub(super) enum Error {
     Encode { source: super::codec::Error },
 }
 
-pub(super) type Result<T> = std::result::Result<T, Error>;
+type Result<T> = std::result::Result<T, Error>;
 
-pub(super) const fn handles(effect: &Effect) -> bool {
+pub(in crate::application) const fn handles(effect: &Effect) -> bool {
     matches!(
         effect,
         Effect::SendStaticLocation { .. }
@@ -50,7 +50,7 @@ pub(super) const fn handles(effect: &Effect) -> bool {
     )
 }
 
-pub(super) fn prepare(
+pub(in crate::application) fn prepare(
     effect: &Effect,
     stamp: OperationStamp,
     attachments: Vec<(intuigram_app::AttachmentId, AttachmentPayload)>,

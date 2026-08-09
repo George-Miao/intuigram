@@ -17,7 +17,9 @@ mod media_response;
 #[cfg(test)]
 mod tests;
 
-use actor::{ActorResponse, ExecuteEffect, RestoreRetained, TakeRetained, TelegramActor};
+use actor::{
+    ActorResponse, ExecuteEffect, LookupLibraryMedia, RestoreRetained, TakeRetained, TelegramActor,
+};
 use cancellation::ActorCancellation;
 pub(super) use connection::ActorConnection;
 use driver::ActorEvents;
@@ -42,6 +44,7 @@ struct ActorOwner {
     cancellation: ActorCancellation,
     store: intuigram_store::AccountStore,
     local: RefCell<local_effect::State>,
+    operation_providers: RefCell<intuigram::OperationProviders>,
 }
 
 impl Drop for ActorOwner {
@@ -118,6 +121,9 @@ impl ActorSession {
                 },
             ))));
         }
+        if super::outbox::admission::handles(&effect.effect) {
+            return self.admit_outbox(effect).await;
+        }
         if local_effect::handles(&effect.effect) {
             return local_effect::execute(effect.effect, &self.owner.store, &self.owner.local)
                 .await;
@@ -182,6 +188,51 @@ impl ActorSession {
             ActorResponse::Failed(error) => Err(*error),
             ActorResponse::Cancelled => Err(Error::TelegramActorCancelled),
         }
+    }
+
+    async fn admit_outbox(&self, effect: AdapterEffect) -> Result<BackendOutput> {
+        let original = effect.effect;
+        let attachments = local_effect::attachment_payloads(&original, &self.owner.local).await?;
+        let rich_media = local_effect::prepare_rich_media(&original).await?;
+        let library = match &original {
+            Effect::SendLibraryMedia { item, .. } => self
+                .owner
+                .mailbox
+                .call(LookupLibraryMedia(*item))
+                .await
+                .map_err(call_error)?,
+            _ => None,
+        };
+        let stamp = self
+            .owner
+            .operation_providers
+            .borrow_mut()
+            .admit()
+            .context(super::OperationProviderSnafu)?;
+        let admission =
+            super::outbox::admission::prepare(&original, stamp, attachments, rich_media, library)
+                .context(super::PrepareOutboxSnafu)?;
+        let item = self
+            .owner
+            .store
+            .admit_outbox(admission)
+            .context(super::AccountDatabaseSnafu)?
+            .await
+            .context(super::AccountDatabaseSnafu)?;
+        local_effect::observe_admission(&original, &self.owner.local);
+        let record = self
+            .owner
+            .store
+            .load_outbox()
+            .context(super::AccountDatabaseSnafu)?
+            .await
+            .context(super::AccountDatabaseSnafu)?
+            .into_iter()
+            .find(|record| record.id == item)
+            .expect("a committed Outbox admission is returned by the same database worker");
+        Ok(BackendOutput::event(Some(AdapterEvent::OutboxChanged(
+            super::outbox_view(record),
+        ))))
     }
 
     pub(super) fn begin_shutdown(&self) {
