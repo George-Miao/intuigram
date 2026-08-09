@@ -102,7 +102,7 @@ pub(super) fn load_chats(connection: &Connection) -> Result<Vec<StoredChat>> {
     let mut statement = connection
         .prepare(
             "SELECT chat_id, kind, title, preview, status, unread_count, pinned, can_pin_messages \
-             FROM chats ORDER BY pinned DESC, chat_id DESC",
+             FROM chats ORDER BY position IS NULL, position, pinned DESC, chat_id DESC",
         )
         .context(LoadCacheSnafu)?;
     statement

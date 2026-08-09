@@ -120,6 +120,36 @@ fn version_six_selection_gains_an_empty_transcript_anchor() {
 }
 
 #[test]
+fn version_eight_chats_gain_an_empty_authoritative_position() {
+    let temporary = tempdir().expect("temporary directory should be created");
+    let layout = StoreLayout::new(temporary.path().join("intuigram"));
+    fs::create_dir_all(layout.data_directory()).expect("data directory should be created");
+    let mut connection =
+        Connection::open(layout.pending_database()).expect("fixture database should open");
+    super::migrations::migrations::runner()
+        .set_target(Target::Version(8))
+        .run(&mut connection)
+        .expect("released version eight schema should install");
+    connection
+        .execute(
+            "INSERT INTO chats(chat_id, kind, title, preview, status, unread_count, pinned, \
+             can_pin_messages) VALUES (1, 'private', 'Ada', '', '', 0, 0, 1)",
+            [],
+        )
+        .expect("version eight Chat fixture should insert");
+    drop(connection);
+
+    let chats = AccountDatabase::begin_login(&layout)
+        .expect("version eight database should migrate")
+        .cached_account()
+        .expect("migrated cache should load")
+        .chats;
+
+    assert_eq!(chats.len(), 1);
+    assert_eq!(chats[0].title, "Ada");
+}
+
+#[test]
 fn normalized_records_and_cursor_commit_or_roll_back_together() {
     let temporary = tempdir().expect("temporary directory should be created");
     let layout = StoreLayout::new(temporary.path().join("intuigram"));
@@ -146,6 +176,35 @@ fn normalized_records_and_cursor_commit_or_roll_back_together() {
     assert_eq!(cached.folders, sync_batch().folders);
     assert_eq!(cached.chats, sync_batch().chats);
     assert_eq!(cached.messages, sync_batch().messages);
+}
+
+#[test]
+fn authoritative_bootstrap_order_is_restored_from_the_cache() {
+    let temporary = tempdir().expect("temporary directory should be created");
+    let layout = StoreLayout::new(temporary.path().join("intuigram"));
+    let database =
+        AccountDatabase::begin_login(&layout).expect("pending login database should open");
+    let mut batch = sync_batch();
+    let mut second = batch.chats[0].clone();
+    second.id = 8;
+    second.title = "Rust".to_owned();
+    batch.chats.push(second);
+    batch.chat_order = Some(vec![8, 7]);
+
+    database
+        .commit_sync(batch)
+        .expect("ordered Chat projection should commit");
+
+    assert_eq!(
+        database
+            .cached_account()
+            .expect("ordered Chat cache should load")
+            .chats
+            .iter()
+            .map(|chat| chat.id)
+            .collect::<Vec<_>>(),
+        vec![8, 7]
+    );
 }
 
 #[test]
@@ -261,6 +320,7 @@ pub(super) fn sync_batch() -> SyncBatch {
             can_pin_messages: true,
             folders: vec![0],
         }],
+        chat_order: Some(vec![7]),
         messages: vec![StoredMessage {
             chat_id: 7,
             id: 42,

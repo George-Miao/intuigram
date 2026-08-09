@@ -154,6 +154,7 @@ pub fn bootstrap_sync_batch(
     cursors: impl IntoIterator<Item = SyncCursor>,
 ) -> SyncBatch {
     let active_chat = bootstrap.chats.first().map(|chat| chat.id);
+    let chat_order = bootstrap.chats.iter().map(|chat| chat.id.0).collect();
     SyncBatch {
         cursors: cursors.into_iter().collect(),
         folders: bootstrap
@@ -166,6 +167,7 @@ pub fn bootstrap_sync_batch(
             })
             .collect(),
         chats: bootstrap.chats.iter().map(stored_chat).collect(),
+        chat_order: Some(chat_order),
         messages: active_chat.map_or_else(Vec::new, |chat| {
             bootstrap
                 .messages
@@ -241,6 +243,7 @@ fn sync_batch_for_event(cursors: Vec<SyncCursor>, update: &LiveEvent) -> SyncBat
         cursors,
         folders: Vec::new(),
         chats,
+        chat_order: None,
         messages,
         mutations,
     }

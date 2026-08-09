@@ -222,6 +222,10 @@ pub struct SyncBatch {
     /// Chat records to upsert.
     pub chats: Vec<StoredChat>,
 
+    /// Complete Telegram Chat order, when this batch is an authoritative
+    /// bootstrap.
+    pub chat_order: Option<Vec<i64>>,
+
     /// Message records to upsert.
     pub messages: Vec<StoredMessage>,
 

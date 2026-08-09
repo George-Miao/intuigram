@@ -69,6 +69,23 @@ pub(super) fn commit_sync(connection: &Connection, batch: SyncBatch) -> Result<(
                 .context(CommitSyncSnafu)?;
         }
     }
+    if let Some(order) = batch.chat_order {
+        // Only a complete bootstrap can define every Chat's relative position;
+        // incremental record upserts must leave the last authoritative order intact.
+        transaction
+            .execute("UPDATE chats SET position = NULL", [])
+            .context(CommitSyncSnafu)?;
+        for (position, chat) in order.into_iter().enumerate() {
+            let position = i64::try_from(position)
+                .expect("an in-memory Chat list cannot exceed SQLite's signed index range");
+            transaction
+                .execute(
+                    "UPDATE chats SET position = ?2 WHERE chat_id = ?1",
+                    params![chat, position],
+                )
+                .context(CommitSyncSnafu)?;
+        }
+    }
     for message in batch.messages {
         upsert_message(&transaction, &message).context(CommitSyncSnafu)?;
     }
