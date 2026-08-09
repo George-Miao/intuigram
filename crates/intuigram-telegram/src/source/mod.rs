@@ -81,7 +81,7 @@ pub use client_send::{TextSend, UploadSend};
 use connection::Connection;
 #[cfg(test)]
 pub(crate) use connection::flood_wait_delay;
-pub use connection::{Client, LiveUpdates};
+pub use connection::{Client, InvocationPolicy, LiveUpdates};
 #[cfg(test)]
 pub(crate) use dialog_normalization::contains_login_token_update;
 pub use dialog_normalization::normalize_serialized_peer_kind;
@@ -93,7 +93,7 @@ pub(crate) use dialog_normalization::{
 use dialog_status::{cloud_chat_status, user_status};
 use entity_conversion::serialize_entities;
 use error::*;
-pub use error::{Error, Result};
+pub use error::{Error, Result, RetryDisposition};
 pub(crate) use live_normalization::normalize_live_update;
 pub(crate) use login_normalization::{
     direct_data_centers, ensure_production_environment, input_reply_to, login_error_action,

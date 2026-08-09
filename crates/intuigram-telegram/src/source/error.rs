@@ -1,3 +1,19 @@
+/// Describes when a failed Telegram operation can be attempted again.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RetryDisposition {
+    /// Repeating the operation is not known to be safe or useful.
+    DoNotRetry,
+
+    /// Wait for the server-requested delay before trying again.
+    RetryAfter(Duration),
+
+    /// Reconnect the Telegram session before trying again.
+    RetryAfterReconnect,
+
+    /// Wait for bounded invocation capacity before trying again.
+    RetryWhenCapacityAvailable,
+}
+
 /// Failure while authenticating or invoking Telegram.
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
@@ -231,6 +247,26 @@ impl Error {
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 impl Error {
+    /// Classifies whether and when the failed operation may be attempted again.
+    #[must_use]
+    pub fn retry_disposition(&self) -> RetryDisposition {
+        match self {
+            Self::Connect { .. } => RetryDisposition::RetryAfterReconnect,
+            Self::Invoke { source } => {
+                if let Some(delay) = source.retry_after() {
+                    RetryDisposition::RetryAfter(delay)
+                } else if source.is_connection_failure() {
+                    RetryDisposition::RetryAfterReconnect
+                } else if matches!(source, InvocationError::QueueFull { .. }) {
+                    RetryDisposition::RetryWhenCapacityAvailable
+                } else {
+                    RetryDisposition::DoNotRetry
+                }
+            }
+            _ => RetryDisposition::DoNotRetry,
+        }
+    }
+
     /// Reports whether the operation may be retried after reconnecting.
     #[must_use]
     pub const fn is_connection_failure(&self) -> bool {

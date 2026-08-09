@@ -1,3 +1,14 @@
+/// Controls whether an invocation waits through Telegram flood control or
+/// returns it to the caller.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum InvocationPolicy {
+    /// Sleep for Telegram's requested delay, then invoke the request again.
+    WaitForFlood,
+
+    /// Return Telegram's flood-wait error without delaying or reinvoking.
+    SurfaceFloodWait,
+}
+
 pub(super) enum Connection {
     Login(Box<EncryptedConnection>),
     Live(InvocationHandle),
@@ -12,6 +23,19 @@ impl Connection {
         R: tl::RemoteCall + tl::Serializable,
         R::Return: tl::Deserializable,
     {
+        self.invoke_with_policy(request, InvocationPolicy::WaitForFlood)
+            .await
+    }
+
+    pub(super) async fn invoke_with_policy<R>(
+        &mut self,
+        request: &R,
+        policy: InvocationPolicy,
+    ) -> std::result::Result<R::Return, InvocationError>
+    where
+        R: tl::RemoteCall + tl::Serializable,
+        R::Return: tl::Deserializable,
+    {
         loop {
             let result = match self {
                 Self::Login(connection) => connection.invoke(request).await,
@@ -19,7 +43,7 @@ impl Connection {
             };
             match result {
                 Err(error) => {
-                    let Some(delay) = flood_wait_delay(&error) else {
+                    let Some(delay) = flood_wait_delay(policy, &error) else {
                         return Err(error);
                     };
                     compio::time::sleep(delay).await;
@@ -37,8 +61,14 @@ impl Connection {
     }
 }
 
-pub(crate) fn flood_wait_delay(error: &InvocationError) -> Option<Duration> {
-    error.retry_after()
+pub(crate) fn flood_wait_delay(
+    policy: InvocationPolicy,
+    error: &InvocationError,
+) -> Option<Duration> {
+    match policy {
+        InvocationPolicy::WaitForFlood => error.retry_after(),
+        InvocationPolicy::SurfaceFloodWait => None,
+    }
 }
 
 /// Telegram API client built on Intuigram's Compio `MTProto` sender.

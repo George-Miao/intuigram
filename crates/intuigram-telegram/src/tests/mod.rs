@@ -13,29 +13,12 @@ use crate::UpdateScope;
 use crate::source::{
     Error, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginErrorAction, PeerDirectory,
     chat_traits, contains_login_token_update, direct_data_centers, ensure_production_environment,
-    flood_wait_delay, login_error_action, normalize_code_delivery, normalize_code_delivery_method,
+    login_error_action, normalize_code_delivery, normalize_code_delivery_method,
     normalize_dialog_folder_details, normalize_dialog_folders, normalize_live_update,
     normalize_serialized_media, normalize_serialized_peer_kind, qr_login_uri, rpc_migration_dc,
     service_event_description, service_event_media, set_dialog_filter_membership,
     thread_root_message_id,
 };
-
-#[test]
-fn every_flood_wait_is_retried_after_the_server_delay() {
-    let error = InvocationError::Rpc {
-        code: 420,
-        message: "FLOOD_WAIT_17".to_owned(),
-    };
-
-    assert_eq!(
-        flood_wait_delay(&error),
-        Some(std::time::Duration::from_secs(17))
-    );
-    assert_eq!(
-        flood_wait_delay(&error),
-        Some(std::time::Duration::from_secs(17))
-    );
-}
 
 #[test]
 fn invalid_peer_rpc_requests_one_directory_refresh() {
@@ -386,6 +369,7 @@ fn direct_data_center_selection_ignores_incompatible_endpoints() {
     assert!(!selected.contains_key(&2));
 }
 mod dialogs_and_peers;
+mod invocation;
 mod live_updates;
 pub(crate) mod media_fixtures;
 mod notifications;
