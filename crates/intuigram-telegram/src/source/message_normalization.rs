@@ -139,11 +139,16 @@ pub(super) fn reply_message_id(header: &tl::enums::MessageReplyHeader) -> Option
     }
 }
 
-pub(super) fn thread_root_message_id(header: &tl::enums::MessageReplyHeader) -> Option<MessageId> {
+pub(crate) fn thread_root_message_id(header: &tl::enums::MessageReplyHeader) -> Option<MessageId> {
     match header {
         tl::enums::MessageReplyHeader::Header(header) => header
             .reply_to_top_id
-            .or(header.reply_to_msg_id)
+            .or_else(|| {
+                header
+                    .forum_topic
+                    .then_some(header.reply_to_msg_id)
+                    .flatten()
+            })
             .map(|id| MessageId(i64::from(id))),
         tl::enums::MessageReplyHeader::MessageReplyStoryHeader(_) => None,
     }

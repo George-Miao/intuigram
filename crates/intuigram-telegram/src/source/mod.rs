@@ -93,6 +93,8 @@ use media_normalization::{
     format_date, format_timestamp, media_card_fallback, nonnegative_u32, normalize_forward,
     normalize_media, normalize_reactions, user_display_name,
 };
+#[cfg(test)]
+pub(crate) use message_normalization::thread_root_message_id;
 use message_normalization::{
     mark_channel_id, marked_peer_id, message_body, message_chat_id, message_parts,
     normalize_entities, normalize_message, reply_message_id, text_with_entities,

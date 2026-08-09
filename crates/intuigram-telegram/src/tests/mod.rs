@@ -14,7 +14,7 @@ use crate::source::{
     flood_wait_delay, login_error_action, normalize_code_delivery, normalize_code_delivery_method,
     normalize_dialog_folder_details, normalize_dialog_folders, normalize_live_update,
     normalize_serialized_media, normalize_serialized_peer_kind, qr_login_uri, rpc_migration_dc,
-    service_event_description, set_dialog_filter_membership,
+    service_event_description, set_dialog_filter_membership, thread_root_message_id,
 };
 
 #[test]
@@ -173,6 +173,47 @@ fn passive_short_message_is_normalized_at_the_serialized_tl_boundary() {
     assert_eq!(message.body, "hello");
     assert_eq!(message.direction, MessageDirection::Incoming);
     assert!(!message.details.date_label.is_empty());
+}
+
+#[test]
+fn ordinary_replies_remain_in_root_history_while_threads_keep_their_root() {
+    let ordinary = reply_header(Some(40), None, false);
+    let first_topic_reply = reply_header(Some(40), None, true);
+    let nested_thread_reply = reply_header(Some(41), Some(40), false);
+
+    assert_eq!(thread_root_message_id(&ordinary), None);
+    assert_eq!(
+        thread_root_message_id(&first_topic_reply),
+        Some(MessageId(40))
+    );
+    assert_eq!(
+        thread_root_message_id(&nested_thread_reply),
+        Some(MessageId(40))
+    );
+}
+
+fn reply_header(
+    reply_to: Option<i32>,
+    top: Option<i32>,
+    forum_topic: bool,
+) -> tl::enums::MessageReplyHeader {
+    tl::types::MessageReplyHeader {
+        reply_to_scheduled: false,
+        forum_topic,
+        quote: false,
+        reply_to_ephemeral: false,
+        reply_to_msg_id: reply_to,
+        reply_to_peer_id: None,
+        reply_from: None,
+        reply_media: None,
+        reply_to_top_id: top,
+        quote_text: None,
+        quote_entities: None,
+        quote_offset: None,
+        todo_item_id: None,
+        poll_option: None,
+    }
+    .into()
 }
 
 #[test]
