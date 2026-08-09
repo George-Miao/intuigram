@@ -11,14 +11,31 @@ use intuigram_app::{
 
 use crate::UpdateScope;
 use crate::source::{
-    Error, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginErrorAction, PeerDirectory,
-    chat_traits, contains_login_token_update, direct_data_centers, ensure_production_environment,
-    login_error_action, normalize_code_delivery, normalize_code_delivery_method,
-    normalize_dialog_folder_details, normalize_dialog_folders, normalize_live_update,
-    normalize_serialized_media, normalize_serialized_peer_kind, qr_login_uri, rpc_migration_dc,
-    service_event_description, service_event_media, set_dialog_filter_membership,
-    thread_root_message_id,
+    Error, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginErrorAction, MediaLibraryEntry,
+    MediaLibraryKind, PeerDirectory, chat_traits, contains_login_token_update, direct_data_centers,
+    ensure_production_environment, login_error_action, normalize_code_delivery,
+    normalize_code_delivery_method, normalize_dialog_folder_details, normalize_dialog_folders,
+    normalize_live_update, normalize_serialized_media, normalize_serialized_peer_kind,
+    qr_login_uri, rpc_migration_dc, service_event_description, service_event_media,
+    set_dialog_filter_membership, thread_root_message_id,
 };
+
+#[test]
+fn durable_media_library_identity_round_trips_through_public_parts() {
+    let entry = MediaLibraryEntry::from_remote_parts(
+        41,
+        "wave.webp".to_owned(),
+        MediaLibraryKind::Stickers,
+        73,
+        vec![1, 2, 3],
+    );
+
+    assert_eq!(entry.id, 41);
+    assert_eq!(entry.label, "wave.webp");
+    assert_eq!(entry.kind(), MediaLibraryKind::Stickers);
+    assert_eq!(entry.access_hash(), 73);
+    assert_eq!(entry.file_reference(), [1, 2, 3]);
+}
 
 #[test]
 fn invalid_peer_rpc_requests_one_directory_refresh() {

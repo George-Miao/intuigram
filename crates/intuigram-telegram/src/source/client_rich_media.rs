@@ -27,6 +27,45 @@ pub struct MediaLibraryEntry {
     file_reference: Vec<u8>,
 }
 
+impl MediaLibraryEntry {
+    /// Reconstructs an entry from the exact Telegram document identity saved
+    /// with a durable outbound operation.
+    #[must_use]
+    pub fn from_remote_parts(
+        id: i64,
+        label: String,
+        kind: MediaLibraryKind,
+        access_hash: i64,
+        file_reference: Vec<u8>,
+    ) -> Self {
+        Self {
+            id,
+            label,
+            kind,
+            access_hash,
+            file_reference,
+        }
+    }
+
+    /// Returns the Telegram media-library family.
+    #[must_use]
+    pub const fn kind(&self) -> MediaLibraryKind {
+        self.kind
+    }
+
+    /// Returns the remote document access hash.
+    #[must_use]
+    pub const fn access_hash(&self) -> i64 {
+        self.access_hash
+    }
+
+    /// Returns the exact remote file reference needed to replay the send.
+    #[must_use]
+    pub fn file_reference(&self) -> &[u8] {
+        &self.file_reference
+    }
+}
+
 /// One Telegram contact card submission.
 pub struct ContactCardSend {
     /// Destination Chat.
