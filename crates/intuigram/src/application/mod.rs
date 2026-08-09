@@ -39,8 +39,8 @@ use intuigram_telegram::{
     MediaLibraryKind, QrLogin, ScheduledDelivery, Session, UploadKind,
 };
 use intuigram_tui::{
-    QrLoginAction, QrLoginUi, TerminalEvents, TerminalUi, UiEvent, ViewMode as TuiViewMode,
-    ViewOptions as TuiViewOptions,
+    LoginField, LoginInput, LoginPrompt, LoginUi, QrLoginAction, QrLoginUi, TerminalEvents,
+    TerminalUi, UiEvent, ViewMode as TuiViewMode, ViewOptions as TuiViewOptions,
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 
@@ -84,8 +84,8 @@ use local_lock::{delete_local_lock_key, unlock_local_lock};
 #[cfg(test)]
 use login::{login_code_delivery_message, login_code_delivery_method_name, seconds_until_at};
 use login::{
-    request_code_with_migration, seconds_until, sign_in_with_delivered_code, sign_in_with_password,
-    unix_timestamp,
+    prompt_phone_number, request_code_with_migration, seconds_until, sign_in_with_delivered_code,
+    sign_in_with_password, unix_timestamp,
 };
 use maintenance::{
     record_media, remove_local_account, run_folder_maintenance, run_logout, run_maintenance,
@@ -148,9 +148,6 @@ enum Error {
 
     #[snafu(display("Telegram application ID must be a positive decimal integer"))]
     InvalidApplicationId,
-
-    #[snafu(display("failed to read the hidden Telegram application hash"))]
-    PromptApplicationHash { source: io::Error },
 
     #[snafu(display("failed to save first-run Telegram application credentials"))]
     SaveApplicationCredentials {

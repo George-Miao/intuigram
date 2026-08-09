@@ -9,22 +9,79 @@ pub(super) fn resolve_telegram_credentials(
     {
         return Ok(ApplicationCredentials::new(api_id, api_hash.expose()));
     }
-    println!(
-        "First-run setup\n\nIntuigram public builds do not bundle shared Telegram application credentials.\nCreate your own application at https://my.telegram.org/apps, then enter its values below.\nThe API hash is hidden and both values will be saved to an owner-protected credentials.toml."
-    );
-    let api_id = match config.telegram.api_id {
-        Some(api_id) => api_id,
-        None => prompt("Application ID", "Telegram application ID")?
-            .parse::<i32>()
-            .ok()
-            .filter(|value| *value > 0)
-            .context(InvalidApplicationIdSnafu)?,
+    let mut ui = LoginUi::enter().context(TerminalSnafu)?;
+    let mut api_id = config.telegram.api_id;
+    let mut api_id_text = api_id.map_or_else(String::new, |value| value.to_string());
+    let mut api_hash = config
+        .telegram
+        .api_hash
+        .as_ref()
+        .map_or_else(String::new, |value| value.expose().to_owned());
+    let mut field = if api_id.is_some() {
+        LoginField::ApplicationHash
+    } else {
+        LoginField::ApplicationId
     };
-    let api_hash = match config.telegram.api_hash.as_ref() {
-        Some(api_hash) => api_hash.expose().to_owned(),
-        None => rpassword::prompt_password("Application hash (hidden): ")
-            .context(PromptApplicationHashSnafu)?,
-    };
+    let mut error = None;
+    loop {
+        let (label, value, secret, can_go_back) = match field {
+            LoginField::ApplicationId => ("Application ID", &api_id_text, false, false),
+            LoginField::ApplicationHash => (
+                "Application hash",
+                &api_hash,
+                true,
+                config.telegram.api_id.is_none(),
+            ),
+            _ => unreachable!("credential setup has exactly two fields"),
+        };
+        let input = ui
+            .read(
+                LoginPrompt {
+                    field,
+                    label,
+                    description: "Create an application at https://my.telegram.org/apps. Values \
+                                  are saved with owner-only permissions.",
+                    error: error.as_deref(),
+                    secret,
+                    can_go_back,
+                },
+                value,
+            )
+            .context(TerminalSnafu)?;
+        error = None;
+        match (field, input) {
+            (_, LoginInput::Cancel) => return LoginCancelledSnafu.fail(),
+            (LoginField::ApplicationHash, LoginInput::Back) => {
+                api_hash.clear();
+                field = LoginField::ApplicationId;
+            }
+            (LoginField::ApplicationId, LoginInput::Submit(value)) => {
+                api_id_text = value;
+                api_id = api_id_text
+                    .trim()
+                    .parse::<i32>()
+                    .ok()
+                    .filter(|value| *value > 0);
+                if api_id.is_some() {
+                    field = LoginField::ApplicationHash;
+                } else {
+                    error = Some("Application ID must be a positive decimal integer".to_owned());
+                }
+            }
+            (LoginField::ApplicationHash, LoginInput::Submit(value)) => {
+                api_hash = value;
+                if api_hash.is_empty() {
+                    error = Some("Application hash must not be empty".to_owned());
+                } else {
+                    break;
+                }
+            }
+            (_, LoginInput::Back) => {}
+            _ => unreachable!("credential form only visits application fields"),
+        }
+    }
+    drop(ui);
+    let api_id = api_id.context(InvalidApplicationIdSnafu)?;
     let path = intuigram_config::save_application_credentials(config_directory, api_id, &api_hash)
         .context(SaveApplicationCredentialsSnafu)?;
     println!("Saved credentials to {}.", path.display());

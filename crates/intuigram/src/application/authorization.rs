@@ -138,19 +138,34 @@ pub(super) async fn authorize_new_account(
         match authorize_with_qr(credentials, &pending, client, session).await? {
             QrAuthorization::Authorized(authorized) => *authorized,
             QrAuthorization::PhoneLogin(login) => {
-                let (client, session) = *login;
-                let phone_number = match config.telegram.phone_number.as_deref() {
-                    Some(number) => number.to_owned(),
-                    None => prompt("Phone number", "phone number")?,
+                let (mut client, mut session) = *login;
+                let mut phone_number = config
+                    .telegram
+                    .phone_number
+                    .as_deref()
+                    .unwrap_or_default()
+                    .to_owned();
+                let mut error = None;
+                let code_request = loop {
+                    if config.telegram.phone_number.is_none() || error.is_some() {
+                        phone_number = prompt_phone_number(&phone_number, error.as_deref())?;
+                    }
+                    match request_code_with_migration(
+                        credentials,
+                        &pending,
+                        &mut client,
+                        &mut session,
+                        &phone_number,
+                    )
+                    .await
+                    {
+                        Ok(request) => break request,
+                        Err(Error::Telegram { source }) if !source.is_connection_failure() => {
+                            error = Some(source.to_string());
+                        }
+                        Err(error) => return Err(error),
+                    }
                 };
-                let (mut client, session, code_request) = request_code_with_migration(
-                    credentials,
-                    &pending,
-                    client,
-                    session,
-                    &phone_number,
-                )
-                .await?;
                 let user = match code_request {
                     CodeRequest::AlreadyAuthorized(user) => user,
                     CodeRequest::Sent(token) => {

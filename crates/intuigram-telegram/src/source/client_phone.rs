@@ -59,14 +59,14 @@ impl Client {
     /// Submits the delivered login code.
     pub async fn sign_in_with_code(
         &mut self,
-        token: LoginCodeToken,
+        token: &LoginCodeToken,
         code: String,
     ) -> Result<CodeSignIn> {
         let response = self
             .connection
             .invoke(&tl::functions::auth::SignIn {
-                phone_number: token.phone_number,
-                phone_code_hash: token.phone_code_hash,
+                phone_number: token.phone_number.clone(),
+                phone_code_hash: token.phone_code_hash.clone(),
                 phone_code: Some(code),
                 email_verification: None,
             })
@@ -125,7 +125,7 @@ impl Client {
     pub async fn sign_in_with_password(&mut self, password: &[u8]) -> Result<AuthorizedUser> {
         let info = self
             .password
-            .take()
+            .clone()
             .context(MissingPasswordChallengeSnafu)?;
         let algorithm = info
             .current_algo
@@ -159,11 +159,17 @@ impl Client {
                 }
                 .into(),
             })
-            .await
-            .context(InvokeSnafu)?;
-        normalize_authorization(authorization).inspect(|identity| {
-            self.identity = Some(identity.clone());
-        })
+            .await;
+        match authorization {
+            Ok(authorization) => normalize_authorization(authorization).inspect(|identity| {
+                self.password = None;
+                self.identity = Some(identity.clone());
+            }),
+            Err(source) => {
+                self.begin_password_challenge().await?;
+                Err(Error::Invoke { source })
+            }
+        }
     }
 }
 use super::*;
