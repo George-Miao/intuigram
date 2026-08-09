@@ -85,13 +85,18 @@ fn cached_account_restores_rich_thread_history_and_drafts() {
             }],
         }),
         offline_chats: vec![7],
+        outbox: Vec::new(),
     };
 
     let bootstrap = cached_bootstrap("Ada".to_owned(), "telegram:7".to_owned(), cached);
 
     assert_eq!(bootstrap.chats[0].kind, ChatKind::Private);
-    assert_eq!(bootstrap.histories[0].thread_root, Some(MessageId(41)));
-    assert_eq!(bootstrap.histories[0].messages, vec![message]);
+    assert!(bootstrap.histories.iter().any(|history| {
+        history.thread_root.is_none() && history.messages == [message.clone()]
+    }));
+    assert!(bootstrap.histories.iter().any(|history| {
+        history.thread_root == Some(MessageId(41)) && history.messages == [message.clone()]
+    }));
     assert_eq!(bootstrap.pinned_messages[0].messages, vec![old_pin]);
     assert_eq!(bootstrap.drafts[0].text, "cached Draft");
     assert_eq!(bootstrap.offline_chats, vec![ChatId(7)]);
