@@ -7,7 +7,7 @@ use ratatui::{TerminalOptions, Viewport};
 
 use super::*;
 use crate::source::graphics::{GraphicsProtocol, GraphicsRequest, GraphicsState};
-use crate::source::terminal::draw_terminal_view;
+use crate::source::terminal::{TerminalFrameState, draw_terminal_view};
 
 #[test]
 fn ghostty_selects_kitty_unicode_graphics() {
@@ -100,15 +100,14 @@ fn kitty_upload_precedes_its_unicode_placeholder() {
         };
         let mut terminal = Terminal::with_options(backend, options)
             .expect("fixed memory terminal should initialize");
-        let mut graphics = GraphicsState::new(GraphicsProtocol::KittyUnicode);
+        let mut frame_state =
+            TerminalFrameState::new(GraphicsProtocol::KittyUnicode, Multiplexer::None);
 
         draw_terminal_view(
             &mut terminal,
-            &mut graphics,
+            &mut frame_state,
             &EffectiveKeymap::defaults(),
             ViewMode::Default,
-            GraphicsProtocol::KittyUnicode,
-            Multiplexer::None,
             &current,
         )
         .expect("memory terminal should render an image");

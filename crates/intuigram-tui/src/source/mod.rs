@@ -54,6 +54,7 @@ mod render_rich_media;
 mod render_scheduled;
 mod render_transcript;
 pub(crate) mod terminal;
+mod test_renderer;
 mod view_mode;
 
 use avatar::avatar_badge;
@@ -66,9 +67,10 @@ use pointer::resolve_pointer;
 use qr_render::{chord_from_crossterm, qr_login_symbols, render_qr_login};
 pub use qr_session::*;
 use render_accounts::{render_account_confirmation, render_account_picker};
+pub(crate) use render_chrome::ChatViewport;
 use render_chrome::{
-    anchored_window, centered_rect, interaction_rule, render_bottom_chrome, render_folder_picker,
-    render_folders, render_help, selection_rule, surface_style,
+    centered_rect, interaction_rule, render_bottom_chrome, render_folder_picker, render_folders,
+    render_help, selection_rule, surface_style,
 };
 use render_composer::{composer_height, render_composer};
 use render_folder_manager::render_folder_manager;
@@ -83,6 +85,7 @@ use render_scheduled::render_scheduled;
 use render_transcript::render_transcript;
 pub use terminal::*;
 use terminal::{enter_terminal, restore_terminal};
+pub use test_renderer::*;
 pub use view_mode::ViewMode;
 
 const BINDINGS: &[Binding] = &[

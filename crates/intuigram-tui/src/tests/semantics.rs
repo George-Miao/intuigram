@@ -103,7 +103,7 @@ fn folder_membership_overlay_shows_selection_and_current_membership() {
 }
 
 #[test]
-fn chat_list_scroll_uses_directional_seventy_and_thirty_percent_anchors() {
+fn chat_list_scroll_waits_for_each_directional_cap() {
     let mut view = view(Vec::new());
     view.chats = (0..14)
         .map(|index| ChatView {
@@ -119,17 +119,28 @@ fn chat_list_scroll_uses_directional_seventy_and_thirty_percent_anchors() {
         })
         .collect();
     view.active_chat = Some(8);
-
     view.chat_scroll_direction = ScrollDirection::Down;
-    let down = render_test_frame(&view, 100, 24);
-    assert_eq!(down.buffer[(0, 10)].symbol(), "│");
+    let mut renderer = TestRenderer::default();
+    let down = renderer.render(&view, 100, 24);
+    let down_chats = visible_chat_names(&down);
 
+    view.active_chat = Some(7);
     view.chat_scroll_direction = ScrollDirection::Up;
-    let up = render_test_frame(&view, 100, 24);
-    assert_eq!(up.buffer[(0, 7)].symbol(), "│");
-    let rendered: String = up.buffer.content.iter().map(|cell| cell.symbol()).collect();
-    assert!(rendered.contains("Chat 8"));
-    assert!(!rendered.contains("Chat 0"));
+    let before_cap = renderer.render(&view, 100, 24);
+    assert_eq!(visible_chat_names(&before_cap), down_chats);
+
+    view.active_chat = Some(6);
+    let scrolled = renderer.render(&view, 100, 24);
+    assert_ne!(visible_chat_names(&scrolled), down_chats);
+}
+
+fn visible_chat_names(frame: &TestFrame) -> Vec<&str> {
+    frame
+        .semantics
+        .iter()
+        .filter(|node| node.role == SemanticRole::Chat)
+        .map(|node| node.name.as_str())
+        .collect()
 }
 
 #[test]

@@ -285,31 +285,68 @@ pub(super) fn surface_style(focused: bool) -> Style {
     }
 }
 
-pub(super) fn anchored_window(
-    length: usize,
-    active: Option<usize>,
-    visible_items: usize,
-    default_to_end: bool,
-    direction: ScrollDirection,
-) -> std::ops::Range<usize> {
-    let visible_items = visible_items.max(1).min(length);
-    let active = active
-        .map(|index| index.min(length.saturating_sub(1)))
-        .or_else(|| default_to_end.then(|| length.saturating_sub(1)))
-        .unwrap_or(0);
+#[derive(Debug, Default)]
+pub(crate) struct ChatViewport {
+    start: Option<usize>,
+}
+
+impl ChatViewport {
+    pub(super) fn window(
+        &mut self,
+        length: usize,
+        active: Option<usize>,
+        visible_items: usize,
+        default_to_end: bool,
+        direction: ScrollDirection,
+    ) -> std::ops::Range<usize> {
+        let visible_items = visible_items.max(1).min(length);
+        let active = active
+            .map(|index| index.min(length.saturating_sub(1)))
+            .or_else(|| default_to_end.then(|| length.saturating_sub(1)))
+            .unwrap_or(0);
+        let max_start = length.saturating_sub(visible_items);
+        let mut start = self.start.unwrap_or_else(|| {
+            active
+                .saturating_sub(anchor(visible_items, direction))
+                .min(max_start)
+        });
+        start = start.min(max_start);
+        let end = start.saturating_add(visible_items);
+        if active < start || active >= end {
+            start = active
+                .saturating_sub(anchor(visible_items, direction))
+                .min(max_start);
+        } else {
+            let cap = start.saturating_add(anchor(visible_items, direction));
+            match direction {
+                ScrollDirection::Up if active < cap => {
+                    start = active
+                        .saturating_sub(anchor(visible_items, direction))
+                        .min(max_start);
+                }
+                ScrollDirection::Down if active > cap => {
+                    start = active
+                        .saturating_sub(anchor(visible_items, direction))
+                        .min(max_start);
+                }
+                ScrollDirection::Up | ScrollDirection::Down => {}
+            }
+        }
+        self.start = Some(start);
+        start..start.saturating_add(visible_items)
+    }
+}
+
+const fn anchor(visible_items: usize, direction: ScrollDirection) -> usize {
     let percent = match direction {
         ScrollDirection::Up => 30,
         ScrollDirection::Down => 70,
     };
-    let anchor = visible_items
+    visible_items
         .saturating_sub(1)
         .saturating_mul(percent)
         .saturating_add(50)
-        / 100;
-    let start = active
-        .saturating_sub(anchor)
-        .min(length.saturating_sub(visible_items));
-    start..start + visible_items
+        / 100
 }
 
 pub(super) fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {

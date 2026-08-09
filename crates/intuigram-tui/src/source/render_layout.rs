@@ -21,6 +21,7 @@ fn render_with_semantics(
     mode: ViewMode,
     semantics: &mut Vec<SemanticNode>,
 ) {
+    let mut chat_viewport = ChatViewport::default();
     render_with_graphics(
         frame,
         view,
@@ -28,6 +29,7 @@ fn render_with_semantics(
         mode,
         semantics,
         &mut GraphicsFrame::new(GraphicsProtocol::Text, rasterm::Multiplexer::None),
+        &mut chat_viewport,
     );
 }
 
@@ -38,6 +40,7 @@ pub(super) fn render_with_graphics(
     mode: ViewMode,
     semantics: &mut Vec<SemanticNode>,
     graphics: &mut GraphicsFrame,
+    chat_viewport: &mut ChatViewport,
 ) {
     let area = frame.area();
     frame.render_widget(Clear, area);
@@ -51,7 +54,15 @@ pub(super) fn render_with_graphics(
         Constraint::Length(mode.chrome_row_height()),
     ])
     .split(area);
-    render_main(frame, rows[0], view, mode, semantics, graphics);
+    render_main(
+        frame,
+        rows[0],
+        view,
+        mode,
+        semantics,
+        graphics,
+        chat_viewport,
+    );
     render_folders(frame, rows[1], view, mode, semantics);
     render_bottom_chrome(frame, rows[2], view, keymap, mode, semantics);
     if view.folder_manager.is_some() {
@@ -94,6 +105,7 @@ pub(super) fn render_main(
     mode: ViewMode,
     semantics: &mut Vec<SemanticNode>,
     graphics: &mut GraphicsFrame,
+    chat_viewport: &mut ChatViewport,
 ) {
     if area.width < 80 {
         let chat_list_level = view.focus == Focus::Chats
@@ -102,7 +114,7 @@ pub(super) fn render_main(
                 .as_ref()
                 .is_some_and(|search| search.scope == SearchScope::Account);
         if chat_list_level {
-            render_chats(frame, area, view, mode, semantics);
+            render_chats(frame, area, view, mode, semantics, chat_viewport);
         } else {
             render_active_chat(frame, area, view, mode, semantics, graphics);
         }
@@ -123,7 +135,7 @@ pub(super) fn render_main(
         ])
         .split(area)
     };
-    render_chats(frame, columns[0], view, mode, semantics);
+    render_chats(frame, columns[0], view, mode, semantics, chat_viewport);
     render_active_chat(frame, columns[2], view, mode, semantics, graphics);
 }
 
@@ -133,6 +145,7 @@ pub(super) fn render_chats(
     view: &View,
     mode: ViewMode,
     semantics: &mut Vec<SemanticNode>,
+    chat_viewport: &mut ChatViewport,
 ) {
     let focused = view.focus == Focus::Chats;
     let rows = Layout::vertical([
@@ -166,7 +179,7 @@ pub(super) fn render_chats(
     });
     let item_height = mode.item_height(2);
     let visible_items = usize::from(list_area.height) / usize::from(item_height);
-    let range = anchored_window(
+    let range = chat_viewport.window(
         view.chats.len(),
         view.active_chat,
         visible_items,
