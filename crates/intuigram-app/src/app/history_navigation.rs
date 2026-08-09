@@ -99,7 +99,20 @@ impl App {
         self.history_loads.background_remaining = self
             .all_chats
             .len()
-            .saturating_sub(usize::from(active.is_some()));
+            .saturating_sub(usize::from(active.is_some()))
+            .min(BACKGROUND_HISTORY_LIMIT);
+    }
+
+    pub(super) fn reset_reconnected_history(&mut self) {
+        self.reset_background_history();
+        if let Some(index) = self
+            .active_chat_id()
+            .and_then(|active| self.all_chats.iter().position(|chat| chat.id == active))
+        {
+            self.history_loads.background_cursor = index;
+            self.history_loads.background_remaining =
+                self.all_chats.len().min(BACKGROUND_HISTORY_LIMIT);
+        }
     }
 
     fn start_history_load(&mut self, key: HistoryKey) -> Option<Effect> {
@@ -378,13 +391,6 @@ impl App {
             chat,
             thread: self.view.active_thread,
         })
-    }
-
-    pub(super) fn at_latest(&self) -> bool {
-        self.view
-            .active_message
-            .or(self.view.transcript_anchor)
-            .is_none_or(|index| Some(index) == self.view.messages.len().checked_sub(1))
     }
 }
 use super::*;

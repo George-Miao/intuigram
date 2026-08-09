@@ -319,6 +319,35 @@ fn rapid_selection_saves_keep_only_the_latest_request() {
 }
 
 #[test]
+fn reconnect_history_retry_keeps_only_the_latest_chat_request() {
+    let active = futures_util::stream::FuturesUnordered::<PendingEffect>::new();
+    let mut pending = VecDeque::new();
+
+    for chat in [10, 20, 30] {
+        enqueue_effect(
+            &mut pending,
+            &active,
+            &[],
+            Some(Effect::LoadChat {
+                chat: ChatId(chat),
+                selection: None,
+                transcript_anchors: Vec::new(),
+            }),
+        )
+        .expect("a replacement history request should remain admissible");
+    }
+
+    assert_eq!(pending.len(), 1);
+    assert!(matches!(
+        &pending[0].effect,
+        Effect::LoadChat {
+            chat: ChatId(30),
+            ..
+        }
+    ));
+}
+
+#[test]
 fn connection_failure_returns_the_same_send_for_retry() {
     let views = Rc::new(RefCell::new(Vec::new()));
     let observed = Rc::new(RefCell::new(Vec::new()));

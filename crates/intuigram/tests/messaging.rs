@@ -45,7 +45,8 @@ fn reconnect_does_not_restore_the_draft_consumed_by_a_pending_send() -> Result<(
             TelegramScenario::new()
                 .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
                 .expect_load_history(10, [incoming(40, "Lin", "hello")])
-                .hold_send_text("send", 10, "current message", None),
+                .hold_send_text("send", 10, "current message", None)
+                .expect_load_history(10, [incoming(40, "Lin", "hello")]),
         )
         .start()?;
 

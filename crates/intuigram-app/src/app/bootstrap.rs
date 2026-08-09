@@ -353,7 +353,7 @@ impl App {
         } else {
             self.restore_active_draft();
         }
-        self.reset_background_history();
+        self.reset_reconnected_history();
     }
 }
 use super::*;

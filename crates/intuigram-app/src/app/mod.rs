@@ -48,6 +48,9 @@ impl App {
         match input {
             Input::Adapter(AdapterEvent::Bootstrap(bootstrap)) => {
                 self.replace_bootstrap(bootstrap);
+                if self.view.connection != ConnectionState::Connected {
+                    return None;
+                }
                 self.queue_active_media_previews();
                 self.request_next_media_preview()
                     .or_else(|| self.request_next_background_history())
@@ -55,8 +58,8 @@ impl App {
             Input::Adapter(AdapterEvent::ConnectionRestored(bootstrap)) => {
                 self.merge_restored_connection(bootstrap);
                 self.queue_active_media_previews();
-                self.request_next_media_preview()
-                    .or_else(|| self.request_next_background_history())
+                self.request_next_background_history()
+                    .or_else(|| self.request_next_media_preview())
             }
             Input::Adapter(AdapterEvent::ConnectionChanged(connection)) => {
                 self.view.connection = connection;
@@ -361,3 +364,5 @@ use action_availability::move_index;
 use history_navigation::HistoryLoads;
 use media_preview::{MediaPreviewLoads, PreviewKey};
 use state::{HistoryKey, PendingDraft, PendingPoll};
+
+const BACKGROUND_HISTORY_LIMIT: usize = 16;

@@ -158,6 +158,50 @@ fn refresh_prunes_stale_cache_without_losing_older_live_or_pending_messages() {
 }
 
 #[test]
+fn reconnect_refreshes_the_selected_cached_chat_before_background_history() {
+    let mut cached = hierarchy_bootstrap();
+    cached.connection = ConnectionState::Connecting;
+    cached.restored_selection = Some(SelectionView {
+        folder: 0,
+        chat: Some(ChatId(20)),
+        message: None,
+    });
+    let stale = message(8, "stale acknowledged cache");
+    cached.messages = vec![stale.clone()];
+    cached.histories.push(HistoryView {
+        chat: ChatId(20),
+        thread_root: None,
+        messages: vec![stale.clone()],
+    });
+    let mut app = App::new();
+
+    let waiting = app.transition(Input::Adapter(AdapterEvent::Bootstrap(cached)));
+    assert_eq!(waiting.effect, None);
+    assert_eq!(waiting.view.messages, vec![stale]);
+
+    let restored = app.transition(Input::Adapter(AdapterEvent::ConnectionRestored(
+        hierarchy_bootstrap(),
+    )));
+    assert_eq!(restored.effect, Some(load_chat(20, Some(20))));
+
+    let refreshed = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        chat: ChatId(20),
+        status: None,
+        messages: vec![message(10, "authoritative history")],
+        pinned_messages: Vec::new(),
+    }));
+    assert_eq!(
+        refreshed
+            .view
+            .messages
+            .iter()
+            .map(|message| message.id)
+            .collect::<Vec<_>>(),
+        vec![MessageId(10)]
+    );
+}
+
+#[test]
 fn rapid_navigation_does_not_drop_an_inactive_background_history() {
     let mut fixture = hierarchy_bootstrap();
     let mut third = fixture.chats[1].clone();
@@ -189,6 +233,34 @@ fn rapid_navigation_does_not_drop_an_inactive_background_history() {
         pinned_messages: Vec::new(),
     }));
     assert_eq!(resumed_background.effect, Some(load_chat(30, None)));
+}
+
+#[test]
+fn background_history_warmup_is_bounded_for_large_accounts() {
+    let mut fixture = hierarchy_bootstrap();
+    let template = fixture.chats[1].clone();
+    fixture
+        .chats
+        .extend((30..=250).step_by(10).map(|id| ChatView {
+            id: ChatId(id),
+            title: format!("Chat {id}"),
+            ..template.clone()
+        }));
+    let mut app = App::new();
+    let mut update = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    let mut loaded = 0;
+
+    while let Some(Effect::LoadChat { chat, .. }) = update.effect {
+        loaded += 1;
+        update = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+            chat,
+            status: None,
+            messages: Vec::new(),
+            pinned_messages: Vec::new(),
+        }));
+    }
+
+    assert_eq!(loaded, 16);
 }
 
 #[test]
