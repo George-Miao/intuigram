@@ -283,12 +283,12 @@ impl App {
                 } else if self.view.focus == Focus::Transcript {
                     self.focus_composer_at_anchor();
                 } else if self.view.focus == Focus::Composer {
-                    if self.view.active_thread.is_some() {
-                        self.leave_thread();
+                    if self.view.active_topic.is_some() {
+                        self.leave_topic();
                     } else if self.view.active_saved_peer.is_some() {
                         self.leave_saved_dialog();
-                    } else if self.view.active_topic.is_some() {
-                        self.leave_topic();
+                    } else if self.view.active_thread.is_some() {
+                        self.leave_thread();
                     } else {
                         self.view.focus = Focus::Chats;
                     }
