@@ -48,7 +48,7 @@ pub(super) fn render_media(
     preview: Option<&InlineImage>,
     loading: bool,
     context: MediaRenderContext,
-    image_id: Option<u32>,
+    image_id: Option<rasterm::ImageId>,
     graphics: &mut GraphicsFrame,
 ) -> Vec<Line<'static>> {
     let MediaRenderContext {

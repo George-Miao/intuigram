@@ -1,7 +1,9 @@
 use std::io::{self, Write};
 
 use intuigram_app::{ChatId, InlineImage, MessageId};
-use rasterm::{CellSize, Environment, Image, Multiplexer, Placement, Protocol, Renderer};
+use rasterm::{
+    CellPixels, CellSize, Environment, Image, ImageId, Multiplexer, Placement, Protocol, Renderer,
+};
 use ratatui::buffer::Buffer;
 use ratatui::style::Color;
 pub(crate) type GraphicsProtocol = Protocol;
@@ -10,6 +12,7 @@ pub(crate) type GraphicsRequest = Placement;
 pub(crate) struct GraphicsFrame {
     protocol: GraphicsProtocol,
     multiplexer: Multiplexer,
+    cell_pixels: CellPixels,
     requests: Vec<GraphicsRequest>,
 }
 
@@ -22,6 +25,10 @@ impl GraphicsFrame {
         Self {
             protocol,
             multiplexer,
+            cell_pixels: CellPixels {
+                width: 8,
+                height: 16,
+            },
             requests: Vec::new(),
         }
     }
@@ -30,7 +37,7 @@ impl GraphicsFrame {
         self.protocol
     }
 
-    pub(crate) fn push(&mut self, id: u32, image: &InlineImage, size: CellSize) {
+    pub(crate) fn push(&mut self, id: ImageId, image: &InlineImage, size: CellSize) {
         let image = Image::from_rgba(
             u32::from(image.width()),
             u32::from(image.height()),
@@ -41,6 +48,7 @@ impl GraphicsFrame {
             id,
             image: image.into(),
             size,
+            cell_pixels: self.cell_pixels,
             x: 0,
             y: 0,
             multiplexer: self.multiplexer,
@@ -55,6 +63,13 @@ impl GraphicsFrame {
         self.multiplexer = multiplexer;
         for request in &mut self.requests {
             request.multiplexer = multiplexer;
+        }
+    }
+
+    pub(crate) fn set_cell_pixels(&mut self, cell_pixels: CellPixels) {
+        self.cell_pixels = cell_pixels;
+        for request in &mut self.requests {
+            request.cell_pixels = cell_pixels;
         }
     }
 
@@ -102,7 +117,7 @@ pub(crate) fn graphics_environment() -> (GraphicsProtocol, Multiplexer) {
     (environment.protocol(), environment.multiplexer)
 }
 
-pub(crate) fn image_id(chat: ChatId, message: MessageId) -> u32 {
+pub(crate) fn image_id(chat: ChatId, message: MessageId) -> ImageId {
     let mut hash = 2_166_136_261_u32;
     for byte in chat
         .0
@@ -113,10 +128,12 @@ pub(crate) fn image_id(chat: ChatId, message: MessageId) -> u32 {
         hash ^= u32::from(byte);
         hash = hash.wrapping_mul(16_777_619);
     }
-    (hash & 0x00ff_ffff).max(1)
+    ImageId::new((hash & 0x00ff_ffff).max(1))
+        .expect("masking and clamping an image hash always produces a nonzero ID")
 }
 
-const fn image_color(id: u32) -> Color {
+const fn image_color(id: ImageId) -> Color {
+    let id = id.get();
     Color::Rgb(
         ((id >> 16) & 0xff) as u8,
         ((id >> 8) & 0xff) as u8,

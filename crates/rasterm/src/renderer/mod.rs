@@ -8,19 +8,22 @@ use std::sync::Arc;
 
 use snafu::{ResultExt, Snafu};
 
-use crate::{CellSize, Image, Multiplexer, Protocol};
+use crate::{CellPixels, CellSize, Image, ImageId, Multiplexer, Protocol};
 
 /// One terminal-native image placement.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Placement {
     /// Stable nonzero image ID.
-    pub id: u32,
+    pub id: ImageId,
 
     /// Image pixels.
     pub image: Arc<Image>,
 
     /// Occupied terminal cells.
     pub size: CellSize,
+
+    /// Pixel geometry used by protocols that cannot size in terminal cells.
+    pub cell_pixels: CellPixels,
 
     /// Zero-based terminal column.
     pub x: u16,
@@ -52,7 +55,7 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 #[derive(Debug)]
 pub struct Renderer {
     protocol: Protocol,
-    images: HashMap<u32, ImageState>,
+    images: HashMap<ImageId, ImageState>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -132,7 +135,7 @@ impl Renderer {
         writer.flush().context(WriteSnafu)
     }
 
-    fn delete(&mut self, writer: &mut impl Write, id: u32, mux: Multiplexer) -> Result<()> {
+    fn delete(&mut self, writer: &mut impl Write, id: ImageId, mux: Multiplexer) -> Result<()> {
         writer
             .write_all(&encode::delete(self.protocol, id, mux))
             .context(WriteSnafu)?;
@@ -158,6 +161,8 @@ fn fingerprint(protocol: Protocol, placement: &Placement) -> u64 {
         .chain(origin.1.to_le_bytes())
         .chain(placement.size.columns.to_le_bytes())
         .chain(placement.size.rows.to_le_bytes())
+        .chain(placement.cell_pixels.width.to_le_bytes())
+        .chain(placement.cell_pixels.height.to_le_bytes())
         .chain(placement.image.rgba().iter().copied())
     {
         hash ^= u64::from(byte);

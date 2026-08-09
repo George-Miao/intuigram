@@ -1,6 +1,6 @@
 use std::ffi::OsString;
 
-use rasterm::{CellSize, Environment, Image, Multiplexer};
+use rasterm::{CellPixels, CellSize, Environment, Image, ImageId, Multiplexer};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::Rect;
 use ratatui::{TerminalOptions, Viewport};
@@ -19,10 +19,10 @@ fn ghostty_selects_kitty_unicode_graphics() {
 }
 
 #[test]
-fn ghostty_inside_zellij_keeps_kitty_unicode_graphics() {
+fn zellij_uses_sixel_instead_of_the_outer_terminal_protocol() {
     assert_eq!(
         protocol("xterm-256color", Some("ghostty")),
-        GraphicsProtocol::KittyUnicode
+        GraphicsProtocol::Sixel
     );
 }
 
@@ -165,7 +165,7 @@ fn graphics_state_reuploads_a_resized_placement() {
 
 fn graphics_request() -> GraphicsRequest {
     GraphicsRequest {
-        id: 42,
+        id: ImageId::new(42).expect("fixture ID is nonzero"),
         image: Image::from_rgba(1, 1, vec![255, 0, 0, 255])
             .expect("fixture pixels should match their dimensions")
             .into(),
@@ -173,6 +173,7 @@ fn graphics_request() -> GraphicsRequest {
             columns: 32,
             rows: 6,
         },
+        cell_pixels: CellPixels::default(),
         x: 7,
         y: 9,
         multiplexer: Multiplexer::None,

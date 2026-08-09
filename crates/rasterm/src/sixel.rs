@@ -5,6 +5,12 @@ use crate::{Image, Placement};
 
 pub(crate) fn encode(placement: &Placement) -> Vec<u8> {
     let image = &placement.image;
+    let target_width = u32::from(placement.size.columns)
+        .saturating_mul(u32::from(placement.cell_pixels.width))
+        .max(1);
+    let target_height = u32::from(placement.size.rows)
+        .saturating_mul(u32::from(placement.cell_pixels.height))
+        .max(1);
     let mut colors = BTreeMap::<u8, (u8, u8, u8)>::new();
     for pixel in image.rgba().chunks_exact(4) {
         if pixel[3] != 0 {
@@ -18,8 +24,8 @@ pub(crate) fn encode(placement: &Placement) -> Vec<u8> {
         "\x1b[{};{}H\x1bPq\"1;1;{};{}",
         placement.y.saturating_add(1),
         placement.x.saturating_add(1),
-        image.width(),
-        image.height()
+        target_width,
+        target_height
     );
     for (&id, &(red, green, blue)) in &colors {
         write!(
@@ -31,14 +37,14 @@ pub(crate) fn encode(placement: &Placement) -> Vec<u8> {
         )
         .expect("writing a Sixel palette to memory cannot fail");
     }
-    let bands = image.height().div_ceil(6);
+    let bands = target_height.div_ceil(6);
     for band in 0..bands {
         for (color_index, &id) in colors.keys().enumerate() {
             if color_index != 0 {
                 output.push('$');
             }
             write!(output, "#{id}").expect("writing a Sixel color to memory cannot fail");
-            encode_row(&mut output, image, band, id);
+            encode_row(&mut output, image, target_width, target_height, band, id);
         }
         if band + 1 < bands {
             output.push('-');
@@ -48,10 +54,17 @@ pub(crate) fn encode(placement: &Placement) -> Vec<u8> {
     crate::kitty::wrap(output.into_bytes(), placement.multiplexer)
 }
 
-fn encode_row(output: &mut String, image: &Image, band: u32, id: u8) {
+fn encode_row(
+    output: &mut String,
+    image: &Image,
+    target_width: u32,
+    target_height: u32,
+    band: u32,
+    id: u8,
+) {
     let mut run = None::<(u8, u32)>;
-    for x in 0..image.width() {
-        let value = sixel_value(image, x, band, id);
+    for x in 0..target_width {
+        let value = sixel_value(image, target_width, target_height, x, band, id);
         match run {
             Some((current, count)) if current == value => run = Some((current, count + 1)),
             Some((current, count)) => {
@@ -66,12 +79,29 @@ fn encode_row(output: &mut String, image: &Image, band: u32, id: u8) {
     }
 }
 
-fn sixel_value(image: &Image, x: u32, band: u32, id: u8) -> u8 {
+fn sixel_value(
+    image: &Image,
+    target_width: u32,
+    target_height: u32,
+    x: u32,
+    band: u32,
+    id: u8,
+) -> u8 {
     let mut bits = 0_u8;
     for bit in 0..6 {
         let y = band * 6 + bit;
-        if y < image.height() {
-            let pixel = pixel(image, x, y);
+        if y < target_height {
+            let source_x = x
+                .saturating_mul(image.width())
+                .checked_div(target_width)
+                .unwrap_or_default()
+                .min(image.width().saturating_sub(1));
+            let source_y = y
+                .saturating_mul(image.height())
+                .checked_div(target_height)
+                .unwrap_or_default()
+                .min(image.height().saturating_sub(1));
+            let pixel = pixel(image, source_x, source_y);
             if pixel[3] != 0 && color_id(pixel) == id {
                 bits |= 1 << bit;
             }

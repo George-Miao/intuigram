@@ -5,7 +5,7 @@ use image::{ExtendedColorType, ImageEncoder};
 use snafu::ResultExt;
 
 use super::{EncodeSnafu, Placement, Result};
-use crate::{Multiplexer, Protocol, kitty, sixel};
+use crate::{ImageId, Multiplexer, Protocol, kitty, sixel};
 
 pub(super) fn placement(protocol: Protocol, placement: &Placement) -> Result<Vec<u8>> {
     match protocol {
@@ -17,7 +17,7 @@ pub(super) fn placement(protocol: Protocol, placement: &Placement) -> Result<Vec
     }
 }
 
-pub(super) fn delete(protocol: Protocol, id: u32, mux: Multiplexer) -> Vec<u8> {
+pub(super) fn delete(protocol: Protocol, id: ImageId, mux: Multiplexer) -> Vec<u8> {
     match protocol {
         Protocol::KittyUnicode | Protocol::KittyLegacy => kitty::delete(id, mux),
         Protocol::Iterm2

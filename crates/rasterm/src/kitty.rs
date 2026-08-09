@@ -2,7 +2,7 @@ use std::fmt::Write as _;
 
 use base64::Engine as _;
 
-use crate::{Multiplexer, Placement};
+use crate::{ImageId, Multiplexer, Placement};
 
 const RAW_CHUNK_BYTES: usize = 3_072;
 
@@ -21,9 +21,9 @@ pub(crate) fn encode_legacy(placement: &Placement) -> Vec<u8> {
     wrap(output, placement.multiplexer)
 }
 
-pub(crate) fn delete(id: u32, multiplexer: Multiplexer) -> Vec<u8> {
+pub(crate) fn delete(id: ImageId, multiplexer: Multiplexer) -> Vec<u8> {
     wrap(
-        format!("\x1b_Ga=d,d=I,i={id},q=2\x1b\\").into_bytes(),
+        format!("\x1b_Ga=d,d=I,i={},q=2\x1b\\", id.get()).into_bytes(),
         multiplexer,
     )
 }
@@ -77,7 +77,7 @@ fn write_first(output: &mut String, placement: &Placement, unicode: bool, more: 
         "\x1b_Gq=2,a=T{virtual_placement},f=32,s={},v={},i={},c={},r={},m={more};",
         placement.image.width(),
         placement.image.height(),
-        placement.id,
+        placement.id.get(),
         placement.size.columns,
         placement.size.rows,
     )

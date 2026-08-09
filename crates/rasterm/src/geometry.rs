@@ -18,6 +18,35 @@ pub struct CellSize {
     pub rows: u16,
 }
 
+/// Pixel dimensions of one terminal cell.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CellPixels {
+    /// Cell width in pixels.
+    pub width: u16,
+
+    /// Cell height in pixels.
+    pub height: u16,
+}
+
+impl Default for CellPixels {
+    fn default() -> Self {
+        Self {
+            width: 8,
+            height: 16,
+        }
+    }
+}
+
+impl CellPixels {
+    /// Derives one cell's pixel size from a terminal's complete geometry.
+    #[must_use]
+    pub fn from_terminal(width: u16, height: u16, columns: u16, rows: u16) -> Option<Self> {
+        let width = width.checked_div(columns)?;
+        let height = height.checked_div(rows)?;
+        (width > 0 && height > 0).then_some(Self { width, height })
+    }
+}
+
 /// Fits pixel dimensions into terminal cells while accounting for cells being
 /// approximately twice as tall as they are wide.
 #[must_use]
@@ -52,7 +81,7 @@ const fn rounded_ratio(numerator: u64, denominator: u64) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{CellBounds, CellSize, fit_cells};
+    use super::{CellBounds, CellPixels, CellSize, fit_cells};
 
     const BOUNDS: CellBounds = CellBounds {
         columns: 32,
@@ -82,5 +111,17 @@ mod tests {
                 rows: 6
             }
         );
+    }
+
+    #[test]
+    fn terminal_pixel_extent_is_converted_to_one_cell() {
+        assert_eq!(
+            CellPixels::from_terminal(1_600, 960, 200, 60),
+            Some(CellPixels {
+                width: 8,
+                height: 16,
+            })
+        );
+        assert_eq!(CellPixels::from_terminal(0, 960, 200, 60), None);
     }
 }

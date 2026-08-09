@@ -6,6 +6,7 @@
 mod environment;
 mod external;
 mod geometry;
+mod id;
 mod image;
 mod kitty;
 mod placeholder;
@@ -16,8 +17,9 @@ mod text;
 
 pub use environment::{Environment, Multiplexer};
 pub use external::{ChafaCommand, UeberzugCommand};
-pub use geometry::{CellBounds, CellSize, fit_cells};
-pub use image::Image;
+pub use geometry::{CellBounds, CellPixels, CellSize, fit_cells};
+pub use id::ImageId;
+pub use image::{Error as ImageError, Image, Result as ImageResult};
 pub use placeholder::unicode_placeholder;
 pub use protocol::Protocol;
 pub use renderer::{Error, Placement, Renderer, Result};

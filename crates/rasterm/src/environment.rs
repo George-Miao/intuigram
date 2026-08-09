@@ -70,6 +70,9 @@ impl Environment {
     pub fn protocol(&self) -> Protocol {
         let term = text(self.term.as_deref());
         let program = text(self.term_program.as_deref());
+        if self.multiplexer == Multiplexer::Zellij {
+            return Protocol::Sixel;
+        }
         if self.kitty_window
             || contains_any(term, &["ghostty", "kitty"])
             || contains_any(program, &["ghostty", "kitty"])
@@ -120,14 +123,14 @@ mod tests {
     use crate::Protocol;
 
     #[test]
-    fn zellij_does_not_hide_the_outer_ghostty_capability() {
+    fn zellij_uses_its_only_supported_graphics_protocol() {
         let environment = Environment {
             term: Some(OsString::from("xterm-256color")),
             term_program: Some(OsString::from("ghostty")),
             multiplexer: Multiplexer::Zellij,
             ..Environment::default()
         };
-        assert_eq!(environment.protocol(), Protocol::KittyUnicode);
+        assert_eq!(environment.protocol(), Protocol::Sixel);
     }
 
     #[test]

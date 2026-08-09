@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use super::{Placement, Renderer};
-use crate::{CellSize, Image, Multiplexer, Protocol};
+use crate::{CellPixels, CellSize, Image, ImageId, Multiplexer, Protocol};
 
 #[test]
 fn kitty_unicode_upload_is_virtual_and_position_independent() {
@@ -56,7 +56,7 @@ fn iterm2_and_sixel_encoders_emit_their_native_framing() {
     sixel
         .sync(&mut sixel_output, &[request])
         .expect("the RGBA fixture should encode as Sixel");
-    assert!(sixel_output.starts_with(b"\x1b[10;8H\x1bPq\"1;1;1;1"));
+    assert!(sixel_output.starts_with(b"\x1b[10;8H\x1bPq\"1;1;96;96"));
     assert!(sixel_output.ends_with(b"\x1b\\"));
 }
 
@@ -76,7 +76,7 @@ fn stale_kitty_images_are_deleted() {
 
 fn placement(multiplexer: Multiplexer) -> Placement {
     Placement {
-        id: 42,
+        id: ImageId::new(42).expect("fixture ID is nonzero"),
         image: Arc::new(
             Image::from_rgba(1, 1, vec![255, 0, 0, 255])
                 .expect("fixture dimensions should match its pixels"),
@@ -84,6 +84,10 @@ fn placement(multiplexer: Multiplexer) -> Placement {
         size: CellSize {
             columns: 12,
             rows: 6,
+        },
+        cell_pixels: CellPixels {
+            width: 8,
+            height: 16,
         },
         x: 7,
         y: 9,

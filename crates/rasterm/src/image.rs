@@ -21,6 +21,9 @@ pub enum Error {
     },
 }
 
+/// Result returned by owned image validation.
+pub type Result<T, E = Error> = std::result::Result<T, E>;
+
 /// Small immutable row-major RGBA8 image.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Image {
@@ -31,7 +34,7 @@ pub struct Image {
 
 impl Image {
     /// Validates and owns an RGBA8 payload.
-    pub fn from_rgba(width: u32, height: u32, rgba: Vec<u8>) -> Result<Self, Error> {
+    pub fn from_rgba(width: u32, height: u32, rgba: Vec<u8>) -> Result<Self> {
         let expected = usize::try_from(width)
             .ok()
             .and_then(|width| usize::try_from(height).ok().map(|height| (width, height)))

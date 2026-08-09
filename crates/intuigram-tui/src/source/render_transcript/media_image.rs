@@ -1,12 +1,12 @@
 use intuigram_app::InlineImage;
-use rasterm::{CellBounds, CellSize, Image, fit_cells, text_cells, unicode_placeholder};
+use rasterm::{CellBounds, CellSize, Image, ImageId, fit_cells, text_cells, unicode_placeholder};
 
 use super::*;
 
 const WIDTH: u16 = 32;
 const HEIGHT: u16 = 6;
 pub(super) struct ImageRenderContext {
-    pub(super) id: Option<u32>,
+    pub(super) id: Option<ImageId>,
     pub(super) active: bool,
     pub(super) selected: bool,
     pub(super) forwarded: bool,
@@ -69,12 +69,13 @@ pub(super) fn render_loading_image(
 
 fn render_native_image(
     image: &InlineImage,
-    id: u32,
+    id: ImageId,
     size: CellSize,
     context: ImageRenderContext,
     graphics: &mut GraphicsFrame,
 ) -> Vec<Line<'static>> {
     graphics.push(id, image, size);
+    let id = id.get();
     let foreground = Color::Rgb(
         u8::try_from((id >> 16) & 0xff).expect("a masked image ID byte fits in u8"),
         u8::try_from((id >> 8) & 0xff).expect("a masked image ID byte fits in u8"),

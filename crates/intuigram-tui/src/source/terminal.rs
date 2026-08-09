@@ -1,4 +1,4 @@
-use rasterm::Multiplexer;
+use rasterm::{CellPixels, Multiplexer};
 
 /// Active alternate-screen terminal session.
 pub struct TerminalUi {
@@ -14,6 +14,7 @@ pub(crate) struct TerminalFrameState {
     multiplexer: Multiplexer,
     graphics: GraphicsState,
     chat_viewport: ChatViewport,
+    cell_pixels: CellPixels,
 }
 
 impl TerminalFrameState {
@@ -23,7 +24,13 @@ impl TerminalFrameState {
             multiplexer,
             graphics: GraphicsState::new(protocol),
             chat_viewport: ChatViewport::default(),
+            cell_pixels: CellPixels::default(),
         }
+    }
+
+    fn with_cell_pixels(mut self, cell_pixels: CellPixels) -> Self {
+        self.cell_pixels = cell_pixels;
+        self
     }
 }
 
@@ -41,7 +48,8 @@ impl TerminalUi {
             keymap: EffectiveKeymap::defaults(),
             view_mode,
             semantics: Vec::new(),
-            frame_state: TerminalFrameState::new(graphics_protocol, graphics_multiplexer),
+            frame_state: TerminalFrameState::new(graphics_protocol, graphics_multiplexer)
+                .with_cell_pixels(terminal_cell_pixels()),
         })
     }
 
@@ -77,6 +85,15 @@ impl TerminalUi {
     pub fn resolve_event(&self, view: &View, event: Event) -> Option<UiEvent> {
         resolve_event_with_semantics(&self.keymap, view, event, &self.semantics)
     }
+}
+
+fn terminal_cell_pixels() -> CellPixels {
+    window_size()
+        .ok()
+        .and_then(|size| {
+            CellPixels::from_terminal(size.width, size.height, size.columns, size.rows)
+        })
+        .unwrap_or_default()
 }
 
 /// Resolves a raw terminal event through the production effective keymap.
@@ -115,6 +132,7 @@ pub(crate) fn draw_terminal_view<W: io::Write>(
             &mut state.chat_viewport,
         );
         graphics.set_multiplexer(state.multiplexer);
+        graphics.set_cell_pixels(state.cell_pixels);
         // A Unicode placeholder only resolves if its virtual placement exists
         // before the terminal receives the placeholder cells.
         if state.protocol.uses_unicode_placeholders() {
