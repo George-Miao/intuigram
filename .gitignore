@@ -1,5 +1,4 @@
 /target
-/.intuigram
-/.popgram
+/data
 /.direnv
 *.session

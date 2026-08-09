@@ -27,17 +27,10 @@
       {
         devShells.default = mkShell {
           buildInputs = [
-            gnuplot_qt
-            go
-            cmake
-            glib
-            gdb
-            lldb
+            ffmpeg
             openssl
-            python315
             pkg-config
             cargo-nextest
-            cargo-flamegraph
             (rust-bin.selectLatestNightlyWith (
               toolchain:
               toolchain.default.override {
