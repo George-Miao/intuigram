@@ -1,5 +1,6 @@
 mod cancellation;
 mod codec;
+mod completion;
 mod endpoints;
 mod expiry;
 mod lifecycle;
@@ -11,6 +12,7 @@ mod resolution;
 mod transition;
 mod types;
 
+pub use completion::OutboxCompletion;
 pub(in crate::account) use endpoints::{OutboxCommand, execute};
 pub use poll::OutboxPoll;
 pub(in crate::account) use recovery::recover_in_flight;

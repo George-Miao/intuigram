@@ -53,6 +53,16 @@ pub enum Error {
     #[snafu(display("Outbox item {} in state {state:?} cannot be dismissed", id.get()))]
     NotDismissible { id: OutboxId, state: OutboxState },
 
+    #[snafu(display(
+        "Outbox item {} with operation {operation:?} cannot commit {completion}",
+        id.get()
+    ))]
+    CompletionMismatch {
+        id: OutboxId,
+        operation: OutboxOperation,
+        completion: &'static str,
+    },
+
     #[snafu(display("Outbox optimistic Message does not match its payload scope"))]
     OptimisticMessageMismatch,
 

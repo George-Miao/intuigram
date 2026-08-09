@@ -1,6 +1,6 @@
 use snafu::ResultExt;
 
-use super::super::{cancellation, expiry, lifecycle, repository, resolution};
+use super::super::{cancellation, completion, expiry, lifecycle, repository, resolution};
 use super::OutboxCommand;
 use crate::account::OutboxSnafu;
 
@@ -59,13 +59,10 @@ pub(in crate::account) fn execute(connection: &rusqlite::Connection, command: Ou
         OutboxCommand::MarkOutcomeUnknown { id, reason, reply } => reply.finish(
             cancellation::mark_outcome_unknown(connection, id, reason).context(OutboxSnafu),
         ),
-        OutboxCommand::Acknowledge {
+        OutboxCommand::Complete {
             id,
-            replacement,
+            completion,
             reply,
-        } => reply.finish(
-            lifecycle::acknowledge(connection, id, replacement.map(|message| *message))
-                .context(OutboxSnafu),
-        ),
+        } => reply.finish(completion::finish(connection, id, *completion).context(OutboxSnafu)),
     }
 }

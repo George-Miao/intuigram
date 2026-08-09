@@ -1,8 +1,8 @@
 use super::{OutboxCommand, Reply};
 use crate::account::worker::{Command, async_response, map_try_send_error};
 use crate::account::{
-    AccountStore, DatabaseRequest, OutboxAdmission, OutboxExpiry, OutboxId, OutboxPayload,
-    OutboxPoll, OutboxRecord, Result, StoredMessage,
+    AccountStore, DatabaseRequest, OutboxAdmission, OutboxCompletion, OutboxExpiry, OutboxId,
+    OutboxPayload, OutboxPoll, OutboxRecord, Result, StoredMessage,
 };
 
 impl AccountStore {
@@ -122,16 +122,30 @@ impl AccountStore {
         self.outbox_request(|reply| OutboxCommand::MarkOutcomeUnknown { id, reason, reply })
     }
 
+    /// Enqueues atomic durable-result commit and removal of active work.
+    pub fn complete_outbox(
+        &self,
+        id: OutboxId,
+        completion: OutboxCompletion,
+    ) -> Result<DatabaseRequest<()>> {
+        self.outbox_request(|reply| OutboxCommand::Complete {
+            id,
+            completion: Box::new(completion),
+            reply,
+        })
+    }
+
     /// Enqueues an atomic optional Message replacement and acknowledgement.
     pub fn acknowledge_outbox(
         &self,
         id: OutboxId,
         replacement: Option<StoredMessage>,
     ) -> Result<DatabaseRequest<()>> {
-        self.outbox_request(|reply| OutboxCommand::Acknowledge {
+        self.complete_outbox(
             id,
-            replacement: replacement.map(Box::new),
-            reply,
-        })
+            replacement.map_or(OutboxCompletion::Acknowledged, |message| {
+                OutboxCompletion::Message(Box::new(message))
+            }),
+        )
     }
 }

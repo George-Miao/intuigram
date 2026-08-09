@@ -35,8 +35,7 @@ use cache_read::load_cache;
 pub use database::AccountDatabase;
 use filesystem::{prepare_data_directory, promote_without_replace, protect_path, run_worker};
 use message_write::{
-    delete_messages, replace_message, replace_message_in, save_chat_history, save_draft,
-    save_messages, upsert_message,
+    delete_messages, replace_message, save_chat_history, save_draft, save_messages, upsert_message,
 };
 pub(crate) use migration::open_and_migrate;
 use migration::read_account_id;
@@ -46,8 +45,8 @@ pub use model::{
 };
 use offline_media::{load_offline_chats, set_chat_media_offline};
 pub use outbox::{
-    Error as OutboxError, OutboxAdmission, OutboxExpiry, OutboxId, OutboxMedia, OutboxOperation,
-    OutboxPayload, OutboxPayloadV1, OutboxPoll, OutboxRecord, OutboxState,
+    Error as OutboxError, OutboxAdmission, OutboxCompletion, OutboxExpiry, OutboxId, OutboxMedia,
+    OutboxOperation, OutboxPayload, OutboxPayloadV1, OutboxPoll, OutboxRecord, OutboxState,
 };
 pub use records::{CachedAccount, StoredDraft, StoredSelection, StoredTranscriptAnchor};
 pub use saved_dialog::StoredSavedDialog;

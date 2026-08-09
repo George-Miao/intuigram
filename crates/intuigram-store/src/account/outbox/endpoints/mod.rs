@@ -6,9 +6,12 @@ use std::sync::mpsc::SyncSender;
 
 pub(in crate::account) use dispatch::execute;
 
-use super::{OutboxAdmission, OutboxExpiry, OutboxId, OutboxPayload, OutboxPoll, OutboxRecord};
+use super::{
+    OutboxAdmission, OutboxCompletion, OutboxExpiry, OutboxId, OutboxPayload, OutboxPoll,
+    OutboxRecord,
+};
+use crate::account::Result;
 use crate::account::worker::AsyncReply;
-use crate::account::{Result, StoredMessage};
 
 pub(in crate::account) enum OutboxCommand {
     Admit {
@@ -77,9 +80,9 @@ pub(in crate::account) enum OutboxCommand {
         reason: String,
         reply: Reply<()>,
     },
-    Acknowledge {
+    Complete {
         id: OutboxId,
-        replacement: Option<Box<StoredMessage>>,
+        completion: Box<OutboxCompletion>,
         reply: Reply<()>,
     },
 }

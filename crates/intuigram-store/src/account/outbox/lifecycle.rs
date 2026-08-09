@@ -2,8 +2,7 @@ use rusqlite::{Connection, OptionalExtension};
 use snafu::ResultExt;
 
 use super::repository::{DatabaseSnafu, Error, Result};
-use super::{OutboxId, OutboxPayload, OutboxPoll, OutboxState, expiry, mapping, transition};
-use crate::account::{StoredMessage, replace_message_in};
+use super::{OutboxId, OutboxPoll, OutboxState, expiry, mapping, transition};
 
 pub(super) fn claim(connection: &Connection, now: i64) -> Result<OutboxPoll> {
     let transaction = connection
@@ -107,52 +106,4 @@ pub(super) fn conflict(connection: &Connection, id: OutboxId, reason: String) ->
         None,
         Some(reason),
     )
-}
-
-pub(super) fn acknowledge(
-    connection: &Connection,
-    id: OutboxId,
-    replacement: Option<StoredMessage>,
-) -> Result<()> {
-    let transaction = connection.unchecked_transaction().context(DatabaseSnafu {
-        operation: "acknowledge",
-    })?;
-    transition::require(
-        &transaction,
-        id,
-        &[OutboxState::InFlight, OutboxState::CancelRequested],
-        OutboxState::Ready,
-    )?;
-    if let Some(replacement) = replacement {
-        replace_acknowledged_message(&transaction, id, &replacement)?;
-    }
-    transaction
-        .execute("DELETE FROM outbox WHERE outbox_id = ?1", [id.get()])
-        .context(DatabaseSnafu {
-            operation: "acknowledge",
-        })?;
-    transaction.commit().context(DatabaseSnafu {
-        operation: "acknowledge",
-    })
-}
-
-fn replace_acknowledged_message(
-    connection: &Connection,
-    id: OutboxId,
-    replacement: &StoredMessage,
-) -> Result<()> {
-    let record = mapping::load_one(connection, id)?;
-    let OutboxPayload::V1(payload) = record.payload;
-    let local_id = payload
-        .local_message_id
-        .ok_or(Error::MissingLocalMessageId)?;
-    if replacement.chat_id != payload.chat_id
-        || replacement.thread_root != payload.thread_root
-        || replacement.saved_peer != payload.saved_peer
-    {
-        return Err(Error::AcknowledgementMessageMismatch);
-    }
-    replace_message_in(connection, payload.chat_id, local_id, replacement).context(DatabaseSnafu {
-        operation: "acknowledge",
-    })
 }

@@ -3,8 +3,8 @@ use std::sync::mpsc;
 use super::{OutboxCommand, Reply};
 use crate::account::worker::Command;
 use crate::account::{
-    AccountDatabase, OutboxAdmission, OutboxExpiry, OutboxId, OutboxPayload, OutboxPoll,
-    OutboxRecord, Result, StoredMessage,
+    AccountDatabase, OutboxAdmission, OutboxCompletion, OutboxExpiry, OutboxId, OutboxPayload,
+    OutboxPoll, OutboxRecord, Result, StoredMessage,
 };
 
 impl AccountDatabase {
@@ -107,6 +107,15 @@ impl AccountDatabase {
         self.outbox_request(|reply| OutboxCommand::MarkOutcomeUnknown { id, reason, reply })
     }
 
+    /// Atomically commits a normalized durable result and removes active work.
+    pub fn complete_outbox(&self, id: OutboxId, completion: OutboxCompletion) -> Result<()> {
+        self.outbox_request(|reply| OutboxCommand::Complete {
+            id,
+            completion: Box::new(completion),
+            reply,
+        })
+    }
+
     /// Atomically installs an optional normalized server Message and removes
     /// its local optimistic row, acknowledged work, and retained media.
     pub fn acknowledge_outbox(
@@ -114,10 +123,11 @@ impl AccountDatabase {
         id: OutboxId,
         replacement: Option<StoredMessage>,
     ) -> Result<()> {
-        self.outbox_request(|reply| OutboxCommand::Acknowledge {
+        self.complete_outbox(
             id,
-            replacement: replacement.map(Box::new),
-            reply,
-        })
+            replacement.map_or(OutboxCompletion::Acknowledged, |message| {
+                OutboxCompletion::Message(Box::new(message))
+            }),
+        )
     }
 }
