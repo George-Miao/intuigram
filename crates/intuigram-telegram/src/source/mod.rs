@@ -66,6 +66,7 @@ mod session_types;
 use authorization::{normalize_authorization, password_parameters};
 use client_dialogs::DialogBatch;
 pub use client_folders::FolderRules;
+pub use client_poll::PollSend;
 pub use client_rich_media::{ContactCardSend, MediaLibraryEntry, MediaLibraryKind};
 pub use client_scheduled::{ScheduledDelivery, ScheduledMessage};
 pub use client_send::{TextSend, UploadSend};

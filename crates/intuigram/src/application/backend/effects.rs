@@ -220,15 +220,15 @@ impl Backend {
                 .await?;
                 let result = self
                     .client
-                    .send_poll(
+                    .send_poll(intuigram_telegram::PollSend {
                         chat,
-                        question.clone(),
-                        options.clone(),
+                        question: question.clone(),
+                        options: options.clone(),
                         reply_to,
                         thread_root,
-                        saved_peer,
-                        random_id.expect("every queued poll has an idempotency token"),
-                    )
+                        monoforum_peer: saved_peer,
+                        random_id: random_id.expect("every queued poll has an idempotency token"),
+                    })
                     .await;
                 let result = match result {
                     Err(source) if source.is_connection_failure() => {

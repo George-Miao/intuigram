@@ -1,15 +1,41 @@
+use super::*;
+
+/// One single-choice poll submission.
+pub struct PollSend {
+    /// Destination Chat.
+    pub chat: ChatId,
+
+    /// Poll question.
+    pub question: String,
+
+    /// Ordered poll answers.
+    pub options: Vec<String>,
+
+    /// Direct reply target.
+    pub reply_to: Option<MessageId>,
+
+    /// Active Thread root.
+    pub thread_root: Option<MessageId>,
+
+    /// User topic inside an administrator-owned monoforum.
+    pub monoforum_peer: Option<ChatId>,
+
+    /// Stable Message idempotency identifier.
+    pub random_id: i64,
+}
+
 impl Client {
     /// Sends a single-choice poll with an ordered set of answers.
-    pub async fn send_poll(
-        &mut self,
-        chat: ChatId,
-        question: String,
-        options: Vec<String>,
-        reply_to: Option<MessageId>,
-        thread_root: Option<MessageId>,
-        monoforum_peer: Option<ChatId>,
-        random_id: i64,
-    ) -> Result<()> {
+    pub async fn send_poll(&mut self, request: PollSend) -> Result<()> {
+        let PollSend {
+            chat,
+            question,
+            options,
+            reply_to,
+            thread_root,
+            monoforum_peer,
+            random_id,
+        } = request;
         let peer = self.peers.resolve(chat)?;
         let monoforum_peer = monoforum_peer
             .map(|peer| self.peers.resolve(peer))
@@ -96,4 +122,3 @@ fn text_with_no_entities(text: String) -> tl::enums::TextWithEntities {
     }
     .into()
 }
-use super::*;

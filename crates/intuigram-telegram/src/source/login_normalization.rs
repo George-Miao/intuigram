@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn normalize_code_delivery(
     delivery: tl::enums::auth::SentCodeType,
 ) -> LoginCodeDelivery {
@@ -170,4 +172,3 @@ mod tests {
         ));
     }
 }
-use super::*;

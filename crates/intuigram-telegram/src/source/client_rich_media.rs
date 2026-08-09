@@ -54,6 +54,16 @@ pub struct ContactCardSend {
     pub random_id: i64,
 }
 
+struct InputMediaSend {
+    peer: tl::enums::InputPeer,
+    media: tl::enums::InputMedia,
+    message: String,
+    reply_to: Option<MessageId>,
+    thread_root: Option<MessageId>,
+    monoforum_peer: Option<ChatId>,
+    random_id: i64,
+}
+
 impl Client {
     /// Loads recent stickers, saved GIFs, or searched custom emoji.
     pub async fn browse_media(
@@ -186,15 +196,15 @@ impl Client {
             query: None,
         }
         .into();
-        self.send_input_media(
+        self.send_input_media(InputMediaSend {
             peer,
             media,
-            String::new(),
+            message: String::new(),
             reply_to,
             thread_root,
             monoforum_peer,
             random_id,
-        )
+        })
         .await
     }
 
@@ -218,28 +228,28 @@ impl Client {
             vcard: String::new(),
         }
         .into();
-        self.send_input_media(
+        self.send_input_media(InputMediaSend {
             peer,
             media,
-            String::new(),
+            message: String::new(),
             reply_to,
             thread_root,
             monoforum_peer,
             random_id,
-        )
+        })
         .await
     }
 
-    async fn send_input_media(
-        &mut self,
-        peer: tl::enums::InputPeer,
-        media: tl::enums::InputMedia,
-        message: String,
-        reply_to: Option<MessageId>,
-        thread_root: Option<MessageId>,
-        monoforum_peer: Option<ChatId>,
-        random_id: i64,
-    ) -> Result<MessageId> {
+    async fn send_input_media(&mut self, request: InputMediaSend) -> Result<MessageId> {
+        let InputMediaSend {
+            peer,
+            media,
+            message,
+            reply_to,
+            thread_root,
+            monoforum_peer,
+            random_id,
+        } = request;
         let monoforum_peer = monoforum_peer
             .map(|peer| self.peers.resolve(peer))
             .transpose()?;
