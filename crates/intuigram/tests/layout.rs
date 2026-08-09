@@ -209,17 +209,18 @@ fn only_the_focused_block_uses_a_surface_background() -> Result<()> {
         )
         .start()?;
 
-    let canvas = app.screen().background_at(32, 6);
-    assert_ne!(app.screen().background_at(5, 6), canvas);
-    assert_eq!(app.screen().background_at(40, 6), canvas);
+    assert!(app.screen().background_is_default_at(32, 6));
+    assert!(!app.screen().background_is_default_at(5, 6));
+    assert!(app.screen().background_is_default_at(40, 6));
 
     app.press(key::ENTER)?;
     let rows = app.screen().rows();
     let composer = row_within(&rows, "Type or paste a message…", 33, 100);
 
-    assert_eq!(app.screen().background_at(5, 6), canvas);
-    assert_eq!(app.screen().background_at(40, 6), canvas);
-    assert_ne!(app.screen().background_at(40, composer as u16), canvas);
+    assert!(app.screen().background_is_default_at(5, 6));
+    assert!(app.screen().background_is_default_at(40, 6));
+    assert!(!app.screen().background_is_default_at(40, composer as u16));
+    assert!(app.screen().background_is_default_at(32, 23));
     app.expect_no_unhandled_work()
 }
 

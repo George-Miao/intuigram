@@ -121,6 +121,12 @@ impl Screen {
         self.state.borrow().buffer[(x, y)].bg
     }
 
+    /// Reports whether one rendered cell inherits the terminal background.
+    #[must_use]
+    pub fn background_is_default_at(&self, x: u16, y: u16) -> bool {
+        self.background_at(x, y) == Color::Reset
+    }
+
     #[must_use]
     pub fn revision(&self) -> u64 {
         self.state.borrow().revision

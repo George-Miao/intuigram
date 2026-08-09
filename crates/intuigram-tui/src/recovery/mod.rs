@@ -5,9 +5,9 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Paragraph, Wrap};
+use ratatui::widgets::{Clear, Paragraph, Wrap};
 
-use crate::source::{BACKGROUND, CHROME_BACKGROUND, MUTED_TEXT, PRIMARY, SURFACE_BACKGROUND, TEXT};
+use crate::source::{CHROME_BACKGROUND, MUTED_TEXT, PRIMARY, SURFACE_BACKGROUND, TEXT};
 
 /// Read-only information shown when an Account database cannot be trusted.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -88,10 +88,7 @@ pub fn resolve_recovery_event(event: Event, can_rebuild: bool) -> Option<Recover
 
 pub(super) fn render(frame: &mut Frame<'_>, view: &RecoveryView) {
     let area = frame.area();
-    frame.render_widget(
-        Paragraph::new("").style(Style::default().bg(BACKGROUND)),
-        area,
-    );
+    frame.render_widget(Clear, area);
     let rows = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(8),
@@ -165,7 +162,7 @@ pub(super) fn render(frame: &mut Frame<'_>, view: &RecoveryView) {
     }
     frame.render_widget(
         Paragraph::new(details)
-            .style(Style::default().fg(TEXT).bg(BACKGROUND))
+            .style(Style::default().fg(TEXT))
             .wrap(Wrap { trim: false }),
         rows[1],
     );

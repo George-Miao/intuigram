@@ -1,6 +1,5 @@
 use ratatui::style::Color;
 
-pub(crate) const BACKGROUND: Color = Color::Rgb(253, 246, 227);
 pub(crate) const SURFACE_BACKGROUND: Color = Color::Rgb(244, 240, 217);
 pub(crate) const FOCUSED_SURFACE_BACKGROUND: Color = Color::Rgb(230, 226, 204);
 pub(crate) const CHROME_BACKGROUND: Color = Color::Rgb(239, 235, 212);

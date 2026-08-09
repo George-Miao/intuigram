@@ -30,8 +30,6 @@
 - [ ] **p-core:** Render sender avatar images in the Transcript and use a two-row `[avatar] [username]` / `[avatar] [message]` layout. Fall back to the current two-character name avatar when an image cannot be rendered.
 - [ ] **p-core:** Keep a successfully loaded and displayed image or Sticker renderable across redraw, scrolling, and Chat reselection. Do not regress it to filename or MIME metadata while its preview remains available.
 - [ ] **p-core:** Render group Chat-list rows as `[Chat avatar] [Chat name] [Message time]` above `[sender avatar] [message preview]`, preserving unread count, selection, truncation, and narrow-terminal behavior.
-- [ ] **p-core:** Leave the root TUI canvas, gutters, and unfocused regions on the terminal's default background so terminal-side padding blends seamlessly with Intuigram. Apply a surface background only to the focused visual block.
-
 - [ ] **p-high:** Make keyboard bindings configurable through a Figment-based configuration system. Support layered TOML, YAML, JSON, environment, and command-line sources; keep a complete default keymap; and generate the on-screen Action Bar and Help from the active configuration.
 - [ ] **p-high:** Make the terminal palette configurable, keep Everforest Light as a built-in bright theme, and add automatic light/dark terminal-background detection with an explicit configuration override.
 - [ ] **p-high:** Add sender, date-range, and media-type filters to Chat Search and Global Search.

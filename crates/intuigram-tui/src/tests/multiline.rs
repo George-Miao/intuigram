@@ -39,7 +39,7 @@ fn multiline_composer_grows_to_a_cap_and_scrolls_with_the_cursor() {
         .draw(|frame| render(frame, &current, &EffectiveKeymap::defaults()))
         .expect("empty Composer should shrink");
     let buffer = terminal.backend().buffer();
-    assert_eq!(buffer[(40, 18)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(40, 18)].bg, Color::Reset);
     assert_eq!(buffer[(40, 19)].bg, Color::Rgb(230, 226, 204));
 }
 
@@ -55,7 +55,7 @@ fn composer_height_accounts_for_soft_wrapping() {
         .expect("soft-wrapped Composer should render");
     let buffer = terminal.backend().buffer();
 
-    assert_eq!(buffer[(40, 16)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(40, 16)].bg, Color::Reset);
     assert_eq!(buffer[(40, 17)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(terminal.backend().cursor_position().y, 20);
 }

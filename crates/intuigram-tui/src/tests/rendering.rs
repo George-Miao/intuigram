@@ -52,7 +52,7 @@ fn transcript_keeps_media_card_fallback_visible_beside_a_caption() {
 }
 
 #[test]
-fn everforest_light_palette_is_used_for_the_terminal_surface() {
+fn terminal_canvas_inherits_the_default_background() {
     let backend = TestBackend::new(100, 24);
     let mut terminal = Terminal::new(backend).expect("test terminal should initialize");
     terminal
@@ -60,7 +60,7 @@ fn everforest_light_palette_is_used_for_the_terminal_surface() {
         .expect("view should render");
     let buffer = terminal.backend().buffer();
 
-    assert_eq!(buffer[(32, 5)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(32, 5)].bg, Color::Reset);
     assert_eq!(buffer[(5, 5)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(buffer[(5, 5)].fg, Color::Rgb(92, 106, 114));
 }
@@ -206,18 +206,18 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
     assert_eq!(buffer[(36, reply_row)].fg, Color::Rgb(58, 148, 197));
     assert_eq!(buffer[(34, 20)].symbol(), "│");
     assert_eq!(buffer[(36, 20)].symbol(), "T");
-    assert_eq!(buffer[(5, 5)].bg, Color::Rgb(253, 246, 227));
-    assert_eq!(buffer[(40, 5)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(5, 5)].bg, Color::Reset);
+    assert_eq!(buffer[(40, 5)].bg, Color::Reset);
     assert_eq!(buffer[(40, 19)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(buffer[(40, 20)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(buffer[(40, 21)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(buffer[(33, 19)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(buffer[(99, 21)].bg, Color::Rgb(230, 226, 204));
-    assert_eq!(buffer[(32, 5)].bg, Color::Rgb(253, 246, 227));
-    assert_eq!(buffer[(5, 21)].bg, Color::Rgb(253, 246, 227));
-    assert_eq!(buffer[(5, 22)].bg, Color::Rgb(253, 246, 227));
-    assert_eq!(buffer[(5, 23)].bg, Color::Rgb(253, 246, 227));
-    assert_eq!(buffer[(5, 26)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(32, 5)].bg, Color::Reset);
+    assert_eq!(buffer[(5, 21)].bg, Color::Reset);
+    assert_eq!(buffer[(5, 22)].bg, Color::Reset);
+    assert_eq!(buffer[(5, 23)].bg, Color::Reset);
+    assert_eq!(buffer[(5, 26)].bg, Color::Reset);
     assert!(
         buffer
             .content
@@ -231,8 +231,8 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
         .expect("Chat-list focus should render");
     let buffer = terminal.backend().buffer();
     assert_eq!(buffer[(5, 5)].bg, Color::Rgb(230, 226, 204));
-    assert_eq!(buffer[(40, 19)].bg, Color::Rgb(253, 246, 227));
-    assert_eq!(buffer[(40, 21)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(40, 19)].bg, Color::Reset);
+    assert_eq!(buffer[(40, 21)].bg, Color::Reset);
 
     view.focus = Focus::Transcript;
     terminal
@@ -240,8 +240,8 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
         .expect("Transcript focus should render");
     let buffer = terminal.backend().buffer();
     assert_eq!(buffer[(40, 5)].bg, Color::Rgb(230, 226, 204));
-    assert_eq!(buffer[(40, 19)].bg, Color::Rgb(253, 246, 227));
-    assert_eq!(buffer[(40, 21)].bg, Color::Rgb(253, 246, 227));
+    assert_eq!(buffer[(40, 19)].bg, Color::Reset);
+    assert_eq!(buffer[(40, 21)].bg, Color::Reset);
 
     view.focus = Focus::Search;
     terminal

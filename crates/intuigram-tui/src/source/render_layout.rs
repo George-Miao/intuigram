@@ -45,10 +45,6 @@ pub(super) fn render_with_graphics(
     let mode = options.mode;
     let area = frame.area();
     frame.render_widget(Clear, area);
-    frame.render_widget(
-        Paragraph::new("").style(Style::default().fg(TEXT).bg(BACKGROUND)),
-        area,
-    );
     let rows = Layout::vertical([
         Constraint::Min(5),
         Constraint::Length(mode.folder_height()),
