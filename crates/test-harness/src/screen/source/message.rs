@@ -149,6 +149,41 @@ impl MessageLocator {
         Ok(())
     }
 
+    /// Requires the Active Message rule to span every row owned by this
+    /// Message.
+    pub fn expect_continuous_active_rule(&self) -> Result<()> {
+        let state = self.state.borrow();
+        let matches = state
+            .semantics
+            .iter()
+            .filter(|node| node.role == SemanticRole::Message)
+            .filter(|node| match &self.query {
+                MessageQuery::Id(id) => node.domain_id == Some(id.0),
+                MessageQuery::Text(text) => node.name == *text,
+            })
+            .collect::<Vec<_>>();
+        if matches.len() != 1 {
+            return Err(Error::LocatorCardinality {
+                query: self.describe(),
+                matches: matches.len(),
+                artifact: self.trace.borrow().persist(),
+            });
+        }
+        let message = matches[0];
+        let missing = (message.bounds.top()..message.bounds.bottom())
+            .filter(|row| state.buffer[(message.bounds.x, *row)].symbol() != "│")
+            .collect::<Vec<_>>();
+        if missing.is_empty() {
+            Ok(())
+        } else {
+            Err(Error::Expectation {
+                expectation: format!("{} has one continuous Active Message rule", self.describe()),
+                actual: format!("missing rule on terminal rows {missing:?}"),
+                artifact: self.trace.borrow().persist(),
+            })
+        }
+    }
+
     fn describe(&self) -> String {
         match &self.query {
             MessageQuery::Id(id) => format!("Message {}", id.0),

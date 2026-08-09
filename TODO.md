@@ -22,7 +22,6 @@
 - [ ] **p-core:** Allow selected Chats to keep media offline outside ordinary Media Cache eviction.
 - [ ] **p-core:** Append `...` when a Chat name &amp; message preview is capped to fit its available width. Perform terminal-cell-aware truncation and keep the ellipsis inside the allocated Chat-list width. Message count should always be visible on the rightmost side of chat name. 
 - [ ] **p-core:** Adopt Clap for command-line parsing while preserving typed configuration, maintenance commands, validation, and generated help.
-- [ ] **p-core:** Keep the Active Message selection rule continuous through intra-Message spacing, quote padding, forwarded content, and media gaps without removing the requested whitespace.
 - [ ] **p-core:** Apply the configurable maximum Transcript width only to Message content. Keep Message metadata outside that cap and aligned to the rightmost edge of the Transcript.
 - [ ] **p-core:** Add one blank row above and below every inline image and Sticker while preserving grouped-Message and Active Message selection semantics.
 - [ ] **p-core:** Edit photo Messages through their caption and media rather than the `[Photo] image` fallback. Start captionless photo edits with an empty Composer, preserve existing captions as editable text, and allow the attached image to be replaced.

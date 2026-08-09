@@ -261,6 +261,29 @@ fn quoted_messages_keep_their_content_inside_one_trailing_blank_row() -> Result<
 }
 
 #[test]
+fn active_message_rule_spans_forward_and_quote_padding() -> Result<()> {
+    let mut quoted = incoming(41, "Lin", "quoted forward");
+    quoted.reply_to = Some(intuigram_app::MessageId(40));
+    quoted.details.forwarded_from = Some("Runtime News".to_owned());
+    let mut app = TestSystem::builder()
+        .name("layout-continuous-active-message-rule")
+        .terminal(100, 28)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, [incoming(40, "Lin", "original"), quoted]),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.press(key::ALT_UP)?;
+
+    app.screen().message(41).expect_active()?;
+    app.screen().message(41).expect_continuous_active_rule()?;
+    app.expect_no_unhandled_work()
+}
+
+#[test]
 fn headers_have_vertical_padding_and_an_active_chat_status_row() -> Result<()> {
     let mut app = TestSystem::builder()
         .name("layout-padded-headers")

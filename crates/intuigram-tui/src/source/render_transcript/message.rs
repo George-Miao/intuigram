@@ -34,7 +34,7 @@ pub(super) fn message_lines(
     };
     let mut lines = message_heading(message, state, &layout);
     if let Some(source) = &message.details.forwarded_from {
-        lines.push(Line::from(""));
+        lines.push(message_spacing(state.active));
         let mut provenance = content_prefix(state.active, state.selected, true);
         provenance.push(Span::styled(
             format!("Forwarded from {source}"),
@@ -43,7 +43,7 @@ pub(super) fn message_lines(
         lines.push(Line::from(provenance));
     }
     if let Some(reply) = message.reply_to {
-        lines.push(Line::from(""));
+        lines.push(message_spacing(state.active));
         let mut spans = content_prefix(state.active, state.selected, state.forwarded);
         spans.push(Span::styled("│ ", Style::default().fg(SECONDARY)));
         spans.push(Span::styled(
@@ -51,7 +51,7 @@ pub(super) fn message_lines(
             Style::default().fg(MUTED_TEXT),
         ));
         lines.push(Line::from(spans));
-        lines.push(Line::from(""));
+        lines.push(message_spacing(state.active));
     }
     append_content(view, index, message, &layout, state, &mut lines, graphics);
     append_message_metadata(
@@ -62,7 +62,7 @@ pub(super) fn message_lines(
         state,
     );
     if layout.mode == ViewMode::Default && !layout.grouped_with_next {
-        lines.push(Line::from(""));
+        lines.push(message_spacing(state.active));
     }
     lines
 }
@@ -243,6 +243,10 @@ pub(super) fn content_prefix(active: bool, selected: bool, forwarded: bool) -> V
         spans.push(Span::styled("│ ", Style::default().fg(PRIMARY)));
     }
     spans
+}
+
+pub(super) fn message_spacing(active: bool) -> Line<'static> {
+    Line::from(selection_rule(active))
 }
 
 fn message_selection_marker(selected: bool) -> Span<'static> {
