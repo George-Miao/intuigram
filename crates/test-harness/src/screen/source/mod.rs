@@ -127,6 +127,12 @@ impl Screen {
         self.background_at(x, y) == Color::Reset
     }
 
+    /// Returns the rendered symbol at one terminal cell.
+    #[must_use]
+    pub fn symbol_at(&self, x: u16, y: u16) -> String {
+        self.state.borrow().buffer[(x, y)].symbol().to_owned()
+    }
+
     #[must_use]
     pub fn revision(&self) -> u64 {
         self.state.borrow().revision

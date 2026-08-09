@@ -6,7 +6,8 @@ pub(super) struct MessageLayout {
     pub(super) focused: bool,
     pub(super) mode: ViewMode,
     pub(super) unread: bool,
-    pub(super) width: u16,
+    pub(super) content_width: u16,
+    pub(super) transcript_width: u16,
     pub(super) available_height: u16,
     pub(super) grouped_with_previous: bool,
     pub(super) grouped_with_next: bool,
@@ -58,7 +59,7 @@ pub(super) fn message_lines(
         &mut lines,
         message,
         view.animation_frame,
-        layout.width,
+        layout.transcript_width,
         state,
     );
     if layout.mode == ViewMode::Default && !layout.grouped_with_next {
@@ -145,7 +146,8 @@ fn append_content(
             )
         });
     let prefix = content_prefix(state.active, state.selected, state.forwarded);
-    let content_width = usize::from(layout.width).saturating_sub(Line::from(prefix).width());
+    let content_width =
+        usize::from(layout.content_width).saturating_sub(Line::from(prefix).width());
     let body_lines = show_body
         .then(|| render_rich_text_lines(message, content_width))
         .into_iter()

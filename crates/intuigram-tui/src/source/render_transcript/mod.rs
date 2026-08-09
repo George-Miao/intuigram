@@ -21,7 +21,7 @@ pub(super) fn render_transcript(
     let mode = options.mode;
     frame.render_widget(Paragraph::new("").style(surface_style(focused)), area);
     let area = mode.padded(area);
-    let message_width = area.width.min(options.message_max_width.get());
+    let content_width = area.width.min(options.message_max_width.get());
     semantics.push(SemanticNode {
         role: SemanticRole::Transcript,
         name: "Transcript".to_owned(),
@@ -56,7 +56,8 @@ pub(super) fn render_transcript(
                     focused,
                     mode,
                     unread: unread == Some(index),
-                    width: message_width,
+                    content_width,
+                    transcript_width: area.width,
                     available_height: area.height,
                     grouped_with_previous: mode == ViewMode::Default
                         && previous.is_some_and(|previous| messages_group(previous, message)),

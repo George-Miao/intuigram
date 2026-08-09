@@ -68,6 +68,26 @@ fn long_transcript_messages_wrap_inside_the_active_chat() -> Result<()> {
 }
 
 #[test]
+fn metadata_stays_at_transcript_right_edge_when_content_is_capped() -> Result<()> {
+    let mut app = TestSystem::builder()
+        .name("layout-message-content-width")
+        .terminal(200, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, [incoming(40, "Lin", "short message")]),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    let rows = app.screen().rows();
+    let metadata = row_within(&rows, "12:00 · ✓✓", 41, 200);
+
+    assert_eq!(app.screen().symbol_at(198, metadata as u16), "✓");
+    app.expect_no_unhandled_work()
+}
+
+#[test]
 fn composer_is_one_continuous_bar_with_internal_padding() -> Result<()> {
     let mut app = TestSystem::builder()
         .name("layout-composer-padding")
