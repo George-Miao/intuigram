@@ -32,13 +32,15 @@ pub(super) fn cached_bootstrap(
             unread: folder.unread,
         })
         .collect::<Vec<_>>();
-    let chats = cached
+    let mut chats = cached
         .chats
         .into_iter()
         .map(|chat| ChatView {
             id: ChatId(chat.id),
             title: chat.title,
             preview: chat.preview,
+            preview_sender: None,
+            preview_timestamp: String::new(),
             status: chat.status,
             unread: chat.unread,
             pinned: chat.pinned,
@@ -62,6 +64,17 @@ pub(super) fn cached_bootstrap(
             messages,
         })
         .collect::<Vec<_>>();
+    for chat in &mut chats {
+        let Some(message) = histories
+            .iter()
+            .find(|history| history.chat == chat.id && history.thread_root.is_none())
+            .and_then(|history| history.messages.last())
+        else {
+            continue;
+        };
+        chat.preview_sender = Some(message.sender.clone());
+        chat.preview_timestamp.clone_from(&message.timestamp);
+    }
     let mut grouped_pins = BTreeMap::<i64, Vec<MessageView>>::new();
     for message in cached.pinned_messages {
         grouped_pins

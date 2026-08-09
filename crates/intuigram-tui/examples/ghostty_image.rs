@@ -22,6 +22,8 @@ fn main() -> intuigram_tui::Result<()> {
         id: ChatId(1),
         title: "Ghostty image probe".to_owned(),
         preview: String::new(),
+        preview_sender: None,
+        preview_timestamp: String::new(),
         status: "Press q to exit".to_owned(),
         unread: 0,
         pinned: false,

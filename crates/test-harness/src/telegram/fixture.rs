@@ -145,6 +145,8 @@ pub fn chat(id: i64, title: impl Into<String>) -> ChatView {
         id: ChatId(id),
         title: title.into(),
         preview: String::new(),
+        preview_sender: None,
+        preview_timestamp: String::new(),
         status: "last seen recently".to_owned(),
         unread: 0,
         pinned: false,

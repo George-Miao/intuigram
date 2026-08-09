@@ -27,6 +27,8 @@ impl Client {
                 .cloned()
                 .unwrap_or_else(|| "Inaccessible peer".to_owned()),
             preview: String::new(),
+            preview_sender: None,
+            preview_timestamp: String::new(),
             status: traits
                 .get(&chat)
                 .map_or_else(|| "unavailable".to_owned(), |traits| traits.status.clone()),

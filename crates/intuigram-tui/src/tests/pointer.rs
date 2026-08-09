@@ -204,6 +204,8 @@ fn pointer_view() -> View {
         id: ChatId(7),
         title: "Ada".to_owned(),
         preview: "hello".to_owned(),
+        preview_sender: None,
+        preview_timestamp: String::new(),
         status: "online".to_owned(),
         unread: 0,
         pinned: false,

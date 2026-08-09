@@ -96,7 +96,7 @@ use media_normalization::{
 #[cfg(test)]
 pub(crate) use message_normalization::thread_root_message_id;
 use message_normalization::{
-    mark_channel_id, marked_peer_id, message_body, message_chat_id, message_parts,
+    dialog_message_summary, mark_channel_id, marked_peer_id, message_chat_id, message_parts,
     normalize_entities, normalize_message, reply_message_id, text_with_entities,
 };
 pub use message_operations::MessageEdit;

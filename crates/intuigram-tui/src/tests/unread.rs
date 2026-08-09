@@ -5,6 +5,8 @@ fn unread_divider_is_rendered_immediately_before_the_boundary_message() {
         id: ChatId(10),
         title: "Intuigram".to_owned(),
         preview: String::new(),
+        preview_sender: None,
+        preview_timestamp: String::new(),
         status: String::new(),
         unread: 2,
         pinned: false,

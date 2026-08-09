@@ -228,9 +228,16 @@ pub(super) fn render_chats(
             let avatar = avatar_badge(&chat.title);
             let marker = Span::styled(marker, Style::default().fg(MUTED_TEXT));
             let unread = Span::styled(unread, Style::default().fg(PRIMARY));
+            let timestamp = if chat.preview_timestamp.is_empty() {
+                String::new()
+            } else {
+                format!(" {}", chat.preview_timestamp)
+            };
+            let timestamp = Span::styled(timestamp, Style::default().fg(MUTED_TEXT));
             let fixed_width = Line::from(vec![
                 rule.clone(),
                 avatar.clone(),
+                timestamp.clone(),
                 marker.clone(),
                 unread.clone(),
             ])
@@ -245,19 +252,37 @@ pub(super) fn render_chats(
                 .saturating_sub(title_width);
             let preview_width = usize::from(items_area.width)
                 .saturating_sub(Line::from(selection_rule(selected)).width());
+            let preview_avatar = chat
+                .preview_sender
+                .as_deref()
+                .filter(|_| {
+                    matches!(
+                        chat.kind,
+                        ChatKind::BasicGroup | ChatKind::Supergroup | ChatKind::Gigagroup
+                    )
+                })
+                .map(avatar_badge);
+            let preview_prefix_width = preview_avatar
+                .as_ref()
+                .map_or(0, |avatar| Line::from(avatar.clone()).width());
             let mut lines = vec![
                 Line::from(vec![
                     rule,
                     avatar,
                     Span::styled(title, Style::default().add_modifier(Modifier::BOLD)),
                     Span::raw(" ".repeat(title_gap)),
+                    timestamp,
                     marker,
                     unread,
                 ]),
                 Line::from(vec![
                     selection_rule(selected),
+                    preview_avatar.unwrap_or_else(|| Span::raw("")),
                     Span::styled(
-                        capped_text(&chat.preview, preview_width),
+                        capped_text(
+                            &chat.preview,
+                            preview_width.saturating_sub(preview_prefix_width),
+                        ),
                         Style::default().fg(MUTED_TEXT),
                     ),
                 ]),

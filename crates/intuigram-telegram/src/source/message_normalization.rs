@@ -44,6 +44,29 @@ pub(super) fn message_chat_id(message: &tl::enums::Message) -> ChatId {
     }
 }
 
+pub(super) fn dialog_message_summary(
+    message: &tl::enums::Message,
+    names: &HashMap<ChatId, String>,
+) -> (String, Option<String>, String) {
+    let (outgoing, sender, date) = match message {
+        tl::enums::Message::Empty(_) => return (String::new(), None, String::new()),
+        tl::enums::Message::Message(message) => {
+            (message.out, message.from_id.as_ref(), message.date)
+        }
+        tl::enums::Message::Service(message) => {
+            (message.out, message.from_id.as_ref(), message.date)
+        }
+    };
+    let sender = if outgoing {
+        Some("You".to_owned())
+    } else {
+        sender
+            .map(marked_peer_id)
+            .and_then(|id| names.get(&id).cloned())
+    };
+    (message_body(message), sender, format_timestamp(date))
+}
+
 pub(super) fn normalize_message(
     message: &tl::enums::Message,
     names: &HashMap<ChatId, String>,

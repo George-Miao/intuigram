@@ -43,6 +43,28 @@ fn default_view_separates_chats_and_messages_and_uses_a_three_line_folder_bar() 
 }
 
 #[test]
+fn group_chat_rows_show_last_sender_preview_and_message_time() -> Result<()> {
+    let mut group = chat(10, "Intuigram Team");
+    group.kind = ChatKind::Supergroup;
+    group.preview = "daily driver".to_owned();
+    group.preview_sender = Some("Lin Qiao".to_owned());
+    group.preview_timestamp = "12:34".to_owned();
+    let mut app = TestSystem::builder()
+        .name("layout-group-chat-row")
+        .terminal(100, 24)
+        .telegram(TelegramScenario::new().bootstrap(account("Ada").with_chat(group)))
+        .start()?;
+
+    let rows = app.screen().rows();
+    let title_row = row_within(&rows, "Intuigram Team", 0, 32);
+    let preview_row = row_within(&rows, "daily driver", 0, 32);
+
+    assert!(row_segment(&rows, title_row, 0, 32).contains("12:34"));
+    assert!(row_segment(&rows, preview_row, 0, 32).contains("[LQ] daily driver"));
+    app.expect_no_unhandled_work()
+}
+
+#[test]
 fn long_transcript_messages_wrap_inside_the_active_chat() -> Result<()> {
     let body = format!(
         "A long Telegram message begins here {} tail-marker remains visible.",

@@ -248,6 +248,8 @@ fn image_message_view() -> View {
         id: ChatId(10),
         title: "Intuigram".to_owned(),
         preview: "photo".to_owned(),
+        preview_sender: None,
+        preview_timestamp: String::new(),
         status: "connected".to_owned(),
         unread: 0,
         pinned: false,

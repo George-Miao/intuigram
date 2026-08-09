@@ -60,13 +60,18 @@ impl Client {
                         .get(&chat_id)
                         .cloned()
                         .unwrap_or_else(|| "Inaccessible peer".to_owned());
-                    let preview = top_messages
+                    let (preview, preview_sender, preview_timestamp) = top_messages
                         .get(&(chat_id, dialog.top_message))
-                        .map_or_else(String::new, |message| message_body(message));
+                        .map_or_else(
+                            || (String::new(), None, String::new()),
+                            |message| dialog_message_summary(message, &self.names),
+                        );
                     Some(ChatView {
                         id: chat_id,
                         title,
                         preview,
+                        preview_sender,
+                        preview_timestamp,
                         status: traits.get(&chat_id).map_or_else(
                             || "unavailable".to_owned(),
                             |traits| traits.status.clone(),

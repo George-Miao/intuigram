@@ -189,6 +189,12 @@ pub struct ChatView {
     /// Compact last-message preview.
     pub preview: String,
 
+    /// Last Message sender shown by group Chat rows.
+    pub preview_sender: Option<String>,
+
+    /// Compact local time of the last Message.
+    pub preview_timestamp: String,
+
     /// Idle Active-Chat metadata normalized for display.
     pub status: String,
 

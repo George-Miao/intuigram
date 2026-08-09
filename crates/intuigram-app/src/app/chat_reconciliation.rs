@@ -88,6 +88,8 @@ impl App {
             .filter(|candidate| candidate.id == chat)
         {
             chat_view.preview.clone_from(&message.body);
+            chat_view.preview_sender = Some(message.sender.clone());
+            chat_view.preview_timestamp.clone_from(&message.timestamp);
         }
         if self.active_chat_id() == Some(chat) {
             self.refresh_active_history_at(active_message, transcript_anchor);

@@ -7,6 +7,8 @@ fn text_avatar_fallbacks_render_in_chat_list_header_and_transcript() {
         id: ChatId(10),
         title: "Intuigram Team".to_owned(),
         preview: "daily driver".to_owned(),
+        preview_sender: Some("Lin Qiao".to_owned()),
+        preview_timestamp: "12:34".to_owned(),
         status: "3 members".to_owned(),
         unread: 0,
         pinned: false,
@@ -36,4 +38,6 @@ fn text_avatar_fallbacks_render_in_chat_list_header_and_transcript() {
 
     assert_eq!(rendered.matches("[IT]").count(), 2);
     assert!(rendered.contains("[LQ]"));
+    assert!(rendered.contains("12:34"));
+    assert!(rendered.contains("[LQ] daily driver"));
 }

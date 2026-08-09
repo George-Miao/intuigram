@@ -7,6 +7,8 @@ fn transcript_groups_senders_and_shows_dates_and_reply_previews() {
         id: ChatId(10),
         title: "Intuigram".to_owned(),
         preview: String::new(),
+        preview_sender: None,
+        preview_timestamp: String::new(),
         status: String::new(),
         unread: 0,
         pinned: false,
