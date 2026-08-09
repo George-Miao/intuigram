@@ -64,6 +64,8 @@ mod login;
 mod maintenance;
 mod media_arguments;
 mod offline_media;
+#[allow(dead_code)]
+mod outbox;
 mod proxy;
 mod runtime;
 mod schedule_arguments;
