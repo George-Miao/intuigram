@@ -320,7 +320,7 @@ impl App {
             body,
             timestamp: "now".to_owned(),
             direction: MessageDirection::Outgoing,
-            delivery: DeliveryState::Pending,
+            delivery: DeliveryState::Saving,
             reply_to,
             details: MessageDetails {
                 media,

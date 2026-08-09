@@ -52,6 +52,12 @@ pub(super) fn message_metadata(message: &MessageView, animation_frame: u8) -> Ve
         Style::default().fg(MUTED_TEXT),
     );
     match message.delivery {
+        DeliveryState::Saving => {
+            if !spans.is_empty() {
+                spans.push(Span::styled(" · ", Style::default().fg(MUTED_TEXT)));
+            }
+            spans.extend(effort_spans("saving…", animation_frame));
+        }
         DeliveryState::Pending => {
             if !spans.is_empty() {
                 spans.push(Span::styled(" · ", Style::default().fg(MUTED_TEXT)));

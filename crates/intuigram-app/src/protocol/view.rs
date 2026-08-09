@@ -191,10 +191,12 @@ impl View {
                 .as_ref()
                 .is_some_and(|manager| manager.pending)
             || !self.media_preview_loads.is_empty()
-            || self
-                .messages
-                .iter()
-                .any(|message| message.delivery == DeliveryState::Pending)
+            || self.messages.iter().any(|message| {
+                matches!(
+                    message.delivery,
+                    DeliveryState::Saving | DeliveryState::Pending
+                )
+            })
     }
 }
 

@@ -143,10 +143,12 @@ const fn action_bar_rank(key: KeyChord) -> u8 {
 
 fn status_spans(view: &View) -> Vec<Span<'static>> {
     let mut spans = Vec::new();
-    let sending = view
-        .messages
-        .iter()
-        .any(|message| message.delivery == DeliveryState::Pending);
+    let sending = view.messages.iter().any(|message| {
+        matches!(
+            message.delivery,
+            DeliveryState::Saving | DeliveryState::Pending
+        )
+    });
     let synchronizing = view.chat_loading != ChatLoadingState::Idle;
     let idle = view.connection == ConnectionState::Connected && !sending && !synchronizing;
 

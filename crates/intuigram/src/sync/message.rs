@@ -102,6 +102,7 @@ pub fn encode_stored_message(chat: ChatId, message: &MessageView) -> StoredMessa
         }
         .to_owned(),
         delivery: match message.delivery {
+            DeliveryState::Saving => "saving",
             DeliveryState::Pending => "pending",
             DeliveryState::Sent => "sent",
             DeliveryState::Read => "read",
@@ -148,6 +149,7 @@ pub fn decode_stored_message(message: StoredMessage) -> MessageView {
             MessageDirection::Incoming
         },
         delivery: match message.delivery.as_str() {
+            "saving" => DeliveryState::Saving,
             "pending" => DeliveryState::Pending,
             "read" => DeliveryState::Read,
             "failed" => DeliveryState::Failed,

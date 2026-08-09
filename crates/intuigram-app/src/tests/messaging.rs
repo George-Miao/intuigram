@@ -19,7 +19,7 @@ fn failed_optimistic_send_restores_the_draft_and_marks_the_message_failed() {
     assert!(sent.view.composer.text.is_empty());
     assert_eq!(
         sent.view.messages.last().map(|message| message.delivery),
-        Some(DeliveryState::Pending)
+        Some(DeliveryState::Saving)
     );
 
     let failed = app.transition(Input::Adapter(AdapterEvent::MessageFailed {

@@ -90,7 +90,7 @@ fn pending_poll(
         body: String::new(),
         timestamp: "now".to_owned(),
         direction: MessageDirection::Outgoing,
-        delivery: DeliveryState::Pending,
+        delivery: DeliveryState::Saving,
         reply_to,
         details: MessageDetails {
             sender_peer: None,

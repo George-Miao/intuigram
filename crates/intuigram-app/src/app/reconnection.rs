@@ -38,7 +38,7 @@ impl App {
             for message in messages.into_iter().filter(|message| {
                 matches!(
                     message.delivery,
-                    DeliveryState::Pending | DeliveryState::Failed
+                    DeliveryState::Saving | DeliveryState::Pending | DeliveryState::Failed
                 )
             }) {
                 restored.retain(|candidate| candidate.id != message.id);

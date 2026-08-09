@@ -154,7 +154,7 @@ fn restored_connection_preserves_pending_messages_and_interaction_state() {
     assert_eq!(update.view.active_chat, Some(1));
     assert!(
         update.view.messages.iter().any(|message| {
-            message.id == pending_id && message.delivery == DeliveryState::Pending
+            message.id == pending_id && message.delivery == DeliveryState::Saving
         })
     );
 }

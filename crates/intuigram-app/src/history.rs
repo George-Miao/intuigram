@@ -72,7 +72,7 @@ fn should_retain_cached(
 ) -> bool {
     matches!(
         message.delivery,
-        DeliveryState::Pending | DeliveryState::Failed
+        DeliveryState::Saving | DeliveryState::Pending | DeliveryState::Failed
     ) || request_baseline.is_none_or(|baseline| !baseline.contains(&message.id))
         || (!message.id.0.is_negative()
             && oldest_refreshed.is_some_and(|oldest| message.id < oldest))

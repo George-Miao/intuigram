@@ -37,7 +37,7 @@ fn library_loading_and_send_failure_remain_typed_application_state() {
     assert!(matches!(send.effect, Some(Effect::SendLibraryMedia { .. })));
     assert_eq!(
         send.view.messages.last().map(|message| message.delivery),
-        Some(DeliveryState::Pending)
+        Some(DeliveryState::Saving)
     );
 
     apply(

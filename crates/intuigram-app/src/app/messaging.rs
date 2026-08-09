@@ -117,7 +117,7 @@ impl App {
             body: formatted.text.clone(),
             timestamp: "now".to_owned(),
             direction: MessageDirection::Outgoing,
-            delivery: DeliveryState::Pending,
+            delivery: DeliveryState::Saving,
             reply_to: self.view.composer.reply_to,
             details: MessageDetails {
                 entities: formatted.entities.clone(),

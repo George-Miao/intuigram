@@ -275,6 +275,9 @@ pub enum MessageDirection {
 /// Delivery state kept separate from local durability.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DeliveryState {
+    /// The local Outbox admission transaction has not completed yet.
+    Saving,
+
     /// Locally durable and waiting for Telegram acknowledgement.
     Pending,
     /// Telegram accepted the message.

@@ -40,7 +40,7 @@ fn search_scope_and_reply_send_follow_current_context() {
     );
     assert_eq!(
         sent.view.messages.last().map(|message| message.delivery),
-        Some(DeliveryState::Pending)
+        Some(DeliveryState::Saving)
     );
     assert_eq!(sent.view.focus, Focus::Composer);
 }
