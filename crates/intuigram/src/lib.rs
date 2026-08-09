@@ -5,8 +5,13 @@ use std::collections::VecDeque;
 use intuigram_app::{AdapterEvent, App, Bootstrap, Effect, Input, Update, View};
 use intuigram_tui::UiEvent;
 
+mod operation_providers;
 mod sync;
 
+pub use operation_providers::{
+    Clock, Error as ProviderError, OperationIdSource, OperationProviders, OperationStamp,
+    Result as ProviderResult, SecureOperationIds, SystemClock,
+};
 pub use sync::{
     CommittedUpdate, Error as SyncError, Result as SyncResult, UpdateCommit, UpdateCommitter,
     bootstrap_sync_batch, decode_stored_message, encode_stored_message, store_cursor,
