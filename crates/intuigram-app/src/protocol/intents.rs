@@ -152,6 +152,17 @@ pub enum Action {
     TogglePin,
     /// Add or remove the Active Message from Message Selection.
     ToggleMessageSelection,
+    /// Cancel the durable operation associated with the Active Message.
+    CancelOutbox,
+    /// Retry the replay-safe durable operation associated with the Active
+    /// Message.
+    RetryOutbox,
+    /// Resolve the conflict or ambiguous outcome associated with the Active
+    /// Message.
+    ResolveOutbox,
+    /// Dismiss the terminal durable operation associated with the Active
+    /// Message.
+    DismissOutbox,
     /// Target the previous Message, entering the Transcript from the Composer.
     TargetPreviousMessage,
     /// Target the next Message, returning to the Composer after the newest.

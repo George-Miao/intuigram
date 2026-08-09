@@ -7,6 +7,7 @@ mod folders;
 mod history_failure;
 mod location;
 mod message_actions;
+mod outbox;
 mod pins;
 mod poll;
 mod reads;

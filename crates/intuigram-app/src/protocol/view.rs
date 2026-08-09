@@ -61,6 +61,9 @@ pub struct View {
     /// Loaded messages for the active Chat.
     pub messages: Vec<MessageView>,
 
+    /// Durable outbound operations and their user-resolvable lifecycle.
+    pub outbox: Vec<OutboxItemView>,
+
     /// Root Chat history retained beside an ordinary Thread in wide layouts.
     pub parent_messages: Vec<MessageView>,
 

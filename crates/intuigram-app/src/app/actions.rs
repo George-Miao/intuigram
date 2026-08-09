@@ -232,6 +232,10 @@ impl App {
                 self.toggle_message_selection();
                 None
             }
+            Action::CancelOutbox
+            | Action::RetryOutbox
+            | Action::ResolveOutbox
+            | Action::DismissOutbox => self.resolve_active_outbox(action),
             Action::Paste => self.active_history_key().map(|key| Effect::ReadClipboard {
                 chat: key.chat,
                 thread_root: key.thread,

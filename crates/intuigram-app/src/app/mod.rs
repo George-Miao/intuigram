@@ -261,6 +261,14 @@ impl App {
                 self.view.notice = None;
                 None
             }
+            Input::Adapter(AdapterEvent::OutboxChanged(item)) => {
+                self.apply_outbox_changed(item);
+                None
+            }
+            Input::Adapter(AdapterEvent::OutboxRemoved { item }) => {
+                self.view.outbox.retain(|candidate| candidate.key != item);
+                None
+            }
             Input::Adapter(AdapterEvent::MessageFailed {
                 chat,
                 local_id,
@@ -370,6 +378,7 @@ mod media_preview;
 mod message_selection;
 mod messaging;
 mod offline_media;
+mod outbox;
 mod pinned;
 mod poll_composer;
 mod poll_vote;

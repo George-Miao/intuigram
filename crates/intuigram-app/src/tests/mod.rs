@@ -55,6 +55,7 @@ fn bootstrap() -> Bootstrap {
         pinned_messages: Vec::new(),
         drafts: Vec::new(),
         histories: Vec::new(),
+        outbox: Vec::new(),
     }
 }
 
@@ -366,6 +367,7 @@ mod link_media;
 mod location;
 mod messaging;
 mod offline_media;
+mod outbox;
 mod reconciliation;
 mod rich_media;
 mod scheduled;

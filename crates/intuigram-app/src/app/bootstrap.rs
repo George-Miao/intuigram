@@ -21,6 +21,7 @@ impl App {
                 saved_dialogs_loading: false,
                 chat_scroll_direction: ScrollDirection::Down,
                 messages: Vec::new(),
+                outbox: Vec::new(),
                 parent_messages: Vec::new(),
                 chat_loading: ChatLoadingState::Idle,
                 pinned_messages: Vec::new(),
@@ -187,6 +188,7 @@ impl App {
     pub(super) fn replace_bootstrap(&mut self, bootstrap: Bootstrap) {
         let restored_selection = bootstrap.restored_selection;
         let restored_anchors = bootstrap.transcript_anchors;
+        let outbox = bootstrap.outbox;
         self.view.connection = bootstrap.connection;
         self.view.account_name = bootstrap.account_name;
         self.view.notification_identity = bootstrap.notification_identity;
@@ -313,6 +315,7 @@ impl App {
             .filter(|id| *id < 0)
             .min()
             .unwrap_or(0);
+        self.replace_outbox(outbox);
         self.rebuild_unread_boundaries();
         self.view.active_message = None;
         self.view.selected_messages.clear();

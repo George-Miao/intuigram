@@ -132,6 +132,7 @@ impl Client {
             pinned_messages: Vec::new(),
             drafts: Vec::new(),
             histories: Vec::new(),
+            outbox: Vec::new(),
         })
     }
 

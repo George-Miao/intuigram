@@ -315,6 +315,12 @@ pub enum AdapterEvent {
         reason: String,
     },
 
+    /// One durable outbound operation was admitted or changed lifecycle.
+    OutboxChanged(OutboxItemView),
+
+    /// One terminal or acknowledged operation left the durable Outbox.
+    OutboxRemoved { item: OutboxKey },
+
     /// A poll send failed and its structured editor contents remain
     /// recoverable.
     PollFailed {

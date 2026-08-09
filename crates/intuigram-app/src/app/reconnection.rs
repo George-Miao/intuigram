@@ -87,6 +87,7 @@ impl App {
         } else {
             self.restore_active_draft();
         }
+        self.apply_outbox_projection();
         self.reset_reconnected_history();
     }
 }

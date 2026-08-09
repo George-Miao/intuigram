@@ -24,6 +24,7 @@ pub(super) fn cached_bootstrap(
                 .collect()
         })
         .unwrap_or_default();
+    let outbox = cached.outbox.into_iter().map(outbox_view).collect();
     let folders = cached
         .folders
         .into_iter()
@@ -218,6 +219,34 @@ pub(super) fn cached_bootstrap(
             })
             .collect(),
         histories,
+        outbox,
+    }
+}
+
+pub(super) fn outbox_view(record: OutboxRecord) -> OutboxItemView {
+    let OutboxPayload::V1(payload) = record.payload;
+    OutboxItemView {
+        key: OutboxKey(record.id.get()),
+        chat: ChatId(payload.chat_id),
+        local_message: payload.local_message_id.map(MessageId),
+        state: match record.state {
+            OutboxState::Ready => OutboxStateView::Ready,
+            OutboxState::InFlight => OutboxStateView::InFlight,
+            OutboxState::CancelRequested => OutboxStateView::CancelRequested,
+            OutboxState::Deferred => OutboxStateView::Deferred,
+            OutboxState::Failed => OutboxStateView::Failed,
+            OutboxState::Conflict => OutboxStateView::Conflict,
+            OutboxState::OutcomeUnknown => OutboxStateView::OutcomeUnknown,
+            OutboxState::Expired => OutboxStateView::Expired,
+            OutboxState::Cancelled => OutboxStateView::Cancelled,
+        },
+        retryable: matches!(
+            record.operation,
+            OutboxOperation::Create | OutboxOperation::Send
+        ),
+        available_at: record.available_at,
+        expires_at: record.expires_at,
+        last_error: record.last_error,
     }
 }
 

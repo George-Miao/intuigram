@@ -149,6 +149,7 @@ impl AccountFixture {
             pinned_messages: Vec::new(),
             drafts: self.drafts,
             histories: Vec::new(),
+            outbox: Vec::new(),
         }
     }
 }

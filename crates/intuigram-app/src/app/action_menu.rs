@@ -10,6 +10,7 @@ impl App {
             return Vec::new();
         };
         let mut actions = vec![Action::Reply];
+        actions.extend(self.outbox_message_actions(message.id));
         if message.direction == MessageDirection::Outgoing && message.id.0 > 0 {
             actions.push(Action::Edit);
         }
@@ -179,6 +180,10 @@ impl App {
             Action::OpenThread => "Open Thread",
             Action::TogglePin => "Pin / Unpin",
             Action::ToggleMessageSelection => "Select Message",
+            Action::CancelOutbox => "Cancel Pending Operation",
+            Action::RetryOutbox => "Retry Pending Operation",
+            Action::ResolveOutbox => "Resolve Pending Operation",
+            Action::DismissOutbox => "Dismiss Pending Operation",
             Action::Paste => "Paste",
             Action::Attach => "Attach File",
             Action::OpenRichMedia => "Media & Contacts",

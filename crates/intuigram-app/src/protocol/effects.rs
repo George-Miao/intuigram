@@ -131,6 +131,12 @@ pub enum Effect {
     Notify { identity: String, chat: ChatId },
     /// Start a connection attempt immediately.
     Reconnect,
+    /// Apply an explicit user decision to one durable outbound operation.
+    ResolveOutbox {
+        item: OutboxKey,
+
+        action: OutboxAction,
+    },
     /// Add or remove the Active Chat from one Telegram Folder.
     SetChatFolder {
         chat: ChatId,

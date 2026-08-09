@@ -56,4 +56,7 @@ pub struct Bootstrap {
 
     /// Cached histories for immediate Chat switching.
     pub histories: Vec<HistoryView>,
+
+    /// Durable outbound operations restored independently of connectivity.
+    pub outbox: Vec<OutboxItemView>,
 }
