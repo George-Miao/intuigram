@@ -73,9 +73,9 @@ fn should_retain_cached(
     matches!(
         message.delivery,
         DeliveryState::Pending | DeliveryState::Failed
-    ) || message.id.0.is_negative()
-        || request_baseline.is_none_or(|baseline| !baseline.contains(&message.id))
-        || oldest_refreshed.is_some_and(|oldest| message.id < oldest)
+    ) || request_baseline.is_none_or(|baseline| !baseline.contains(&message.id))
+        || (!message.id.0.is_negative()
+            && oldest_refreshed.is_some_and(|oldest| message.id < oldest))
         || (matches!(scope, RefreshScope::Thread)
             && newest_refreshed.is_none_or(|newest| message.id > newest))
 }
@@ -109,11 +109,17 @@ mod tests {
 
     #[test]
     fn refresh_keeps_unobserved_live_and_pending_messages_in_order() {
+        let mut first_pending = message(-1, "first pending");
+        first_pending.direction = MessageDirection::Outgoing;
+        first_pending.delivery = DeliveryState::Pending;
+        let mut second_pending = message(-2, "second pending");
+        second_pending.direction = MessageDirection::Outgoing;
+        second_pending.delivery = DeliveryState::Pending;
         let cached = vec![
             message(1, "old"),
             message(3, "live"),
-            message(-1, "first pending"),
-            message(-2, "second pending"),
+            first_pending,
+            second_pending,
         ];
 
         let baseline = [MessageId(1), MessageId(-1), MessageId(-2)]
@@ -163,6 +169,29 @@ mod tests {
                 .map(|message| message.id.0)
                 .collect::<Vec<_>>(),
             vec![1, 7, 10, 11]
+        );
+    }
+
+    #[test]
+    fn refresh_prunes_acknowledged_optimistic_message_missing_from_server_history() {
+        let mut acknowledged = message(-1, "stale optimistic send");
+        acknowledged.direction = MessageDirection::Outgoing;
+        acknowledged.delivery = DeliveryState::Sent;
+        let baseline = [acknowledged.id].into_iter().collect();
+
+        let merged = reconcile_refresh(
+            Some(&[acknowledged]),
+            vec![message(10, "authoritative server history")],
+            Some(&baseline),
+            RefreshScope::Root,
+        );
+
+        assert_eq!(
+            merged
+                .iter()
+                .map(|message| message.id.0)
+                .collect::<Vec<_>>(),
+            vec![10]
         );
     }
 
