@@ -91,6 +91,43 @@ pub(super) fn render_composer(
     }
 }
 
+pub(super) fn composer_cursor_at(view: &View, area: Rect, column: u16, row: u16) -> Option<usize> {
+    let label = composer_label(view);
+    let context_height = usize::from(editing_preview(view).is_some());
+    let prefix_width = composer_prefix_width(label.as_deref());
+    let width = content_width(area.width, label.as_deref());
+    let wrapped = wrap_text(&view.composer.text, view.composer.cursor, width);
+    let visible_height = usize::from(
+        area.height
+            .saturating_sub(2)
+            .saturating_sub(u16::try_from(context_height).unwrap_or(u16::MAX))
+            .max(1),
+    );
+    let scroll = wrapped
+        .cursor_row
+        .saturating_add(1)
+        .saturating_sub(visible_height);
+    let text_y = area
+        .y
+        .saturating_add(1)
+        .saturating_add(u16::try_from(context_height).unwrap_or(u16::MAX));
+    let visible_row = usize::from(row.checked_sub(text_y)?);
+    if visible_row >= visible_height {
+        return None;
+    }
+    let text_column = usize::from(
+        column.saturating_sub(
+            area.x
+                .saturating_add(u16::try_from(prefix_width).unwrap_or(u16::MAX)),
+        ),
+    );
+    wrapped.cursor_at(
+        &view.composer.text,
+        scroll.saturating_add(visible_row),
+        text_column,
+    )
+}
+
 fn composer_lines(
     focused: bool,
     label: Option<&str>,

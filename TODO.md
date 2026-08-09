@@ -10,7 +10,6 @@
 ## TODO
 
 - [ ] **p-core:** Replace line-oriented first-run configuration and login prompts with a centered, stepped TUI flow for API ID, API hash, phone number, login code, and 2FA password. Mask secrets, show validation and recoverable errors in place, and preserve completed non-secret steps when moving backward or retrying.
-- [ ] **p-core:** Support mouse Composer cursor positioning and visible-action invocation now that click selection and pane scrolling are stable. Preserve access to terminal-native text selection.
 - [ ] **p-core:** Add first-class forum Topics. Opening a forum Chat shows its Topic list; each Topic keeps independent unread state, Draft, pin state, and position; General remains visible; and Channel replies open in Details or the narrow-screen navigation stack.
 - [ ] **p-core:** Add topic-enabled bot Private Chats.
 - [ ] **p-core:** Add Saved Messages 2.0 per-origin dialogs.

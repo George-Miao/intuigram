@@ -23,9 +23,22 @@ pub(super) fn resolve_pointer(
                 .map(|target| Intent::Scroll(target, direction))
                 .map(UiEvent::Intent)
         }
-        MouseEventKind::Down(MouseButton::Left) => activation_target(node)
-            .map(Intent::Activate)
-            .map(UiEvent::Intent),
+        MouseEventKind::Down(MouseButton::Left) => {
+            if let Some(action) = (node.role == SemanticRole::Action)
+                .then_some(node.action)
+                .flatten()
+            {
+                return Some(UiEvent::Intent(Intent::Action(action)));
+            }
+            if node.role == SemanticRole::Composer
+                && let Some(cursor) = composer_cursor_at(view, node.bounds, mouse.column, mouse.row)
+            {
+                return Some(UiEvent::Intent(Intent::SetComposerCursor(cursor)));
+            }
+            activation_target(node)
+                .map(Intent::Activate)
+                .map(UiEvent::Intent)
+        }
         _ => None,
     }
 }

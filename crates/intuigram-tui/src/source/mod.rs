@@ -73,7 +73,7 @@ use render_chrome::{
     centered_rect, interaction_rule, render_bottom_chrome, render_folder_picker, render_folders,
     render_help, selection_rule, surface_style,
 };
-use render_composer::{composer_height, render_composer};
+use render_composer::{composer_cursor_at, composer_height, render_composer};
 use render_folder_manager::render_folder_manager;
 use render_headers::{render_active_chat_header, render_chat_list_header};
 use render_layout::render_with_graphics;

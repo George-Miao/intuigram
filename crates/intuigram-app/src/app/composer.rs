@@ -27,6 +27,15 @@ impl App {
             ComposerMovement::Down => vertical_cursor(text, cursor, true),
         };
     }
+
+    pub(super) fn set_composer_cursor(&mut self, cursor: usize) {
+        if self.active_chat_id().is_none() {
+            return;
+        }
+        self.view.focus = Focus::Composer;
+        self.view.active_message = None;
+        self.view.composer.cursor = valid_cursor(&self.view.composer.text, cursor);
+    }
 }
 
 fn valid_cursor(text: &str, cursor: usize) -> usize {

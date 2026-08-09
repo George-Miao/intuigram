@@ -54,6 +54,60 @@ fn modified_clicks_remain_available_to_the_terminal() {
 }
 
 #[test]
+fn composer_clicks_resolve_to_the_clicked_text_position() {
+    let mut current = pointer_view();
+    current.focus = Focus::Composer;
+    current.composer.text = "first\nsecond".to_owned();
+    current.composer.cursor = current.composer.text.len();
+    let frame = render_test_frame(&current, 120, 40);
+    let composer = frame
+        .semantics
+        .iter()
+        .find(|node| node.role == SemanticRole::Composer)
+        .expect("Composer should have semantic bounds");
+
+    let event = Event::Mouse(MouseEvent {
+        kind: MouseEventKind::Down(MouseButton::Left),
+        column: composer.bounds.x + 3 + 3,
+        row: composer.bounds.y + 2,
+        modifiers: KeyModifiers::NONE,
+    });
+
+    assert_eq!(
+        resolve_test_frame_event(&current, &frame, event),
+        Some(UiEvent::Intent(intuigram_app::Intent::SetComposerCursor(9)))
+    );
+}
+
+#[test]
+fn action_bar_clicks_invoke_the_rendered_effective_action() {
+    let mut current = pointer_view();
+    current.focus = Focus::Composer;
+    current.actions = vec![Action::Send, Action::Cancel];
+    let frame = render_test_frame(&current, 120, 40);
+    let action = frame
+        .semantics
+        .iter()
+        .find(|node| node.role == SemanticRole::Action && node.bounds.width > 0)
+        .expect("Action Bar should expose a clickable action");
+    let expected = action
+        .action
+        .expect("Action semantic should retain its intent");
+
+    let event = Event::Mouse(MouseEvent {
+        kind: MouseEventKind::Down(MouseButton::Left),
+        column: action.bounds.x,
+        row: action.bounds.y,
+        modifiers: KeyModifiers::NONE,
+    });
+
+    assert_eq!(
+        resolve_test_frame_event(&current, &frame, event),
+        Some(UiEvent::Intent(intuigram_app::Intent::Action(expected)))
+    );
+}
+
+#[test]
 fn folder_unread_count_is_part_of_its_pointer_target() {
     let mut current = view(Vec::new());
     current.folders = vec![

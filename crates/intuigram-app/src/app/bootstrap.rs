@@ -129,6 +129,10 @@ impl App {
                 self.move_composer_cursor(movement);
                 None
             }
+            Intent::SetComposerCursor(cursor) => {
+                self.set_composer_cursor(cursor);
+                None
+            }
             Intent::Activate(target) => self.activate(target),
             Intent::Scroll(target, direction) => self.scroll(target, direction),
             Intent::Animate => {

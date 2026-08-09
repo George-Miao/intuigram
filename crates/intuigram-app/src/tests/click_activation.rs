@@ -86,6 +86,25 @@ fn pointer_scroll_targets_the_pane_under_the_pointer() {
 }
 
 #[test]
+fn pointer_cursor_position_focuses_the_composer_at_a_utf8_boundary() {
+    let mut app = App::new();
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::Bootstrap(hierarchy_bootstrap())),
+    );
+    apply(
+        &mut app,
+        Input::Intent(Intent::Activate(ActivationTarget::Composer)),
+    );
+    apply(&mut app, Input::Intent(Intent::Insert("a界b".to_owned())));
+
+    apply(&mut app, Input::Intent(Intent::SetComposerCursor(2)));
+
+    assert_eq!(app.view().focus, Focus::Composer);
+    assert_eq!(app.view().composer.cursor, 1);
+}
+
+#[test]
 fn stale_pointer_targets_do_not_change_the_current_selection() {
     let mut app = App::new();
     apply(

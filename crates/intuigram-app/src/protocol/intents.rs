@@ -166,6 +166,8 @@ pub enum Intent {
     Backspace,
     /// Move the insertion cursor without changing the Draft.
     MoveComposerCursor(ComposerMovement),
+    /// Focus the Composer and place its cursor at a UTF-8 byte offset.
+    SetComposerCursor(usize),
     /// Activate a semantic region selected by pointer input.
     Activate(ActivationTarget),
     /// Scroll the application region under the pointer.
