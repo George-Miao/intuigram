@@ -88,7 +88,7 @@ fn telegram_and_proxy_secrets_are_redacted() {
 }
 
 #[test]
-fn spacious_view_is_default_and_compact_view_can_be_configured() {
+fn spacious_view_and_telegram_like_message_width_are_configurable() {
     let temporary = tempdir().expect("temporary directory should be created");
     let platform = defaults(temporary.path());
     fs::create_dir_all(&platform.config).expect("config directory should be created");
@@ -97,9 +97,10 @@ fn spacious_view_is_default_and_compact_view_can_be_configured() {
         .load()
         .expect("default configuration should load");
     assert_eq!(default.view.mode, ViewMode::Default);
+    assert_eq!(default.view.message_max_width.get(), 96);
     fs::write(
         platform.config.join("config.toml"),
-        "[view]\nmode = 'compact'\n",
+        "[view]\nmode = 'compact'\nmessage_max_width = 72\n",
     )
     .expect("TOML config should be written");
     let compact = ConfigLoader::new(platform)
@@ -107,6 +108,7 @@ fn spacious_view_is_default_and_compact_view_can_be_configured() {
         .load()
         .expect("compact view configuration should load");
     assert_eq!(compact.view.mode, ViewMode::Compact);
+    assert_eq!(compact.view.message_max_width.get(), 72);
 }
 
 #[test]

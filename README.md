@@ -47,7 +47,8 @@ download directories. Within them, Intuigram uses:
 Configuration may also come from `config.yaml`, `config.yml`, `config.json`,
 `INTUIGRAM_`-prefixed environment variables using `__` between nested keys, and
 command-line overrides. Later sources take precedence. The media-cache default
-is 2 GiB.
+is 2 GiB. Transcript Messages use a Telegram-like 96-cell maximum width by
+default; configure `view.message_max_width` to change it.
 
 Inspect or explicitly clear one Account's local storage without starting the
 TUI:

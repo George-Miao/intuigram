@@ -40,6 +40,7 @@ use intuigram_telegram::{
 };
 use intuigram_tui::{
     QrLoginAction, QrLoginUi, TerminalEvents, TerminalUi, UiEvent, ViewMode as TuiViewMode,
+    ViewOptions as TuiViewOptions,
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 

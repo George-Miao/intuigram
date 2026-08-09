@@ -4,7 +4,7 @@ use rasterm::{CellPixels, Multiplexer};
 pub struct TerminalUi {
     terminal: Terminal<CrosstermBackend<Stdout>>,
     keymap: EffectiveKeymap,
-    view_mode: ViewMode,
+    view_options: ViewOptions,
     semantics: Vec<SemanticNode>,
     frame_state: TerminalFrameState,
 }
@@ -44,16 +44,24 @@ impl TerminalFrameState {
 impl TerminalUi {
     /// Enters raw mode and the alternate screen.
     pub fn enter() -> Result<Self> {
-        Self::enter_with_mode(ViewMode::Default)
+        Self::enter_with_options(ViewOptions::default())
     }
 
     /// Enters the terminal using the configured presentation density.
     pub fn enter_with_mode(view_mode: ViewMode) -> Result<Self> {
+        Self::enter_with_options(ViewOptions {
+            mode: view_mode,
+            ..ViewOptions::default()
+        })
+    }
+
+    /// Enters the terminal using resolved presentation settings.
+    pub fn enter_with_options(view_options: ViewOptions) -> Result<Self> {
         let (graphics_protocol, graphics_multiplexer) = graphics::graphics_environment();
         Ok(Self {
             terminal: enter_terminal()?,
             keymap: EffectiveKeymap::defaults(),
-            view_mode,
+            view_options,
             semantics: Vec::new(),
             frame_state: TerminalFrameState::new(graphics_protocol, graphics_multiplexer)
                 .context(GraphicsSnafu)?
@@ -67,7 +75,7 @@ impl TerminalUi {
             &mut self.terminal,
             &mut self.frame_state,
             &self.keymap,
-            self.view_mode,
+            self.view_options,
             view,
         )?;
         Ok(())
@@ -127,7 +135,7 @@ pub(crate) fn draw_terminal_view<W: io::Write>(
     terminal: &mut Terminal<CrosstermBackend<W>>,
     state: &mut TerminalFrameState,
     keymap: &EffectiveKeymap,
-    view_mode: ViewMode,
+    view_options: ViewOptions,
     view: &View,
 ) -> Result<Vec<SemanticNode>> {
     let prepared = if state.protocol.uses_placements() {
@@ -137,7 +145,7 @@ pub(crate) fn draw_terminal_view<W: io::Write>(
             area.width,
             area.height,
             state.protocol,
-            view_mode,
+            view_options,
             keymap,
             &mut state.chat_viewport,
         );
@@ -170,7 +178,7 @@ pub(crate) fn draw_terminal_view<W: io::Write>(
                 frame,
                 view,
                 keymap,
-                view_mode,
+                view_options,
                 &mut semantics,
                 &mut graphics,
                 &mut state.chat_viewport,

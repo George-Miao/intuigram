@@ -87,7 +87,7 @@ use render_transcript::render_transcript;
 pub use terminal::*;
 use terminal::{enter_terminal, restore_terminal};
 pub use test_renderer::*;
-pub use view_mode::ViewMode;
+pub use view_mode::{ViewMode, ViewOptions};
 
 const BINDINGS: &[Binding] = &[
     binding(

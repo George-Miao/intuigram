@@ -5,6 +5,7 @@ mod proxy;
 #[cfg(test)]
 mod tests;
 
+use std::num::NonZeroU16;
 use std::path::PathBuf;
 use std::{fmt, ops};
 
@@ -16,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 
 const DEFAULT_MEDIA_CACHE_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+const DEFAULT_MESSAGE_MAX_WIDTH: u16 = 96;
 
 /// Failure produced while resolving configuration.
 #[derive(Debug, Snafu)]
@@ -82,6 +84,9 @@ pub enum UnlockMethod {
 pub struct View {
     /// Density used by Chat, Message, and Folder presentation.
     pub mode: ViewMode,
+
+    /// Maximum terminal-cell width used by one Message body and its metadata.
+    pub message_max_width: NonZeroU16,
 }
 
 /// Configurable terminal presentation density.
@@ -257,6 +262,8 @@ impl ConfigLoader {
             telegram: Telegram::default(),
             view: View {
                 mode: ViewMode::Default,
+                message_max_width: NonZeroU16::new(DEFAULT_MESSAGE_MAX_WIDTH)
+                    .expect("the default Message width is nonzero"),
             },
         };
         let mut figment = Figment::from(Serialized::defaults(defaults))

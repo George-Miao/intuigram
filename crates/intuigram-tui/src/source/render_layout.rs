@@ -1,16 +1,16 @@
 #[cfg(test)]
 pub(crate) fn render(frame: &mut Frame<'_>, view: &View, keymap: &EffectiveKeymap) {
-    render_with_mode(frame, view, keymap, ViewMode::Default);
+    render_with_options(frame, view, keymap, ViewOptions::default());
 }
 
 #[cfg(test)]
-pub(crate) fn render_with_mode(
+fn render_with_options(
     frame: &mut Frame<'_>,
     view: &View,
     keymap: &EffectiveKeymap,
-    mode: ViewMode,
+    options: ViewOptions,
 ) {
-    render_with_semantics(frame, view, keymap, mode, &mut Vec::new());
+    render_with_semantics(frame, view, keymap, options, &mut Vec::new());
 }
 
 #[cfg(test)]
@@ -18,7 +18,7 @@ fn render_with_semantics(
     frame: &mut Frame<'_>,
     view: &View,
     keymap: &EffectiveKeymap,
-    mode: ViewMode,
+    options: ViewOptions,
     semantics: &mut Vec<SemanticNode>,
 ) {
     let mut chat_viewport = ChatViewport::default();
@@ -26,7 +26,7 @@ fn render_with_semantics(
         frame,
         view,
         keymap,
-        mode,
+        options,
         semantics,
         &mut GraphicsFrame::new(GraphicsProtocol::Text, rasterm::Multiplexer::None),
         &mut chat_viewport,
@@ -37,11 +37,12 @@ pub(super) fn render_with_graphics(
     frame: &mut Frame<'_>,
     view: &View,
     keymap: &EffectiveKeymap,
-    mode: ViewMode,
+    options: ViewOptions,
     semantics: &mut Vec<SemanticNode>,
     graphics: &mut GraphicsFrame,
     chat_viewport: &mut ChatViewport,
 ) {
+    let mode = options.mode;
     let area = frame.area();
     frame.render_widget(Clear, area);
     frame.render_widget(
@@ -58,7 +59,7 @@ pub(super) fn render_with_graphics(
         frame,
         rows[0],
         view,
-        mode,
+        options,
         semantics,
         graphics,
         chat_viewport,
@@ -102,11 +103,12 @@ pub(super) fn render_main(
     frame: &mut Frame<'_>,
     area: Rect,
     view: &View,
-    mode: ViewMode,
+    options: ViewOptions,
     semantics: &mut Vec<SemanticNode>,
     graphics: &mut GraphicsFrame,
     chat_viewport: &mut ChatViewport,
 ) {
+    let mode = options.mode;
     if area.width < 80 {
         let chat_list_level = view.focus == Focus::Chats
             || view
@@ -116,7 +118,7 @@ pub(super) fn render_main(
         if chat_list_level {
             render_chats(frame, area, view, mode, semantics, chat_viewport);
         } else {
-            render_active_chat(frame, area, view, mode, semantics, graphics);
+            render_active_chat(frame, area, view, options, semantics, graphics);
         }
         return;
     }
@@ -136,7 +138,7 @@ pub(super) fn render_main(
         .split(area)
     };
     render_chats(frame, columns[0], view, mode, semantics, chat_viewport);
-    render_active_chat(frame, columns[2], view, mode, semantics, graphics);
+    render_active_chat(frame, columns[2], view, options, semantics, graphics);
 }
 
 pub(super) fn render_chats(
@@ -254,10 +256,11 @@ pub(super) fn render_active_chat(
     frame: &mut Frame<'_>,
     area: Rect,
     view: &View,
-    mode: ViewMode,
+    options: ViewOptions,
     semantics: &mut Vec<SemanticNode>,
     graphics: &mut GraphicsFrame,
 ) {
+    let mode = options.mode;
     let composer_height = composer_height(area, view);
     let rows = Layout::vertical([
         Constraint::Length(mode.active_chat_header_height()),
@@ -271,7 +274,7 @@ pub(super) fn render_active_chat(
         rows[1],
         view,
         view.focus == Focus::Transcript,
-        mode,
+        options,
         semantics,
         graphics,
     );

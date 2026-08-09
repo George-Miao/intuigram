@@ -19,12 +19,16 @@ pub fn render_test_frame_with_mode(
     height: u16,
     view_mode: ViewMode,
 ) -> TestFrame {
+    let options = ViewOptions {
+        mode: view_mode,
+        ..ViewOptions::default()
+    };
     render_test_frame_for_protocol(
         view,
         width,
         height,
         GraphicsProtocol::Text,
-        view_mode,
+        options,
         &EffectiveKeymap::defaults(),
     )
     .0
@@ -42,7 +46,7 @@ pub(crate) fn render_test_frame_with_graphics(
         width,
         height,
         protocol,
-        ViewMode::Default,
+        ViewOptions::default(),
         &EffectiveKeymap::defaults(),
     )
 }
@@ -52,7 +56,7 @@ fn render_test_frame_for_protocol(
     width: u16,
     height: u16,
     protocol: GraphicsProtocol,
-    view_mode: ViewMode,
+    options: ViewOptions,
     keymap: &EffectiveKeymap,
 ) -> (TestFrame, GraphicsFrame) {
     render_test_frame_for_protocol_with_viewport(
@@ -60,7 +64,7 @@ fn render_test_frame_for_protocol(
         width,
         height,
         protocol,
-        view_mode,
+        options,
         keymap,
         &mut ChatViewport::default(),
     )
@@ -71,7 +75,7 @@ pub(super) fn render_test_frame_for_protocol_with_viewport(
     width: u16,
     height: u16,
     protocol: GraphicsProtocol,
-    view_mode: ViewMode,
+    options: ViewOptions,
     keymap: &EffectiveKeymap,
     chat_viewport: &mut ChatViewport,
 ) -> (TestFrame, GraphicsFrame) {
@@ -86,7 +90,7 @@ pub(super) fn render_test_frame_for_protocol_with_viewport(
                 frame,
                 view,
                 keymap,
-                view_mode,
+                options,
                 &mut semantics,
                 &mut graphics,
                 chat_viewport,
@@ -113,7 +117,7 @@ impl TestRenderer {
             width,
             height,
             GraphicsProtocol::Text,
-            ViewMode::Default,
+            ViewOptions::default(),
             &EffectiveKeymap::defaults(),
             &mut self.chat_viewport,
         )

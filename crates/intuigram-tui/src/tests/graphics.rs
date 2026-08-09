@@ -116,7 +116,7 @@ fn background_kitty_upload_precedes_the_followup_placeholder() {
             &mut terminal,
             &mut frame_state,
             &EffectiveKeymap::defaults(),
-            ViewMode::Default,
+            ViewOptions::default(),
             &current,
         )
         .expect("memory terminal should render an image");
@@ -125,7 +125,7 @@ fn background_kitty_upload_precedes_the_followup_placeholder() {
             &mut terminal,
             &mut frame_state,
             &EffectiveKeymap::defaults(),
-            ViewMode::Default,
+            ViewOptions::default(),
             &current,
         )
         .expect("prepared graphics should render on the followup frame");

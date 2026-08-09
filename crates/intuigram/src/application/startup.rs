@@ -76,9 +76,13 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
     };
     drop(global);
     let credentials = resolve_telegram_credentials(&config, &config_directory)?;
-    let view_mode = match config.view.mode {
+    let mode = match config.view.mode {
         ConfigViewMode::Default => TuiViewMode::Default,
         ConfigViewMode::Compact => TuiViewMode::Compact,
+    };
+    let view_options = TuiViewOptions {
+        mode,
+        message_max_width: config.view.message_max_width,
     };
     loop {
         let global = GlobalDatabase::open(&layout).context(OpenAccountRegistrySnafu)?;
@@ -118,7 +122,7 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
             continue;
         }
         let account = active_account.expect("new Account authorization continues the outer loop");
-        let mut terminal = TerminalUi::enter_with_mode(view_mode).context(TerminalSnafu)?;
+        let mut terminal = TerminalUi::enter_with_options(view_options).context(TerminalSnafu)?;
         let mut events = TerminalEvents::new().context(TerminalSnafu)?;
         if unlock.cipher().is_encrypted() {
             intuigram_store::enable_local_lock(&layout, account.id, &unlock.cipher())

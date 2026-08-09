@@ -39,6 +39,8 @@ cache_bytes = 2147483648
 [view]
 # "default" adds breathing room; "compact" preserves the original dense layout.
 mode = "default"
+# Maximum Message body and metadata width in terminal cells.
+message_max_width = 96
 
 # Optional Local Lock encrypts the complete Account database, including
 # Telegram authorization and synchronized Message text. Use "keyring" to keep

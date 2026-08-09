@@ -9,6 +9,7 @@ pub(super) struct MessageLayout {
     pub(super) width: u16,
     pub(super) available_height: u16,
     pub(super) grouped_with_previous: bool,
+    pub(super) grouped_with_next: bool,
     pub(super) date_boundary: bool,
 }
 
@@ -42,6 +43,7 @@ pub(super) fn message_lines(
         lines.push(Line::from(provenance));
     }
     if let Some(reply) = message.reply_to {
+        lines.push(Line::from(""));
         let mut spans = content_prefix(state.active, state.selected, state.forwarded);
         spans.push(Span::styled("│ ", Style::default().fg(SECONDARY)));
         spans.push(Span::styled(
@@ -49,6 +51,7 @@ pub(super) fn message_lines(
             Style::default().fg(MUTED_TEXT),
         ));
         lines.push(Line::from(spans));
+        lines.push(Line::from(""));
     }
     append_content(view, index, message, &layout, state, &mut lines, graphics);
     append_message_metadata(
@@ -58,7 +61,7 @@ pub(super) fn message_lines(
         layout.width,
         state,
     );
-    if layout.mode == ViewMode::Default {
+    if layout.mode == ViewMode::Default && !layout.grouped_with_next {
         lines.push(Line::from(""));
     }
     lines
@@ -141,8 +144,10 @@ fn append_content(
                 graphics,
             )
         });
+    let prefix = content_prefix(state.active, state.selected, state.forwarded);
+    let content_width = usize::from(layout.width).saturating_sub(Line::from(prefix).width());
     let body_lines = show_body
-        .then(|| render_rich_text_lines(message))
+        .then(|| render_rich_text_lines(message, content_width))
         .into_iter()
         .flatten()
         .map(|body| {

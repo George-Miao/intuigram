@@ -99,25 +99,46 @@ pub(super) fn render_rich_text(message: &MessageView) -> Vec<Span<'static>> {
     result
 }
 
-pub(super) fn render_rich_text_lines(message: &MessageView) -> Vec<Vec<Span<'static>>> {
+pub(super) fn render_rich_text_lines(
+    message: &MessageView,
+    width: usize,
+) -> Vec<Vec<Span<'static>>> {
     let mut lines = vec![Vec::new()];
+    let mut line_width = 0_usize;
+    let width = width.max(1);
     for span in render_rich_text(message) {
         let style = span.style;
-        let parts = span.content.split('\n').collect::<Vec<_>>();
-        let last = parts.len().saturating_sub(1);
-        for (index, part) in parts.into_iter().enumerate() {
-            if !part.is_empty() {
+        for character in span.content.chars() {
+            if character == '\n' {
+                lines.push(Vec::new());
+                line_width = 0;
+                continue;
+            }
+
+            let character_width = Line::from(character.to_string()).width();
+            if line_width > 0 && line_width.saturating_add(character_width) > width {
+                lines.push(Vec::new());
+                line_width = 0;
+            }
+            push_character(
                 lines
                     .last_mut()
-                    .expect("rich text always has a current line")
-                    .push(Span::styled(part.to_owned(), style));
-            }
-            if index < last {
-                lines.push(Vec::new());
-            }
+                    .expect("rich text always has a current line"),
+                character,
+                style,
+            );
+            line_width = line_width.saturating_add(character_width);
         }
     }
     lines
+}
+
+fn push_character(line: &mut Vec<Span<'static>>, character: char, style: Style) {
+    if let Some(last) = line.last_mut().filter(|span| span.style == style) {
+        last.content.to_mut().push(character);
+    } else {
+        line.push(Span::styled(character.to_string(), style));
+    }
 }
 
 fn message_span(message: &MessageView, text: String, style: Style) -> Span<'static> {

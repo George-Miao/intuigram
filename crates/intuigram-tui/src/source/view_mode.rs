@@ -1,3 +1,28 @@
+use std::num::NonZeroU16;
+
+/// Default maximum width of one Message body and its metadata.
+pub const DEFAULT_MESSAGE_MAX_WIDTH: u16 = 96;
+
+/// Terminal presentation settings resolved before entering the TUI.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ViewOptions {
+    /// Density used by Chat, Message, Folder, and Composer presentation.
+    pub mode: ViewMode,
+
+    /// Maximum terminal-cell width used by one Message body and its metadata.
+    pub message_max_width: NonZeroU16,
+}
+
+impl Default for ViewOptions {
+    fn default() -> Self {
+        Self {
+            mode: ViewMode::Default,
+            message_max_width: NonZeroU16::new(DEFAULT_MESSAGE_MAX_WIDTH)
+                .expect("the default Message width is nonzero"),
+        }
+    }
+}
+
 /// Density used by Chat, Message, Folder, and Composer presentation.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum ViewMode {

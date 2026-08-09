@@ -201,11 +201,9 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
 
     assert_eq!(buffer[(0, 4)].symbol(), "│");
     assert_eq!(buffer[(34, message.bounds.top())].symbol(), "│");
-    assert_eq!(buffer[(36, message.bounds.top() + 1)].symbol(), "│");
-    assert_eq!(
-        buffer[(36, message.bounds.top() + 1)].fg,
-        Color::Rgb(58, 148, 197)
-    );
+    let reply_row = message.bounds.top() + 2;
+    assert_eq!(buffer[(36, reply_row)].symbol(), "│");
+    assert_eq!(buffer[(36, reply_row)].fg, Color::Rgb(58, 148, 197));
     assert_eq!(buffer[(34, 20)].symbol(), "│");
     assert_eq!(buffer[(36, 20)].symbol(), "T");
     assert_eq!(buffer[(5, 5)].bg, Color::Rgb(253, 246, 227));

@@ -14,12 +14,14 @@ pub(super) fn render_transcript(
     area: Rect,
     view: &View,
     focused: bool,
-    mode: ViewMode,
+    options: ViewOptions,
     semantics: &mut Vec<SemanticNode>,
     graphics: &mut GraphicsFrame,
 ) {
+    let mode = options.mode;
     frame.render_widget(Paragraph::new("").style(surface_style(focused)), area);
     let area = mode.padded(area);
+    let message_width = area.width.min(options.message_max_width.get());
     semantics.push(SemanticNode {
         role: SemanticRole::Transcript,
         name: "Transcript".to_owned(),
@@ -45,6 +47,7 @@ pub(super) fn render_transcript(
             let previous = index
                 .checked_sub(1)
                 .and_then(|previous| view.messages.get(previous));
+            let next = view.messages.get(index + 1);
             message_lines(
                 view,
                 index,
@@ -53,10 +56,12 @@ pub(super) fn render_transcript(
                     focused,
                     mode,
                     unread: unread == Some(index),
-                    width: area.width,
+                    width: message_width,
                     available_height: area.height,
                     grouped_with_previous: mode == ViewMode::Default
                         && previous.is_some_and(|previous| messages_group(previous, message)),
+                    grouped_with_next: mode == ViewMode::Default
+                        && next.is_some_and(|next| messages_group(message, next)),
                     date_boundary: !message.details.date_label.is_empty()
                         && previous.is_none_or(|previous| {
                             previous.details.date_label != message.details.date_label

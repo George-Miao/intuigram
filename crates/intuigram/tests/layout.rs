@@ -32,13 +32,38 @@ fn default_view_separates_chats_and_messages_and_uses_a_three_line_folder_bar() 
     let second = row_within(&rows, "second message", 31, 100);
 
     assert_eq!(telegram.saturating_sub(rust), 3);
-    assert_eq!(second.saturating_sub(first), 2);
+    assert_eq!(second.saturating_sub(first), 1);
     let folder = rows
         .iter()
         .position(|row| row.contains("All"))
         .expect("folder strip should render");
     assert!(rows[folder - 1].trim().is_empty());
     assert!(rows[folder + 1].trim().is_empty());
+    app.expect_no_unhandled_work()
+}
+
+#[test]
+fn long_transcript_messages_wrap_inside_the_active_chat() -> Result<()> {
+    let body = format!(
+        "A long Telegram message begins here {} tail-marker remains visible.",
+        "x".repeat(100)
+    );
+    let mut app = TestSystem::builder()
+        .name("layout-long-message-wrap")
+        .terminal(200, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, [incoming(40, "Lin", body)]),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    let rows = app.screen().rows();
+    let beginning = row_within(&rows, "A long Telegram message", 41, 200);
+    let tail = row_within(&rows, "tail-marker", 41, 200);
+
+    assert!(tail > beginning);
     app.expect_no_unhandled_work()
 }
 
@@ -226,6 +251,9 @@ fn quoted_messages_keep_their_content_inside_one_trailing_blank_row() -> Result<
     let following = row_within(&rows, "following message", 31, 100);
 
     assert!(quote < reply);
+    assert!(row_segment(&rows, quote - 1, 31, 100).trim().is_empty());
+    assert!(row_segment(&rows, quote + 1, 31, 100).trim().is_empty());
+    assert_eq!(reply, quote + 2);
     assert!(row_segment(&rows, reply + 1, 31, 100).trim().is_empty());
     assert!(following >= reply + 2);
     app.expect_no_unhandled_work()
