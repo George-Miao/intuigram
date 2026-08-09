@@ -109,7 +109,7 @@ Use the platform config, data, cache, and download directories. The logical layo
 
 Figment may also load YAML, JSON, environment, and command-line sources. Do not store user configuration in SQLite merely because a global database exists.
 
-`global.db` contains only cross-Account runtime records. Each Account database contains its MTProto authorization and session state, synchronization cursors, synchronized records, Drafts, Draft History, search index, media metadata, and future Outbox. Use the decimal Telegram user ID as the filename; do not add a local UUID. A login starts in `.pending.db`, then closes and atomically renames that database after Telegram reveals the user ID.
+`global.db` contains only cross-Account runtime records. Each Account database contains its MTProto authorization and session state, synchronization cursors, synchronized records, Drafts, Draft History, search index, media metadata, and durable Outbox. Use the decimal Telegram user ID as the filename; do not add a local UUID. A login starts in `.pending.db`, then closes and atomically renames that database after Telegram reveals the user ID.
 
 Commit normalized Telegram data and its synchronization cursor atomically before exposing the durable result to the TUI. Persist Draft changes before reporting them saved. Represent local durability and Telegram acknowledgement separately.
 

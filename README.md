@@ -157,7 +157,8 @@ Use `--schedule-message` with an RFC 3339 date and explicit UTC offset or the
 literal `online` for delivery when the recipient next appears, then
 `--scheduled-list`, `--scheduled-edit`, `--scheduled-reschedule`,
 `--scheduled-delete`, or `--scheduled-send-now` to manage them per Chat. These
-operations do not use Draft or Pending Action storage.
+operations remain separate from Drafts; interactive mutations are durably
+admitted through the Outbox before Telegram execution.
 
 Account files always use owner-only filesystem permissions. Optional Local Lock
 also encrypts the complete Account database, including Telegram authorization

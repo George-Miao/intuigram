@@ -163,11 +163,11 @@ A disconnected state in which automatic reconnection is deliberately paused afte
 _Avoid_: Any transient connection loss
 
 **Pending Action**:
-An optimistic Telegram operation accepted while Intuigram is running but not yet acknowledged by Telegram. It remains visibly pending and is retried automatically after reconnection, but is not promised to survive process exit or a crash.
-_Avoid_: Draft, durable Outbox, completed action
+An optimistic Telegram operation durably accepted but not yet acknowledged by Telegram. It remains visibly pending and survives reconnection, process exit, and crashes through its Outbox item.
+_Avoid_: Draft, completed action, transient request
 
 **Outbox**:
-A future durable record of Pending Actions that survives process exit and preserves enough intent to retry or resolve them safely.
+A per-Account durable FIFO of Pending Actions. Each item preserves versioned semantic intent, a stable Telegram operation identity, exact referenced media, and explicit retry, cancellation, expiry, conflict, or unknown-outcome state until acknowledgement or user resolution.
 _Avoid_: Draft, in-memory request queue
 
 **Scheduled Message**:
