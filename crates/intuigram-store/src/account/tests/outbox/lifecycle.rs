@@ -218,10 +218,38 @@ fn reopening_recovers_only_replay_safe_in_flight_work() {
         OutboxState::Ready
     );
     let mutation = recovered_state(OutboxOperation::Mutation);
-    assert_eq!(mutation.state, OutboxState::Conflict);
+    assert_eq!(mutation.state, OutboxState::OutcomeUnknown);
     assert_eq!(
         mutation.last_error.as_deref(),
-        Some("interrupted before mutation acknowledgement")
+        Some("interrupted with remote outcome unknown")
+    );
+}
+
+#[test]
+fn reopening_turns_an_unresolved_cancellation_into_an_unknown_outcome() {
+    let temporary = tempdir().expect("temporary directory should be created");
+    let layout = StoreLayout::new(temporary.path().join("intuigram"));
+    let account = AccountId::new(7).expect("fixture Account should be valid");
+    let pending =
+        AccountDatabase::begin_login(&layout).expect("pending login database should open");
+    let id = pending
+        .admit_outbox(admission(OutboxOperation::Send, 10, OutboxExpiry::Never))
+        .expect("item should be admitted");
+    claimed(pending.claim_outbox(100).expect("claim should complete"));
+    pending
+        .cancel_outbox(id)
+        .expect("cancellation should be requested");
+    let database = pending
+        .finish_login(&layout, account)
+        .expect("database should promote");
+
+    let records = database
+        .load_outbox()
+        .expect("recovered Outbox should load");
+    assert_eq!(records[0].state, OutboxState::OutcomeUnknown);
+    assert_eq!(
+        records[0].last_error.as_deref(),
+        Some("interrupted while cancellation was pending")
     );
 }
 

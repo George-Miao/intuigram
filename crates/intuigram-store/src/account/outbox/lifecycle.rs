@@ -1,24 +1,24 @@
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, OptionalExtension};
 use snafu::ResultExt;
 
 use super::repository::{DatabaseSnafu, Error, Result};
-use super::{OutboxId, OutboxPayload, OutboxPoll, OutboxState, mapping, repository};
+use super::{OutboxId, OutboxPayload, OutboxPoll, OutboxState, mapping, repository, transition};
 use crate::account::{StoredMessage, replace_message_in};
 
 pub(super) fn claim(connection: &Connection, now: i64) -> Result<OutboxPoll> {
     let transaction = connection
         .unchecked_transaction()
         .context(DatabaseSnafu { operation: "claim" })?;
-    let in_flight = transaction
+    let active = transaction
         .query_row(
-            "SELECT outbox_id FROM outbox WHERE state = 'in_flight' ORDER BY admitted_at, \
-             outbox_id LIMIT 1",
+            "SELECT outbox_id FROM outbox WHERE state IN ('in_flight', 'cancel_requested') ORDER \
+             BY admitted_at, outbox_id LIMIT 1",
             [],
             |row| row.get::<_, i64>(0),
         )
         .optional()
         .context(DatabaseSnafu { operation: "claim" })?;
-    if let Some(raw_id) = in_flight {
+    if let Some(raw_id) = active {
         let id = OutboxId::from_stored(raw_id).ok_or(Error::InvalidId { value: raw_id })?;
         transaction
             .commit()
@@ -77,7 +77,7 @@ pub(super) fn defer(
     available_at: i64,
     reason: String,
 ) -> Result<()> {
-    transition(
+    transition::apply(
         connection,
         id,
         &[OutboxState::InFlight],
@@ -88,7 +88,7 @@ pub(super) fn defer(
 }
 
 pub(super) fn fail(connection: &Connection, id: OutboxId, reason: String) -> Result<()> {
-    transition(
+    transition::apply(
         connection,
         id,
         &[OutboxState::InFlight],
@@ -99,28 +99,13 @@ pub(super) fn fail(connection: &Connection, id: OutboxId, reason: String) -> Res
 }
 
 pub(super) fn conflict(connection: &Connection, id: OutboxId, reason: String) -> Result<()> {
-    transition(
+    transition::apply(
         connection,
         id,
         &[OutboxState::InFlight],
         OutboxState::Conflict,
         None,
         Some(reason),
-    )
-}
-
-pub(super) fn cancel(connection: &Connection, id: OutboxId) -> Result<()> {
-    transition(
-        connection,
-        id,
-        &[
-            OutboxState::Ready,
-            OutboxState::Deferred,
-            OutboxState::InFlight,
-        ],
-        OutboxState::Cancelled,
-        None,
-        None,
     )
 }
 
@@ -132,10 +117,10 @@ pub(super) fn acknowledge(
     let transaction = connection.unchecked_transaction().context(DatabaseSnafu {
         operation: "acknowledge",
     })?;
-    require_state(
+    transition::require(
         &transaction,
         id,
-        &[OutboxState::InFlight],
+        &[OutboxState::InFlight, OutboxState::CancelRequested],
         OutboxState::Ready,
     )?;
     if let Some(replacement) = replacement {
@@ -198,85 +183,4 @@ pub(super) fn expire(connection: &Connection, now: i64) -> Result<Vec<OutboxId>>
         operation: "expire",
     })?;
     Ok(ids)
-}
-
-pub(in crate::account) fn recover_in_flight(connection: &Connection) -> Result<()> {
-    let transaction = connection.unchecked_transaction().context(DatabaseSnafu {
-        operation: "recover",
-    })?;
-    transaction
-        .execute(
-            "UPDATE outbox SET state = 'ready', available_at = NULL WHERE state = 'in_flight' AND \
-             operation IN ('create', 'send')",
-            [],
-        )
-        .context(DatabaseSnafu {
-            operation: "recover",
-        })?;
-    transaction
-        .execute(
-            "UPDATE outbox SET state = 'conflict', available_at = NULL, last_error = 'interrupted \
-             before mutation acknowledgement' WHERE state = 'in_flight' AND operation = 'mutation'",
-            [],
-        )
-        .context(DatabaseSnafu {
-            operation: "recover",
-        })?;
-    transaction.commit().context(DatabaseSnafu {
-        operation: "recover",
-    })
-}
-
-fn transition(
-    connection: &Connection,
-    id: OutboxId,
-    allowed: &[OutboxState],
-    target: OutboxState,
-    available_at: Option<i64>,
-    last_error: Option<String>,
-) -> Result<()> {
-    require_state(connection, id, allowed, target)?;
-    connection
-        .execute(
-            "UPDATE outbox SET state = ?2, available_at = ?3, last_error = ?4 WHERE outbox_id = ?1",
-            params![
-                id.get(),
-                mapping::state_name(target),
-                available_at,
-                last_error
-            ],
-        )
-        .context(DatabaseSnafu {
-            operation: "transition",
-        })?;
-    Ok(())
-}
-
-fn require_state(
-    connection: &Connection,
-    id: OutboxId,
-    allowed: &[OutboxState],
-    target: OutboxState,
-) -> Result<()> {
-    let state = connection
-        .query_row(
-            "SELECT state FROM outbox WHERE outbox_id = ?1",
-            [id.get()],
-            |row| row.get::<_, String>(0),
-        )
-        .optional()
-        .context(DatabaseSnafu {
-            operation: "inspect state",
-        })?
-        .ok_or(Error::NotFound { id })?;
-    let state = mapping::parse_state(&state)?;
-    if allowed.contains(&state) {
-        Ok(())
-    } else {
-        Err(Error::InvalidTransition {
-            id,
-            from: state,
-            to: target,
-        })
-    }
 }

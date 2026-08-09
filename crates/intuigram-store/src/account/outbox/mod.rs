@@ -1,14 +1,17 @@
+mod cancellation;
 mod codec;
 mod endpoints;
 mod lifecycle;
 mod mapping;
 mod poll;
+mod recovery;
 mod repository;
+mod transition;
 mod types;
 
 pub(in crate::account) use endpoints::{OutboxCommand, execute};
-pub(in crate::account) use lifecycle::recover_in_flight;
 pub use poll::OutboxPoll;
+pub(in crate::account) use recovery::recover_in_flight;
 pub use repository::Error;
 pub(crate) use repository::{load, restore};
 pub use types::{

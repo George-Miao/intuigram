@@ -6,7 +6,7 @@ pub enum OutboxPoll {
     /// The head was claimed and is ready for adapter execution.
     Claimed(OutboxRecord),
 
-    /// An already claimed item must finish before another can be claimed.
+    /// An already claimed or cancellation-pending item must finish first.
     Busy { id: OutboxId },
 
     /// The deferred head blocks newer work until this Unix timestamp.

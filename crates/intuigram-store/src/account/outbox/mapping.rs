@@ -156,9 +156,11 @@ pub(super) fn state_name(state: OutboxState) -> &'static str {
     match state {
         OutboxState::Ready => "ready",
         OutboxState::InFlight => "in_flight",
+        OutboxState::CancelRequested => "cancel_requested",
         OutboxState::Deferred => "deferred",
         OutboxState::Failed => "failed",
         OutboxState::Conflict => "conflict",
+        OutboxState::OutcomeUnknown => "outcome_unknown",
         OutboxState::Expired => "expired",
         OutboxState::Cancelled => "cancelled",
     }
@@ -168,9 +170,11 @@ pub(super) fn parse_state(value: &str) -> Result<OutboxState> {
     match value {
         "ready" => Ok(OutboxState::Ready),
         "in_flight" => Ok(OutboxState::InFlight),
+        "cancel_requested" => Ok(OutboxState::CancelRequested),
         "deferred" => Ok(OutboxState::Deferred),
         "failed" => Ok(OutboxState::Failed),
         "conflict" => Ok(OutboxState::Conflict),
+        "outcome_unknown" => Ok(OutboxState::OutcomeUnknown),
         "expired" => Ok(OutboxState::Expired),
         "cancelled" => Ok(OutboxState::Cancelled),
         value => Err(Error::InvalidValue {

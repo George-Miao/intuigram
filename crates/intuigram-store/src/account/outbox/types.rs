@@ -38,6 +38,9 @@ pub enum OutboxState {
     /// Claimed by the Telegram adapter.
     InFlight,
 
+    /// Cancellation was requested while the adapter operation was in flight.
+    CancelRequested,
+
     /// Waiting until its explicit retry time.
     Deferred,
 
@@ -46,6 +49,9 @@ pub enum OutboxState {
 
     /// Requires user resolution because safe replay cannot be proven.
     Conflict,
+
+    /// The remote outcome cannot be determined and requires user resolution.
+    OutcomeUnknown,
 
     /// Explicitly time-bounded work passed its deadline.
     Expired,
