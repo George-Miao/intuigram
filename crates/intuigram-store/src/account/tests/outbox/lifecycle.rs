@@ -171,16 +171,11 @@ fn fifo_claim_and_explicit_transitions_are_durable() {
 }
 
 #[test]
-fn ordinary_sends_never_expire_silently() {
+fn ordinary_sends_without_deadlines_never_expire_silently() {
     let temporary = tempdir().expect("temporary directory should be created");
     let layout = StoreLayout::new(temporary.path().join("intuigram"));
     let database =
         AccountDatabase::begin_login(&layout).expect("pending login database should open");
-    assert!(
-        database
-            .admit_outbox(admission(OutboxOperation::Send, 10, OutboxExpiry::At(20)))
-            .is_err()
-    );
     let send = database
         .admit_outbox(admission(OutboxOperation::Send, 20, OutboxExpiry::Never))
         .expect("ordinary send should be admitted without expiry");

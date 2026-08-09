@@ -2,7 +2,7 @@ use rusqlite::{Connection, OptionalExtension};
 use snafu::ResultExt;
 
 use super::repository::{DatabaseSnafu, Error, Result};
-use super::{OutboxId, OutboxPayload, OutboxPoll, OutboxState, mapping, repository, transition};
+use super::{OutboxId, OutboxPayload, OutboxPoll, OutboxState, expiry, mapping, transition};
 use crate::account::{StoredMessage, replace_message_in};
 
 pub(super) fn claim(connection: &Connection, now: i64) -> Result<OutboxPoll> {
@@ -25,12 +25,12 @@ pub(super) fn claim(connection: &Connection, now: i64) -> Result<OutboxPoll> {
             .context(DatabaseSnafu { operation: "claim" })?;
         return Ok(OutboxPoll::Busy { id });
     }
+    expiry::sweep_in(&transaction, now)?;
     let head = transaction
         .query_row(
             "SELECT outbox_id, state, available_at FROM outbox WHERE state IN ('ready', \
-             'deferred') AND (expires_at IS NULL OR expires_at > ?1) ORDER BY admitted_at, \
-             outbox_id LIMIT 1",
-            [now],
+             'deferred') ORDER BY admitted_at, outbox_id LIMIT 1",
+            [],
             |row| {
                 Ok((
                     row.get::<_, i64>(0)?,
@@ -155,32 +155,4 @@ fn replace_acknowledged_message(
     replace_message_in(connection, payload.chat_id, local_id, replacement).context(DatabaseSnafu {
         operation: "acknowledge",
     })
-}
-
-pub(super) fn expire(connection: &Connection, now: i64) -> Result<Vec<OutboxId>> {
-    let ids = repository::load(connection)?
-        .into_iter()
-        .filter(|record| {
-            matches!(record.state, OutboxState::Ready | OutboxState::Deferred)
-                && record.expires_at.is_some_and(|expiry| expiry <= now)
-        })
-        .map(|record| record.id)
-        .collect::<Vec<_>>();
-    let transaction = connection.unchecked_transaction().context(DatabaseSnafu {
-        operation: "expire",
-    })?;
-    for id in &ids {
-        transaction
-            .execute(
-                "UPDATE outbox SET state = 'expired', available_at = NULL WHERE outbox_id = ?1",
-                [id.get()],
-            )
-            .context(DatabaseSnafu {
-                operation: "expire",
-            })?;
-    }
-    transaction.commit().context(DatabaseSnafu {
-        operation: "expire",
-    })?;
-    Ok(ids)
 }

@@ -3,7 +3,8 @@ use std::sync::mpsc;
 use super::{OutboxCommand, Reply};
 use crate::account::worker::Command;
 use crate::account::{
-    AccountDatabase, OutboxAdmission, OutboxId, OutboxPoll, OutboxRecord, Result, StoredMessage,
+    AccountDatabase, OutboxAdmission, OutboxExpiry, OutboxId, OutboxPayload, OutboxPoll,
+    OutboxRecord, Result, StoredMessage,
 };
 
 impl AccountDatabase {
@@ -59,6 +60,35 @@ impl AccountDatabase {
     /// Expires explicitly time-bounded, unclaimed work.
     pub fn expire_outbox(&self, now: i64) -> Result<Vec<OutboxId>> {
         self.outbox_request(|reply| OutboxCommand::Expire { now, reply })
+    }
+
+    /// Sets or clears a caller-chosen deadline while work is not active.
+    pub fn set_outbox_expiry(&self, id: OutboxId, expiry: OutboxExpiry) -> Result<()> {
+        self.outbox_request(|reply| OutboxCommand::SetExpiry { id, expiry, reply })
+    }
+
+    /// Returns replay-safe failed work to FIFO execution.
+    pub fn retry_outbox(&self, id: OutboxId) -> Result<()> {
+        self.outbox_request(|reply| OutboxCommand::Retry { id, reply })
+    }
+
+    /// Replaces a conflicted operation's versioned basis and retries it.
+    pub fn resolve_outbox_conflict(&self, id: OutboxId, replacement: OutboxPayload) -> Result<()> {
+        self.outbox_request(|reply| OutboxCommand::ResolveConflict {
+            id,
+            replacement: Box::new(replacement),
+            reply,
+        })
+    }
+
+    /// Retries an unknown remote outcome after explicit user resolution.
+    pub fn resolve_outbox_outcome_unknown(&self, id: OutboxId) -> Result<()> {
+        self.outbox_request(|reply| OutboxCommand::ResolveOutcomeUnknown { id, reply })
+    }
+
+    /// Removes a terminal Outbox record while retaining local Messages.
+    pub fn dismiss_outbox(&self, id: OutboxId) -> Result<()> {
+        self.outbox_request(|reply| OutboxCommand::Dismiss { id, reply })
     }
 
     /// Cancels unstarted work or requests cancellation of in-flight work.

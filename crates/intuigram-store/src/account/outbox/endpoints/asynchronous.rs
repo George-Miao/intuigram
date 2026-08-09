@@ -1,8 +1,8 @@
 use super::{OutboxCommand, Reply};
 use crate::account::worker::{Command, async_response, map_try_send_error};
 use crate::account::{
-    AccountStore, DatabaseRequest, OutboxAdmission, OutboxId, OutboxPoll, OutboxRecord, Result,
-    StoredMessage,
+    AccountStore, DatabaseRequest, OutboxAdmission, OutboxExpiry, OutboxId, OutboxPayload,
+    OutboxPoll, OutboxRecord, Result, StoredMessage,
 };
 
 impl AccountStore {
@@ -63,6 +63,43 @@ impl AccountStore {
     /// Enqueues expiration of explicitly bounded work.
     pub fn expire_outbox(&self, now: i64) -> Result<DatabaseRequest<Vec<OutboxId>>> {
         self.outbox_request(|reply| OutboxCommand::Expire { now, reply })
+    }
+
+    /// Enqueues setting or clearing a caller-chosen non-active deadline.
+    pub fn set_outbox_expiry(
+        &self,
+        id: OutboxId,
+        expiry: OutboxExpiry,
+    ) -> Result<DatabaseRequest<()>> {
+        self.outbox_request(|reply| OutboxCommand::SetExpiry { id, expiry, reply })
+    }
+
+    /// Enqueues retry of replay-safe failed work.
+    pub fn retry_outbox(&self, id: OutboxId) -> Result<DatabaseRequest<()>> {
+        self.outbox_request(|reply| OutboxCommand::Retry { id, reply })
+    }
+
+    /// Enqueues conflict resolution with a replacement versioned basis.
+    pub fn resolve_outbox_conflict(
+        &self,
+        id: OutboxId,
+        replacement: OutboxPayload,
+    ) -> Result<DatabaseRequest<()>> {
+        self.outbox_request(|reply| OutboxCommand::ResolveConflict {
+            id,
+            replacement: Box::new(replacement),
+            reply,
+        })
+    }
+
+    /// Enqueues retry after explicit user resolution of an unknown outcome.
+    pub fn resolve_outbox_outcome_unknown(&self, id: OutboxId) -> Result<DatabaseRequest<()>> {
+        self.outbox_request(|reply| OutboxCommand::ResolveOutcomeUnknown { id, reply })
+    }
+
+    /// Enqueues removal of a terminal Outbox record without deleting Messages.
+    pub fn dismiss_outbox(&self, id: OutboxId) -> Result<DatabaseRequest<()>> {
+        self.outbox_request(|reply| OutboxCommand::Dismiss { id, reply })
     }
 
     /// Enqueues cancellation or a cancellation request for nonterminal work.

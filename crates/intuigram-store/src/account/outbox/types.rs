@@ -162,7 +162,7 @@ pub struct OutboxAdmission {
     /// Unix timestamp establishing FIFO order.
     pub admitted_at: i64,
 
-    /// Explicit lifetime; ordinary sends must use `Never`.
+    /// Caller-chosen lifetime; `Never` imposes no implicit deadline.
     pub expiry: OutboxExpiry,
 }
 

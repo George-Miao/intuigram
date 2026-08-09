@@ -1,15 +1,14 @@
 mod asynchronous;
+mod dispatch;
 mod synchronous;
 
 use std::sync::mpsc::SyncSender;
 
-use snafu::ResultExt;
+pub(in crate::account) use dispatch::execute;
 
-use super::{
-    OutboxAdmission, OutboxId, OutboxPoll, OutboxRecord, cancellation, lifecycle, repository,
-};
+use super::{OutboxAdmission, OutboxExpiry, OutboxId, OutboxPayload, OutboxPoll, OutboxRecord};
 use crate::account::worker::AsyncReply;
-use crate::account::{OutboxSnafu, Result, StoredMessage};
+use crate::account::{Result, StoredMessage};
 
 pub(in crate::account) enum OutboxCommand {
     Admit {
@@ -42,6 +41,28 @@ pub(in crate::account) enum OutboxCommand {
     Expire {
         now: i64,
         reply: Reply<Vec<OutboxId>>,
+    },
+    SetExpiry {
+        id: OutboxId,
+        expiry: OutboxExpiry,
+        reply: Reply<()>,
+    },
+    Retry {
+        id: OutboxId,
+        reply: Reply<()>,
+    },
+    ResolveConflict {
+        id: OutboxId,
+        replacement: Box<OutboxPayload>,
+        reply: Reply<()>,
+    },
+    ResolveOutcomeUnknown {
+        id: OutboxId,
+        reply: Reply<()>,
+    },
+    Dismiss {
+        id: OutboxId,
+        reply: Reply<()>,
     },
     Cancel {
         id: OutboxId,
@@ -76,52 +97,5 @@ impl<T> Reply<T> {
             }
             Self::Async(reply) => reply.finish(result),
         }
-    }
-}
-
-pub(in crate::account) fn execute(connection: &rusqlite::Connection, command: OutboxCommand) {
-    match command {
-        OutboxCommand::Admit { admission, reply } => {
-            reply.finish(repository::admit(connection, *admission).context(OutboxSnafu))
-        }
-        OutboxCommand::Load { reply } => {
-            reply.finish(repository::load(connection).context(OutboxSnafu));
-        }
-        OutboxCommand::Claim { now, reply } => {
-            reply.finish(lifecycle::claim(connection, now).context(OutboxSnafu));
-        }
-        OutboxCommand::Defer {
-            id,
-            available_at,
-            reason,
-            reply,
-        } => reply
-            .finish(lifecycle::defer(connection, id, available_at, reason).context(OutboxSnafu)),
-        OutboxCommand::Fail { id, reason, reply } => {
-            reply.finish(lifecycle::fail(connection, id, reason).context(OutboxSnafu));
-        }
-        OutboxCommand::Conflict { id, reason, reply } => {
-            reply.finish(lifecycle::conflict(connection, id, reason).context(OutboxSnafu))
-        }
-        OutboxCommand::Expire { now, reply } => {
-            reply.finish(lifecycle::expire(connection, now).context(OutboxSnafu));
-        }
-        OutboxCommand::Cancel { id, reply } => {
-            reply.finish(cancellation::request(connection, id).context(OutboxSnafu));
-        }
-        OutboxCommand::ConfirmUnsent { id, reply } => {
-            reply.finish(cancellation::confirm_unsent(connection, id).context(OutboxSnafu));
-        }
-        OutboxCommand::MarkOutcomeUnknown { id, reason, reply } => reply.finish(
-            cancellation::mark_outcome_unknown(connection, id, reason).context(OutboxSnafu),
-        ),
-        OutboxCommand::Acknowledge {
-            id,
-            replacement,
-            reply,
-        } => reply.finish(
-            lifecycle::acknowledge(connection, id, replacement.map(|message| *message))
-                .context(OutboxSnafu),
-        ),
     }
 }

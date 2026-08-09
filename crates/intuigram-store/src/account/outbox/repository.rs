@@ -41,8 +41,17 @@ pub enum Error {
         to: OutboxState,
     },
 
-    #[snafu(display("ordinary send Outbox items cannot expire implicitly"))]
-    SendCannotExpire,
+    #[snafu(display("Outbox item {} in state {state:?} cannot change expiry", id.get()))]
+    ExpiryNotEditable { id: OutboxId, state: OutboxState },
+
+    #[snafu(display("Outbox item {} with operation {operation:?} is not safe to retry", id.get()))]
+    UnsafeRetry {
+        id: OutboxId,
+        operation: OutboxOperation,
+    },
+
+    #[snafu(display("Outbox item {} in state {state:?} cannot be dismissed", id.get()))]
+    NotDismissible { id: OutboxId, state: OutboxState },
 
     #[snafu(display("Outbox optimistic Message does not match its payload scope"))]
     OptimisticMessageMismatch,
@@ -107,11 +116,6 @@ pub(super) fn admit(connection: &Connection, admission: OutboxAdmission) -> Resu
 }
 
 fn validate_admission(admission: &OutboxAdmission) -> Result<()> {
-    if admission.operation == OutboxOperation::Send
-        && matches!(admission.expiry, OutboxExpiry::At(_))
-    {
-        return Err(Error::SendCannotExpire);
-    }
     if let Some(message) = &admission.optimistic_message {
         let OutboxPayload::V1(payload) = &admission.payload;
         if message.chat_id != payload.chat_id
