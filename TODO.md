@@ -23,7 +23,6 @@
 - [ ] **p-core:** Append `...` when a Chat name &amp; message preview is capped to fit its available width. Perform terminal-cell-aware truncation and keep the ellipsis inside the allocated Chat-list width. Message count should always be visible on the rightmost side of chat name. 
 - [ ] **p-core:** Adopt Clap for command-line parsing while preserving typed configuration, maintenance commands, validation, and generated help.
 - [ ] **p-core:** Edit photo Messages through their caption and media rather than the `[Photo] image` fallback. Start captionless photo edits with an empty Composer, preserve existing captions as editable text, and allow the attached image to be replaced.
-- [ ] **p-core:** Increase the default inline image height substantially toward Telegram Swift's presentation while preserving aspect ratio, available Transcript space, and narrow-terminal behavior.
 - [ ] **p-core:** Render sender avatar images in the Transcript and use a two-row `[avatar] [username]` / `[avatar] [message]` layout. Fall back to the current two-character name avatar when an image cannot be rendered.
 - [ ] **p-core:** Keep a successfully loaded and displayed image or Sticker renderable across redraw, scrolling, and Chat reselection. Do not regress it to filename or MIME metadata while its preview remains available.
 - [ ] **p-core:** Render group Chat-list rows as `[Chat avatar] [Chat name] [Message time]` above `[sender avatar] [message preview]`, preserving unread count, selection, truncation, and narrow-terminal behavior.

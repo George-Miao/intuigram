@@ -137,6 +137,7 @@ fn inline_image_has_vertical_padding_inside_the_active_message_rule() -> Result<
     let first = *image_rows.first().expect("image should render");
     let last = *image_rows.last().expect("image should render");
 
+    assert!(image_rows.len() >= 10);
     assert_eq!(app.screen().symbol_at(34, (first - 1) as u16), "│");
     assert_eq!(app.screen().symbol_at(34, (last + 1) as u16), "│");
     assert!(transcript_content(&rows[first - 1]).trim().is_empty());
@@ -161,7 +162,7 @@ fn downloaded_photos_keep_independent_inline_previews() -> Result<()> {
     });
     let mut app = TestSystem::builder()
         .name("media-independent-inline-previews")
-        .terminal(100, 40)
+        .terminal(100, 60)
         .telegram(
             TelegramScenario::new()
                 .bootstrap(account("Ada").with_chat(chat(10, "Rust")))

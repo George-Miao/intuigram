@@ -19,6 +19,7 @@ pub(super) struct MediaRenderContext {
     pub(super) focused: bool,
     pub(super) album: AlbumPosition,
     pub(super) animation_frame: u8,
+    pub(super) max_width: u16,
     pub(super) max_height: u16,
 }
 
@@ -58,6 +59,7 @@ pub(super) fn render_media(
         focused,
         album,
         animation_frame,
+        max_width,
         max_height,
     } = context;
     let mut lines = Vec::new();
@@ -71,6 +73,7 @@ pub(super) fn render_media(
                 selected,
                 forwarded,
                 focused,
+                max_width,
                 max_height,
             },
             graphics,
@@ -83,6 +86,7 @@ pub(super) fn render_media(
             active,
             forwarded,
             animation_frame,
+            max_width,
             max_height,
         ));
         lines.push(message_spacing(active));

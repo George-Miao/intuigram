@@ -3,14 +3,15 @@ use rasterm::{CellBounds, CellSize, Image, ImageId, fit_cells, text_cells, unico
 
 use super::*;
 
-const WIDTH: u16 = 32;
-const HEIGHT: u16 = 6;
+const WIDTH: u16 = 48;
+const HEIGHT: u16 = 12;
 pub(super) struct ImageRenderContext {
     pub(super) id: Option<ImageId>,
     pub(super) active: bool,
     pub(super) selected: bool,
     pub(super) forwarded: bool,
     pub(super) focused: bool,
+    pub(super) max_width: u16,
     pub(super) max_height: u16,
 }
 
@@ -23,7 +24,7 @@ pub(super) fn render_image(
         u32::from(image.width()),
         u32::from(image.height()),
         CellBounds {
-            columns: WIDTH,
+            columns: WIDTH.min(context.max_width),
             rows: HEIGHT.min(context.max_height),
         },
     );
@@ -41,15 +42,17 @@ pub(super) fn render_loading_image(
     active: bool,
     forwarded: bool,
     animation_frame: u8,
+    max_width: u16,
     max_height: u16,
 ) -> Vec<Line<'static>> {
-    let highlight = u16::from(animation_frame) % WIDTH;
+    let width = WIDTH.min(max_width);
+    let highlight = u16::from(animation_frame) % width;
     let height = HEIGHT.min(max_height);
     (0..height)
         .map(|row| {
-            let mut spans = Vec::with_capacity(usize::from(WIDTH).saturating_add(1));
+            let mut spans = Vec::with_capacity(usize::from(width).saturating_add(1));
             spans.extend(content_prefix(active, selected, forwarded));
-            spans.extend((0..WIDTH).map(|column| {
+            spans.extend((0..width).map(|column| {
                 let highlighted = column == highlight;
                 Span::styled(
                     if highlighted { "▒" } else { "░" },

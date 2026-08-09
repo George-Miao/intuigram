@@ -123,6 +123,9 @@ fn append_content(
     let loading = media_preview_is_loading(view, message.id);
     let inline_media = message.details.media.is_some() && (preview.is_some() || loading);
     let show_body = !inline_media || !body_is_media_fallback(message);
+    let prefix = content_prefix(state.active, state.selected, state.forwarded);
+    let content_width =
+        usize::from(layout.content_width).saturating_sub(Line::from(prefix.as_slice()).width());
     let media_lines = message
         .details
         .media
@@ -139,15 +142,13 @@ fn append_content(
                     focused: layout.focused,
                     album: album_position(view, index, message.details.album_id),
                     animation_frame: view.animation_frame,
+                    max_width: u16::try_from(content_width).unwrap_or(u16::MAX).max(1),
                     max_height: layout.available_height.saturating_sub(5).max(1),
                 },
                 active_chat(view).map(|chat| image_id(chat, message.id)),
                 graphics,
             )
         });
-    let prefix = content_prefix(state.active, state.selected, state.forwarded);
-    let content_width =
-        usize::from(layout.content_width).saturating_sub(Line::from(prefix).width());
     let body_lines = show_body
         .then(|| render_rich_text_lines(message, content_width))
         .into_iter()

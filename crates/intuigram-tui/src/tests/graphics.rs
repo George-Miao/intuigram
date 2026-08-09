@@ -61,8 +61,8 @@ fn portrait_images_reserve_only_their_aspect_fitted_cells() {
 
     let (_, graphics) =
         render_test_frame_with_graphics(&current, 100, 40, GraphicsProtocol::KittyUnicode);
-    assert_eq!(graphics.requests()[0].size.columns, 6);
-    assert_eq!(graphics.requests()[0].size.rows, 6);
+    assert_eq!(graphics.requests()[0].size.columns, 12);
+    assert_eq!(graphics.requests()[0].size.rows, 12);
 }
 
 #[test]
@@ -85,10 +85,27 @@ fn kitty_render_uses_unicode_placeholders_without_redundant_media_metadata() {
     assert!(!text.contains("1280 × 720"));
     assert!(!text.contains("2 MB"));
     assert_eq!(graphics.requests().len(), 1);
-    assert_eq!(graphics.requests()[0].size.columns, 12);
-    assert_eq!(graphics.requests()[0].size.rows, 6);
+    assert_eq!(graphics.requests()[0].size.columns, 24);
+    assert_eq!(graphics.requests()[0].size.rows, 12);
     assert!(graphics.requests()[0].x > 0);
     assert!(graphics.requests()[0].y > 0);
+}
+
+#[test]
+fn inline_image_geometry_shrinks_inside_a_narrow_transcript() {
+    let mut current = image_message_view();
+    current.media_previews = vec![intuigram_app::MediaPreviewView {
+        chat: ChatId(10),
+        message: MessageId(40),
+        image: intuigram_app::InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
+            .expect("fixture pixels should match their dimensions"),
+    }];
+
+    let (_, graphics) =
+        render_test_frame_with_graphics(&current, 24, 40, GraphicsProtocol::KittyUnicode);
+
+    assert!(graphics.requests()[0].size.columns <= 20);
+    assert!(graphics.requests()[0].size.rows <= 12);
 }
 
 #[test]
