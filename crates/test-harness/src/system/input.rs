@@ -1,7 +1,7 @@
 //! Named terminal inputs used by behavior scenarios.
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use intuigram_app::Focus;
+use intuigram_lib::Focus;
 
 use super::TestSystem;
 use crate::error::{Error, Result};

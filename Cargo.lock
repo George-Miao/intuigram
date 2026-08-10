@@ -1790,6 +1790,13 @@ dependencies = [
 name = "intuigram"
 version = "0.1.0"
 dependencies = [
+ "intuigram-app",
+]
+
+[[package]]
+name = "intuigram-app"
+version = "0.1.0"
+dependencies = [
  "clap",
  "compio",
  "compio-actor",
@@ -1800,8 +1807,8 @@ dependencies = [
  "flume",
  "futures-util",
  "getrandom 0.3.4",
- "intuigram-app",
  "intuigram-config",
+ "intuigram-lib",
  "intuigram-media",
  "intuigram-store",
  "intuigram-telegram",
@@ -1821,14 +1828,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "intuigram-app"
-version = "0.1.0"
-dependencies = [
- "time",
- "url",
-]
-
-[[package]]
 name = "intuigram-config"
 version = "0.1.0"
 dependencies = [
@@ -1839,13 +1838,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "intuigram-lib"
+version = "0.1.0"
+dependencies = [
+ "time",
+ "url",
+]
+
+[[package]]
 name = "intuigram-media"
 version = "0.1.0"
 dependencies = [
  "compio",
  "compio-io",
  "image",
- "intuigram-app",
+ "intuigram-lib",
  "snafu",
  "tempfile",
 ]
@@ -1873,7 +1880,7 @@ dependencies = [
  "futures-util",
  "grammers-crypto",
  "grammers-tl-types",
- "intuigram-app",
+ "intuigram-lib",
  "md5",
  "snafu",
  "time",
@@ -1888,7 +1895,7 @@ dependencies = [
  "flume",
  "futures-util",
  "image",
- "intuigram-app",
+ "intuigram-lib",
  "qrcode",
  "rasterm",
  "ratatui",
@@ -3594,8 +3601,8 @@ name = "test-harness"
 version = "0.0.0"
 dependencies = [
  "crossterm",
- "intuigram",
  "intuigram-app",
+ "intuigram-lib",
  "intuigram-media",
  "intuigram-store",
  "intuigram-telegram",

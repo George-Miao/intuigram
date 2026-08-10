@@ -111,7 +111,7 @@ impl Client {
         let folder_details = normalize_dialog_folder_details(&dialog_filters.filters);
         let folders = normalize_dialog_folders(dialog_filters.filters, &chat_views);
         Ok(Bootstrap {
-            connection: intuigram_app::ConnectionState::Connected,
+            connection: intuigram_lib::ConnectionState::Connected,
             account_name,
             notification_identity: self.identity.as_ref().map_or_else(
                 || "telegram:pending".to_owned(),

@@ -1,4 +1,4 @@
-use intuigram_app::AccountConfirmationKind;
+use intuigram_lib::AccountConfirmationKind;
 
 use super::*;
 

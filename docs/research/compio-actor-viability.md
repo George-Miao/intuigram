@@ -33,10 +33,10 @@ allows only one active `Backend` future, and a `compio-actor` actor also awaits
 one handler at a time. The migration must therefore split the monolithic
 backend, keep several correlated adapter operations in flight, and run the
 MTProto connection driver as a separate worker-local task
-([current runtime loop](../../crates/intuigram/src/application/runtime_loop.rs),
+([current runtime loop](../../crates/intuigram-app/src/application/runtime/mod.rs),
 [actor delivery loop](../../../../Org/Compio/compio-actor/src/actor/deliver.rs)).
 
-Keep terminal input, rendering, the `intuigram-app` reducer, and result
+Keep terminal input, rendering, the `intuigram-lib` reducer, and result
 aggregation on the process's main Compio thread. There is no demonstrated hard
 Rust or Crossterm rule that a terminal must run on the main OS thread, but
 moving it provides little isolation, crosses large `View` snapshots between
@@ -82,9 +82,9 @@ retaining one message capability
 A compile-time probe confirmed that Intuigram's existing `Effect`,
 `AdapterEvent`, and `View` types implement `Send`, so the application-owned
 protocol can cross this boundary without leaking Telegram TL or terminal types
-([effects](../../crates/intuigram-app/src/protocol/effects.rs),
-[adapter events](../../crates/intuigram-app/src/protocol/input.rs),
-[view](../../crates/intuigram-app/src/protocol/view.rs)). The production seam
+([effects](../../crates/intuigram-lib/src/protocol/effects.rs),
+[adapter events](../../crates/intuigram-lib/src/protocol/input.rs),
+[view](../../crates/intuigram-lib/src/protocol/view.rs)). The production seam
 should nevertheless be an Intuigram-owned `TelegramSession` command/event port
 that hides `Mailbox`, `Broker`, actor lifecycle hooks, and framework errors;
 this keeps `compio-actor` replaceable while its API is experimental.
@@ -129,8 +129,8 @@ active effect future and does not start another effect until the future returns;
 the remaining effects wait in a bounded 64-entry queue. Fair polling keeps
 terminal and live-update sources responsive, but a slow Telegram operation
 still delays every later database, media, notification, and Telegram effect
-([runtime loop](../../crates/intuigram/src/application/runtime_loop.rs),
-[runtime types](../../crates/intuigram/src/application/runtime_types.rs),
+([runtime loop](../../crates/intuigram-app/src/application/runtime/mod.rs),
+[runtime types](../../crates/intuigram-app/src/application/runtime/types.rs),
 [single-writer ADR](../adr/0004-single-writer-state.md)). Replacing the effect
 body with `telegram_mailbox.call(...).await` leaves that same future active and
 therefore preserves the backend queue bottleneck.
@@ -164,7 +164,7 @@ run to completion, so their handles and shutdown must be owned
 ```text
 main OS thread / existing Compio runtime
 ├── TerminalUi + the sole TerminalEvents reader
-├── intuigram-app single-writer reducer
+├── intuigram-lib single-writer reducer
 ├── effect router with bounded, class-specific in-flight work
 ├── Telegram output ingress and durable-update coordinator
 └── terminal RAII shutdown guard

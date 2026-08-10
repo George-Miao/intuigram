@@ -249,8 +249,8 @@ fn render_semantics(
 
 fn media_preview(
     view: &View,
-    message: intuigram_app::MessageId,
-) -> Option<&intuigram_app::InlineImage> {
+    message: intuigram_lib::MessageId,
+) -> Option<&intuigram_lib::InlineImage> {
     let chat = active_chat(view)?;
     view.downloads
         .iter()
@@ -264,7 +264,7 @@ fn media_preview(
         })
 }
 
-fn media_preview_is_loading(view: &View, message: intuigram_app::MessageId) -> bool {
+fn media_preview_is_loading(view: &View, message: intuigram_lib::MessageId) -> bool {
     let Some(chat) = active_chat(view) else {
         return false;
     };
@@ -273,7 +273,7 @@ fn media_preview_is_loading(view: &View, message: intuigram_app::MessageId) -> b
         .any(|loading| loading.chat == chat && loading.message == message)
 }
 
-fn active_chat(view: &View) -> Option<intuigram_app::ChatId> {
+fn active_chat(view: &View) -> Option<intuigram_lib::ChatId> {
     view.active_chat
         .and_then(|index| view.chats.get(index))
         .map(|chat| chat.id)

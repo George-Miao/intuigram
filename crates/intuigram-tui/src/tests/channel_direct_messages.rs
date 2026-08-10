@@ -1,4 +1,4 @@
-use intuigram_app::{SavedDialogDraftView, SavedDialogView};
+use intuigram_lib::{SavedDialogDraftView, SavedDialogView};
 
 use super::*;
 

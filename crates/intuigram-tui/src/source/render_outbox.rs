@@ -1,4 +1,4 @@
-use intuigram_app::{OutboxItemView, OutboxStateView};
+use intuigram_lib::{OutboxItemView, OutboxStateView};
 use time::OffsetDateTime;
 
 use super::*;

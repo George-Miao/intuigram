@@ -6,8 +6,8 @@ license.workspace = true
 
 [dependencies]
 crossterm.workspace = true
-intuigram.workspace = true
 intuigram-app.workspace = true
+intuigram-lib.workspace = true
 intuigram-media.workspace = true
 intuigram-store.workspace = true
 intuigram-telegram.workspace = true

@@ -1,4 +1,4 @@
-use intuigram_app::FolderEditorView;
+use intuigram_lib::FolderEditorView;
 
 use super::*;
 

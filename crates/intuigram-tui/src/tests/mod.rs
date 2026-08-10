@@ -2,7 +2,7 @@ use crossterm::event::{
     Event, KeyCode as CrosstermKey, KeyEvent, KeyEventKind, KeyModifiers, KeyboardEnhancementFlags,
     MouseButton, MouseEvent, MouseEventKind,
 };
-use intuigram_app::{
+use intuigram_lib::{
     Action, ActionMenuItemView, ActionMenuView, ActivationTarget, ChatId, ChatKind,
     ChatLoadingState, ChatView, ComposerView, ConnectionState, DeliveryState, Focus, FolderView,
     MediaCard, MediaKind, MessageDetails, MessageDirection, MessageId, MessageView, OutboxItemView,
@@ -262,7 +262,7 @@ fn terminal_events_resolve_against_the_current_view() {
                 KeyEventKind::Press,
             )),
         ),
-        Some(UiEvent::Intent(intuigram_app::Intent::Action(Action::Quit)))
+        Some(UiEvent::Intent(intuigram_lib::Intent::Action(Action::Quit)))
     );
     assert_eq!(
         resolve_event(
@@ -274,13 +274,13 @@ fn terminal_events_resolve_against_the_current_view() {
                 KeyEventKind::Press,
             )),
         ),
-        Some(UiEvent::Intent(intuigram_app::Intent::Action(
+        Some(UiEvent::Intent(intuigram_lib::Intent::Action(
             Action::Search
         )))
     );
     assert_eq!(
         resolve_event(&keymap, &current_view, Event::Paste("hello".to_owned())),
-        Some(UiEvent::Intent(intuigram_app::Intent::Insert(
+        Some(UiEvent::Intent(intuigram_lib::Intent::Insert(
             "hello".to_owned()
         )))
     );
@@ -301,7 +301,7 @@ fn terminal_events_resolve_against_the_current_view() {
                 KeyEventKind::Press,
             )),
         ),
-        Some(UiEvent::Intent(intuigram_app::Intent::Action(Action::Send)))
+        Some(UiEvent::Intent(intuigram_lib::Intent::Action(Action::Send)))
     );
     assert_eq!(
         resolve_event(
@@ -313,7 +313,7 @@ fn terminal_events_resolve_against_the_current_view() {
                 KeyEventKind::Press,
             )),
         ),
-        Some(UiEvent::Intent(intuigram_app::Intent::Action(
+        Some(UiEvent::Intent(intuigram_lib::Intent::Action(
             Action::Newline
         )))
     );

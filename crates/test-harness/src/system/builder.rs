@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::fs;
 use std::rc::Rc;
 
-use intuigram::{Application, UpdateCommitter, bootstrap_sync_batch};
+use intuigram_app::{Application, UpdateCommitter, bootstrap_sync_batch};
 use intuigram_store::{AccountDatabase, AccountId, StoreLayout, StoredDraft, SyncCursor};
 use intuigram_tui::render_test_frame;
 use snafu::ResultExt;

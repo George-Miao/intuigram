@@ -1,4 +1,4 @@
-use intuigram_app::{InlineImage, MediaCard, PollOptionView};
+use intuigram_lib::{InlineImage, MediaCard, PollOptionView};
 
 use super::media_image::{ImageRenderContext, render_image, render_loading_image};
 use super::*;

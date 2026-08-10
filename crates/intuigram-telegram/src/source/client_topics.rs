@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use intuigram_app::{MessageId, TopicDraftView, TopicId, TopicView};
+use intuigram_lib::{MessageId, TopicDraftView, TopicId, TopicView};
 
 use super::*;
 

@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use grammers_tl_types as tl;
-use intuigram_app::{AvatarId, AvatarRef, ChatId};
+use intuigram_lib::{AvatarId, AvatarRef, ChatId};
 use snafu::OptionExt as _;
 
 use super::error::{PeerUnavailableSnafu, Result};

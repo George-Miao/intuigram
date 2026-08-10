@@ -29,7 +29,7 @@ root supervisor future
 ├── TUI task
 │   ├── synchronously render the newest immutable View
 │   └── await the Compio terminal stream, View changes, or shutdown
-├── intuigram-app state-owner task
+├── intuigram-lib state-owner task
 │   └── select typed Intents and AdapterEvents; emit Views and Effects
 ├── Telegram connection actor
 │   ├── own Client / MTProto connection state
@@ -93,7 +93,7 @@ Recommended shutdown order:
 
 CPU-heavy loops must also yield or be chunked. Cooperative scheduling cannot preempt a future that parses an unbounded update batch or renders indefinitely.
 
-## Prototype before replacing the current composition
+## Prototype used before replacing the composition
 
 1. Add a private single-thread orchestrator behind a feature flag or test-only seam; keep public crate interfaces unchanged.
 2. Run mock TUI, app-owner, and slow-adapter futures as Compio spawned tasks. Use `compio-term::EventStream` in the real TUI and race it against View and shutdown channels.
@@ -102,4 +102,4 @@ CPU-heavy loops must also yield or be chunked. Cooperative scheduling cannot pre
 5. Test shutdown during an idle receive, an RPC, a database transaction, and a terminal error; assert terminal restoration and durable Draft behavior.
 6. Move the existing sequential Telegram `Client` into the connection task. Only after this is stable, prototype request correlation for overlapping RPCs.
 
-If this prototype passes, replace the current OS-thread composition in `crates/intuigram/src/main.rs` and update the single-writer ADR. The likely result is a simpler and more faithful Compio architecture: one cooperative runtime thread for UI, app state, and network actors, plus the deliberately blocking database thread.
+This topology is now implemented by `intuigram-app`: its application module owns the cooperative runtime, UI, reducer, effect routing, and network-actor composition, while `crates/intuigram/src/main.rs` only delegates process startup. The deliberately blocking database work remains on its dedicated thread, as recorded in the single-writer ADR.

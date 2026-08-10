@@ -1,4 +1,4 @@
-use intuigram_app::{
+use intuigram_lib::{
     AdapterEvent, AttachmentId, AttachmentKind, AttachmentView, ChatId, MessageId, OutboxItemView,
     OutboxKey, OutboxStateView, TextEntity,
 };

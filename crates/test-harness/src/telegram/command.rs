@@ -1,4 +1,4 @@
-use intuigram_app::{
+use intuigram_lib::{
     AvatarRef, ChatId, GeoPointView, MessageId, MessageView, PlaceView, SavedDialogView,
     SpecializedRefreshTarget, TextEntity, TopicView,
 };

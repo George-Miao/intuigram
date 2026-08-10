@@ -243,7 +243,7 @@ pub(super) fn messages_group(previous: &MessageView, current: &MessageView) -> b
         && current.details.forwarded_from.is_none()
 }
 
-fn reply_preview(view: &View, reply: intuigram_app::MessageId) -> String {
+fn reply_preview(view: &View, reply: intuigram_lib::MessageId) -> String {
     view.messages
         .iter()
         .find(|message| message.id == reply)
@@ -260,7 +260,7 @@ fn reply_preview(view: &View, reply: intuigram_app::MessageId) -> String {
 fn append_message_metadata(
     lines: &mut Vec<Line<'static>>,
     message: &MessageView,
-    outbox: Option<&intuigram_app::OutboxItemView>,
+    outbox: Option<&intuigram_lib::OutboxItemView>,
     animation_frame: u8,
     width: u16,
     state: MessageState,

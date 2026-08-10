@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use intuigram_app::Action;
+use intuigram_lib::Action;
 use snafu::Snafu;
 
 #[derive(Debug, Snafu)]
@@ -15,7 +15,7 @@ pub enum Error {
     Store { source: intuigram_store::Error },
 
     #[snafu(display("failed to commit a behavior-test Telegram update"))]
-    Sync { source: intuigram::SyncError },
+    Sync { source: intuigram_app::SyncError },
 
     #[snafu(display("failed to create isolated behavior-test roots"))]
     CreateRoots { source: std::io::Error },

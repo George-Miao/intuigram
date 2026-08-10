@@ -1,4 +1,4 @@
-use intuigram_app::{
+use intuigram_lib::{
     AccountKey, AccountView, AvatarId, AvatarRef, Bootstrap, ChatId, ChatKind, ChatView,
     ConnectionState, DeliveryState, DraftView, FolderDetailsView, FolderRulesView, FolderView,
     MessageDetails, MessageDirection, MessageId, MessageView, SavedDialogListView, TopicListView,
@@ -54,7 +54,7 @@ impl AccountFixture {
             },
         );
         self.folder_details.push(FolderDetailsView {
-            id: intuigram_app::FolderId(id),
+            id: intuigram_lib::FolderId(id),
             rules: Some(FolderRulesView::default()),
             shareable: true,
         });
@@ -106,7 +106,7 @@ impl AccountFixture {
     pub fn with_topics(
         mut self,
         chat: i64,
-        topics: impl IntoIterator<Item = intuigram_app::TopicView>,
+        topics: impl IntoIterator<Item = intuigram_lib::TopicView>,
     ) -> Self {
         self.topic_lists.push(TopicListView {
             chat: ChatId(chat),
@@ -120,7 +120,7 @@ impl AccountFixture {
     pub fn with_saved_dialogs(
         mut self,
         chat: i64,
-        dialogs: impl IntoIterator<Item = intuigram_app::SavedDialogView>,
+        dialogs: impl IntoIterator<Item = intuigram_lib::SavedDialogView>,
     ) -> Self {
         self.saved_dialog_lists.push(SavedDialogListView {
             chat: ChatId(chat),

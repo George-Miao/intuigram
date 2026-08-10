@@ -1,4 +1,4 @@
-use intuigram_app::{AdapterEvent, AvatarRef, AvatarView};
+use intuigram_lib::{AdapterEvent, AvatarRef, AvatarView};
 
 use super::TestSystem;
 use super::downloads::ONE_PIXEL_PNG;

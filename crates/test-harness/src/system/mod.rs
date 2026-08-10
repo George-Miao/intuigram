@@ -6,8 +6,8 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use intuigram::{Application, UpdateCommitter};
-use intuigram_app::{
+use intuigram_app::{Application, UpdateCommitter};
+use intuigram_lib::{
     AccountLifecycle, AttachmentId, ChatId, DownloadId, MessageId, OutboxKey, ScheduledMessageView,
 };
 use intuigram_store::AccountDatabase;

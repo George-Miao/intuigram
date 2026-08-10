@@ -1,5 +1,5 @@
-use intuigram::encode_stored_message;
-use intuigram_app::{AdapterEvent, ChatId, SavedDialogListView};
+use intuigram_app::encode_stored_message;
+use intuigram_lib::{AdapterEvent, ChatId, SavedDialogListView};
 use intuigram_store::StoredSavedDialog;
 use snafu::ResultExt;
 

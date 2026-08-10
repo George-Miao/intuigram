@@ -1,4 +1,4 @@
-use intuigram_app::{
+use intuigram_lib::{
     AdapterEvent, ChatId, ScheduledMessageId, ScheduledMessageView, ScheduledRequest,
 };
 

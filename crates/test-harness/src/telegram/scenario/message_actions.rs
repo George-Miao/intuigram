@@ -1,4 +1,4 @@
-use intuigram_app::{ChatId, MessageId, MessageView};
+use intuigram_lib::{ChatId, MessageId, MessageView};
 
 use super::{ExpectedCommand, ScenarioMismatch, TelegramScenario};
 

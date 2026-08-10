@@ -1,4 +1,4 @@
-use intuigram_app::{
+use intuigram_lib::{
     RichMediaComposerMode, RichMediaComposerView, RichMediaLibraryKind, RichMediaUploadKind,
 };
 

@@ -1,5 +1,5 @@
-use intuigram::encode_stored_message;
-use intuigram_app::{AdapterEvent, ChatId, Effect, MessageView};
+use intuigram_app::encode_stored_message;
+use intuigram_lib::{AdapterEvent, ChatId, Effect, MessageView};
 use snafu::ResultExt;
 
 use super::TestSystem;

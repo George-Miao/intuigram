@@ -33,7 +33,7 @@ Tests should still use `CONTEXT.md` vocabulary: Chat, Active Chat, Message, Comp
 
 ### 1. Hermetic behavioral E2E: the primary feedback loop
 
-Use the dev-only `test-harness` crate to hide application composition, strict adapters, locators, assertions, isolated storage, and traces behind a small interface. `intuigram` includes it only as a dev-dependency, while the harness depends on the production library and adapter crates it exercises; Cargo excludes that test-only cycle from production builds. Put each capability scenario directly under `crates/intuigram/tests/` as an independent integration-test target. Cargo integration tests are separate crates that exercise public package interfaces ([Cargo test targets](https://doc.rust-lang.org/cargo/reference/cargo-targets.html#tests)).
+Use the dev-only `test-harness` crate to hide application composition, strict adapters, locators, assertions, isolated storage, and traces behind a small interface. `intuigram-app` includes it only as a dev-dependency, while the harness depends on the production composition, state, and adapter crates it exercises; Cargo excludes that test-only cycle from production builds. Put each capability scenario directly under `crates/intuigram-app/tests/` as an independent integration-test target. Cargo integration tests are separate crates that exercise public package interfaces ([Cargo test targets](https://doc.rust-lang.org/cargo/reference/cargo-targets.html#tests)).
 
 The runner should use the production composition entry point, not reproduce the loops in test code. Its substitutions are only at intended adapter seams:
 
@@ -43,7 +43,7 @@ The runner should use the production composition entry point, not reproduce the 
 - fake media, clipboard, notification, link-launch, and download adapters;
 - injected clocks, entropy/random-ID sources, and terminal capabilities.
 
-Ratatui describes `TestBackend` as an in-memory backend intended for integration tests of an entire terminal UI. It exposes the cell buffer, cursor, resize, and buffer assertions ([Ratatui `TestBackend`](https://docs.rs/ratatui/0.30.2/ratatui/backend/struct.TestBackend.html)). That is the right default rendering boundary. Behavioral actions should enter as Crossterm `Event` or an Intuigram `KeyChord`, so the real context-sensitive keymap is covered. Direct `Intent` injection remains valuable for `intuigram-app` tests, but it is not an end-to-end user action.
+Ratatui describes `TestBackend` as an in-memory backend intended for integration tests of an entire terminal UI. It exposes the cell buffer, cursor, resize, and buffer assertions ([Ratatui `TestBackend`](https://docs.rs/ratatui/0.30.2/ratatui/backend/struct.TestBackend.html)). That is the right default rendering boundary. Behavioral actions should enter as Crossterm `Event` or an Intuigram `KeyChord`, so the real context-sensitive keymap is covered. Direct `Intent` injection remains valuable for `intuigram-lib` tests, but it is not an end-to-end user action.
 
 The TUI should produce a semantic tree during the same layout/render pass: role, user-facing name, stable domain ID, state, and bounds. Locators re-run against the latest tree. This avoids brittle coordinates but does not replace cell verification: renderer self-tests must relate nodes to cells, and representative scenarios should snapshot normalized grids and styles.
 
@@ -128,7 +128,7 @@ The exact names can change, but these properties should not:
 Suggested organization:
 
 ```text
-crates/intuigram/tests/
+crates/intuigram-app/tests/
   {harness,navigation,drafts,messaging,synchronization,reconnect,recovery}.rs
 
 crates/test-harness/src/
@@ -176,8 +176,8 @@ Record traces in memory and flush on first failure. Redact credentials and non-f
 Expose one obvious required command and one narrow filter path:
 
 ```sh
-cargo nextest run -p intuigram
-cargo nextest run -p intuigram --test messaging pending_reply
+cargo nextest run -p intuigram-app
+cargo nextest run -p intuigram-app --test messaging pending_reply
 cargo nextest run -p intuigram --test pty
 ```
 
@@ -192,7 +192,7 @@ The first hermetic slice now exposes production input resolution, in-memory rend
 - production code calls `SystemTime::now`, `compio::time::sleep`, and `getrandom::fill` directly, so time, retries, expiry, and outbound random IDs cannot yet be controlled from a behavior scenario;
 - actual-binary PTY/VT lifecycle coverage and opt-in Telegram Test-DC conformance remain separate later tiers.
 
-The solution is not to make all internals public. Extract a small library-level composition function from the executable; give it explicit production adapter, terminal, clock, entropy, and filesystem dependencies; expose a test renderer entry point or `TestTerminal` implementation; and introduce a transport trait at the `compio-mtproto` behavior seam. Keep adapter-specific types out of `intuigram-app` and translate all test-support/dependency errors into module-scoped SNAFU errors, consistent with repository rules.
+The solution is not to make all internals public. Keep a small library-level composition interface in `intuigram-app`; give it explicit production adapter, terminal, clock, entropy, and filesystem dependencies; expose a test renderer entry point or `TestTerminal` implementation; and introduce a transport trait at the `compio-mtproto` behavior seam. Keep adapter-specific types out of `intuigram-lib` and translate all test-support/dependency errors into module-scoped SNAFU errors, consistent with repository rules.
 
 ## Rollout
 

@@ -14,9 +14,9 @@ rust-version = "1.85"
 compio-actor = { version = "0.1.0", path = "crates/compio-actor" }
 compio-mtproto = { version = "0.1.0", path = "crates/compio-mtproto" }
 compio-term = { version = "0.1.0", path = "crates/compio-term" }
-intuigram = { version = "0.1.0", path = "crates/intuigram" }
 intuigram-app = { version = "0.1.0", path = "crates/intuigram-app" }
 intuigram-config = { version = "0.1.0", path = "crates/intuigram-config" }
+intuigram-lib = { version = "0.1.0", path = "crates/intuigram-lib" }
 intuigram-media = { version = "0.1.0", path = "crates/intuigram-media" }
 intuigram-store = { version = "0.1.0", path = "crates/intuigram-store" }
 intuigram-telegram = { version = "0.1.0", path = "crates/intuigram-telegram" }

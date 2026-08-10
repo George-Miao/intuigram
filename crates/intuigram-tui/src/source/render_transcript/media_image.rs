@@ -1,4 +1,4 @@
-use intuigram_app::InlineImage;
+use intuigram_lib::InlineImage;
 use rasterm::{CellBounds, CellSize, Image, ImageId, fit_cells, text_cells, unicode_placeholder};
 
 use super::*;

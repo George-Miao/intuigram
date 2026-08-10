@@ -17,7 +17,7 @@ use futures_util::Stream;
 use grammers_crypto::two_factor_auth::{calculate_2fa, check_p_and_g};
 use grammers_tl_types as tl;
 use grammers_tl_types::{Deserializable as _, Identifiable as _};
-use intuigram_app::{
+use intuigram_lib::{
     AdapterEvent, AvatarRef, Bootstrap, ChatId, ChatKind, ChatView, DeliveryState,
     FolderDetailsView, FolderId, FolderRulesView, FolderView, GameView, GiftKindView, GiftView,
     GiveawayInfoView, GiveawayStateView, GiveawayView, InvoiceView, LiveLocationView, MediaCard,

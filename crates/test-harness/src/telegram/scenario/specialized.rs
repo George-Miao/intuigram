@@ -1,4 +1,4 @@
-use intuigram_app::{ChatId, MessageId, MessageView, SpecializedRefreshTarget};
+use intuigram_lib::{ChatId, MessageId, MessageView, SpecializedRefreshTarget};
 
 use super::{ExpectedCommand, ScenarioMismatch, TelegramScenario};
 

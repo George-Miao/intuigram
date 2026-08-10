@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 
-use intuigram_app::{
+use intuigram_lib::{
     Bootstrap, ChatId, MessageId, MessageView, SavedDialogView, TextEntity, TopicView,
 };
 

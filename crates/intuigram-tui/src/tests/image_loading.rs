@@ -7,7 +7,7 @@ fn image_placeholder_animates_in_the_final_preview_geometry() {
     assert!(fallback.contains("[Photo]"));
     assert!(fallback.contains("image"));
 
-    current.media_preview_loads = vec![intuigram_app::MediaPreviewLoadView {
+    current.media_preview_loads = vec![intuigram_lib::MediaPreviewLoadView {
         chat: ChatId(10),
         message: MessageId(40),
     }];
@@ -26,10 +26,10 @@ fn image_placeholder_animates_in_the_final_preview_geometry() {
     );
 
     current.media_preview_loads.clear();
-    current.media_previews = vec![intuigram_app::MediaPreviewView {
+    current.media_previews = vec![intuigram_lib::MediaPreviewView {
         chat: ChatId(10),
         message: MessageId(40),
-        image: intuigram_app::InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
+        image: intuigram_lib::InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
             .expect("fixture pixels should match their dimensions"),
     }];
     let ready = render_test_frame(&current, 100, 40);

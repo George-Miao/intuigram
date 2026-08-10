@@ -7,7 +7,7 @@
 //! ```
 
 use crossterm::event::{Event, KeyCode, KeyEventKind};
-use intuigram_app::{
+use intuigram_lib::{
     App, ChatId, ChatKind, ChatView, DeliveryState, Focus, InlineImage, MediaCard, MediaKind,
     MediaPreviewView, MessageDetails, MessageDirection, MessageId, MessageView,
 };

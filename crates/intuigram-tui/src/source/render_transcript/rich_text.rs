@@ -2,7 +2,7 @@ use super::*;
 
 pub(super) fn message_metadata(
     message: &MessageView,
-    outbox: Option<&intuigram_app::OutboxItemView>,
+    outbox: Option<&intuigram_lib::OutboxItemView>,
     animation_frame: u8,
     max_width: usize,
 ) -> Vec<Span<'static>> {

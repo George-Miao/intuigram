@@ -8,7 +8,7 @@ license.workspace = true
 compio = { workspace = true, features = ["fs", "process"] }
 compio-io.workspace = true
 image.workspace = true
-intuigram-app.workspace = true
+intuigram-lib.workspace = true
 snafu.workspace = true
 
 [dev-dependencies]

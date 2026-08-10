@@ -14,44 +14,7 @@ default-run = "intuigram"
 publish = false
 
 [dependencies]
-compio-actor.workspace = true
-compio = { version = "0.19.1", default-features = false, features = ["fs", "process", "runtime"] }
-compio-dispatcher.workspace = true
-compio-mtproto.workspace = true
-clap = { workspace = true, features = ["derive"] }
-crossterm.workspace = true
-dirs.workspace = true
-futures-util.workspace = true
-flume.workspace = true
-getrandom = { workspace = true, features = ["std"] }
 intuigram-app.workspace = true
-intuigram-config.workspace = true
-intuigram-media.workspace = true
-intuigram-store.workspace = true
-intuigram-telegram.workspace = true
-intuigram-tui.workspace = true
-pbkdf2.workspace = true
-rich-clipboard.workspace = true
-rpassword.workspace = true
-serde = { workspace = true, features = ["derive"] }
-serde_json.workspace = true
-snafu.workspace = true
-sha2.workspace = true
-time = { workspace = true, features = ["formatting", "parsing"] }
-zeroize.workspace = true
-
-[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
-keyring = { workspace = true, features = ["apple-native"] }
-
-[target.'cfg(target_os = "windows")'.dependencies]
-keyring = { workspace = true, features = ["windows-native"] }
-
-[target.'cfg(target_os = "linux")'.dependencies]
-keyring = { workspace = true, features = ["crypto-rust", "linux-native-sync-persistent"] }
-
-[dev-dependencies]
-test-harness.workspace = true
-tempfile.workspace = true
 
 [lints]
 workspace = true

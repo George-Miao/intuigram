@@ -1,0 +1,12 @@
+[package]
+name = "intuigram-lib"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+time = { workspace = true, features = ["formatting", "parsing"] }
+url.workspace = true
+
+[lints]
+workspace = true

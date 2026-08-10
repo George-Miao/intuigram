@@ -1,5 +1,5 @@
 use crossterm::event::{Event, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-use intuigram_app::{ScrollDirection, ScrollTarget};
+use intuigram_lib::{ScrollDirection, ScrollTarget};
 use intuigram_tui::{SemanticRole, render_test_frame};
 
 use super::TestSystem;

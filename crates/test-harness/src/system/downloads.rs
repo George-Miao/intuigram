@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use intuigram_app::{AdapterEvent, ChatId, DownloadId, DownloadView, MediaKind, MessageId};
+use intuigram_lib::{AdapterEvent, ChatId, DownloadId, DownloadView, MediaKind, MessageId};
 use snafu::ResultExt;
 
 use super::TestSystem;

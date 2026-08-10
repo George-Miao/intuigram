@@ -1,4 +1,4 @@
-use intuigram_app::{GeoPointView, PlaceView};
+use intuigram_lib::{GeoPointView, PlaceView};
 
 use super::client_location::*;
 use super::*;

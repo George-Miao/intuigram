@@ -1,4 +1,4 @@
-use intuigram_app::{AdapterEvent, Effect, OfflineMediaPolicy, OfflineMediaTarget};
+use intuigram_lib::{AdapterEvent, Effect, OfflineMediaPolicy, OfflineMediaTarget};
 use snafu::ResultExt;
 
 use super::TestSystem;

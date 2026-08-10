@@ -8,7 +8,10 @@ in the roadmap are not implemented yet.
 
 The implemented workspace seams are:
 
-- `intuigram-app`: a deterministic, asynchronous single-owner state loop;
+- `intuigram-lib`: deterministic application state, transitions, intents, effects,
+  and read-only views;
+- `intuigram-app`: executable orchestration, adapter composition, synchronization,
+  recovery, and the main Compio runtime loop;
 - `intuigram-config`: layered TOML, YAML, JSON, environment, and explicit
   command-line configuration through Figment;
 - `intuigram-store`: Refinery-migrated account databases operated by dedicated
@@ -22,7 +25,7 @@ The implemented workspace seams are:
   still supplies event decoding;
 - `intuigram-telegram`: login, dialog/history requests, sending, and normalization
   from Telegram constructors to Intuigram-owned view data;
-- `intuigram`: platform paths, onboarding, adapter composition, and the executable.
+- `intuigram`: the minimal executable entrypoint.
 
 The accepted product scope and priorities live in [TODO.md](TODO.md). Domain
 language and architectural decisions live in [CONTEXT.md](CONTEXT.md) and

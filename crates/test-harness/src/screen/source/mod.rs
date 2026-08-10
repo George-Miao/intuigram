@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use intuigram_app::{Action, ConnectionState, DeliveryState, MessageId, View};
+use intuigram_lib::{Action, ConnectionState, DeliveryState, MessageId, View};
 use intuigram_tui::{SemanticNode, SemanticRole};
 use ratatui::buffer::Buffer;
 use ratatui::style::Color;

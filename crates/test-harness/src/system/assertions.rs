@@ -1,6 +1,6 @@
 //! Durable-state assertions for behavior scenarios.
 
-use intuigram::decode_stored_message;
+use intuigram_app::decode_stored_message;
 use intuigram_store::SyncCursor;
 use snafu::ResultExt;
 

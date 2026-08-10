@@ -82,12 +82,12 @@ fn decoded_avatar_images_replace_badges_in_every_visible_peer_position() {
     }];
     current.avatars = [ChatId(10), ChatId(20)]
         .into_iter()
-        .map(|peer| intuigram_app::AvatarView {
-            avatar: intuigram_app::AvatarRef {
+        .map(|peer| intuigram_lib::AvatarView {
+            avatar: intuigram_lib::AvatarRef {
                 peer,
-                id: intuigram_app::AvatarId(peer.0),
+                id: intuigram_lib::AvatarId(peer.0),
             },
-            image: intuigram_app::InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
+            image: intuigram_lib::InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
                 .expect("fixture dimensions should match"),
         })
         .collect();

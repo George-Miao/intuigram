@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
 use std::thread;
 
-use intuigram_app::{AdapterEvent, MessageView};
+use intuigram_lib::{AdapterEvent, MessageView};
 use intuigram_telegram::{LiveEvent, UpdateCursor};
 use snafu::ResultExt;
 
@@ -74,7 +74,7 @@ impl TelegramControl<'_> {
     pub fn complete_saved(
         &mut self,
         label: &str,
-        saved_peer: intuigram_app::ChatId,
+        saved_peer: intuigram_lib::ChatId,
         message: MessageView,
     ) -> Result<()> {
         self.complete_in_saved_dialog(label, Some(saved_peer), message)
@@ -83,7 +83,7 @@ impl TelegramControl<'_> {
     fn complete_in_saved_dialog(
         &mut self,
         label: &str,
-        saved_peer: Option<intuigram_app::ChatId>,
+        saved_peer: Option<intuigram_lib::ChatId>,
         mut message: MessageView,
     ) -> Result<()> {
         let Some(held) = self.system.telegram.take_held(label) else {

@@ -6,7 +6,7 @@ license.workspace = true
 
 [dependencies]
 compio-term.workspace = true
-intuigram-app.workspace = true
+intuigram-lib.workspace = true
 crossterm = { workspace = true, features = ["bracketed-paste"] }
 futures-util.workspace = true
 flume.workspace = true

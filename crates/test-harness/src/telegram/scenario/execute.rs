@@ -1,4 +1,4 @@
-use intuigram_app::{ChatId, MessageId, MessageView, SavedDialogView, TopicView};
+use intuigram_lib::{ChatId, MessageId, MessageView, SavedDialogView, TopicView};
 
 use super::{
     ExpectedCommand, HeldSend, HistoryResult, ObservedSend, ScenarioMismatch, TelegramScenario,
@@ -112,7 +112,7 @@ impl TelegramScenario {
 
     pub(crate) fn load_avatar(
         &mut self,
-        avatar: intuigram_app::AvatarRef,
+        avatar: intuigram_lib::AvatarRef,
     ) -> Result<(), ScenarioMismatch> {
         let observed = format!("load avatar {} for peer {}", avatar.id.0, avatar.peer.0);
         let expected = self.next_expected(&observed)?;
@@ -224,7 +224,7 @@ impl TelegramScenario {
         chat: ChatId,
         message: MessageId,
         text: String,
-        entities: Vec<intuigram_app::TextEntity>,
+        entities: Vec<intuigram_lib::TextEntity>,
         attachments: Vec<String>,
     ) -> Result<MessageView, ScenarioMismatch> {
         let observed = format!("edit Message {} in Chat {} to {text:?}", message.0, chat.0);

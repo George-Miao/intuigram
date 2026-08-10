@@ -28,7 +28,7 @@ fn primary_clicks_resolve_from_the_matching_rendered_semantics() {
         });
         assert_eq!(
             resolve_test_frame_event(&current, &frame, event),
-            Some(UiEvent::Intent(intuigram_app::Intent::Activate(target)))
+            Some(UiEvent::Intent(intuigram_lib::Intent::Activate(target)))
         );
     }
 }
@@ -75,7 +75,7 @@ fn composer_clicks_resolve_to_the_clicked_text_position() {
 
     assert_eq!(
         resolve_test_frame_event(&current, &frame, event),
-        Some(UiEvent::Intent(intuigram_app::Intent::SetComposerCursor(9)))
+        Some(UiEvent::Intent(intuigram_lib::Intent::SetComposerCursor(9)))
     );
 }
 
@@ -103,7 +103,7 @@ fn action_bar_clicks_invoke_the_rendered_effective_action() {
 
     assert_eq!(
         resolve_test_frame_event(&current, &frame, event),
-        Some(UiEvent::Intent(intuigram_app::Intent::Action(expected)))
+        Some(UiEvent::Intent(intuigram_lib::Intent::Action(expected)))
     );
 }
 
@@ -145,7 +145,7 @@ fn folder_unread_count_is_part_of_its_pointer_target() {
                 modifiers: KeyModifiers::NONE,
             }),
         ),
-        Some(UiEvent::Intent(intuigram_app::Intent::Activate(
+        Some(UiEvent::Intent(intuigram_lib::Intent::Activate(
             ActivationTarget::Folder(3)
         )))
     );
@@ -186,7 +186,7 @@ fn mouse_wheel_emits_pane_aware_scroll_intents() {
                     modifiers: KeyModifiers::NONE,
                 }),
             ),
-            Some(UiEvent::Intent(intuigram_app::Intent::Scroll(
+            Some(UiEvent::Intent(intuigram_lib::Intent::Scroll(
                 target, direction
             )))
         );

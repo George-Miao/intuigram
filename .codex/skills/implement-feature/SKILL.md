@@ -11,17 +11,17 @@ Build user-visible behavior test-first through the repository's hermetic behavio
 
 1. Read `AGENTS.md`, `CONTEXT.md`, `TODO.md`, every relevant ADR, and `docs/research/e2e-behavior-test-infrastructure.md`. Preserve unrelated worktree changes.
 2. Identify the exact behavior and its roadmap priority. Use the explicit priority from the request or matching TODO item; ask only when a required priority is genuinely ambiguous.
-3. Add or change a capability-oriented integration-test target under `crates/intuigram/tests/` before implementation. Extend the `test-harness` crate only when the scenario demonstrates a missing reusable test seam.
-4. Drive actions through real Crossterm input using `TestSystem::press`, `type_text`, `paste`, `resize`, or focus events. Observe behavior through live semantic locators and representative rendered cells. Do not mutate `intuigram-app` state directly in a behavior scenario.
+3. Add or change a capability-oriented integration-test target under `crates/intuigram-app/tests/` before implementation. Extend the `test-harness` crate only when the scenario demonstrates a missing reusable test seam.
+4. Drive actions through real Crossterm input using `TestSystem::press`, `type_text`, `paste`, `resize`, or focus events. Observe behavior through live semantic locators and representative rendered cells. Do not mutate `intuigram-lib` state directly in a behavior scenario.
 5. Script Telegram work with strict typed `TelegramScenario` expectations. Use the real temporary SQLite Account database. Make held work, completion order, disconnects, and updates explicit.
 6. Run the narrow scenario and confirm it fails for the missing behavior. Implement the smallest coherent production change, then rerun until green.
 7. Run the complete hermetic target:
 
    ```sh
-   cargo nextest run -p intuigram
+   cargo nextest run -p intuigram-app
    ```
 
-   If Nextest is unavailable, use `cargo test -p intuigram`. Run one scenario while iterating with `cargo test -p intuigram --test <capability>`. Then run the narrow owning-crate checks and the repository's full verification gate for broad changes.
+   If Nextest is unavailable, use `cargo test -p intuigram-app`. Run one scenario while iterating with `cargo test -p intuigram-app --test <capability>`. Then run the narrow owning-crate checks and the repository's full verification gate for broad changes.
 
 8. When every clause of a roadmap item is verifiably complete, use `$maintain-todo <priority> mark the matching item complete`. Do not mark partial work complete.
 9. After that, use `$commit-changes` to commit the feature.

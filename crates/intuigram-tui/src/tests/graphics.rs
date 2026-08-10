@@ -52,10 +52,10 @@ fn kitty_unicode_upload_creates_only_a_virtual_placement() {
 #[test]
 fn portrait_images_reserve_only_their_aspect_fitted_cells() {
     let mut current = image_message_view();
-    current.media_previews = vec![intuigram_app::MediaPreviewView {
+    current.media_previews = vec![intuigram_lib::MediaPreviewView {
         chat: ChatId(10),
         message: MessageId(40),
-        image: intuigram_app::InlineImage::from_rgba(48, 96, vec![255; 48 * 96 * 4])
+        image: intuigram_lib::InlineImage::from_rgba(48, 96, vec![255; 48 * 96 * 4])
             .expect("fixture pixels should match their dimensions"),
     }];
 
@@ -68,10 +68,10 @@ fn portrait_images_reserve_only_their_aspect_fitted_cells() {
 #[test]
 fn kitty_render_uses_unicode_placeholders_without_redundant_media_metadata() {
     let mut current = image_message_view();
-    current.media_previews = vec![intuigram_app::MediaPreviewView {
+    current.media_previews = vec![intuigram_lib::MediaPreviewView {
         chat: ChatId(10),
         message: MessageId(40),
-        image: intuigram_app::InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
+        image: intuigram_lib::InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
             .expect("fixture pixels should match their dimensions"),
     }];
 
@@ -94,10 +94,10 @@ fn kitty_render_uses_unicode_placeholders_without_redundant_media_metadata() {
 #[test]
 fn inline_image_geometry_shrinks_inside_a_narrow_transcript() {
     let mut current = image_message_view();
-    current.media_previews = vec![intuigram_app::MediaPreviewView {
+    current.media_previews = vec![intuigram_lib::MediaPreviewView {
         chat: ChatId(10),
         message: MessageId(40),
-        image: intuigram_app::InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
+        image: intuigram_lib::InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
             .expect("fixture pixels should match their dimensions"),
     }];
 
@@ -111,10 +111,10 @@ fn inline_image_geometry_shrinks_inside_a_narrow_transcript() {
 #[test]
 fn background_kitty_upload_precedes_the_followup_placeholder() {
     let mut current = image_message_view();
-    current.media_previews = vec![intuigram_app::MediaPreviewView {
+    current.media_previews = vec![intuigram_lib::MediaPreviewView {
         chat: ChatId(10),
         message: MessageId(40),
-        image: intuigram_app::InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
+        image: intuigram_lib::InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
             .expect("fixture pixels should match their dimensions"),
     }];
     let mut output = Vec::new();

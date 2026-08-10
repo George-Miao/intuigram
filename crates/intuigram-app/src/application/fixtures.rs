@@ -1,0 +1,128 @@
+#[cfg(test)]
+pub(super) fn application_fixture() -> Bootstrap {
+    Bootstrap {
+        connection: intuigram_lib::ConnectionState::Connected,
+        account_name: "Intuigram Test".to_owned(),
+        notification_identity: "telegram:test".to_owned(),
+        muted_chats: Vec::new(),
+        offline_chats: Vec::new(),
+        accounts: Vec::new(),
+        folder_details: Vec::new(),
+        restored_selection: None,
+        transcript_anchors: Vec::new(),
+        folders: vec![
+            FolderView {
+                id: 0,
+                title: "All".to_owned(),
+                unread: 5,
+            },
+            FolderView {
+                id: 1,
+                title: "Work".to_owned(),
+                unread: 2,
+            },
+            FolderView {
+                id: 2,
+                title: "Archive".to_owned(),
+                unread: 0,
+            },
+        ],
+        chats: vec![
+            ChatView {
+                id: ChatId(100),
+                title: "Saved Messages".to_owned(),
+                preview: "Intuigram design notes".to_owned(),
+                preview_sender: None,
+                preview_sender_peer: None,
+                preview_timestamp: String::new(),
+                status: String::new(),
+                unread: 0,
+                pinned: true,
+                can_pin_messages: true,
+                has_topics: false,
+                has_direct_messages: false,
+                kind: ChatKind::SavedMessages,
+                folders: vec![0],
+            },
+            ChatView {
+                id: ChatId(101),
+                title: "Intuigram Contributors".to_owned(),
+                preview: "The dense layout feels right.".to_owned(),
+                preview_sender: Some("Lin".to_owned()),
+                preview_sender_peer: None,
+                preview_timestamp: "12:00".to_owned(),
+                status: String::new(),
+                unread: 3,
+                pinned: true,
+                can_pin_messages: true,
+                has_topics: false,
+                has_direct_messages: false,
+                kind: ChatKind::Supergroup,
+                folders: vec![0, 1],
+            },
+            ChatView {
+                id: ChatId(102),
+                title: "Terminal Friends".to_owned(),
+                preview: "Ship the runnable slice!".to_owned(),
+                preview_sender: None,
+                preview_sender_peer: None,
+                preview_timestamp: "12:00".to_owned(),
+                status: String::new(),
+                unread: 2,
+                pinned: false,
+                can_pin_messages: true,
+                has_topics: false,
+                has_direct_messages: false,
+                kind: ChatKind::Private,
+                folders: vec![0],
+            },
+        ],
+        topic_lists: Vec::new(),
+        saved_dialog_lists: Vec::new(),
+        avatar_peers: Vec::new(),
+        messages: fixture_messages(),
+        pinned_messages: Vec::new(),
+        drafts: Vec::new(),
+        histories: Vec::new(),
+        outbox: Vec::new(),
+    }
+}
+
+#[cfg(test)]
+fn fixture_messages() -> Vec<MessageView> {
+    vec![
+        MessageView {
+            id: MessageId(1),
+            sender: "Intuigram".to_owned(),
+            body: "Welcome. This is the live terminal UI, backed by the single-owner app loop."
+                .to_owned(),
+            timestamp: "09:41".to_owned(),
+            direction: MessageDirection::Incoming,
+            delivery: DeliveryState::Read,
+            reply_to: None,
+            details: MessageDetails::default(),
+        },
+        MessageView {
+            id: MessageId(2),
+            sender: "You".to_owned(),
+            body: "Dense, focus-driven, and no keyboard modes.".to_owned(),
+            timestamp: "09:42".to_owned(),
+            direction: MessageDirection::Outgoing,
+            delivery: DeliveryState::Read,
+            reply_to: Some(MessageId(1)),
+            details: MessageDetails::default(),
+        },
+        MessageView {
+            id: MessageId(3),
+            sender: "Intuigram".to_owned(),
+            body: "Press ? for exhaustive context help. Type or paste in any open Chat.".to_owned(),
+            timestamp: "09:43".to_owned(),
+            direction: MessageDirection::Incoming,
+            delivery: DeliveryState::Sent,
+            reply_to: None,
+            details: MessageDetails::default(),
+        },
+    ]
+}
+#[cfg(test)]
+use super::*;

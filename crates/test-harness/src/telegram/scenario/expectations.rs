@@ -82,9 +82,9 @@ impl TelegramScenario {
     #[must_use]
     pub fn expect_avatar(mut self, peer: i64) -> Self {
         self.expected.push_back(ExpectedCommand::LoadAvatar {
-            avatar: intuigram_app::AvatarRef {
+            avatar: intuigram_lib::AvatarRef {
                 peer: ChatId(peer),
-                id: intuigram_app::AvatarId(peer),
+                id: intuigram_lib::AvatarId(peer),
             },
         });
         self

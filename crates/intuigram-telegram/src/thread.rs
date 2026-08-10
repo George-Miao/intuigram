@@ -1,7 +1,7 @@
 //! Telegram Thread request construction.
 
 use grammers_tl_types as tl;
-use intuigram_app::MessageId;
+use intuigram_lib::MessageId;
 
 use crate::{Error, Result};
 
@@ -25,7 +25,7 @@ pub(super) fn read_request(
 #[cfg(test)]
 mod tests {
     use grammers_tl_types as tl;
-    use intuigram_app::MessageId;
+    use intuigram_lib::MessageId;
 
     use super::read_request;
 

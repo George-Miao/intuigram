@@ -24,8 +24,9 @@ Treat these documents as the current source of truth over `README.md` and the pr
 
 The target is a virtual Cargo workspace. Every package belongs under `crates/`.
 
-- `crates/intuigram`: executable and adapter composition.
-- `crates/intuigram-app`: sole owner of application state, transitions, user intents, adapter events, and read-only view data.
+- `crates/intuigram`: minimal executable entrypoint; it delegates process startup to `intuigram-app`.
+- `crates/intuigram-app`: executable application orchestration, adapter composition, synchronization, recovery, and the main Compio runtime loop.
+- `crates/intuigram-lib`: sole owner of canonical application state, synchronous transitions, user intents, adapter events, effects, and read-only view data.
 - `crates/intuigram-tui`: terminal input, adaptive layout, and rendering.
 - `crates/intuigram-telegram`: Telegram login, synchronization, raw requests, update reconciliation, and translation to Intuigram-owned data.
 - `crates/intuigram-store`: durable application records, migrations, backups, and recovery.
@@ -40,18 +41,18 @@ The target is a virtual Cargo workspace. Every package belongs under `crates/`.
 
 Use `intuigram-*` for Intuigram-specific crates. Give genuinely reusable crates independent names. Do not create a crate merely to group related types. A crate must hide meaningful behavior behind a small interface at a demonstrated seam.
 
-Dependencies point toward `intuigram-app`; the `intuigram` executable composes adapters. Keep adapter-specific values out of `intuigram-app`, including ratatui widgets, Telegram TL constructors, SQLite rows, and platform clipboard types. Avoid dependency cycles and shared catch-all type crates.
+Domain-facing dependencies point toward `intuigram-lib`; adapter crates may use its Intuigram-owned values but must not depend on `intuigram-app`. `intuigram-app` sits above `intuigram-lib` and the concrete adapters, while `intuigram` depends only on `intuigram-app`. Keep adapter-specific values out of `intuigram-lib`, including ratatui widgets, Telegram TL constructors, SQLite rows, actor mailboxes, and platform clipboard types. Translate those values at the orchestration seams in `intuigram-app`. Avoid dependency cycles and shared catch-all type crates.
 
 ## State and concurrency
 
-- The `intuigram` composition loop runs terminal input, rendering, synchronous
-  `intuigram-app` state reduction, result aggregation, and nonblocking platform
+- The `intuigram-app` composition loop runs terminal input, rendering, synchronous
+  `intuigram-lib` state reduction, result aggregation, and nonblocking platform
   effects on the main Compio runtime thread.
 - Each live Telegram Account session is constructed and owned by an actor on a
   dedicated one-worker Compio cluster. Its `LiveUpdates` driver is a retained
   worker-local task so Telegram invocations and update polling make progress
   together without moving non-`Send` connection state across threads.
-- `intuigram-app` exclusively owns mutable application state and applies each
+- `intuigram-lib` exclusively owns mutable application state and applies each
   typed input synchronously, returning an immutable view and optional adapter
   effect.
 - The composition loop polls persistent event sources and a bounded set of
@@ -83,7 +84,7 @@ Dependencies point toward `intuigram-app`; the `intuigram` executable composes a
 - Use grammers' sender implementation as a behavioral reference for protocol state transitions, acknowledgements, retries, reconnection, data-center handling, and edge cases. Do not copy its Tokio-specific interface into Intuigram.
 - Use Compio owned-buffer I/O for the transport. Do not hide Compio behind Tokio `AsyncRead` or `AsyncWrite` compatibility that defeats completion-based I/O.
 - Direct Telegram TCP transport is p-core. Keep the transport seam ready for p-high SOCKS5, HTTP CONNECT, and MTProxy adapters.
-- Telegram TL values must be normalized into Intuigram-owned data before crossing into `intuigram-app` or persistence.
+- Telegram TL values must be normalized into Intuigram-owned data before crossing into `intuigram-lib` or persistence.
 - Unknown or newly introduced Telegram constructors must remain synchronizable and appear as Unsupported Content rather than being dropped or crashing the update loop.
 
 ## Persistence and filesystem
@@ -166,9 +167,12 @@ Enforce owner-only permissions for authorization and Account data. Never log aut
 
 Test modules through the same interfaces callers use. Prefer deterministic tests with in-memory or temporary adapters; ordinary tests must not require Telegram credentials or network access.
 
+Keep cross-layer behavior scenarios under `crates/intuigram-app/tests/`, where they exercise the production composition interface. Reserve `crates/intuigram/tests/` for future executable/PTY contract tests that must launch the actual binary.
+
 Required coverage includes:
 
-- `intuigram-app` state transitions and event ordering.
+- `intuigram-lib` state transitions and event ordering.
+- `intuigram-app` composition, effect routing, synchronization, and shutdown ordering.
 - MTProto framing, acknowledgement, retry, reconnection, salt, sequence, and data-center behavior using deterministic fixtures and a fake transport.
 - Storage migrations from every released schema, backup/recovery behavior, transaction rollback, and cursor/data atomicity.
 - Telegram constructor normalization, including fixtures for unknown constructors.

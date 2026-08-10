@@ -1,6 +1,6 @@
 mod worker;
 
-use intuigram_app::{ChatId, InlineImage, MessageId};
+use intuigram_lib::{ChatId, InlineImage, MessageId};
 use rasterm::{
     CellPixels, CellSize, Environment, Image, ImageId, Multiplexer, Placement, Protocol,
 };

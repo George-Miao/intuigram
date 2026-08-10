@@ -1,4 +1,4 @@
-use intuigram_app::{AdapterEvent, Effect};
+use intuigram_lib::{AdapterEvent, Effect};
 
 use super::TestSystem;
 use crate::error::Result;

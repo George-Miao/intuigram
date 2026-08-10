@@ -1,4 +1,4 @@
-use intuigram_app::{ScheduledEditorOperation, ScheduledManagerView};
+use intuigram_lib::{ScheduledEditorOperation, ScheduledManagerView};
 
 use super::*;
 
@@ -122,7 +122,7 @@ fn render_editor(
     frame: &mut Frame<'_>,
     popup: Rect,
     manager: &ScheduledManagerView,
-    editor: &intuigram_app::ScheduledEditorView,
+    editor: &intuigram_lib::ScheduledEditorView,
 ) {
     let mut lines = vec![
         heading(match editor.operation {

@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use image::imageops::FilterType;
 use image::{ImageReader, Limits};
-use intuigram_app::InlineImage;
+use intuigram_lib::InlineImage;
 use snafu::{ResultExt, Snafu};
 
 const MAX_SOURCE_DIMENSION: u32 = 16_384;

@@ -4,13 +4,13 @@ use super::*;
 fn picker_disambiguates_names_and_confirmation_names_deleted_data() {
     let mut current = view(Vec::new());
     current.accounts = vec![
-        intuigram_app::AccountView {
-            id: intuigram_app::AccountKey(10),
+        intuigram_lib::AccountView {
+            id: intuigram_lib::AccountKey(10),
             display_name: "Ada".to_owned(),
             active: true,
         },
-        intuigram_app::AccountView {
-            id: intuigram_app::AccountKey(20),
+        intuigram_lib::AccountView {
+            id: intuigram_lib::AccountKey(20),
             display_name: "Ada".to_owned(),
             active: false,
         },
@@ -26,9 +26,9 @@ fn picker_disambiguates_names_and_confirmation_names_deleted_data() {
     assert!(picker.contains("Ada  20"));
 
     current.account_picker = None;
-    current.account_confirmation = Some(intuigram_app::AccountConfirmationView {
-        account: intuigram_app::AccountKey(20),
-        kind: intuigram_app::AccountConfirmationKind::RemoveLocal,
+    current.account_confirmation = Some(intuigram_lib::AccountConfirmationView {
+        account: intuigram_lib::AccountKey(20),
+        kind: intuigram_lib::AccountConfirmationKind::RemoveLocal,
     });
     terminal
         .draw(|frame| render(frame, &current, &EffectiveKeymap::defaults()))

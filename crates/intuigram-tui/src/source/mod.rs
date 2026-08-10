@@ -14,7 +14,7 @@ use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode, window_size,
 };
 use futures_util::{Stream, StreamExt};
-use intuigram_app::{
+use intuigram_lib::{
     Action, ActivationTarget, ChatId, ChatKind, ChatLoadingState, ChatView, ComposerMovement,
     ConnectionState, DeliveryState, Focus, Intent, MessageDirection, MessageId, MessageView,
     ScrollDirection, ScrollTarget, SearchScope, TextEntityKind, TopicId, View,

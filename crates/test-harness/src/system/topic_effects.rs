@@ -1,4 +1,4 @@
-use intuigram_app::{AdapterEvent, ChatId, TopicListView};
+use intuigram_lib::{AdapterEvent, ChatId, TopicListView};
 
 use super::TestSystem;
 use crate::error::Result;

@@ -1,7 +1,7 @@
 //! Synchronous execution of application effects against scripted adapters.
 
-use intuigram::encode_stored_message;
-use intuigram_app::{AdapterEvent, ConnectionState, Effect, MediaPreviewView};
+use intuigram_app::encode_stored_message;
+use intuigram_lib::{AdapterEvent, ConnectionState, Effect, MediaPreviewView};
 use intuigram_store::StoredSelection;
 use intuigram_telegram::{LiveEvent, UpdateCursor, UpdateScope};
 use snafu::ResultExt;

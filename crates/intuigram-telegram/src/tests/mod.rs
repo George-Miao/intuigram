@@ -3,7 +3,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use compio_mtproto::InvocationError;
 use grammers_tl_types::{self as tl, Serializable as _};
-use intuigram_app::{
+use intuigram_lib::{
     AdapterEvent, ChatId, ChatKind, ChatView, FolderId, GiftKindView, GiftView, GiveawayStateView,
     GiveawayView, MediaKind, MessageDirection, MessageId, SharedStoryView, SpecializedMediaView,
     StoryStateView, TodoListView,

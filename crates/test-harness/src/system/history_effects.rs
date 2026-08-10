@@ -1,7 +1,7 @@
 //! Chat-history effect execution through the real durable adapter seam.
 
-use intuigram::encode_stored_message;
-use intuigram_app::{AdapterEvent, ChatId, SelectionView, TranscriptAnchorView};
+use intuigram_app::encode_stored_message;
+use intuigram_lib::{AdapterEvent, ChatId, SelectionView, TranscriptAnchorView};
 use intuigram_store::{StoredSelection, StoredTranscriptAnchor};
 use snafu::ResultExt;
 

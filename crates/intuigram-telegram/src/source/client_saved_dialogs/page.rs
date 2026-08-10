@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use intuigram_app::SavedDialogDraftView;
+use intuigram_lib::SavedDialogDraftView;
 
 use super::*;
 #[derive(Clone, Debug, PartialEq)]
