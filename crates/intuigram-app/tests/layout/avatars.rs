@@ -72,3 +72,30 @@ fn transcript_sender_avatar_uses_two_row_message_layout() -> Result<()> {
     );
     app.expect_no_unhandled_work()
 }
+
+#[test]
+fn active_chat_avatar_spans_the_title_and_status_rows() -> Result<()> {
+    let mut group = chat(10, "rust.tw");
+    group.kind = ChatKind::Supergroup;
+    group.status = "1181 members".to_owned();
+    let mut app = TestSystem::builder()
+        .name("layout-active-chat-header-avatar")
+        .terminal(100, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(group).with_avatar(10))
+                .expect_avatar(10)
+                .expect_load_history(10, []),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    let rows = app.screen().rows();
+    let title = row_within(&rows, "rust.tw", 33, 100);
+    let status = row_within(&rows, "1181 members", 33, 100);
+
+    assert_eq!(status, title + 1);
+    assert!(row_segment(&rows, title, 33, 100).contains('▀'));
+    assert!(row_segment(&rows, status, 33, 100).contains('▀'));
+    app.expect_no_unhandled_work()
+}

@@ -33,19 +33,27 @@ pub(super) fn render_active_chat_header(
     focused: bool,
     graphics: &mut GraphicsFrame,
 ) {
-    let (title, status) = title_and_status(view, graphics, focused);
-    let context = active_context(view);
+    let (mut title, status) = title_and_status(view);
+    let mut context = active_context(view);
+    let avatar = header_avatar(view, graphics, focused);
     let lines = match mode {
         ViewMode::Default => {
             let mut status = status;
             append_context(&mut status, context);
+            if let Some([top, bottom]) = avatar {
+                title.spans.splice(0..0, top);
+                status.spans.splice(0..0, bottom);
+            }
             vec![Line::from(""), title, status, Line::from("")]
         }
         ViewMode::Compact => {
-            let mut title = title;
             if !status.spans.is_empty() {
                 title.spans.push(Span::raw("  "));
                 title.spans.extend(status.spans);
+            }
+            if let Some([top, bottom]) = avatar {
+                title.spans.splice(0..0, top);
+                context.spans.splice(0..0, bottom);
             }
             vec![title, context]
         }
@@ -57,11 +65,7 @@ pub(super) fn render_active_chat_header(
     );
 }
 
-fn title_and_status(
-    view: &View,
-    graphics: &mut GraphicsFrame,
-    focused: bool,
-) -> (Line<'static>, Line<'static>) {
+fn title_and_status(view: &View) -> (Line<'static>, Line<'static>) {
     view.active_chat
         .and_then(|index| view.chats.get(index))
         .map_or_else(
@@ -96,10 +100,7 @@ fn title_and_status(
                             Style::default().fg(MUTED_TEXT),
                         ))
                     };
-                    return (
-                        Line::from(title_spans(view, chat, graphics, focused)),
-                        status,
-                    );
+                    return (title_line(chat), status);
                 }
                 if let Some(peer) = view.active_saved_peer {
                     let origin = view
@@ -108,7 +109,7 @@ fn title_and_status(
                         .find(|dialog| dialog.peer == peer)
                         .map_or("unknown peer", |dialog| dialog.title.as_str());
                     return (
-                        Line::from(title_spans(view, chat, graphics, focused)),
+                        title_line(chat),
                         Line::from(Span::styled(
                             if chat.has_direct_messages {
                                 format!("Direct message with {origin}")
@@ -128,7 +129,7 @@ fn title_and_status(
                         let status = if view.focus == Focus::Topics {
                             if view.topics_loading {
                                 return (
-                                    Line::from(title_spans(view, chat, graphics, focused)),
+                                    title_line(chat),
                                     Line::from(effort_spans(
                                         "updating Topics",
                                         view.animation_frame,
@@ -146,31 +147,32 @@ fn title_and_status(
                         Line::from(Span::styled(status, Style::default().fg(MUTED_TEXT)))
                     }
                 };
-                let title = title_spans(view, chat, graphics, focused);
-                (Line::from(title), status)
+                (title_line(chat), status)
             },
         )
 }
 
-fn title_spans(
+fn header_avatar(
     view: &View,
-    chat: &ChatView,
     graphics: &mut GraphicsFrame,
     focused: bool,
-) -> Vec<Span<'static>> {
-    let mut title = avatar_spans(
+) -> Option<[Vec<Span<'static>>; 2]> {
+    let chat = view.active_chat.and_then(|index| view.chats.get(index))?;
+    Some(avatar_block(
         view,
         Some(chat.id),
         &chat.title,
         Some(avatar_image_id(chat.id, 0x4845_4144)),
         graphics,
         focused,
-    );
-    title.push(Span::styled(
+    ))
+}
+
+fn title_line(chat: &ChatView) -> Line<'static> {
+    Line::from(Span::styled(
         chat.title.clone(),
         Style::default().add_modifier(Modifier::BOLD),
-    ));
-    title
+    ))
 }
 
 fn fallback_status(kind: ChatKind) -> &'static str {
