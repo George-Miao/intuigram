@@ -48,6 +48,7 @@ use intuigram_tui::{
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 
+mod account_loading;
 mod actor_session;
 mod authorization;
 mod backend;
@@ -73,6 +74,9 @@ mod startup;
 mod types;
 mod ui;
 
+use account_loading::{
+    Loading, PreparedAccount, prepare_account, prepare_recovered, wait_for_account_load,
+};
 use actor_session::{ActorConnection, ActorSession, ConnectedActorSession};
 use authorization::{authorize_new_account, resume_account};
 use cache::{cached_bootstrap, outbox_view};
@@ -191,6 +195,9 @@ enum Error {
 
     #[snafu(display("failed to access Intuigram Account database"))]
     AccountDatabase { source: intuigram_store::Error },
+
+    #[snafu(display("failed while loading the active Account"))]
+    AccountLoading { source: account_loading::Error },
 
     #[snafu(display("Account database requires recovery"))]
     AccountRecovery { source: crate::recovery::Error },

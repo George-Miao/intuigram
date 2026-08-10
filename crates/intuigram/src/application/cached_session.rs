@@ -38,6 +38,7 @@ where
         account.clone(),
         storage.clone(),
     ));
+    let mut animation_timer: Option<Pin<Box<dyn Future<Output = ()>>>> = None;
 
     loop {
         terminal.draw(&update.view).context(TerminalSnafu)?;
@@ -75,6 +76,14 @@ where
             Terminal(T),
             Redraw(intuigram_tui::Result<()>),
             Connected(Box<Result<ConnectedActorSession>>),
+            Animate,
+        }
+        if update.view.has_pending_effort() {
+            if animation_timer.is_none() {
+                animation_timer = Some(Box::pin(compio::time::sleep(Duration::from_millis(90))));
+            }
+        } else {
+            animation_timer = None;
         }
         let wake = poll_fn(|cx| {
             if let Poll::Ready(result) = terminal.poll_redraw(cx) {
@@ -87,6 +96,12 @@ where
                 && let Poll::Ready(result) = Pin::new(connection).poll(cx)
             {
                 return Poll::Ready(Wake::Connected(Box::new(result)));
+            }
+            if animation_timer
+                .as_mut()
+                .is_some_and(|timer| timer.as_mut().poll(cx).is_ready())
+            {
+                return Poll::Ready(Wake::Animate);
             }
             Poll::Pending
         })
@@ -103,6 +118,10 @@ where
                     UiEvent::Redraw => {}
                     UiEvent::Intent(intent) => update = app.transition(Input::Intent(intent)),
                 }
+            }
+            Wake::Animate => {
+                animation_timer = None;
+                update = app.transition(Input::Intent(Intent::Animate));
             }
             Wake::Connected(result) if result.is_ok() => {
                 let Ok(ConnectedActorSession {

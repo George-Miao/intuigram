@@ -20,6 +20,7 @@ mod cached;
 mod connection_retry;
 mod effect_fairness;
 mod misc;
+mod startup_loading;
 
 #[derive(Clone)]
 struct PendingHistoryBackend {
