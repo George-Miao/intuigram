@@ -66,7 +66,7 @@ pub(super) fn render_media(
     } = context;
     let mut lines = Vec::new();
     if let Some(preview) = preview {
-        lines.push(message_spacing(active));
+        lines.push(media_spacing(active, selected, forwarded, content_indent));
         lines.extend(render_image(
             preview,
             ImageRenderContext {
@@ -81,9 +81,9 @@ pub(super) fn render_media(
             },
             graphics,
         ));
-        lines.push(message_spacing(active));
+        lines.push(media_spacing(active, selected, forwarded, content_indent));
     } else if loading {
-        lines.push(message_spacing(active));
+        lines.push(media_spacing(active, selected, forwarded, content_indent));
         lines.extend(render_loading_image(
             selected,
             active,
@@ -93,7 +93,7 @@ pub(super) fn render_media(
             max_height,
             content_indent,
         ));
-        lines.push(message_spacing(active));
+        lines.push(media_spacing(active, selected, forwarded, content_indent));
     } else {
         let description = media.display_description();
         let mut card = content_prefix(active, selected, forwarded, content_indent);
@@ -146,6 +146,15 @@ pub(super) fn render_media(
         }
     }
     lines
+}
+
+fn media_spacing(
+    active: bool,
+    selected: bool,
+    forwarded: bool,
+    content_indent: usize,
+) -> Line<'static> {
+    Line::from(content_prefix(active, selected, forwarded, content_indent))
 }
 
 fn poll_option_line(

@@ -108,8 +108,9 @@ fn photo_preview_is_loaded_when_the_chat_opens() -> Result<()> {
 }
 
 #[test]
-fn inline_image_has_vertical_padding_inside_the_active_message_rule() -> Result<()> {
+fn inline_image_padding_keeps_active_and_forwarded_rules_continuous() -> Result<()> {
     let mut photo = incoming(45, "Lin", "padded preview");
+    photo.details.forwarded_from = Some("Runtime News".to_owned());
     photo.details.media = Some(MediaCard {
         kind: MediaKind::Photo,
         title: "padded.png".to_owned(),
@@ -138,14 +139,48 @@ fn inline_image_has_vertical_padding_inside_the_active_message_rule() -> Result<
         .enumerate()
         .filter_map(|(row, content)| content.contains('▀').then_some(row))
         .collect::<Vec<_>>();
+    let provenance_row = rows
+        .iter()
+        .position(|row| row.contains("Forwarded from Runtime News"))
+        .expect("forwarded provenance should render");
+    let provenance_rule = rows[provenance_row]
+        .chars()
+        .enumerate()
+        .filter_map(|(column, symbol)| (symbol == '│').then_some(column))
+        .last()
+        .expect("forwarded provenance should have a vertical rule");
     let first = *image_rows.first().expect("image should render");
     let last = *image_rows.last().expect("image should render");
 
     assert!(image_rows.len() >= 10);
     assert_eq!(app.screen().symbol_at(34, (first - 1) as u16), "│");
     assert_eq!(app.screen().symbol_at(34, (last + 1) as u16), "│");
-    assert!(transcript_content(&rows[first - 1]).trim().is_empty());
-    assert!(transcript_content(&rows[last + 1]).trim().is_empty());
+    assert_eq!(
+        app.screen()
+            .symbol_at(provenance_rule as u16, (first - 1) as u16),
+        "│"
+    );
+    assert_eq!(
+        app.screen()
+            .symbol_at(provenance_rule as u16, (last + 1) as u16),
+        "│"
+    );
+    assert!(
+        rows[first - 1]
+            .chars()
+            .skip(provenance_rule + 1)
+            .collect::<String>()
+            .trim()
+            .is_empty()
+    );
+    assert!(
+        rows[last + 1]
+            .chars()
+            .skip(provenance_rule + 1)
+            .collect::<String>()
+            .trim()
+            .is_empty()
+    );
     app.screen().message(45).expect_continuous_active_rule()?;
     app.expect_no_unhandled_work()
 }
@@ -271,8 +306,4 @@ fn failed_background_channel_refresh_does_not_block_an_image_preview() -> Result
 
     assert!(app.screen().rows().iter().any(|row| row.contains('▀')));
     app.expect_no_unhandled_work()
-}
-
-fn transcript_content(row: &str) -> String {
-    row.chars().skip(36).collect()
 }

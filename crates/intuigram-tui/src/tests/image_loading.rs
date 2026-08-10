@@ -17,6 +17,7 @@ fn image_placeholder_animates_in_the_final_preview_geometry() {
     let loading_text = symbols(&loading.buffer);
     assert!(loading_text.contains("loading image"));
     assert!(loading_text.matches('░').count() > 150);
+    assert_forwarded_rule_is_continuous(&rendered_rows(&loading.buffer));
 
     current.animation_frame = 1;
     let next = render_test_frame(&current, 100, 40);
@@ -84,6 +85,7 @@ fn image_message_view() -> View {
         reply_to: None,
         details: MessageDetails {
             sender_peer: None,
+            forwarded_from: Some("Runtime News".to_owned()),
             media: Some(MediaCard {
                 kind: MediaKind::Photo,
                 title: "Photo".to_owned(),
@@ -97,6 +99,31 @@ fn image_message_view() -> View {
         },
     }];
     current
+}
+
+fn assert_forwarded_rule_is_continuous(rows: &[String]) {
+    let provenance = rows
+        .iter()
+        .position(|row| row.contains("Forwarded from Runtime News"))
+        .expect("forwarded provenance should render");
+    let caption = rows
+        .iter()
+        .position(|row| row.contains("caption"))
+        .expect("caption should render");
+    let rule = rows[provenance]
+        .chars()
+        .enumerate()
+        .filter_map(|(column, symbol)| (symbol == '│').then_some(column))
+        .last()
+        .expect("forwarded provenance should have a vertical rule");
+
+    for (row, content) in rows.iter().enumerate().take(caption + 1).skip(provenance) {
+        assert_eq!(
+            content.chars().nth(rule),
+            Some('│'),
+            "missing rule on row {row}"
+        );
+    }
 }
 
 fn message_height(frame: &crate::TestFrame) -> u16 {
