@@ -36,7 +36,26 @@ pub(super) fn message_lines(
         forwarded: message.details.forwarded_from.is_some(),
         content_indent: avatar_width(view, message.details.sender_peer, &message.sender),
     };
-    let mut lines = message_heading(view, message, state, &layout, graphics);
+    let avatar = (!layout.grouped_with_previous).then(|| {
+        let id = active_chat(view)
+            .zip(message.details.sender_peer)
+            .map(|(chat, peer)| avatar_image_id(peer, chat.0 ^ message.id.0 ^ 0x4d53_4741));
+        avatar_block(
+            view,
+            message.details.sender_peer,
+            &message.sender,
+            id,
+            graphics,
+            layout.focused,
+        )
+    });
+    let mut lines = message_heading(
+        message,
+        state,
+        &layout,
+        avatar.as_ref().map(|rows| rows[0].clone()),
+    );
+    let content_start = lines.len();
     if let Some(source) = &message.details.forwarded_from {
         lines.push(message_spacing(state.active));
         let mut provenance =
@@ -64,6 +83,9 @@ pub(super) fn message_lines(
         lines.push(message_spacing(state.active));
     }
     append_content(view, index, message, &layout, state, &mut lines, graphics);
+    if let Some([_, bottom]) = avatar {
+        place_avatar_bottom(&mut lines[content_start..], bottom, state);
+    }
     append_message_metadata(
         &mut lines,
         message,
@@ -79,11 +101,10 @@ pub(super) fn message_lines(
 }
 
 fn message_heading(
-    view: &View,
     message: &MessageView,
     state: MessageState,
     layout: &MessageLayout,
-    graphics: &mut GraphicsFrame,
+    avatar_top: Option<Vec<Span<'static>>>,
 ) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
     if layout.unread {
@@ -105,21 +126,11 @@ fn message_heading(
         );
     }
     if !layout.grouped_with_previous {
-        let avatar_id = active_chat(view)
-            .zip(message.details.sender_peer)
-            .map(|(chat, peer)| avatar_image_id(peer, chat.0 ^ message.id.0 ^ 0x4d53_4741));
         let mut heading = vec![
             selection_rule(state.active),
             message_selection_marker(state.selected),
         ];
-        heading.extend(avatar_spans(
-            view,
-            message.details.sender_peer,
-            &message.sender,
-            avatar_id,
-            graphics,
-            layout.focused,
-        ));
+        heading.extend(avatar_top.unwrap_or_default());
         heading.push(Span::styled(
             message.sender.clone(),
             Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
@@ -127,6 +138,21 @@ fn message_heading(
         lines.push(Line::from(heading));
     }
     lines
+}
+
+fn place_avatar_bottom(
+    lines: &mut [Line<'static>],
+    bottom: Vec<Span<'static>>,
+    state: MessageState,
+) {
+    let indent_index = 2 + usize::from(state.forwarded);
+    let Some(line) = lines
+        .iter_mut()
+        .find(|line| line.spans.len() > indent_index)
+    else {
+        return;
+    };
+    line.spans.splice(indent_index..=indent_index, bottom);
 }
 
 fn append_content(

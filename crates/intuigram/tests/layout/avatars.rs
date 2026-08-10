@@ -19,8 +19,7 @@ fn group_chat_rows_show_last_sender_preview_and_message_time() -> Result<()> {
                         .with_avatar(10)
                         .with_avatar(20),
                 )
-                .expect_avatar(10)
-                .expect_avatar(20),
+                .expect_avatar(10),
         )
         .start()?;
 
@@ -32,6 +31,7 @@ fn group_chat_rows_show_last_sender_preview_and_message_time() -> Result<()> {
     assert!(row_segment(&rows, title_row, 0, 32).contains('▀'));
     assert!(row_segment(&rows, preview_row, 0, 32).contains('▀'));
     assert!(!row_segment(&rows, preview_row, 0, 32).contains("[LQ]"));
+    assert!(row_segment(&rows, preview_row, 0, 32).contains("Lin Qiao: daily driver"));
     app.expect_no_unhandled_work()
 }
 

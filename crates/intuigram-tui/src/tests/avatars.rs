@@ -43,7 +43,8 @@ fn text_avatar_fallbacks_render_in_chat_list_header_and_transcript() {
     assert_eq!(rendered.matches("[IT]").count(), 2);
     assert!(rendered.contains("[LQ]"));
     assert!(rendered.contains("12:34"));
-    assert!(rendered.contains("[LQ] daily driver"));
+    assert!(rendered.contains("Lin Qiao: daily driver"));
+    assert!(!rendered.contains("[LQ] daily driver"));
 }
 
 #[test]
@@ -91,7 +92,8 @@ fn decoded_avatar_images_replace_badges_in_every_visible_peer_position() {
         })
         .collect();
 
-    let (frame, _) = render_test_frame_with_graphics(&current, 100, 40, GraphicsProtocol::Text);
+    let (frame, graphics) =
+        render_test_frame_with_graphics(&current, 100, 40, GraphicsProtocol::KittyUnicode);
     let rendered = frame
         .buffer
         .content
@@ -101,5 +103,47 @@ fn decoded_avatar_images_replace_badges_in_every_visible_peer_position() {
 
     assert!(!rendered.contains("[IT]"));
     assert!(!rendered.contains("[LQ]"));
-    assert!(rendered.matches('▀').count() >= 8);
+    assert_eq!(graphics.requests().len(), 3);
+    assert_eq!(
+        graphics
+            .requests()
+            .iter()
+            .filter(|request| request.size.columns == 2 && request.size.rows == 2)
+            .count(),
+        2,
+        "the Chat-list Chat avatar and Transcript sender avatar should be 2x2"
+    );
+}
+
+#[test]
+fn channel_preview_omits_its_single_author_name() {
+    let mut current = view(Vec::new());
+    current.chats = vec![ChatView {
+        id: ChatId(10),
+        title: "Release channel".to_owned(),
+        preview: "version 1.0".to_owned(),
+        preview_sender: Some("Release bot".to_owned()),
+        preview_sender_peer: Some(ChatId(20)),
+        preview_timestamp: "12:34".to_owned(),
+        status: "channel".to_owned(),
+        unread: 0,
+        pinned: false,
+        can_pin_messages: true,
+        has_topics: false,
+        has_direct_messages: false,
+        kind: ChatKind::Channel,
+        folders: vec![0],
+    }];
+    current.active_chat = Some(0);
+
+    let frame = render_test_frame(&current, 100, 40);
+    let rendered = frame
+        .buffer
+        .content
+        .iter()
+        .map(|cell| cell.symbol())
+        .collect::<String>();
+
+    assert!(rendered.contains("version 1.0"));
+    assert!(!rendered.contains("Release bot: version 1.0"));
 }

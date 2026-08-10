@@ -37,7 +37,6 @@ impl App {
             let end = (active + CHAT_WINDOW_RADIUS + 1).min(self.view.chats.len());
             for chat in &self.view.chats[start..end] {
                 peers.push(chat.id);
-                peers.extend(chat.preview_sender_peer);
             }
         }
         peers.extend(

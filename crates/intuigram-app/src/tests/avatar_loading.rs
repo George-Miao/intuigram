@@ -33,6 +33,31 @@ fn only_known_visible_avatar_peers_are_loaded_and_retained() {
 }
 
 #[test]
+fn chat_list_previews_do_not_load_sender_avatars() {
+    let mut fixture = bootstrap();
+    fixture.chats[0].preview_sender = Some("Lin".to_owned());
+    fixture.chats[0].preview_sender_peer = Some(ChatId(20));
+    fixture.avatar_peers = vec![avatar(10, 1), avatar(20, 2)];
+    let mut app = App::new();
+    let loading = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    assert_eq!(
+        loading.effect,
+        Some(Effect::LoadAvatar {
+            avatar: avatar(10, 1),
+        })
+    );
+    let image = InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
+        .expect("fixture dimensions should match");
+
+    let completed = app.transition(Input::Adapter(AdapterEvent::AvatarReady(AvatarView {
+        avatar: avatar(10, 1),
+        image,
+    })));
+
+    assert_eq!(completed.effect, None);
+}
+
+#[test]
 fn background_history_continues_after_visible_avatars_finish() {
     let mut fixture = hierarchy_bootstrap();
     fixture.avatar_peers = vec![avatar(10, 1)];

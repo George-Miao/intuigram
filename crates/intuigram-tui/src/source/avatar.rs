@@ -3,7 +3,6 @@ use rasterm::{CellSize, Image, ImageId, text_cells, unicode_placeholder};
 use super::*;
 
 const AVATAR_COLUMNS: u16 = 2;
-const AVATAR_ROWS: u16 = 1;
 
 pub(super) fn avatar_badge(name: &str) -> Span<'static> {
     Span::styled(
@@ -20,6 +19,35 @@ pub(super) fn avatar_spans(
     graphics: &mut GraphicsFrame,
     focused: bool,
 ) -> Vec<Span<'static>> {
+    avatar_rows(view, peer, name, id, graphics, focused, 1)
+        .pop()
+        .expect("a one-row avatar always renders one row")
+}
+
+pub(super) fn avatar_block(
+    view: &View,
+    peer: Option<ChatId>,
+    name: &str,
+    id: Option<ImageId>,
+    graphics: &mut GraphicsFrame,
+    focused: bool,
+) -> [Vec<Span<'static>>; 2] {
+    let mut rows = avatar_rows(view, peer, name, id, graphics, focused, 2).into_iter();
+    [
+        rows.next().expect("a two-row avatar has a top row"),
+        rows.next().expect("a two-row avatar has a bottom row"),
+    ]
+}
+
+fn avatar_rows(
+    view: &View,
+    peer: Option<ChatId>,
+    name: &str,
+    id: Option<ImageId>,
+    graphics: &mut GraphicsFrame,
+    focused: bool,
+    row_count: u16,
+) -> Vec<Vec<Span<'static>>> {
     let Some((image, id)) = peer
         .and_then(|peer| {
             view.avatars
@@ -28,32 +56,47 @@ pub(super) fn avatar_spans(
         })
         .zip(id)
     else {
-        return vec![avatar_badge(name)];
+        let badge = avatar_badge(name);
+        let width = Line::from(badge.clone()).width();
+        return (0..row_count)
+            .map(|row| {
+                if row == 0 {
+                    vec![badge.clone()]
+                } else {
+                    vec![Span::raw(" ".repeat(width))]
+                }
+            })
+            .collect();
     };
     let size = CellSize {
         columns: AVATAR_COLUMNS,
-        rows: AVATAR_ROWS,
+        rows: row_count,
     };
-    let mut spans = if graphics.protocol().uses_placements() {
+    let mut rows = if graphics.protocol().uses_placements() {
         graphics.push(id, &image.image, size);
         let foreground = graphics::image_color(id);
-        (0..AVATAR_COLUMNS)
-            .map(|column| {
-                let symbol = if graphics.protocol().uses_unicode_placeholders() {
-                    unicode_placeholder(0, column)
-                        .expect("avatar placeholders remain inside Kitty's coordinate limit")
-                } else {
-                    " ".to_owned()
-                };
-                let style = Style::default().fg(foreground);
-                Span::styled(
-                    symbol,
-                    if focused {
-                        style.bg(FOCUSED_SURFACE_BACKGROUND)
-                    } else {
-                        style
-                    },
-                )
+        (0..row_count)
+            .map(|row| {
+                (0..AVATAR_COLUMNS)
+                    .map(|column| {
+                        let symbol = if graphics.protocol().uses_unicode_placeholders() {
+                            unicode_placeholder(row, column).expect(
+                                "avatar placeholders remain inside Kitty's coordinate limit",
+                            )
+                        } else {
+                            " ".to_owned()
+                        };
+                        let style = Style::default().fg(foreground);
+                        Span::styled(
+                            symbol,
+                            if focused {
+                                style.bg(FOCUSED_SURFACE_BACKGROUND)
+                            } else {
+                                style
+                            },
+                        )
+                    })
+                    .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>()
     } else {
@@ -68,20 +111,28 @@ pub(super) fn avatar_spans(
         } else {
             (244, 240, 217)
         };
-        text_cells(&image, size, background)
-            .into_iter()
-            .map(|cell| {
-                Span::styled(
-                    "▀",
-                    Style::default()
-                        .fg(Color::Rgb(cell.upper.0, cell.upper.1, cell.upper.2))
-                        .bg(Color::Rgb(cell.lower.0, cell.lower.1, cell.lower.2)),
-                )
+        let cells = text_cells(&image, size, background);
+        (0..row_count)
+            .map(|row| {
+                let start = usize::from(row) * usize::from(AVATAR_COLUMNS);
+                cells[start..start + usize::from(AVATAR_COLUMNS)]
+                    .iter()
+                    .map(|cell| {
+                        Span::styled(
+                            "▀",
+                            Style::default()
+                                .fg(Color::Rgb(cell.upper.0, cell.upper.1, cell.upper.2))
+                                .bg(Color::Rgb(cell.lower.0, cell.lower.1, cell.lower.2)),
+                        )
+                    })
+                    .collect::<Vec<_>>()
             })
             .collect()
     };
-    spans.push(Span::raw(" "));
-    spans
+    for spans in &mut rows {
+        spans.push(Span::raw(" "));
+    }
+    rows
 }
 
 pub(super) fn avatar_width(view: &View, peer: Option<ChatId>, name: &str) -> usize {

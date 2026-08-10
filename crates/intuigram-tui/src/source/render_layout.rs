@@ -247,7 +247,7 @@ pub(super) fn render_chats(
             };
             let selected = view.active_chat == Some(index);
             let rule = selection_rule(selected);
-            let avatar = avatar_spans(
+            let [avatar_top, avatar_bottom] = avatar_block(
                 view,
                 Some(chat.id),
                 &chat.title,
@@ -266,7 +266,7 @@ pub(super) fn render_chats(
             let fixed_width = Line::from(
                 [rule.clone()]
                     .into_iter()
-                    .chain(avatar.clone())
+                    .chain(avatar_top.clone())
                     .chain([timestamp.clone(), marker.clone(), unread.clone()])
                     .collect::<Vec<_>>(),
             )
@@ -279,9 +279,7 @@ pub(super) fn render_chats(
             let title_gap = usize::from(items_area.width)
                 .saturating_sub(fixed_width)
                 .saturating_sub(title_width);
-            let preview_width = usize::from(items_area.width)
-                .saturating_sub(Line::from(selection_rule(selected)).width());
-            let preview_avatar = chat
+            let preview = chat
                 .preview_sender
                 .as_deref()
                 .filter(|_| {
@@ -290,22 +288,15 @@ pub(super) fn render_chats(
                         ChatKind::BasicGroup | ChatKind::Supergroup | ChatKind::Gigagroup
                     )
                 })
-                .map(|sender| {
-                    avatar_spans(
-                        view,
-                        chat.preview_sender_peer,
-                        sender,
-                        chat.preview_sender_peer
-                            .map(|peer| avatar_image_id(peer, chat.id.0 ^ 0x5052_4556)),
-                        graphics,
-                        focused,
-                    )
-                });
-            let preview_prefix_width = preview_avatar
-                .as_ref()
-                .map_or(0, |avatar| Line::from(avatar.clone()).width());
+                .map_or_else(
+                    || chat.preview.clone(),
+                    |sender| format!("{sender}: {}", chat.preview),
+                );
+            let preview_width = usize::from(items_area.width)
+                .saturating_sub(Line::from(selection_rule(selected)).width())
+                .saturating_sub(Line::from(avatar_bottom.clone()).width());
             let mut title_line = vec![rule];
-            title_line.extend(avatar);
+            title_line.extend(avatar_top);
             title_line.extend([
                 Span::styled(title, Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw(" ".repeat(title_gap)),
@@ -314,12 +305,9 @@ pub(super) fn render_chats(
                 unread,
             ]);
             let mut preview_line = vec![selection_rule(selected)];
-            preview_line.extend(preview_avatar.unwrap_or_default());
+            preview_line.extend(avatar_bottom);
             preview_line.push(Span::styled(
-                capped_text(
-                    &chat.preview,
-                    preview_width.saturating_sub(preview_prefix_width),
-                ),
+                capped_text(&preview, preview_width),
                 Style::default().fg(MUTED_TEXT),
             ));
             let mut lines = vec![Line::from(title_line), Line::from(preview_line)];

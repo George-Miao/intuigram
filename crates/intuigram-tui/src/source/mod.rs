@@ -63,7 +63,7 @@ pub(crate) mod terminal;
 mod test_renderer;
 mod view_mode;
 
-use avatar::{avatar_spans, avatar_width};
+use avatar::{avatar_block, avatar_spans, avatar_width};
 use effort::effort_spans;
 pub use events::*;
 pub use graphics::Error as GraphicsError;
