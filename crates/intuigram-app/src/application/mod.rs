@@ -108,7 +108,7 @@ use proxy::telegram_route;
 use runtime::{
     AccountSessionExit, AdapterBatch, AdapterEffect, ApplicationAdapterEvents, ApplicationEvents,
     ApplicationExit, ApplicationState, BackendOutput, DisconnectedApplication, enqueue_effect,
-    run_application_state,
+    run_application_state, wait_for_reconnect_cleanup,
 };
 #[cfg(test)]
 use runtime::{ApplicationBackend, run_application};

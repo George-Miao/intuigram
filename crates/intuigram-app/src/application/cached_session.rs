@@ -162,13 +162,29 @@ where
                             backend: disconnected_backend,
                             pending_effects: disconnected_effects,
                         } = *state;
-                        retained = disconnected_backend.take_retained().await?;
-                        disconnected_backend.shutdown().await?;
                         app = disconnected_app;
                         pending_effects = disconnected_effects;
                         update = app.transition(Input::Adapter(AdapterEvent::ConnectionChanged(
                             ConnectionState::Connecting,
                         )));
+                        let cleanup = async move {
+                            let retained = disconnected_backend.take_retained().await?;
+                            disconnected_backend.shutdown().await?;
+                            Ok(retained)
+                        };
+                        retained = match wait_for_reconnect_cleanup(
+                            terminal,
+                            events,
+                            &mut app,
+                            &mut update,
+                            &mut pending_effects,
+                            cleanup,
+                        )
+                        .await?
+                        {
+                            Loading::Ready(retained) => retained,
+                            Loading::Exit(outcome) => return Ok(outcome),
+                        };
                         attempt = Some(ActorSession::connection(
                             credentials.clone(),
                             layout.clone(),

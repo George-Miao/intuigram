@@ -2,11 +2,14 @@ use std::cell::Cell;
 use std::rc::Rc;
 use std::task::Poll;
 
-use intuigram_lib::ConnectionState;
+use intuigram_lib::{Action, ChatKind, ConnectionState, Input, Intent};
 
 use super::super::account_loading::wait_for_account_load;
+use super::super::runtime::wait_for_reconnect_cleanup;
 use super::super::{AccountSessionExit, Loading};
-use super::{AlwaysPendingEvents, EventStep, RecordingUi, ScriptedEvents, key};
+use super::{
+    AlwaysPendingEvents, EventStep, RecordingUi, ScriptedEvents, application_fixture, key,
+};
 
 #[test]
 fn pending_account_load_keeps_terminal_input_responsive() {
@@ -71,5 +74,56 @@ fn pending_account_load_advances_the_loading_animation() {
     assert!(
         views.borrow().iter().any(|view| view.animation_frame > 0),
         "pending Account work should advance visible animation frames"
+    );
+}
+
+#[test]
+fn pending_reconnect_cleanup_keeps_terminal_input_responsive() {
+    let views = Rc::new(std::cell::RefCell::new(Vec::new()));
+    let mut terminal = RecordingUi {
+        views: Rc::clone(&views),
+    };
+    let mut events = ScriptedEvents {
+        steps: [
+            EventStep::Ready(key('x')),
+            EventStep::Pending,
+            EventStep::Pending,
+        ]
+        .into(),
+    };
+    let mut fixture = application_fixture();
+    fixture.chats[0].kind = ChatKind::Private;
+    let (mut app, _) = crate::Application::new(fixture).into_parts();
+    let mut update = app.transition(Input::Intent(Intent::Action(Action::Open)));
+    let mut pending_effects = std::collections::VecDeque::new();
+    let polls = Rc::new(Cell::new(0));
+    let operation_polls = Rc::clone(&polls);
+    let cleanup = std::future::poll_fn(move |_cx| {
+        let polls = operation_polls.get();
+        operation_polls.set(polls + 1);
+        if polls == 0 {
+            Poll::Pending
+        } else {
+            Poll::Ready(Ok(()))
+        }
+    });
+    let runtime = compio::runtime::Runtime::new().expect("test runtime should initialize");
+
+    let outcome = runtime
+        .block_on(wait_for_reconnect_cleanup(
+            &mut terminal,
+            &mut events,
+            &mut app,
+            &mut update,
+            &mut pending_effects,
+            cleanup,
+        ))
+        .expect("reconnect cleanup should finish cleanly");
+
+    assert!(matches!(outcome, Loading::Ready(())));
+    assert!(polls.get() >= 2, "reconnect cleanup should make progress");
+    assert!(
+        views.borrow().iter().any(|view| view.composer.text == "x"),
+        "terminal input should update the Draft while reconnect cleanup is pending"
     );
 }

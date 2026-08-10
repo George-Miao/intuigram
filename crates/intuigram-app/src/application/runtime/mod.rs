@@ -2,6 +2,7 @@ use super::*;
 
 mod adapters;
 mod effect_route;
+mod pending_operation;
 mod types;
 mod wake_poll;
 
@@ -12,6 +13,7 @@ pub(super) use adapters::{
     WorkerAdapterEvents,
 };
 pub(super) use effect_route::{EffectRoute, effect_route};
+pub(super) use pending_operation::wait_for_reconnect_cleanup;
 #[cfg(test)]
 pub(super) use types::PendingEffect;
 pub(super) use types::{
