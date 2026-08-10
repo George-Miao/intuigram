@@ -9,23 +9,26 @@ fn fresh_loading_is_centered_and_incremental_loading_keeps_cached_messages_visib
         .iter()
         .position(|row| row.contains("INTUIGRAM"))
         .expect("fresh loading brand should render");
-    let progress_row = fresh
+    let triangle_row = fresh
         .iter()
-        .position(|row| row.contains("[>"))
-        .expect("paper-plane progress should render");
+        .position(|row| row.contains("  ◢"))
+        .expect("three-row triangle should render");
     let status_row = fresh
         .iter()
         .position(|row| row.contains("syncing chat"))
         .expect("fresh loading status should render");
-    assert_eq!(progress_row, brand_row + 1);
-    assert_eq!(status_row, progress_row + 1);
-    assert!((7..=11).contains(&brand_row));
+    assert_eq!(triangle_row, brand_row + 1);
+    assert!(fresh[triangle_row + 1].contains(" ◢◢"));
+    assert!(fresh[triangle_row + 2].contains("◢◢◢"));
+    assert_eq!(status_row, triangle_row + 3);
+    assert!((6..=10).contains(&brand_row));
     assert!((61..=65).contains(&fresh[brand_row].find("INTUIGRAM").unwrap()));
     assert!(!fresh[2].contains("updating"));
 
     current.animation_frame = 1;
     let advanced = render_rows(&current);
-    assert!(advanced.iter().any(|row| row.contains("[->")));
+    assert!(advanced.iter().any(|row| row.contains("◣  ")));
+    assert!(advanced.iter().any(|row| row.contains("◣◣◣")));
 
     current.chat_loading = ChatLoadingState::Updating;
     current.messages = vec![message("cached message")];
@@ -43,6 +46,19 @@ fn fresh_loading_compacts_without_disappearing_in_reduced_space() {
     assert!(short.iter().any(|row| row.contains("syncing chat")));
     let narrow = render_rows_at(&current, 40, 18);
     assert!(narrow.iter().any(|row| row.contains("loading")));
+}
+
+#[test]
+fn fresh_loading_without_an_active_chat_describes_account_startup() {
+    let mut current = active_chat();
+    current.active_chat = None;
+    current.chats.clear();
+    current.connection = ConnectionState::Connecting;
+
+    let rows = render_rows(&current);
+
+    assert!(rows.iter().any(|row| row.contains("loading account")));
+    assert!(!rows.iter().any(|row| row.contains("syncing chat")));
 }
 
 fn active_chat() -> View {

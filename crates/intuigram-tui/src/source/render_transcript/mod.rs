@@ -34,7 +34,11 @@ pub(super) fn render_transcript(
         focused,
         bounds: area,
     });
-    if view.chat_loading == ChatLoadingState::Fresh && view.messages.is_empty() {
+    let account_loading = view.connection == ConnectionState::Connecting
+        && view.active_chat.is_none()
+        && view.chats.is_empty();
+    if (view.chat_loading == ChatLoadingState::Fresh || account_loading) && view.messages.is_empty()
+    {
         render_fresh_loading(frame, area, view, focused);
         return;
     }
@@ -122,7 +126,15 @@ fn bottom_aligned_area(area: Rect, range: std::ops::Range<usize>, heights: &[u16
 }
 
 fn render_fresh_loading(frame: &mut Frame<'_>, area: Rect, view: &View, focused: bool) {
-    let lines = fresh_loading_lines(area, view.animation_frame);
+    let label = if view.connection == ConnectionState::Connecting
+        && view.active_chat.is_none()
+        && view.chats.is_empty()
+    {
+        "loading account"
+    } else {
+        "syncing chat"
+    };
+    let lines = fresh_loading_lines(area, view.animation_frame, label);
     let height = u16::try_from(lines.len())
         .unwrap_or(u16::MAX)
         .min(area.height);
@@ -141,46 +153,51 @@ fn render_fresh_loading(frame: &mut Frame<'_>, area: Rect, view: &View, focused:
     );
 }
 
-fn fresh_loading_lines(area: Rect, frame: u8) -> Vec<Line<'static>> {
+fn fresh_loading_lines(area: Rect, frame: u8, label: &'static str) -> Vec<Line<'static>> {
     if area.width < 40 {
         return vec![Line::from(effort_spans("loading", frame))];
     }
 
-    let progress = loading_progress(frame);
+    let triangle = loading_triangle(frame);
     match area.height {
         0 => Vec::new(),
-        1 => vec![progress],
-        2 => vec![progress, Line::from(effort_spans("syncing chat", frame))],
-        _ => vec![
-            Line::styled(
-                "INTUIGRAM",
-                Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
-            ),
-            progress,
-            Line::from(effort_spans("syncing chat", frame)),
+        1 => vec![triangle[1].clone()],
+        2 => vec![triangle[1].clone(), Line::from(effort_spans(label, frame))],
+        3 => vec![
+            triangle[0].clone(),
+            triangle[1].clone(),
+            Line::from(effort_spans(label, frame)),
         ],
+        4 => triangle
+            .into_iter()
+            .chain([Line::from(effort_spans(label, frame))])
+            .collect(),
+        _ => [Line::styled(
+            "INTUIGRAM",
+            Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
+        )]
+        .into_iter()
+        .chain(triangle)
+        .chain([Line::from(effort_spans(label, frame))])
+        .collect(),
     }
 }
 
-fn loading_progress(frame: u8) -> Line<'static> {
-    const TRACK: usize = 12;
-    let plane = usize::from(frame) % TRACK;
-    let mut spans = Vec::with_capacity(TRACK + 2);
-    spans.push(Span::styled("[", Style::default().fg(MUTED_TEXT)));
-    for position in 0..TRACK {
-        if position == plane {
-            spans.push(Span::styled(
-                ">",
-                Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
-            ));
-        } else if position < plane {
-            spans.push(Span::styled("-", Style::default().fg(PRIMARY)));
-        } else {
-            spans.push(Span::styled(".", Style::default().fg(MUTED_TEXT)));
-        }
-    }
-    spans.push(Span::styled("]", Style::default().fg(MUTED_TEXT)));
-    Line::from(spans)
+fn loading_triangle(frame: u8) -> [Line<'static>; 3] {
+    // Expanded from the MIT-licensed `Triangle` spinner in FGRibreau/spinners:
+    // https://github.com/FGRibreau/spinners
+    const FRAMES: [[&str; 3]; 4] = [
+        ["  ◢", " ◢◢", "◢◢◢"],
+        ["◣  ", "◣◣ ", "◣◣◣"],
+        ["◤◤◤", " ◤◤", "  ◤"],
+        ["◥◥◥", "◥◥ ", "◥  "],
+    ];
+    FRAMES[usize::from(frame) % FRAMES.len()].map(|row| {
+        Line::styled(
+            row,
+            Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
+        )
+    })
 }
 
 fn render_semantics(
