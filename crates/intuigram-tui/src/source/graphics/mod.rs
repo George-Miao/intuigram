@@ -59,6 +59,14 @@ impl GraphicsFrame {
         self.protocol
     }
 
+    pub(crate) fn square_columns(&self, rows: u16) -> u16 {
+        let width = u32::from(self.cell_pixels.width.max(1));
+        let height = u32::from(self.cell_pixels.height.max(1));
+        let columns = u32::from(rows).saturating_mul(height).div_ceil(width);
+        u16::try_from(columns.clamp(1, u32::from(u16::MAX)))
+            .expect("clamped square avatar width fits a terminal cell count")
+    }
+
     pub(crate) fn push(&mut self, id: ImageId, image: &InlineImage, size: CellSize) {
         let image = Image::from_rgba(
             u32::from(image.width()),

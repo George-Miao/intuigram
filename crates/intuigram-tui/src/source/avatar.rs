@@ -2,8 +2,6 @@ use rasterm::{CellSize, Image, ImageId, text_cells, unicode_placeholder};
 
 use super::*;
 
-const AVATAR_COLUMNS: u16 = 2;
-
 pub(super) fn avatar_badge(name: &str) -> Span<'static> {
     Span::styled(
         format!("[{}] ", avatar_initials(name)),
@@ -68,8 +66,9 @@ fn avatar_rows(
             })
             .collect();
     };
+    let columns = graphics.square_columns(row_count);
     let size = CellSize {
-        columns: AVATAR_COLUMNS,
+        columns,
         rows: row_count,
     };
     let mut rows = if graphics.protocol().uses_placements() {
@@ -77,7 +76,7 @@ fn avatar_rows(
         let foreground = graphics::image_color(id);
         (0..row_count)
             .map(|row| {
-                (0..AVATAR_COLUMNS)
+                (0..columns)
                     .map(|column| {
                         let symbol = if graphics.protocol().uses_unicode_placeholders() {
                             unicode_placeholder(row, column).expect(
@@ -114,8 +113,8 @@ fn avatar_rows(
         let cells = text_cells(&image, size, background);
         (0..row_count)
             .map(|row| {
-                let start = usize::from(row) * usize::from(AVATAR_COLUMNS);
-                cells[start..start + usize::from(AVATAR_COLUMNS)]
+                let start = usize::from(row) * usize::from(columns);
+                cells[start..start + usize::from(columns)]
                     .iter()
                     .map(|cell| {
                         Span::styled(
@@ -135,9 +134,14 @@ fn avatar_rows(
     rows
 }
 
-pub(super) fn avatar_width(view: &View, peer: Option<ChatId>, name: &str) -> usize {
+pub(super) fn avatar_width(
+    view: &View,
+    peer: Option<ChatId>,
+    name: &str,
+    graphics: &GraphicsFrame,
+) -> usize {
     if peer.is_some_and(|peer| view.avatars.iter().any(|avatar| avatar.avatar.peer == peer)) {
-        usize::from(AVATAR_COLUMNS.saturating_add(1))
+        usize::from(graphics.square_columns(2).saturating_add(1))
     } else {
         Line::from(avatar_badge(name)).width()
     }

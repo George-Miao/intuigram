@@ -34,7 +34,7 @@ pub(super) fn message_lines(
         active: view.active_message == Some(index),
         selected: view.selected_messages.contains(&message.id),
         forwarded: message.details.forwarded_from.is_some(),
-        content_indent: avatar_width(view, message.details.sender_peer, &message.sender),
+        content_indent: avatar_width(view, message.details.sender_peer, &message.sender, graphics),
     };
     let avatar = (!layout.grouped_with_previous).then(|| {
         let id = active_chat(view)

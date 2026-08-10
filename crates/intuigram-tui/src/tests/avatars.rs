@@ -108,10 +108,19 @@ fn decoded_avatar_images_replace_badges_in_every_visible_peer_position() {
         graphics
             .requests()
             .iter()
-            .filter(|request| request.size.columns == 2 && request.size.rows == 2)
+            .filter(|request| request.size.columns == 4 && request.size.rows == 2)
             .count(),
         2,
-        "the Chat-list Chat avatar and Transcript sender avatar should be 2x2"
+        "two-row avatars should occupy a square pixel area"
+    );
+    assert_eq!(
+        graphics
+            .requests()
+            .iter()
+            .filter(|request| request.size.columns == 2 && request.size.rows == 1)
+            .count(),
+        1,
+        "the one-row Chat header avatar should occupy a square pixel area"
     );
 }
 

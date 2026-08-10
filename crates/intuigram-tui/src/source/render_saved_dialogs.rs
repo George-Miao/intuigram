@@ -115,7 +115,7 @@ pub(super) fn render_saved_dialogs(
             };
             let metadata = format!("{}{}{}", dialog.timestamp, marker, unread);
             let rule_width = Line::from(selection_rule(selected)).width();
-            let avatar_width = avatar_width(view, Some(dialog.peer), &dialog.title);
+            let avatar_width = avatar_width(view, Some(dialog.peer), &dialog.title, graphics);
             let title_width = usize::from(area.width)
                 .saturating_sub(rule_width)
                 .saturating_sub(avatar_width)
