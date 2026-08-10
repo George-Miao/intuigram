@@ -1,6 +1,7 @@
 //! Durable synchronization boundary between Telegram updates and application
 //! state.
 
+mod cursor;
 mod message;
 mod message_metadata;
 
@@ -12,11 +13,13 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+use cursor::apply_cursor_delta;
+pub use cursor::store_cursor;
 use intuigram_lib::{AdapterEvent, Bootstrap, ChatId, ChatKind, ChatView};
 use intuigram_store::{
     AccountStore, DatabaseRequest, StoredChat, StoredFolder, StoredMutation, SyncBatch, SyncCursor,
 };
-use intuigram_telegram::{LiveEvent, UpdateCursor};
+use intuigram_telegram::LiveEvent;
 pub use message::{decode_stored_message, encode_stored_message};
 use message_metadata::stored_paid_media_items_json;
 use snafu::{ResultExt, Snafu};
@@ -78,6 +81,8 @@ impl UpdateCommitter {
     /// Starts one atomic update commit. The returned future yields adapter
     /// events only after SQLite confirms the records and cursor are durable.
     pub fn commit(&mut self, mut update: LiveEvent) -> Result<UpdateCommit> {
+        let had_cursors = !update.cursors.is_empty();
+        let mut advanced = false;
         let mut cursors = Vec::with_capacity(update.cursors.len());
         for delta in update.cursors.drain(..) {
             let scope = delta.scope.storage_key();
@@ -85,9 +90,13 @@ impl UpdateCommitter {
                 scope: scope.clone(),
                 ..SyncCursor::default()
             });
-            let cursor = apply_cursor_delta(current, delta)?;
+            let (cursor, cursor_advanced) = apply_cursor_delta(current, delta)?;
+            advanced |= cursor_advanced;
             self.cursors.insert(scope, cursor.clone());
             cursors.push(cursor);
+        }
+        if had_cursors && !advanced {
+            update.events.clear();
         }
         discover_missing_chats(&mut self.known_chats, &mut update.events);
         let batch = sync_batch_for_event(cursors, &update);
@@ -136,19 +145,6 @@ impl Future for UpdateCommit {
     }
 }
 
-/// Converts Telegram's optional cursor components into the durable Account
-/// scope.
-#[must_use]
-pub fn store_cursor(cursor: UpdateCursor) -> SyncCursor {
-    SyncCursor {
-        scope: cursor.scope.storage_key(),
-        pts: cursor.pts.unwrap_or(0),
-        qts: cursor.qts.unwrap_or(0),
-        date: cursor.date.unwrap_or(0),
-        seq: cursor.seq.unwrap_or(0),
-    }
-}
-
 /// Builds the initial atomic synchronized-cache write for an Account bootstrap.
 #[must_use]
 pub fn bootstrap_sync_batch(
@@ -179,45 +175,6 @@ pub fn bootstrap_sync_batch(
         }),
         mutations: Vec::new(),
     }
-}
-
-fn apply_cursor_delta(mut cursor: SyncCursor, delta: UpdateCursor) -> Result<SyncCursor> {
-    if delta.gap {
-        return UpdateGapSnafu {
-            scope: cursor.scope,
-        }
-        .fail();
-    }
-    if let Some(pts) = delta.pts {
-        let expected = cursor.pts.saturating_add(delta.pts_count);
-        if cursor.pts != 0 && pts > cursor.pts && delta.pts_count > 0 && pts != expected {
-            return UpdateGapSnafu {
-                scope: cursor.scope,
-            }
-            .fail();
-        }
-        cursor.pts = cursor.pts.max(pts);
-    }
-    if let Some(qts) = delta.qts {
-        cursor.qts = cursor.qts.max(qts);
-    }
-    if let Some(date) = delta.date {
-        cursor.date = cursor.date.max(date);
-    }
-    if let Some(seq) = delta.seq {
-        if cursor.seq != 0
-            && delta
-                .seq_start
-                .is_some_and(|start| start > cursor.seq.saturating_add(1))
-        {
-            return UpdateGapSnafu {
-                scope: cursor.scope,
-            }
-            .fail();
-        }
-        cursor.seq = cursor.seq.max(seq);
-    }
-    Ok(cursor)
 }
 
 fn sync_batch_for_event(cursors: Vec<SyncCursor>, update: &LiveEvent) -> SyncBatch {

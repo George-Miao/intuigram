@@ -233,6 +233,57 @@ fn a_pts_gap_is_rejected_before_records_or_cursors_are_committed() {
 }
 
 #[test]
+fn an_update_at_the_durable_cursor_is_not_exposed_again() {
+    let temporary = tempdir().expect("temporary data directory should be created");
+    let layout = StoreLayout::new(temporary.path().join("intuigram"));
+    let database =
+        AccountDatabase::begin_login(&layout).expect("Account database should be created");
+    let baseline = SyncCursor {
+        scope: "account".to_owned(),
+        pts: 10,
+        ..SyncCursor::default()
+    };
+    let mut committer = UpdateCommitter::new(database.store(), [baseline], []);
+    let update = LiveEvent {
+        events: vec![AdapterEvent::MessageAdded {
+            chat: ChatId(7),
+            message: Box::new(MessageView {
+                id: MessageId(42),
+                sender: "Ada".to_owned(),
+                body: "already durable".to_owned(),
+                timestamp: "12:00".to_owned(),
+                direction: MessageDirection::Incoming,
+                delivery: DeliveryState::Sent,
+                reply_to: None,
+                details: MessageDetails::default(),
+            }),
+        }],
+        cursors: vec![UpdateCursor {
+            pts: Some(10),
+            pts_count: 1,
+            ..UpdateCursor::default()
+        }],
+        peers: intuigram_telegram::PeerDirectory::default(),
+    };
+
+    let committed = block_on(
+        committer
+            .commit(update)
+            .expect("a stale update should be accepted as an idempotent no-op"),
+    )
+    .expect("the no-op synchronization boundary should commit");
+
+    assert!(committed.events.is_empty());
+    assert!(
+        database
+            .cached_account()
+            .expect("cache should remain readable")
+            .messages
+            .is_empty()
+    );
+}
+
+#[test]
 fn a_global_sequence_gap_requires_reconciliation() {
     let temporary = tempdir().expect("temporary data directory should be created");
     let layout = StoreLayout::new(temporary.path().join("intuigram"));

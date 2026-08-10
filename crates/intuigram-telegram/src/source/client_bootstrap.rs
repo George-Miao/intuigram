@@ -143,6 +143,10 @@ impl Client {
             .invoke(&tl::functions::updates::GetState {})
             .await
             .context(InvokeSnafu)?;
+        // The returned state subsumes updates received while bootstrap RPCs
+        // were in flight. Replaying that buffer after installing this cursor
+        // would expose stale messages or immediately report another gap.
+        drop(self.connection.take_updates());
         let tl::enums::updates::State::State(state) = state;
         let mut cursors = vec![UpdateCursor {
             pts: Some(state.pts),
