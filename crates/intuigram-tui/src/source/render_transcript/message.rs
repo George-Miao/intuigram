@@ -80,7 +80,6 @@ pub(super) fn message_lines(
             Style::default().fg(MUTED_TEXT),
         ));
         lines.push(Line::from(spans));
-        lines.push(message_spacing(state.active));
     }
     append_content(view, index, message, &layout, state, &mut lines, graphics);
     if let Some([_, bottom]) = avatar {

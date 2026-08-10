@@ -215,7 +215,7 @@ fn only_the_focused_block_uses_a_surface_background() -> Result<()> {
 }
 
 #[test]
-fn quoted_messages_keep_their_content_inside_one_trailing_blank_row() -> Result<()> {
+fn quoted_message_content_follows_the_quote_without_a_blank_row() -> Result<()> {
     let mut quoted = incoming(41, "Lin", "quoted reply");
     quoted.reply_to = Some(intuigram_lib::MessageId(40));
     let mut app = TestSystem::builder()
@@ -243,8 +243,7 @@ fn quoted_messages_keep_their_content_inside_one_trailing_blank_row() -> Result<
 
     assert!(quote < reply);
     assert!(row_segment(&rows, quote - 1, 31, 100).trim().is_empty());
-    assert!(row_segment(&rows, quote + 1, 31, 100).trim().is_empty());
-    assert_eq!(reply, quote + 2);
+    assert_eq!(reply, quote + 1);
     assert!(row_segment(&rows, reply + 1, 31, 100).trim().is_empty());
     assert!(following >= reply + 2);
     app.expect_no_unhandled_work()
