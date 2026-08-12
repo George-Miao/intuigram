@@ -21,16 +21,14 @@ $maintain-todo promote
 
 ## Promote
 
-For `$maintain-todo promote`, update every roadmap item exactly once from its
-original priority:
+For `$maintain-todo promote`, update every roadmap item exactly once from its original priority:
 
 - Keep `p-core` unchanged.
 - Move `p-high` to `p-core`.
 - Move `p-mid` to `p-high`.
 - Move `p-low` to `p-mid`.
 
-Do not cascade an item through multiple levels during one promotion. Preserve
-checkbox state, wording, ordering, and unrelated content.
+Do not cascade an item through multiple levels during one promotion. Preserve checkbox state, wording, ordering, and unrelated content.
 
 ## Workflow
 
