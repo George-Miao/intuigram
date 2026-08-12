@@ -2,8 +2,7 @@ use std::time::Duration;
 
 use compio_mtproto::InvocationError;
 
-use crate::source::flood_wait_delay;
-use crate::{Error, InvocationPolicy, RetryDisposition};
+use crate::{Error, InvocationPolicy, RetryDisposition, flood_wait_delay};
 
 #[test]
 fn wait_policy_retries_flood_wait_after_the_server_delay() {

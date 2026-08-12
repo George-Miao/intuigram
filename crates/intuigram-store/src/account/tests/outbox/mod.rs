@@ -1,7 +1,6 @@
 mod admission;
 mod cancellation;
-mod completion_messages;
-mod completion_mutations;
+mod completion;
 mod expiry;
 mod lifecycle;
 mod migration;

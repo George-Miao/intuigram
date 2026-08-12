@@ -81,6 +81,7 @@ impl App {
             chat,
             message: message.id,
             destination: None,
+            locator: message.details.media_locator.clone(),
         })
     }
 
@@ -119,6 +120,7 @@ impl App {
             chat,
             message,
             destination: Some(destination),
+            locator: self.message_media_locator(chat, message),
         })
     }
 

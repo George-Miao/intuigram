@@ -8,7 +8,7 @@ impl TestSystem {
     pub(super) fn handle_offline_media_effect(&mut self, effect: Effect) -> Result<()> {
         match effect {
             Effect::SetChatMediaOffline(policy) => self.handle_offline_media_policy(policy),
-            Effect::CacheMediaOffline(target) => {
+            Effect::CacheMediaOffline { target, .. } => {
                 self.handle_offline_media_cache(target);
                 Ok(())
             }

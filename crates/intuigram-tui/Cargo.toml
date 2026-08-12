@@ -10,7 +10,7 @@ intuigram-lib.workspace = true
 crossterm = { workspace = true, features = ["bracketed-paste"] }
 futures-util.workspace = true
 flume.workspace = true
-qrcode = { version = "0.14.1", default-features = false }
+qrcode.workspace = true
 ratatui.workspace = true
 rasterm.workspace = true
 snafu.workspace = true
@@ -18,6 +18,7 @@ time.workspace = true
 
 [dev-dependencies]
 image = { workspace = true, features = ["png"] }
+vt100.workspace = true
 
 [lints]
 workspace = true

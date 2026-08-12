@@ -12,6 +12,7 @@ mod execute;
 mod expectations;
 mod location;
 mod message_actions;
+mod send;
 mod specialized;
 
 pub(crate) use channel_direct::ObservedSavedSend;
@@ -33,6 +34,7 @@ pub(crate) struct ObservedSend {
     pub(crate) reply_to: Option<MessageId>,
     pub(crate) thread_root: Option<MessageId>,
     pub(crate) local_id: MessageId,
+    pub(crate) attachments: Vec<String>,
 }
 
 pub(crate) enum HistoryResult {
@@ -42,6 +44,11 @@ pub(crate) enum HistoryResult {
         pinned_messages: Vec<MessageView>,
     },
     Failed(String),
+}
+
+pub(crate) enum MediaPreviewResult {
+    Ready,
+    Held,
 }
 
 #[derive(Debug)]
@@ -55,6 +62,7 @@ pub struct TelegramScenario {
     bootstrap: Option<Bootstrap>,
     expected: VecDeque<ExpectedCommand>,
     held: HashMap<String, HeldSend>,
+    held_media_previews: HashMap<String, (ChatId, MessageId)>,
 }
 
 impl TelegramScenario {
@@ -64,6 +72,7 @@ impl TelegramScenario {
             bootstrap: None,
             expected: VecDeque::new(),
             held: HashMap::new(),
+            held_media_previews: HashMap::new(),
         }
     }
 
@@ -99,59 +108,6 @@ impl TelegramScenario {
             chat: ChatId(chat),
             max_id: MessageId(max_id),
             acknowledge: false,
-        });
-        self
-    }
-
-    #[must_use]
-    pub fn hold_send_text(
-        self,
-        label: impl Into<String>,
-        chat: i64,
-        text: impl Into<String>,
-        reply_to: Option<i64>,
-    ) -> Self {
-        self.hold_send_in_context(label, chat, text, None, reply_to, None)
-    }
-
-    #[must_use]
-    pub fn hold_send_in_thread(
-        self,
-        label: impl Into<String>,
-        chat: i64,
-        root: i64,
-        text: impl Into<String>,
-        reply_to: Option<i64>,
-    ) -> Self {
-        self.hold_send_in_context(label, chat, text, None, reply_to, Some(root))
-    }
-
-    #[must_use]
-    pub fn hold_send_with_link_preview(
-        self,
-        label: impl Into<String>,
-        chat: i64,
-        text: impl Into<String>,
-    ) -> Self {
-        self.hold_send_in_context(label, chat, text, Some(true), None, None)
-    }
-
-    #[must_use]
-    pub fn hold_send_rich_text(
-        mut self,
-        label: impl Into<String>,
-        chat: i64,
-        text: impl Into<String>,
-        entities: Vec<TextEntity>,
-    ) -> Self {
-        self.expected.push_back(ExpectedCommand::SendText {
-            label: label.into(),
-            chat: ChatId(chat),
-            text: text.into(),
-            entities: Some(entities),
-            link_preview: None,
-            reply_to: None,
-            thread_root: None,
         });
         self
     }
@@ -321,27 +277,6 @@ impl TelegramScenario {
         self
     }
 
-    fn hold_send_in_context(
-        mut self,
-        label: impl Into<String>,
-        chat: i64,
-        text: impl Into<String>,
-        link_preview: Option<bool>,
-        reply_to: Option<i64>,
-        thread_root: Option<i64>,
-    ) -> Self {
-        self.expected.push_back(ExpectedCommand::SendText {
-            label: label.into(),
-            chat: ChatId(chat),
-            text: text.into(),
-            entities: None,
-            link_preview,
-            reply_to: reply_to.map(MessageId),
-            thread_root: thread_root.map(MessageId),
-        });
-        self
-    }
-
     #[must_use]
     pub fn expect_reconnect(mut self) -> Self {
         self.expected.push_back(ExpectedCommand::Reconnect);
@@ -356,11 +291,20 @@ impl TelegramScenario {
         self.held.remove(label)
     }
 
+    pub fn take_held_media_preview(&mut self, label: &str) -> Option<(ChatId, MessageId)> {
+        self.held_media_previews.remove(label)
+    }
+
     pub fn pending(&self) -> Vec<String> {
         self.expected
             .iter()
             .map(ExpectedCommand::describe)
             .chain(self.held.keys().map(|label| format!("held send {label:?}")))
+            .chain(
+                self.held_media_previews
+                    .keys()
+                    .map(|label| format!("held media preview {label:?}")),
+            )
             .collect()
     }
 

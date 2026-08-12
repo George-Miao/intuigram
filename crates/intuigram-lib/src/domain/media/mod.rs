@@ -135,6 +135,56 @@ pub struct MediaCard {
     pub remote_id: Option<String>,
 }
 
+/// Durable Telegram-independent coordinates for one downloadable media file.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MediaLocator {
+    /// Data center that owns the file bytes.
+    pub dc_id: i32,
+
+    /// Stable cloud object identity and authorization material.
+    pub source: MediaSource,
+
+    /// User-facing filename chosen during normalization.
+    pub name: String,
+
+    /// Declared MIME type for the complete object.
+    pub mime_type: String,
+
+    /// Expected complete-object size.
+    pub size: usize,
+
+    /// Available bounded preview representations.
+    pub thumbnails: Vec<MediaThumbnail>,
+}
+
+/// Stable cloud object identity needed to construct an upload file location.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum MediaSource {
+    /// Telegram photo identity.
+    Photo {
+        id: i64,
+        access_hash: i64,
+        file_reference: Vec<u8>,
+    },
+
+    /// Telegram document identity.
+    Document {
+        id: i64,
+        access_hash: i64,
+        file_reference: Vec<u8>,
+    },
+}
+
+/// One selectable image representation attached to a media object.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MediaThumbnail {
+    /// Telegram size discriminator used in the file location.
+    pub kind: String,
+
+    /// Expected encoded byte size.
+    pub size: usize,
+}
+
 impl MediaCard {
     /// Whether `body` is the generated text fallback for this Media Card.
     #[must_use]

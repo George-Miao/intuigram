@@ -93,7 +93,7 @@ impl App {
             _ => unreachable!("only Saved Messages dialog events are routed here"),
         }
         self.queue_visible_avatars();
-        self.request_next_avatar()
+        self.request_next_small_media()
     }
 
     pub(super) fn move_saved_dialog(&mut self, forward: bool) {

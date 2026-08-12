@@ -157,6 +157,9 @@ pub struct View {
     /// Decoded avatars retained by normalized peer identity.
     pub avatars: Vec<AvatarView>,
 
+    /// Avatar revisions currently queued or loading for visible peers.
+    pub avatar_loads: Vec<AvatarRef>,
+
     /// Image previews with final Transcript space currently reserved.
     pub media_preview_loads: Vec<MediaPreviewLoadView>,
 

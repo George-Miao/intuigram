@@ -10,12 +10,9 @@ use compio::runtime::Submit;
 use crossterm::event::Event;
 use crossterm_winapi::Handle;
 use futures_util::stream::{FusedStream, Stream};
-use snafu::ResultExt;
 use windows_sys::Win32::System::IO::OVERLAPPED;
 
-use crate::event::{
-    OpenConsoleSnafu, PollConsoleSnafu, PollEventSnafu, ReadEventSnafu, Result,
-};
+use crate::event::Result;
 
 /// Persistent wait source for the current Win32 console input buffer.
 struct ConsoleInput {
@@ -89,19 +86,19 @@ pub(crate) struct EventStream {
 impl EventStream {
     pub(crate) fn new() -> Result<Self> {
         Ok(Self {
-            input: ConsoleInput::new().context(OpenConsoleSnafu)?,
+            input: ConsoleInput::new()?,
             terminated: false,
         })
     }
 
     fn ready_event() -> Result<Option<Event>> {
-        if crossterm::event::poll(Duration::ZERO).context(PollEventSnafu)? {
-            return crossterm::event::read().map(Some).context(ReadEventSnafu);
+        if crossterm::event::poll(Duration::ZERO)? {
+            return crossterm::event::read().map(Some);
         }
         Ok(None)
     }
 
-    fn finish_with(&mut self, error: crate::event::Error) -> Poll<Option<Result<Event>>> {
+    fn finish_with(&mut self, error: io::Error) -> Poll<Option<Result<Event>>> {
         self.terminated = true;
         Poll::Ready(Some(Err(error)))
     }
@@ -122,7 +119,7 @@ impl Stream for EventStream {
             }
             match self.input.poll_ready(cx) {
                 Poll::Ready(result) => {
-                    if let Err(error) = result.context(PollConsoleSnafu) {
+                    if let Err(error) = result {
                         return self.finish_with(error);
                     }
                 }

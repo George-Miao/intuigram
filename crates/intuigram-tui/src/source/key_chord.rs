@@ -143,10 +143,10 @@ impl EffectiveKeymap {
     pub fn help<'a>(&'a self, view: &'a View) -> impl Iterator<Item = &'static Binding> + 'a {
         BINDINGS
             .iter()
-            .chain(render_accounts::ACCOUNT_BINDINGS)
-            .chain(render_folder_manager::FOLDER_BINDINGS)
-            .chain(render_rich_media::RICH_MEDIA_BINDINGS)
-            .chain(render_scheduled::SCHEDULED_BINDINGS)
+            .chain(render::accounts::ACCOUNT_BINDINGS)
+            .chain(render::folder_manager::FOLDER_BINDINGS)
+            .chain(render::rich_media::RICH_MEDIA_BINDINGS)
+            .chain(render::scheduled::SCHEDULED_BINDINGS)
             .filter(|binding| {
                 view.actions.contains(&binding.action) && binding_matches_context(view, binding)
             })

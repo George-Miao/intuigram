@@ -7,12 +7,14 @@ mod tests;
 
 use std::num::NonZeroU16;
 use std::path::PathBuf;
-use std::{fmt, ops};
+use std::{env, fmt, ops};
 
 pub use credentials::{Error as CredentialError, save_application_credentials};
 use figment::Figment;
 use figment::providers::{Env, Format, Json, Serialized, Toml, Yaml};
-pub use proxy::{Connection, DnsStrategy, Proxy, ProxyAuthentication, ProxySecret};
+pub use proxy::{
+    Connection, DnsStrategy, Proxy, ProxyAuthentication, ProxyEnvironmentError, ProxySecret,
+};
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 
@@ -30,6 +32,23 @@ pub enum Error {
         #[snafu(source(from(figment::Error, Box::new)))]
         source: Box<figment::Error>,
     },
+
+    /// A generic proxy environment variable contained an unusable URL.
+    #[snafu(display("{variable} contains an invalid proxy URL"))]
+    ProxyEnvironment {
+        /// Environment variable that supplied the URL.
+        variable: &'static str,
+
+        /// Proxy URL validation failure.
+        source: ProxyEnvironmentError,
+    },
+
+    /// A generic proxy environment variable was not Unicode.
+    #[snafu(display("{variable} is not valid Unicode"))]
+    ProxyEnvironmentEncoding {
+        /// Environment variable containing the invalid value.
+        variable: &'static str,
+    },
 }
 
 /// Result returned by configuration operations.
@@ -43,6 +62,9 @@ pub struct Config {
 
     /// Optional encryption and unlock policy for Account-local data.
     pub local_lock: LocalLock,
+
+    /// Diagnostic file logging.
+    pub logging: Logging,
 
     /// Filesystem locations used by Intuigram.
     pub paths: Paths,
@@ -98,6 +120,14 @@ pub enum UnlockMethod {
 
     /// Store a random database key in the operating-system credential vault.
     Keyring,
+}
+
+/// File logging configuration.
+#[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
+pub struct Logging {
+    /// Explicit log path, or `None` to write `intuigram.log` in the data
+    /// directory.
+    pub path: Option<PathBuf>,
 }
 
 /// Terminal presentation settings.
@@ -178,6 +208,17 @@ pub struct Media {
     pub cache_bytes: u64,
 }
 
+impl Config {
+    /// Returns the configured log path or its data-directory default.
+    #[must_use]
+    pub fn log_path(&self) -> PathBuf {
+        self.logging
+            .path
+            .clone()
+            .unwrap_or_else(|| self.paths.data.join("intuigram.log"))
+    }
+}
+
 /// Platform-derived defaults supplied by the executable.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlatformDefaults {
@@ -228,6 +269,17 @@ struct MediaOverrides {
     cache_bytes: Option<u64>,
 }
 
+#[derive(Serialize)]
+struct GenericProxySource {
+    connection: GenericProxyConnection,
+}
+
+#[derive(Serialize)]
+struct GenericProxyConnection {
+    proxies: [Proxy; 1],
+    direct_fallback: bool,
+}
+
 /// Loads layered Intuigram configuration.
 pub struct ConfigLoader {
     defaults: PlatformDefaults,
@@ -272,11 +324,14 @@ impl ConfigLoader {
 
             local_lock: LocalLock::default(),
 
+            logging: Logging::default(),
+
             paths: Paths {
                 data: self.defaults.data.clone(),
                 cache: self.defaults.cache.clone(),
                 downloads: self.defaults.downloads.clone(),
             },
+
             external: External::default(),
             media: Media {
                 cache_bytes: DEFAULT_MEDIA_CACHE_BYTES,
@@ -295,6 +350,9 @@ impl ConfigLoader {
             .merge(Json::file(self.defaults.config.join("config.json")))
             .merge(Toml::file(self.defaults.config.join("credentials.toml")));
         if self.environment {
+            if let Some(source) = generic_proxy_source()? {
+                figment = figment.merge(Serialized::defaults(source));
+            }
             figment = figment.merge(Env::prefixed("INTUIGRAM_").split("__"));
         }
         let overrides = OverrideSource {
@@ -312,4 +370,36 @@ impl ConfigLoader {
             .extract()
             .context(ResolveSnafu)
     }
+}
+
+fn generic_proxy_source() -> Result<Option<GenericProxySource>> {
+    const VARIABLES: [&str; 6] = [
+        "all_proxy",
+        "ALL_PROXY",
+        "https_proxy",
+        "HTTPS_PROXY",
+        "http_proxy",
+        "HTTP_PROXY",
+    ];
+
+    for variable in VARIABLES {
+        match env::var(variable) {
+            Ok(value) if value.trim().is_empty() => {}
+            Ok(value) => {
+                let proxy = proxy::environment_proxy(value.trim())
+                    .context(ProxyEnvironmentSnafu { variable })?;
+                return Ok(Some(GenericProxySource {
+                    connection: GenericProxyConnection {
+                        proxies: [proxy],
+                        direct_fallback: false,
+                    },
+                }));
+            }
+            Err(env::VarError::NotPresent) => {}
+            Err(env::VarError::NotUnicode(_)) => {
+                return ProxyEnvironmentEncodingSnafu { variable }.fail();
+            }
+        }
+    }
+    Ok(None)
 }

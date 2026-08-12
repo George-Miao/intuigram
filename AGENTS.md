@@ -1,14 +1,26 @@
 # Intuigram repository guidance
 
-Keep this file accurate when the repository structure, toolchain, architecture, or required checks change. Communicate with the user in English.
+## General Rules
+
+- Keep this file accurate when the repository structure, toolchain, architecture, or required checks change.
+- Communicate with the user in English.
+- Add comments only when they explain non-obvious intent or constraints.
+- Add tests when they verify real behavior or guard a regression; do not add placeholder tests.
+
+## Documentation Style
+
+- Prefer active voice. Name the type or component that performs an action, for example, “`RetryLayer` retries failed operations.”
+- Use direct, present-tense sentences.
+- Lead with what a public type or method does, then explain important constraints, defaults, and behavior.
+- Describe API semantics precisely. Verify option types, capability requirements, error behavior, and overwrite or versioning semantics against the implementation.
+- Keep terminology consistent with the codebase.
+- Use parallel structure in lists and punctuate complete sentences consistently.
 
 ## Project direction
 
-Intuigram is a fluent, configurable Telegram terminal client intended to become a Daily Driver. It uses a dense, adaptive interface inspired by Telegram Desktop and k9s. Important context-sensitive actions and their effective keys remain visible on screen.
+Intuigram is a local-first Telegram terminal client intended to replace a primary GUI client for routine communication. The current implementation is a Rust virtual workspace built around a single-writer application reducer, a Compio orchestration loop, dedicated per-Account Telegram actors, isolated SQLite Account storage with optional SQLCipher Local Lock, a dense Ratatui TUI, and a hierarchical process CLI. Calls and Secret Chats remain outside the current Daily Driver promise.
 
-The current root Rust package and `src/` tree are a disposable proof of concept. Do not preserve their architecture, behavior, dependencies, or compatibility unless a current design document explicitly requires it. In particular, manual refresh, text-only scope, keyboard modes, and the existing high-level grammers integration are obsolete.
-
-Update `TODO.md` at the end of task to match the current state. Leave unchange if the task is not mentioned.
+Update `TODO.md` at the end of a task to match the current state. Leave it unchanged when the task is not represented there.
 
 ## Required reading
 
@@ -18,14 +30,16 @@ Before architectural or product work, read:
 2. `TODO.md` for scope and the `p-core`, `p-high`, `p-mid`, and `p-low` priorities.
 3. Every relevant decision under `docs/adr/`.
 
-Treat these documents as the current source of truth over `README.md` and the proof-of-concept source. When a decision changes, update all affected documents in the same change. Keep `CONTEXT.md` implementation-free; add an ADR only for a consequential architectural decision with a real tradeoff.
+Treat these documents as the current source of truth over `README.md`. When a decision changes, update all affected documents in the same change. Keep `CONTEXT.md` implementation-free; add an ADR only for a consequential architectural decision with a real tradeoff.
 
 ## Target workspace
 
 The target is a virtual Cargo workspace. Every package belongs under `crates/`.
 
-- `crates/intuigram`: minimal executable entrypoint; it delegates process startup to `intuigram-app`.
-- `crates/intuigram-app`: executable application orchestration, adapter composition, synchronization, recovery, and the main Compio runtime loop.
+Declare every dependency used by any workspace crate in the root `[workspace.dependencies]` table. Member manifests must reference normal, development, build, target-specific, path, and Git dependencies with `workspace = true`; keep dependency versions and shared defaults centralized, while adding only genuinely crate-specific feature selections at the member.
+
+- `crates/intuigram`: executable entrypoint, Compio runtime startup, colorful Clap command hierarchy, and cross-layer behavior tests. It owns process argument parsing, defaults to starting the TUI when no subcommand is supplied, and passes validated launch arguments downward to `intuigram-app`.
+- `crates/intuigram-app`: application orchestration, adapter composition, synchronization, recovery, and the main Compio runtime loop. Its modules live directly under `src/`; do not restore a redundant `src/application/` wrapper.
 - `crates/intuigram-lib`: sole owner of canonical application state, synchronous transitions, user intents, adapter events, effects, and read-only view data.
 - `crates/intuigram-tui`: terminal input, adaptive layout, and rendering.
 - `crates/intuigram-telegram`: Telegram login, synchronization, raw requests, update reconciliation, and translation to Intuigram-owned data.
@@ -33,7 +47,6 @@ The target is a virtual Cargo workspace. Every package belongs under `crates/`.
 - `crates/intuigram-media`: media transfer, cache policy, and media lifecycle.
 - `crates/intuigram-config`: layered Figment configuration.
 - `crates/compio-mtproto`: reusable Compio-based MTProto connection, session, invocation, and update-stream library.
-- `crates/compio-actor`: vendored experimental Compio actor runtime, kept on the workspace's published Compio dependency generation.
 - `crates/compio-term`: experimental reusable Compio-native terminal event readiness; keep its API explicitly unstable until the Windows backend and cross-platform behavior are resolved.
 - `crates/rasterm`: reusable terminal raster-image detection, cell geometry, protocol encoding, external-renderer commands, and image lifecycle; keep it free of Ratatui and Intuigram model types.
 - `crates/rich-clipboard`: reusable native clipboard-content library.
@@ -41,40 +54,21 @@ The target is a virtual Cargo workspace. Every package belongs under `crates/`.
 
 Use `intuigram-*` for Intuigram-specific crates. Give genuinely reusable crates independent names. Do not create a crate merely to group related types. A crate must hide meaningful behavior behind a small interface at a demonstrated seam.
 
-Domain-facing dependencies point toward `intuigram-lib`; adapter crates may use its Intuigram-owned values but must not depend on `intuigram-app`. `intuigram-app` sits above `intuigram-lib` and the concrete adapters, while `intuigram` depends only on `intuigram-app`. Keep adapter-specific values out of `intuigram-lib`, including ratatui widgets, Telegram TL constructors, SQLite rows, actor mailboxes, and platform clipboard types. Translate those values at the orchestration seams in `intuigram-app`. Avoid dependency cycles and shared catch-all type crates.
+Domain-facing dependencies point toward `intuigram-lib`; adapter crates may use its Intuigram-owned values but must not depend on `intuigram-app`. `intuigram-app` sits above `intuigram-lib` and the concrete adapters. The `intuigram` process package depends on Compio and `intuigram-app` in production; it creates the main-thread runtime with `#[compio::main]`, owns command-line syntax and presentation, and passes a framework-free validated global-flags struct plus command enum into the orchestration crate. Its behavior tests use `test-harness` as a development dependency; the harness depends downward on `intuigram-app` and the adapter crates it exercises. Neither `intuigram-app` nor any lower crate may depend on `intuigram` or `test-harness`, including through development dependencies. Keep adapter-specific values out of `intuigram-lib`, including ratatui widgets, Telegram TL constructors, SQLite rows, actor mailboxes, and platform clipboard types. Translate those values at the orchestration seams in `intuigram-app`. Avoid dependency cycles and shared catch-all type crates.
 
 ## State and concurrency
 
-- The `intuigram-app` composition loop runs terminal input, rendering, synchronous
-  `intuigram-lib` state reduction, result aggregation, and nonblocking platform
-  effects on the main Compio runtime thread.
-- Each live Telegram Account session is constructed and owned by an actor on a
-  dedicated one-worker Compio cluster. Its `LiveUpdates` driver is a retained
-  worker-local task so Telegram invocations and update polling make progress
-  together without moving non-`Send` connection state across threads.
-- `intuigram-lib` exclusively owns mutable application state and applies each
-  typed input synchronously, returning an immutable view and optional adapter
-  effect.
-- The composition loop polls persistent event sources and a bounded set of
-  correlated effect futures in place. Do not cancel and recreate an in-flight
-  Compio operation merely because another source wakes. Cross-thread actor
-  commands and normalized event output use bounded channels; do not add
-  channels between tasks that remain on the same runtime thread.
+- The `intuigram-app` composition loop runs terminal input, rendering, synchronous `intuigram-lib` state reduction, result aggregation, and nonblocking platform effects on the main Compio runtime thread.
+- Each live Telegram Account session is constructed and owned by an actor on a dedicated one-worker cluster using Compio's upstream `actor` feature. Its `LiveUpdates` driver is a retained worker-local task so Telegram invocations and update polling make progress together without moving non-`Send` connection state across threads.
+- `intuigram-lib` exclusively owns mutable application state and applies each typed input synchronously, returning an immutable view and optional adapter effect.
+- The composition loop polls persistent event sources and a bounded set of correlated effect futures in place. Do not cancel and recreate an in-flight Compio operation merely because another source wakes. Cross-thread actor commands and normalized event output use bounded channels; do not add channels between tasks that remain on the same runtime thread.
 - Terminal input and rendering must remain responsive while adapter effects are pending. Never execute Telegram, database, media, clipboard, notification, or platform work synchronously in the terminal event loop.
 - The TUI renders immutable snapshots or deltas.
-- Blocking SQLite work stays on dedicated database threads. Other long-running
-  adapter work remains asynchronous and returns typed results to the
-  composition loop.
-- Native clipboard reads, attachment validation and byte reads, media capture,
-  notifications, external-link launches, completed-download launches, media
-  decoding, cache access, and download writes stay outside the Telegram actor.
-  Only Telegram upload/download byte transfer runs with the live client.
+- Blocking SQLite work stays on dedicated database threads. Other long-running adapter work remains asynchronous and returns typed results to the composition loop.
+- Native clipboard reads, attachment validation and byte reads, media capture, notifications, external-link launches, completed-download launches, media decoding, cache access, and download writes stay outside the Telegram actor. Only Telegram upload/download byte transfer runs with the live client.
 - Do not introduce cross-crate shared mutable state or mutex-protected application state.
 - Make backpressure, cancellation, ordering, and shutdown behavior explicit.
-- On shutdown, stop accepting input, cancel pending Telegram calls through the
-  reserved cancellation path, let already returned Telegram updates finish
-  their durable commit, stop and join the actor and its worker-local update
-  driver, then join the actor cluster.
+- On shutdown, stop accepting input, cancel pending Telegram calls through the reserved cancellation path, let already returned Telegram updates finish their durable commit, stop and join the actor and its worker-local update driver, then join the actor cluster.
 
 ## Telegram and runtime
 
@@ -153,11 +147,9 @@ Enforce owner-only permissions for authorization and Account data. Never log aut
 - Keep public interfaces small. Accept dependencies rather than constructing hidden globals, and return observable results rather than producing untestable side effects.
 - Keep each handwritten source file below a soft limit of 200 lines and a hard limit of 400 lines. Crossing 200 lines should trigger a deliberate review for cohesive module seams; never cross 400 lines. Keep `main.rs` and `lib.rs` especially small: they should declare modules, re-export the intentional interface, and perform only top-level composition. Split by behavior and ownership, not arbitrary line ranges. Generated sources and embedded schema fixtures are exempt.
 - When a Rust module owns child modules, use the directory form with `xxx/mod.rs`; do not pair `xxx.rs` with an `xxx/` directory.
-- Group logically related source files beneath a directory module with one
-  cohesive interface. Prefer `backend/mod.rs` with private children over flat
-  filename families such as `backend_*.rs`, and apply the same rule whenever
-  sibling files share a domain owner.
+- Group logically related source files beneath a directory module with one cohesive interface. Prefer `backend/mod.rs` with private children over flat filename families such as `backend_*.rs`, and apply the same rule whenever sibling files share a domain owner.
 - Never use `include!` to splice Rust source files together. Use ordinary `mod` declarations, explicit imports and re-exports, and real module privacy boundaries.
+- Put attributes that configure a whole module as inner attributes at the start of that module's own source file. Reserve attributes on a parent's `mod` declaration for conditions or paths that control whether and where Rust loads the child module.
 - Document public items and non-obvious invariants. Do not add decorative section-divider comments.
 - When any field in a struct has an attribute or comment, leave a blank line between every field in that struct. When any enum variant has an attribute, leave a blank line between every variant in that enum.
 - Avoid wildcard imports outside test modules and deliberate preludes.
@@ -167,7 +159,9 @@ Enforce owner-only permissions for authorization and Account data. Never log aut
 
 Test modules through the same interfaces callers use. Prefer deterministic tests with in-memory or temporary adapters; ordinary tests must not require Telegram credentials or network access.
 
-Keep cross-layer behavior scenarios under `crates/intuigram-app/tests/`, where they exercise the production composition interface. Reserve `crates/intuigram/tests/` for future executable/PTY contract tests that must launch the actual binary.
+Name tests `<subject>_<scenario>_<outcome>` in `snake_case`, using three to seven short domain words without filler such as `test`, `should`, `when`, or `given`. Every test must defend an observable contract or focused invariant and fail under a plausible defect; do not test source text, wiring, constructor defaults, or other incidental implementation details.
+
+Keep cross-layer behavior scenarios under `crates/intuigram/tests/`, where the top-level process package exercises production composition through `test-harness` without reverse dependencies. Executable and PTY contract tests also belong there, but must launch the actual binary and remain separate capability targets.
 
 Required coverage includes:
 
@@ -196,4 +190,5 @@ During the proof-of-concept-to-workspace transition, use the equivalent root-pac
 - Never commit credentials, local configuration, Account databases, media caches, recovery backups, or temporary login data.
 - Do not edit generated TL sources manually; update their schema input or generator.
 - Do not update `Cargo.lock` unless dependency resolution genuinely changed.
+- Keep each plain-text Markdown paragraph on one physical line; preserve line breaks that define tables, lists, code blocks, and other structured Markdown.
 - Keep changes scoped and use Conventional Commit subjects if the user asks for commits. Do not push unless explicitly requested.

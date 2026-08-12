@@ -8,6 +8,11 @@ api_hash = "replace-with-your-api-hash"
 # on the QR-login screen.
 # phone_number = "+12025550123"
 
+# Alternatively, set all_proxy/ALL_PROXY, https_proxy/HTTPS_PROXY, or
+# http_proxy/HTTP_PROXY to one socks5://, socks5h://, or http:// proxy URL.
+# A generic proxy disables direct fallback unless the matching INTUIGRAM_
+# configuration variable explicitly enables it.
+
 # Proxy routes are tried in order. Direct TCP is the final fallback by default.
 [connection]
 direct_fallback = true
@@ -37,10 +42,21 @@ timeout_seconds = 10
 cache_bytes = 2147483648
 
 [view]
-# "default" adds breathing room; "compact" preserves the original dense layout.
+# "default" adds breathing room; "compact" gives a denser layout.
 mode = "default"
 # Maximum Message body and metadata width in terminal cells.
 message_max_width = 96
+
+[logging]
+# Intuigram appends diagnostics to <data>/intuigram/intuigram.log by default.
+# Set an exact path to write elsewhere.
+# path = "/path/to/intuigram.log"
+
+# Optional external path picker. Intuigram executes the program directly and
+# reads one selected local path from standard output.
+# [external.path_picker]
+# program = "zenity"
+# args = ["--file-selection"]
 
 # Optional Local Lock encrypts the complete Account database, including
 # Telegram authorization and synchronized Message text. Use "keyring" to keep

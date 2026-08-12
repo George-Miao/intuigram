@@ -95,7 +95,7 @@ impl TelegramScenario {
         &mut self,
         chat: ChatId,
         message: MessageId,
-    ) -> Result<(), ScenarioMismatch> {
+    ) -> Result<super::MediaPreviewResult, ScenarioMismatch> {
         let observed = format!(
             "load image preview for Message {} in Chat {}",
             message.0, chat.0
@@ -103,9 +103,17 @@ impl TelegramScenario {
         let expected = self.next_expected(&observed)?;
         match expected {
             ExpectedCommand::LoadMediaPreview {
+                label,
                 chat: expected_chat,
                 message: expected_message,
-            } if expected_chat == chat && expected_message == message => Ok(()),
+            } if expected_chat == chat && expected_message == message => {
+                if let Some(label) = label {
+                    self.held_media_previews.insert(label, (chat, message));
+                    Ok(super::MediaPreviewResult::Held)
+                } else {
+                    Ok(super::MediaPreviewResult::Ready)
+                }
+            }
             expected => Err(mismatch(expected, observed)),
         }
     }
@@ -176,10 +184,11 @@ impl TelegramScenario {
             reply_to,
             thread_root,
             local_id,
+            attachments,
         } = observed_send;
         let observed = format!(
-            "send {text:?} to Chat {} with link preview {link_preview} replying to {:?} in Thread \
-             {:?}",
+            "send {text:?} with {attachments:?} to Chat {} with link preview {link_preview} \
+             replying to {:?} in Thread {:?}",
             chat.0,
             reply_to.map(|message| message.0),
             thread_root.map(|message| message.0)
@@ -194,6 +203,7 @@ impl TelegramScenario {
                 link_preview: expected_link_preview,
                 reply_to: expected_reply,
                 thread_root: expected_thread,
+                attachments: expected_attachments,
             } if expected_chat == chat
                 && expected_text == text
                 && expected_entities
@@ -201,7 +211,10 @@ impl TelegramScenario {
                     .is_none_or(|expected| expected == &entities)
                 && expected_link_preview.is_none_or(|expected| expected == link_preview)
                 && expected_reply == reply_to
-                && expected_thread == thread_root =>
+                && expected_thread == thread_root
+                && expected_attachments
+                    .as_ref()
+                    .is_none_or(|expected| expected == &attachments) =>
             {
                 self.held.insert(
                     label,

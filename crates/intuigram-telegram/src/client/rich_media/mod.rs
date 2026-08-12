@@ -1,0 +1,304 @@
+use super::*;
+
+mod types;
+
+pub(super) use types::InputMediaSend;
+pub use types::{ContactCardSend, LibraryMediaSend, MediaLibraryEntry, MediaLibraryKind};
+
+impl Client {
+    /// Loads recent stickers, saved GIFs, or searched custom emoji.
+    pub async fn browse_media(
+        &mut self,
+        kind: MediaLibraryKind,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<MediaLibraryEntry>> {
+        let documents = match kind {
+            MediaLibraryKind::Stickers if query.is_empty() => {
+                match self
+                    .connection
+                    .invoke(&tl::functions::messages::GetRecentStickers {
+                        attached: false,
+                        hash: 0,
+                    })
+                    .await
+                    .context(InvokeSnafu)?
+                {
+                    tl::enums::messages::RecentStickers::Stickers(stickers) => stickers.stickers,
+                    tl::enums::messages::RecentStickers::NotModified => Vec::new(),
+                }
+            }
+            MediaLibraryKind::Stickers => {
+                match self
+                    .connection
+                    .invoke(&tl::functions::messages::SearchStickers {
+                        emojis: false,
+                        q: query.to_owned(),
+                        emoticon: String::new(),
+                        lang_code: Vec::new(),
+                        offset: 0,
+                        limit: i32::try_from(limit).unwrap_or(i32::MAX),
+                        hash: 0,
+                    })
+                    .await
+                    .context(InvokeSnafu)?
+                {
+                    tl::enums::messages::FoundStickers::Stickers(found) => found.stickers,
+                    tl::enums::messages::FoundStickers::NotModified(_) => Vec::new(),
+                }
+            }
+            MediaLibraryKind::Gifs => {
+                match self
+                    .connection
+                    .invoke(&tl::functions::messages::GetSavedGifs { hash: 0 })
+                    .await
+                    .context(InvokeSnafu)?
+                {
+                    tl::enums::messages::SavedGifs::Gifs(gifs) => gifs.gifs,
+                    tl::enums::messages::SavedGifs::NotModified => Vec::new(),
+                }
+            }
+            MediaLibraryKind::CustomEmoji => {
+                let ids = match self
+                    .connection
+                    .invoke(&tl::functions::messages::SearchCustomEmoji {
+                        emoticon: query.to_owned(),
+                        hash: 0,
+                    })
+                    .await
+                    .context(InvokeSnafu)?
+                {
+                    tl::enums::EmojiList::List(list) => list.document_id,
+                    tl::enums::EmojiList::NotModified => Vec::new(),
+                };
+                self.connection
+                    .invoke(&tl::functions::messages::GetCustomEmojiDocuments {
+                        document_id: ids.into_iter().take(limit).collect(),
+                    })
+                    .await
+                    .context(InvokeSnafu)?
+            }
+        };
+        Ok(documents
+            .into_iter()
+            .filter_map(|document| library_entry(document, kind))
+            .take(limit)
+            .collect())
+    }
+
+    /// Sends one previously browsed library entry to a Chat.
+    pub async fn send_library_media(
+        &mut self,
+        chat: ChatId,
+        entry: &MediaLibraryEntry,
+        reply_to: Option<MessageId>,
+        thread_root: Option<MessageId>,
+        monoforum_peer: Option<ChatId>,
+        random_id: i64,
+    ) -> Result<MessageId> {
+        self.send_library_media_with_policy(
+            LibraryMediaSend {
+                chat,
+                entry: entry.clone(),
+                reply_to,
+                thread_root,
+                monoforum_peer,
+                random_id,
+            },
+            InvocationPolicy::WaitForFlood,
+        )
+        .await
+    }
+
+    /// Sends one library entry using the requested invocation policy.
+    pub async fn send_library_media_with_policy(
+        &mut self,
+        request: LibraryMediaSend,
+        policy: InvocationPolicy,
+    ) -> Result<MessageId> {
+        let LibraryMediaSend {
+            chat,
+            entry,
+            reply_to,
+            thread_root,
+            monoforum_peer,
+            random_id,
+        } = request;
+        if entry.kind == MediaLibraryKind::CustomEmoji {
+            let text = if entry.label.is_empty() {
+                "🙂".to_owned()
+            } else {
+                entry.label.clone()
+            };
+            return self
+                .send_text_with_policy(
+                    TextSend {
+                        chat,
+                        entities: vec![TextEntity {
+                            offset: 0,
+                            length: text.encode_utf16().count(),
+                            kind: TextEntityKind::CustomEmoji {
+                                document_id: entry.id,
+                            },
+                        }],
+                        text,
+                        link_preview: false,
+                        reply_to,
+                        thread_root,
+                        monoforum_peer,
+                        random_id,
+                        schedule_date: None,
+                    },
+                    policy,
+                )
+                .await;
+        }
+        let peer = self.peers.resolve(chat)?;
+        let media = tl::types::InputMediaDocument {
+            spoiler: false,
+            id: tl::types::InputDocument {
+                id: entry.id,
+                access_hash: entry.access_hash,
+                file_reference: entry.file_reference.clone(),
+            }
+            .into(),
+            video_cover: None,
+            video_timestamp: None,
+            ttl_seconds: None,
+            query: None,
+        }
+        .into();
+        self.send_input_media_with_policy(
+            InputMediaSend {
+                peer,
+                media,
+                message: String::new(),
+                reply_to,
+                thread_root,
+                monoforum_peer,
+                random_id,
+            },
+            policy,
+        )
+        .await
+    }
+
+    /// Sends a Telegram contact card.
+    pub async fn send_contact(&mut self, request: ContactCardSend) -> Result<MessageId> {
+        self.send_contact_with_policy(request, InvocationPolicy::WaitForFlood)
+            .await
+    }
+
+    /// Sends a Telegram contact card using the requested invocation policy.
+    pub async fn send_contact_with_policy(
+        &mut self,
+        request: ContactCardSend,
+        policy: InvocationPolicy,
+    ) -> Result<MessageId> {
+        let ContactCardSend {
+            chat,
+            phone_number,
+            first_name,
+            last_name,
+            reply_to,
+            thread_root,
+            monoforum_peer,
+            random_id,
+        } = request;
+        let peer = self.peers.resolve(chat)?;
+        let media = tl::types::InputMediaContact {
+            phone_number,
+            first_name,
+            last_name,
+            vcard: String::new(),
+        }
+        .into();
+        self.send_input_media_with_policy(
+            InputMediaSend {
+                peer,
+                media,
+                message: String::new(),
+                reply_to,
+                thread_root,
+                monoforum_peer,
+                random_id,
+            },
+            policy,
+        )
+        .await
+    }
+
+    pub(super) async fn send_input_media_with_policy(
+        &mut self,
+        request: InputMediaSend,
+        policy: InvocationPolicy,
+    ) -> Result<MessageId> {
+        let InputMediaSend {
+            peer,
+            media,
+            message,
+            reply_to,
+            thread_root,
+            monoforum_peer,
+            random_id,
+        } = request;
+        let monoforum_peer = monoforum_peer
+            .map(|peer| self.peers.resolve(peer))
+            .transpose()?;
+        let updates = self
+            .invoke_outbound(
+                &tl::functions::messages::SendMedia {
+                    silent: false,
+                    background: false,
+                    clear_draft: true,
+                    noforwards: false,
+                    update_stickersets_order: false,
+                    invert_media: false,
+                    allow_paid_floodskip: false,
+                    peer,
+                    reply_to: input_reply_to(reply_to, thread_root, monoforum_peer)?,
+                    media,
+                    message,
+                    random_id,
+                    reply_markup: None,
+                    entities: None,
+                    schedule_date: None,
+                    schedule_repeat_period: None,
+                    send_as: None,
+                    quick_reply_shortcut: None,
+                    effect: None,
+                    allow_paid_stars: None,
+                    suggested_post: None,
+                },
+                policy,
+            )
+            .await?;
+        sent_message_id(updates, random_id)
+    }
+}
+
+fn library_entry(
+    document: tl::enums::Document,
+    kind: MediaLibraryKind,
+) -> Option<MediaLibraryEntry> {
+    let tl::enums::Document::Document(document) = document else {
+        return None;
+    };
+    let label = document
+        .attributes
+        .iter()
+        .find_map(|attribute| match attribute {
+            tl::enums::DocumentAttribute::Sticker(sticker) => Some(sticker.alt.clone()),
+            tl::enums::DocumentAttribute::CustomEmoji(emoji) => Some(emoji.alt.clone()),
+            tl::enums::DocumentAttribute::Filename(file) => Some(file.file_name.clone()),
+            _ => None,
+        })
+        .unwrap_or_else(|| document.mime_type.clone());
+    Some(MediaLibraryEntry {
+        id: document.id,
+        label,
+        kind,
+        access_hash: document.access_hash,
+        file_reference: document.file_reference,
+    })
+}

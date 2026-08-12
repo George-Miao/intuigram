@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use intuigram_app::{Application, UpdateCommitter};
+use intuigram_app::UpdateCommitter;
 use intuigram_lib::{
     AccountLifecycle, AttachmentId, ChatId, DownloadId, MessageId, OutboxKey, ScheduledMessageView,
 };
@@ -24,6 +24,7 @@ mod avatar_effects;
 mod builder;
 mod composer_effects;
 mod downloads;
+mod driver;
 mod effects;
 mod folder_effects;
 mod history_effects;
@@ -39,11 +40,12 @@ mod telegram_control;
 mod topic_effects;
 
 pub use builder::TestSystemBuilder;
+use driver::Driver;
 pub use input::{TestKey, key};
 pub use telegram_control::TelegramControl;
 
 pub struct TestSystem {
-    application: Application,
+    application: Driver,
     telegram: TelegramScenario,
     database: AccountDatabase,
     updates: UpdateCommitter,
@@ -51,6 +53,7 @@ pub struct TestSystem {
     download_root: PathBuf,
     next_download_id: u64,
     next_attachment_id: u64,
+    clipboard_image: bool,
     attachment_names: HashMap<AttachmentId, String>,
     next_outbox_key: i64,
     outbox_items: HashMap<MessageId, OutboxKey>,

@@ -109,7 +109,10 @@ impl App {
         }
         let target = self.offline_media.queued.pop_front()?;
         self.offline_media.active = Some(target);
-        Some(Effect::CacheMediaOffline(target))
+        Some(Effect::CacheMediaOffline {
+            target,
+            locator: self.message_media_locator(target.chat, target.message),
+        })
     }
 
     fn complete_offline_media(
@@ -125,8 +128,7 @@ impl App {
             self.view.notice = Some(reason);
         }
         self.request_next_offline_media()
-            .or_else(|| self.request_next_media_preview())
-            .or_else(|| self.request_next_avatar())
+            .or_else(|| self.request_next_small_media())
             .or_else(|| self.request_next_background_history())
     }
 

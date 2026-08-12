@@ -23,7 +23,13 @@ fn retained_chat_media_is_fetched_serially_before_derived_previews() {
     };
 
     let started = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
-    assert_eq!(started.effect, Some(Effect::CacheMediaOffline(target)));
+    assert_eq!(
+        started.effect,
+        Some(Effect::CacheMediaOffline {
+            target,
+            locator: None,
+        })
+    );
     assert_eq!(started.view.offline_chats, vec![ChatId(10)]);
 
     let retained = app.transition(Input::Adapter(AdapterEvent::MediaCachedOffline(target)));
@@ -32,6 +38,7 @@ fn retained_chat_media_is_fetched_serially_before_derived_previews() {
         Some(Effect::LoadMediaPreview {
             chat: ChatId(10),
             message: MessageId(3),
+            locator: None,
         })
     );
 }

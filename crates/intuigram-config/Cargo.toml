@@ -6,8 +6,10 @@ license.workspace = true
 
 [dependencies]
 figment = { workspace = true, features = ["env", "json", "toml", "yaml"] }
+percent-encoding.workspace = true
 serde = { workspace = true, features = ["derive"] }
 snafu.workspace = true
+url.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

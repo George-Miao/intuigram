@@ -66,6 +66,34 @@ fn command_line_values_override_configuration_files() {
 }
 
 #[test]
+fn log_path_defaults_to_data_and_accepts_an_override() {
+    let temporary = tempdir().expect("temporary directory should be created");
+    let platform = defaults(temporary.path());
+    fs::create_dir_all(&platform.config).expect("config directory should be created");
+    let data = temporary.path().join("command-data");
+    let default = ConfigLoader::new(platform.clone())
+        .read_environment(false)
+        .with_overrides(Overrides {
+            data: Some(data.clone()),
+            ..Overrides::default()
+        })
+        .load()
+        .expect("default logging configuration should load");
+    assert_eq!(default.log_path(), data.join("intuigram.log"));
+    let configured = temporary.path().join("diagnostics/client.log");
+    fs::write(
+        platform.config.join("config.toml"),
+        format!("[logging]\npath = {:?}\n", configured.display().to_string()),
+    )
+    .expect("logging configuration should be written");
+    let config = ConfigLoader::new(platform)
+        .read_environment(false)
+        .load()
+        .expect("configured log path should load");
+    assert_eq!(config.log_path(), configured);
+}
+
+#[test]
 fn external_path_picker_is_loaded_as_a_direct_program_and_arguments() {
     let temporary = tempdir().expect("temporary directory should be created");
     let platform = defaults(temporary.path());

@@ -1,4 +1,4 @@
-use compio::buf::IoBuf;
+use compio::buf::{IoBuf, IoBufExt as _};
 use compio::io::framed::frame::Framer;
 
 use super::{AbridgedCodec, AbridgedFramer};

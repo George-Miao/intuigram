@@ -14,6 +14,7 @@ impl App {
     #[must_use]
     pub fn transition(&mut self, input: Input) -> Update {
         let effect = self.apply(input);
+        self.sync_avatar_load_view();
         self.refresh_actions();
         Update {
             view: self.view.clone(),

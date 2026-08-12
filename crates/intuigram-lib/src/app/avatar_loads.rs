@@ -7,7 +7,7 @@ const MAX_QUEUED_AVATARS: usize = 12;
 
 #[derive(Default)]
 pub(super) struct AvatarLoads {
-    active: Option<AvatarRef>,
+    active: Vec<AvatarRef>,
     queued: VecDeque<AvatarRef>,
     failed: HashSet<AvatarRef>,
 }
@@ -27,7 +27,7 @@ impl App {
             .retain(|loaded| loaded.avatar.peer != peer || id == Some(loaded.avatar.id));
         self.avatar_loads.invalidate(peer);
         self.queue_visible_avatars();
-        self.request_next_avatar()
+        self.request_next_small_media()
     }
 
     pub(super) fn queue_visible_avatars(&mut self) {
@@ -58,7 +58,7 @@ impl App {
                     .map(|id| AvatarRef { peer, id })
             })
             .filter(|avatar| unique.insert(*avatar))
-            .filter(|avatar| Some(*avatar) != self.avatar_loads.active)
+            .filter(|avatar| !self.avatar_loads.active.contains(avatar))
             .filter(|avatar| !self.avatar_loads.failed.contains(avatar))
             .filter(|avatar| {
                 !self
@@ -72,11 +72,8 @@ impl App {
     }
 
     pub(super) fn request_next_avatar(&mut self) -> Option<Effect> {
-        if self.avatar_loads.active.is_some() {
-            return None;
-        }
         let avatar = self.avatar_loads.queued.pop_front()?;
-        self.avatar_loads.active = Some(avatar);
+        self.avatar_loads.active.push(avatar);
         Some(Effect::LoadAvatar { avatar })
     }
 
@@ -85,10 +82,12 @@ impl App {
         avatar_ref: AvatarRef,
         loaded: Option<AvatarView>,
     ) -> Option<Effect> {
-        if self.avatar_loads.active != Some(avatar_ref) {
+        if !self.avatar_loads.active.contains(&avatar_ref) {
             return None;
         }
-        self.avatar_loads.active = None;
+        self.avatar_loads
+            .active
+            .retain(|active| *active != avatar_ref);
         let current = self.avatar_peers.get(&avatar_ref.peer) == Some(&avatar_ref.id);
         if let Some(avatar) = loaded.filter(|_| current) {
             self.view
@@ -98,13 +97,28 @@ impl App {
         } else if current {
             self.avatar_loads.failed.insert(avatar_ref);
         }
-        self.request_next_avatar()
+        self.request_next_small_media()
             .or_else(|| self.take_pending_read())
             .or_else(|| self.request_next_background_history())
+    }
+
+    pub(super) fn sync_avatar_load_view(&mut self) {
+        self.view.avatar_loads.clear();
+        self.view.avatar_loads.extend(
+            self.avatar_loads
+                .active
+                .iter()
+                .chain(&self.avatar_loads.queued)
+                .copied(),
+        );
     }
 }
 
 impl AvatarLoads {
+    pub(super) fn active_len(&self) -> usize {
+        self.active.len()
+    }
+
     fn invalidate(&mut self, peer: ChatId) {
         self.queued.retain(|avatar| avatar.peer != peer);
         self.failed.retain(|avatar| avatar.peer != peer);

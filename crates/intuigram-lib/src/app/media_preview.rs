@@ -12,7 +12,7 @@ pub(super) struct PreviewKey {
 
 #[derive(Default)]
 pub(super) struct MediaPreviewLoads {
-    active: Option<PreviewKey>,
+    active: Vec<PreviewKey>,
     queued: VecDeque<PreviewKey>,
 }
 
@@ -48,7 +48,7 @@ impl App {
                 chat,
                 message: message.id,
             })
-            .filter(|key| Some(*key) != self.media_preview_loads.active)
+            .filter(|key| !self.media_preview_loads.active.contains(key))
             .filter(|key| {
                 !self
                     .view
@@ -68,8 +68,9 @@ impl App {
         self.view.media_preview_loads.extend(
             self.media_preview_loads
                 .active
+                .iter()
+                .copied()
                 .filter(|key| key.chat == chat)
-                .into_iter()
                 .chain(candidates.iter().copied())
                 .map(|key| MediaPreviewLoadView {
                     chat: key.chat,
@@ -80,32 +81,59 @@ impl App {
     }
 
     pub(super) fn request_next_media_preview(&mut self) -> Option<Effect> {
-        if self.media_preview_loads.active.is_some() {
-            return None;
-        }
         let key = self.media_preview_loads.queued.pop_front()?;
-        self.media_preview_loads.active = Some(key);
+        self.media_preview_loads.active.push(key);
         Some(Effect::LoadMediaPreview {
             chat: key.chat,
             message: key.message,
+            locator: self.message_media_locator(key.chat, key.message),
         })
     }
 
+    pub(super) fn message_media_locator(
+        &self,
+        chat: ChatId,
+        message: MessageId,
+    ) -> Option<MediaLocator> {
+        self.histories
+            .iter()
+            .filter(|(key, _)| key.chat == chat)
+            .flat_map(|(_, messages)| messages)
+            .chain(
+                (self.active_chat_id() == Some(chat))
+                    .then_some(&self.view.messages)
+                    .into_iter()
+                    .flatten(),
+            )
+            .find(|candidate| candidate.id == message)
+            .and_then(|message| message.details.media_locator.clone())
+    }
+
     pub(super) fn complete_media_preview(&mut self, key: PreviewKey) -> Option<Effect> {
-        if self.media_preview_loads.active != Some(key) {
+        if !self.media_preview_loads.active.contains(&key) {
             return None;
         }
-        self.media_preview_loads.active = None;
+        self.media_preview_loads
+            .active
+            .retain(|active| *active != key);
         self.view
             .media_preview_loads
             .retain(|loading| loading.chat != key.chat || loading.message != key.message);
-        self.request_next_media_preview()
-            .or_else(|| self.request_next_avatar())
+        self.request_next_small_media()
             .or_else(|| {
                 (!self.history_load_is_active())
                     .then(|| self.request_next_background_history())
                     .flatten()
             })
             .or_else(|| self.take_pending_read())
+    }
+
+    pub(super) fn request_next_small_media(&mut self) -> Option<Effect> {
+        let active = self.media_preview_loads.active.len() + self.avatar_loads.active_len();
+        if active >= self.small_media_capacity {
+            return None;
+        }
+        self.request_next_media_preview()
+            .or_else(|| self.request_next_avatar())
     }
 }

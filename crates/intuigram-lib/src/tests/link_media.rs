@@ -55,6 +55,7 @@ fn image_preview_space_is_reserved_only_while_loading() {
         Some(Effect::LoadMediaPreview {
             chat: ChatId(10),
             message: MessageId(3),
+            locator: None,
         })
     );
     assert_eq!(loading.view.media_preview_loads.len(), 1);
@@ -175,6 +176,7 @@ fn downloaded_media_is_opened_or_revealed_by_opaque_handle() {
             chat: crate::ChatId(10),
             message: MessageId(3),
             destination: None,
+            locator: None,
         })
     );
 
@@ -236,6 +238,7 @@ fn save_as_collects_an_exact_destination_before_downloading() {
             chat: ChatId(10),
             message: MessageId(3),
             destination: Some("/chosen/report.txt".to_owned()),
+            locator: None,
         })
     );
 }

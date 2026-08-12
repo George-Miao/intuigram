@@ -1,5 +1,5 @@
 use super::*;
-use crate::source::NotificationDefaults;
+use crate::NotificationDefaults;
 
 #[test]
 fn live_peer_mute_updates_normalize_into_chat_notification_state() {
@@ -26,17 +26,17 @@ fn live_peer_mute_updates_normalize_into_chat_notification_state() {
 
 #[test]
 fn expired_or_inherited_notification_settings_are_not_muted() {
-    assert!(crate::source::notifications_muted_at(
+    assert!(crate::notifications_muted_at(
         &notification_settings(Some(101)),
         100,
         false,
     ));
-    assert!(!crate::source::notifications_muted_at(
+    assert!(!crate::notifications_muted_at(
         &notification_settings(Some(100)),
         100,
         false,
     ));
-    assert!(!crate::source::notifications_muted_at(
+    assert!(!crate::notifications_muted_at(
         &notification_settings(None),
         100,
         false,
@@ -45,12 +45,12 @@ fn expired_or_inherited_notification_settings_are_not_muted() {
 
 #[test]
 fn inherited_peer_settings_use_the_category_mute_default() {
-    assert!(crate::source::notifications_muted_at(
+    assert!(crate::notifications_muted_at(
         &notification_settings(None),
         100,
         true,
     ));
-    assert!(!crate::source::notifications_muted_at(
+    assert!(!crate::notifications_muted_at(
         &notification_settings(Some(0)),
         100,
         true,

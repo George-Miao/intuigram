@@ -2,7 +2,7 @@ use std::io;
 
 use aes::Aes256;
 use aes::cipher::{KeyIvInit, StreamCipher};
-use compio::buf::{BufResult, IoBuf, IoBufMut};
+use compio::buf::{BufResult, IoBuf, IoBufExt as _, IoBufMut, IoBufMutExt as _};
 use compio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use compio::net::TcpStream;
 use ctr::Ctr128BE;

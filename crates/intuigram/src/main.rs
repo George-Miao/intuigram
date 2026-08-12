@@ -1,5 +1,8 @@
 //! Intuigram executable entrypoint.
 
-fn main() {
-    intuigram_app::main();
+mod cli;
+
+#[compio::main]
+async fn main() {
+    intuigram_app::main(cli::parse()).await;
 }

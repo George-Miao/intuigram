@@ -5,7 +5,7 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll, ready};
 
-use compio::buf::{IoBuf, IoBufMut, Slice};
+use compio::buf::{IoBuf, Slice};
 use compio::io::framed::SymmetricFramed;
 use compio::io::framed::codec::{Decoder, Encoder};
 use compio::io::framed::frame::{Frame, Framer};

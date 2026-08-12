@@ -9,15 +9,14 @@ use intuigram_lib::{
     StoryStateView, TodoListView,
 };
 
-use crate::UpdateScope;
-use crate::source::{
+use crate::{
     Error, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginErrorAction, MediaLibraryEntry,
-    MediaLibraryKind, PeerDirectory, chat_traits, contains_login_token_update, direct_data_centers,
-    ensure_production_environment, login_error_action, normalize_code_delivery,
-    normalize_code_delivery_method, normalize_dialog_folder_details, normalize_dialog_folders,
-    normalize_live_update, normalize_serialized_media, normalize_serialized_peer_kind,
-    qr_login_uri, rpc_migration_dc, service_event_description, service_event_media,
-    set_dialog_filter_membership, thread_root_message_id,
+    MediaLibraryKind, PeerDirectory, UpdateScope, chat_traits, contains_login_token_update,
+    direct_data_centers, ensure_production_environment, login_error_action,
+    normalize_code_delivery, normalize_code_delivery_method, normalize_dialog_folder_details,
+    normalize_dialog_folders, normalize_live_update, normalize_serialized_media,
+    normalize_serialized_peer_kind, qr_login_uri, rpc_migration_dc, service_event_description,
+    service_event_media, set_dialog_filter_membership, thread_root_message_id,
 };
 
 #[test]
@@ -340,6 +339,53 @@ fn channel_pts_never_advance_the_account_cursor() {
         UpdateScope::Channel(ChatId(-1_000_000_000_005))
     );
     assert_eq!(batch.cursors[1].pts, Some(30));
+}
+
+#[test]
+fn channel_read_ahead_of_mutation_does_not_create_a_gap() {
+    let update = tl::enums::Updates::Updates(tl::types::Updates {
+        updates: vec![
+            tl::types::UpdateReadChannelInbox {
+                folder_id: None,
+                channel_id: 5,
+                max_id: 42,
+                still_unread_count: 0,
+                pts: 30,
+            }
+            .into(),
+            tl::types::UpdateDeleteChannelMessages {
+                channel_id: 5,
+                messages: vec![42],
+                pts: 30,
+                pts_count: 1,
+            }
+            .into(),
+        ],
+        users: Vec::new(),
+        chats: Vec::new(),
+        date: 1_700_000_001,
+        seq: 4,
+    });
+    let mut names = HashMap::new();
+
+    let batch = normalize_live_update(&update.to_bytes(), &mut names)
+        .expect("out-of-order Channel updates should normalize");
+    let channel = batch
+        .cursors
+        .iter()
+        .find(|cursor| cursor.scope == UpdateScope::Channel(ChatId(-1_000_000_000_005)))
+        .expect("Channel updates should retain a scoped cursor");
+
+    assert_eq!(channel.pts, Some(30));
+    assert_eq!(channel.pts_count, 1);
+    assert!(!channel.gap);
+    assert!(matches!(
+        &batch.events[..],
+        [
+            AdapterEvent::MessagesDeleted { .. },
+            AdapterEvent::HistoryRead { .. }
+        ]
+    ));
 }
 
 #[test]

@@ -73,6 +73,7 @@ fn view(actions: Vec<Action>) -> View {
         downloads: Vec::new(),
         media_previews: Vec::new(),
         avatars: Vec::new(),
+        avatar_loads: Vec::new(),
         media_preview_loads: Vec::new(),
         poll_composer: false,
         notice: None,

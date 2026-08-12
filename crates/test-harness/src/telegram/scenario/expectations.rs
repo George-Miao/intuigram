@@ -73,6 +73,18 @@ impl TelegramScenario {
     #[must_use]
     pub fn expect_media_preview(mut self, chat: i64, message: i64) -> Self {
         self.expected.push_back(ExpectedCommand::LoadMediaPreview {
+            label: None,
+            chat: ChatId(chat),
+            message: MessageId(message),
+        });
+        self
+    }
+
+    /// Holds one preview request until the scenario completes it explicitly.
+    #[must_use]
+    pub fn hold_media_preview(mut self, label: impl Into<String>, chat: i64, message: i64) -> Self {
+        self.expected.push_back(ExpectedCommand::LoadMediaPreview {
+            label: Some(label.into()),
             chat: ChatId(chat),
             message: MessageId(message),
         });

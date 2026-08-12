@@ -5,8 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-compio = { workspace = true, features = ["fs", "process"] }
-compio-io.workspace = true
+compio = { workspace = true, features = ["fs", "io", "process"] }
 image.workspace = true
 intuigram-lib.workspace = true
 snafu.workspace = true

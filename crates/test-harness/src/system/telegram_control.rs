@@ -6,12 +6,13 @@ use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
 use std::thread;
 
-use intuigram_lib::{AdapterEvent, MessageView};
+use intuigram_lib::{AdapterEvent, MediaPreviewView, MessageView};
 use intuigram_telegram::{LiveEvent, UpdateCursor};
 use snafu::ResultExt;
 
 use super::TestSystem;
 use crate::error::{Error, Result, SyncSnafu};
+use crate::system::downloads::ONE_PIXEL_PNG;
 use crate::telegram::{AccountFixture, ScenarioMismatch};
 
 /// Explicit Telegram events and completions available to behavior scenarios.
@@ -78,6 +79,24 @@ impl TelegramControl<'_> {
         message: MessageView,
     ) -> Result<()> {
         self.complete_in_saved_dialog(label, Some(saved_peer), message)
+    }
+
+    /// Completes a previously held image preview request.
+    pub fn complete_media_preview(&mut self, label: &str) -> Result<()> {
+        let Some((chat, message)) = self.system.telegram.take_held_media_preview(label) else {
+            return Err(Error::TelegramMismatch {
+                expected: format!("held media preview {label:?}"),
+                observed: "completion without a matching held media preview".to_owned(),
+                artifact: self.system.trace.borrow().persist(),
+            });
+        };
+        let image = intuigram_media::decode_preview(ONE_PIXEL_PNG)
+            .expect("the committed behavior PNG should decode");
+        self.inject(AdapterEvent::MediaPreviewReady(MediaPreviewView {
+            chat,
+            message,
+            image,
+        }))
     }
 
     fn complete_in_saved_dialog(

@@ -16,31 +16,44 @@ pub fn store_cursor(cursor: UpdateCursor) -> SyncCursor {
     }
 }
 
+pub(super) enum CursorDelta {
+    Applied {
+        cursor: SyncCursor,
+        expose_events: bool,
+    },
+    Deferred {
+        scope: String,
+    },
+}
+
 pub(super) fn apply_cursor_delta(
     mut cursor: SyncCursor,
-    delta: UpdateCursor,
-) -> Result<(SyncCursor, bool)> {
+    delta: &UpdateCursor,
+) -> Result<CursorDelta> {
     if delta.gap {
         return UpdateGapSnafu {
             scope: cursor.scope,
         }
         .fail();
     }
-    let previous = cursor.clone();
+    let mut expose_events = false;
     if let Some(pts) = delta.pts {
         let expected = cursor.pts.saturating_add(delta.pts_count);
-        if cursor.pts != 0 && pts > cursor.pts && delta.pts_count > 0 && pts != expected {
-            return UpdateGapSnafu {
+        if cursor.pts != 0 && pts > cursor.pts && pts != expected {
+            return Ok(CursorDelta::Deferred {
                 scope: cursor.scope,
-            }
-            .fail();
+            });
         }
+        expose_events |=
+            pts > cursor.pts || (cursor.pts != 0 && pts == cursor.pts && delta.pts_count == 0);
         cursor.pts = cursor.pts.max(pts);
     }
     if let Some(qts) = delta.qts {
+        expose_events |= qts > cursor.qts;
         cursor.qts = cursor.qts.max(qts);
     }
     if let Some(date) = delta.date {
+        expose_events |= date > cursor.date;
         cursor.date = cursor.date.max(date);
     }
     if let Some(seq) = delta.seq {
@@ -49,16 +62,15 @@ pub(super) fn apply_cursor_delta(
                 .seq_start
                 .is_some_and(|start| start > cursor.seq.saturating_add(1))
         {
-            return UpdateGapSnafu {
+            return Ok(CursorDelta::Deferred {
                 scope: cursor.scope,
-            }
-            .fail();
+            });
         }
+        expose_events |= seq > cursor.seq;
         cursor.seq = cursor.seq.max(seq);
     }
-    let advanced = cursor.pts > previous.pts
-        || cursor.qts > previous.qts
-        || cursor.date > previous.date
-        || cursor.seq > previous.seq;
-    Ok((cursor, advanced))
+    Ok(CursorDelta::Applied {
+        cursor,
+        expose_events,
+    })
 }

@@ -2,30 +2,12 @@ use std::io::{self, Write};
 
 use compio_term::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use futures_util::StreamExt;
-use snafu::{ResultExt, Snafu};
-
-#[derive(Debug, Snafu)]
-enum Error {
-    #[snafu(display("failed to initialize the Compio runtime"))]
-    Runtime { source: io::Error },
-
-    #[snafu(display("failed to enable terminal raw mode"))]
-    EnableRawMode { source: io::Error },
-
-    #[snafu(display("terminal event stream failed"))]
-    Event { source: compio_term::EventError },
-
-    #[snafu(display("failed to write the observed event"))]
-    WriteEvent { source: io::Error },
-}
-
-type Result<T, E = Error> = std::result::Result<T, E>;
 
 struct RawMode;
 
 impl RawMode {
-    fn enter() -> Result<Self> {
-        crossterm::terminal::enable_raw_mode().context(EnableRawModeSnafu)?;
+    fn enter() -> io::Result<Self> {
+        crossterm::terminal::enable_raw_mode()?;
         Ok(Self)
     }
 }
@@ -54,18 +36,18 @@ fn main() {
     }
 }
 
-fn run() -> Result<()> {
-    let runtime = compio::runtime::Runtime::new().context(RuntimeSnafu)?;
+fn run() -> io::Result<()> {
+    let runtime = compio::runtime::Runtime::new()?;
     let _raw_mode = RawMode::enter()?;
     runtime.block_on(async {
-        let mut events = EventStream::new().context(EventSnafu)?;
+        let mut events = EventStream::new()?;
         let mut stdout = io::stdout().lock();
-        write!(stdout, "Press q or Ctrl+C to stop.\r\n").context(WriteEventSnafu)?;
+        write!(stdout, "Press q or Ctrl+C to stop.\r\n")?;
 
         while let Some(event) = events.next().await {
-            let event = event.context(EventSnafu)?;
-            write!(stdout, "{event:?}\r\n").context(WriteEventSnafu)?;
-            stdout.flush().context(WriteEventSnafu)?;
+            let event = event?;
+            write!(stdout, "{event:?}\r\n")?;
+            stdout.flush()?;
             if should_quit(&event) {
                 break;
             }

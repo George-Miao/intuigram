@@ -155,14 +155,14 @@ pub enum Error {
     #[snafu(display("failed to initialize terminal input"))]
     InitializeEventStream {
         /// Underlying terminal-event adapter failure.
-        source: compio_term::EventError,
+        source: io::Error,
     },
 
     /// The Compio terminal event stream failed.
     #[snafu(display("failed to receive terminal input"))]
     StreamEvent {
         /// Underlying terminal-event adapter failure.
-        source: compio_term::EventError,
+        source: io::Error,
     },
 
     /// The terminal event source ended while the UI was active.

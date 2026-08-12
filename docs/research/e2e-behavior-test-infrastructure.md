@@ -16,16 +16,16 @@ Playwright's useful ideas are clean-slate fixtures, live locators, auto-waited a
 
 The corresponding Intuigram concepts should be:
 
-| Playwright concept | Intuigram equivalent |
-| --- | --- |
-| Browser context | A fresh `TestSystem`: new runtime, channels, temporary config/data/cache/download roots, database, adapters, terminal, clock, and trace |
-| Page | `AppDriver`, owning one running application and its latest rendered frame |
-| Locator | A lazy query over the latest semantic UI tree, such as `chat("Rust")`, `composer()`, `message(id)`, or `action(Action::Send)` |
-| User action | A real Crossterm event/key chord delivered through Intuigram's actual resolver; no direct state mutation |
-| Web-first assertion | An assertion re-evaluated after relevant app/render/adapter notifications until it passes or reaches a diagnostic deadline |
-| Route/HAR mock | A strict scripted Telegram adapter at the Intuigram-owned command/event seam, plus byte/TL fixtures in lower-level protocol tests |
-| Clock | An injected wall/monotonic clock whose timers advance only when the test says so |
-| Trace viewer | A failure bundle containing numbered actions, renders, adapter commands/events, storage commits, virtual-time advances, pending work, and the final screen |
+| Playwright concept  | Intuigram equivalent                                                                                                                                       |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Browser context     | A fresh `TestSystem`: new runtime, channels, temporary config/data/cache/download roots, database, adapters, terminal, clock, and trace                    |
+| Page                | `AppDriver`, owning one running application and its latest rendered frame                                                                                  |
+| Locator             | A lazy query over the latest semantic UI tree, such as `chat("Rust")`, `composer()`, `message(id)`, or `action(Action::Send)`                              |
+| User action         | A real Crossterm event/key chord delivered through Intuigram's actual resolver; no direct state mutation                                                   |
+| Web-first assertion | An assertion re-evaluated after relevant app/render/adapter notifications until it passes or reaches a diagnostic deadline                                 |
+| Route/HAR mock      | A strict scripted Telegram adapter at the Intuigram-owned command/event seam, plus byte/TL fixtures in lower-level protocol tests                          |
+| Clock               | An injected wall/monotonic clock whose timers advance only when the test says so                                                                           |
+| Trace viewer        | A failure bundle containing numbered actions, renders, adapter commands/events, storage commits, virtual-time advances, pending work, and the final screen |
 
 Tests should still use `CONTEXT.md` vocabulary: Chat, Active Chat, Message, Composer, Draft, Folder, and Current Action.
 
@@ -33,7 +33,7 @@ Tests should still use `CONTEXT.md` vocabulary: Chat, Active Chat, Message, Comp
 
 ### 1. Hermetic behavioral E2E: the primary feedback loop
 
-Use the dev-only `test-harness` crate to hide application composition, strict adapters, locators, assertions, isolated storage, and traces behind a small interface. `intuigram-app` includes it only as a dev-dependency, while the harness depends on the production composition, state, and adapter crates it exercises; Cargo excludes that test-only cycle from production builds. Put each capability scenario directly under `crates/intuigram-app/tests/` as an independent integration-test target. Cargo integration tests are separate crates that exercise public package interfaces ([Cargo test targets](https://doc.rust-lang.org/cargo/reference/cargo-targets.html#tests)).
+Use the dev-only `test-harness` crate to hide application composition, strict adapters, locators, assertions, isolated storage, and traces behind a small interface. The top-level `intuigram` package includes it only as a development dependency, while the harness depends downward on the production composition, state, and adapter crates it exercises. Neither `intuigram-app` nor a lower crate depends on the harness or process package, so the complete package graph remains acyclic. Put each capability scenario directly under `crates/intuigram/tests/` as an independent integration-test target. Cargo integration tests are separate crates that exercise public package interfaces ([Cargo test targets](https://doc.rust-lang.org/cargo/reference/cargo-targets.html#tests)).
 
 The runner should use the production composition entry point, not reproduce the loops in test code. Its substitutions are only at intended adapter seams:
 
@@ -128,7 +128,7 @@ The exact names can change, but these properties should not:
 Suggested organization:
 
 ```text
-crates/intuigram-app/tests/
+crates/intuigram/tests/
   {harness,navigation,drafts,messaging,synchronization,reconnect,recovery}.rs
 
 crates/test-harness/src/
@@ -176,8 +176,8 @@ Record traces in memory and flush on first failure. Redact credentials and non-f
 Expose one obvious required command and one narrow filter path:
 
 ```sh
-cargo nextest run -p intuigram-app
-cargo nextest run -p intuigram-app --test messaging pending_reply
+cargo nextest run -p intuigram
+cargo nextest run -p intuigram --test messaging pending_reply
 cargo nextest run -p intuigram --test pty
 ```
 

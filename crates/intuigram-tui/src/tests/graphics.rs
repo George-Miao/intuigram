@@ -109,6 +109,56 @@ fn inline_image_geometry_shrinks_inside_a_narrow_transcript() {
 }
 
 #[test]
+fn completed_image_does_not_leave_removed_message_cells() {
+    let mut current = image_message_view();
+    current.media_previews = vec![intuigram_lib::MediaPreviewView {
+        chat: ChatId(10),
+        message: MessageId(40),
+        image: intuigram_lib::InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
+            .expect("fixture pixels should match their dimensions"),
+    }];
+    current.messages[0].body = "moved message ".repeat(12);
+    let mut output = Vec::new();
+    {
+        let backend = CrosstermBackend::new(&mut output);
+        let options = TerminalOptions {
+            viewport: Viewport::Fixed(Rect::new(0, 0, 160, 40)),
+        };
+        let mut terminal = Terminal::with_options(backend, options)
+            .expect("fixed memory terminal should initialize");
+        let mut frame_state =
+            TerminalFrameState::new(GraphicsProtocol::KittyUnicode, Multiplexer::None)
+                .expect("graphics worker should start");
+
+        draw_terminal_view(
+            &mut terminal,
+            &mut frame_state,
+            &EffectiveKeymap::defaults(),
+            ViewOptions::default(),
+            &current,
+        )
+        .expect("initial frame should render");
+        wait_for_graphics(&mut frame_state);
+
+        current.active_thread = Some(MessageId(40));
+        draw_terminal_view(
+            &mut terminal,
+            &mut frame_state,
+            &EffectiveKeymap::defaults(),
+            ViewOptions::default(),
+            &current,
+        )
+        .expect("thread layout should render");
+    }
+
+    let (expected, _) =
+        render_test_frame_with_graphics(&current, 160, 40, GraphicsProtocol::KittyUnicode);
+    let mut parser = vt100::Parser::new(40, 160, 0);
+    parser.process(&output);
+    assert_terminal_symbols(parser.screen(), &expected.buffer);
+}
+
+#[test]
 fn background_kitty_upload_precedes_the_followup_placeholder() {
     let mut current = image_message_view();
     current.media_previews = vec![intuigram_lib::MediaPreviewView {
@@ -156,6 +206,14 @@ fn background_kitty_upload_precedes_the_followup_placeholder() {
         .expect("followup output should contain a Unicode placeholder");
     assert!(first_placeholder < upload);
     assert!(upload < followup_placeholder);
+    assert_eq!(
+        output
+            .windows(b"caption".len())
+            .filter(|window| *window == b"caption")
+            .count(),
+        1,
+        "graphics completion should not repaint unchanged text"
+    );
 }
 
 fn wait_for_graphics(state: &mut TerminalFrameState) {
@@ -285,6 +343,21 @@ fn image_message_view() -> View {
         },
     }];
     current
+}
+
+fn assert_terminal_symbols(screen: &vt100::Screen, expected: &ratatui::buffer::Buffer) {
+    for y in 0..expected.area.height {
+        for x in 0..expected.area.width {
+            let expected = expected[(x, y)].symbol();
+            let expected = if expected == " " { "" } else { expected };
+            let actual = screen
+                .cell(y, x)
+                .expect("VT screen should contain every expected cell")
+                .contents();
+            let actual = if actual == " " { "" } else { actual };
+            assert_eq!(actual, expected, "terminal cell ({x}, {y}) differs");
+        }
+    }
 }
 
 fn symbols(buffer: &ratatui::buffer::Buffer) -> String {

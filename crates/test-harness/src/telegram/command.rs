@@ -18,6 +18,7 @@ pub(super) enum ExpectedCommand {
     },
 
     LoadMediaPreview {
+        label: Option<String>,
         chat: ChatId,
         message: MessageId,
     },
@@ -75,6 +76,7 @@ pub(super) enum ExpectedCommand {
         link_preview: Option<bool>,
         reply_to: Option<MessageId>,
         thread_root: Option<MessageId>,
+        attachments: Option<Vec<String>>,
     },
 
     SendSavedText {
@@ -188,7 +190,7 @@ impl ExpectedCommand {
             Self::FailLoadHistory { chat, .. } => {
                 format!("fail loading history for Chat {}", chat.0)
             }
-            Self::LoadMediaPreview { chat, message } => {
+            Self::LoadMediaPreview { chat, message, .. } => {
                 format!(
                     "load image preview for Message {} in Chat {}",
                     message.0, chat.0

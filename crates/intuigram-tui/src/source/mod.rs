@@ -22,7 +22,7 @@ use intuigram_lib::{
 use qrcode::render::unicode::Dense1x2;
 use qrcode::types::Color as QrColor;
 use qrcode::{EcLevel, QrCode};
-use ratatui::backend::{CrosstermBackend, TestBackend};
+use ratatui::backend::{Backend, CrosstermBackend, TestBackend};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -42,23 +42,8 @@ mod key_chord;
 mod login;
 mod palette;
 mod pointer;
-pub(crate) mod qr_render;
-mod qr_session;
-mod render_accounts;
-mod render_chrome;
-mod render_composer;
-mod render_details;
-mod render_folder_manager;
-mod render_headers;
-pub(crate) mod render_layout;
-mod render_outbox;
-mod render_overlays;
-mod render_rich_media;
-mod render_saved_dialogs;
-mod render_scheduled;
-pub(crate) mod render_text;
-mod render_topics;
-mod render_transcript;
+pub(crate) mod qr;
+pub(crate) mod render;
 pub(crate) mod terminal;
 mod test_renderer;
 mod view_mode;
@@ -67,35 +52,37 @@ use avatar::{avatar_block, avatar_spans, avatar_width};
 use effort::effort_spans;
 pub use events::*;
 pub use graphics::Error as GraphicsError;
-use graphics::{GraphicsFrame, GraphicsProtocol, GraphicsWorker, avatar_image_id, image_id};
+use graphics::{
+    GraphicsFrame, GraphicsProtocol, GraphicsRequest, GraphicsWorker, avatar_image_id, image_id,
+};
 pub use key_chord::{Binding, Key, KeyChord};
 pub use login::{LoginField, LoginInput, LoginPrompt, LoginUi};
 pub(crate) use palette::*;
 use pointer::resolve_pointer;
-use qr_render::{chord_from_crossterm, qr_login_symbols, render_qr_login};
-pub use qr_session::*;
-use render_accounts::{render_account_confirmation, render_account_picker};
-pub(crate) use render_chrome::ChatViewport;
-use render_chrome::{
+use qr::render::{chord_from_crossterm, qr_login_symbols, render_qr_login};
+pub use qr::*;
+use render::accounts::{render_account_confirmation, render_account_picker};
+pub(crate) use render::chrome::ChatViewport;
+use render::chrome::{
     centered_rect, interaction_rule, render_bottom_chrome, render_folder_picker, render_folders,
     render_help, selection_rule, surface_style,
 };
-use render_composer::{composer_cursor_at, composer_height, render_composer};
-use render_details::render_thread_details;
-use render_folder_manager::render_folder_manager;
-use render_headers::{render_active_chat_header, render_chat_list_header};
-use render_layout::render_with_graphics;
-use render_overlays::{
+use render::composer::{composer_cursor_at, composer_height, render_composer};
+use render::details::render_thread_details;
+use render::folder_manager::render_folder_manager;
+use render::headers::{render_active_chat_header, render_chat_list_header};
+use render::layout::render_with_graphics;
+use render::overlays::{
     render_action_menu, render_attachment_path, render_delete_confirmation, render_forward_picker,
     render_link_confirmation, render_poll_vote, render_reaction_picker, render_save_as,
     render_todo_editor,
 };
-use render_rich_media::render_rich_media;
-use render_saved_dialogs::render_saved_dialogs;
-use render_scheduled::render_scheduled;
-use render_text::capped_text;
-use render_topics::render_topics;
-use render_transcript::render_transcript;
+use render::rich_media::render_rich_media;
+use render::saved_dialogs::render_saved_dialogs;
+use render::scheduled::render_scheduled;
+use render::text::capped_text;
+use render::topics::render_topics;
+use render::transcript::render_transcript;
 pub use terminal::*;
 use terminal::{enter_terminal, restore_terminal};
 pub use test_renderer::*;

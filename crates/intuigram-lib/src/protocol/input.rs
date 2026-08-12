@@ -12,4 +12,16 @@ pub enum Input {
     Intent(Intent),
     /// A result from an external adapter.
     Adapter(AdapterEvent),
+    /// Confirmation that composition accepted one state-requested effect.
+    EffectAccepted(EffectAdmission),
+
+    /// Configures the normalized small-media admission supplied by composition.
+    ConfigureSmallMediaCapacity(usize),
+}
+
+/// Bounded effect families whose admission lets state offer more work.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EffectAdmission {
+    /// A visible image preview or avatar entered the small-media lane.
+    SmallMedia,
 }

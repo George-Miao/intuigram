@@ -1,5 +1,5 @@
 use super::*;
-use crate::source::render_text::capped_text;
+use crate::source::render::text::capped_text;
 
 #[test]
 fn chat_text_cap_counts_terminal_cells_and_keeps_three_dots_inside_the_width() {

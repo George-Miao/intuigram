@@ -3,7 +3,6 @@
 
 mod cursor;
 mod message;
-mod message_metadata;
 
 #[cfg(test)]
 mod tests;
@@ -13,15 +12,15 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use cursor::apply_cursor_delta;
 pub use cursor::store_cursor;
+use cursor::{CursorDelta, apply_cursor_delta};
 use intuigram_lib::{AdapterEvent, Bootstrap, ChatId, ChatKind, ChatView};
 use intuigram_store::{
     AccountStore, DatabaseRequest, StoredChat, StoredFolder, StoredMutation, SyncBatch, SyncCursor,
 };
 use intuigram_telegram::LiveEvent;
+use message::stored_paid_media_items_json;
 pub use message::{decode_stored_message, encode_stored_message};
-use message_metadata::stored_paid_media_items_json;
 use snafu::{ResultExt, Snafu};
 
 /// Failure while committing normalized Telegram state before exposure.
@@ -59,6 +58,15 @@ pub struct UpdateCommitter {
     cursors: HashMap<String, SyncCursor>,
     known_chats: HashSet<ChatId>,
 }
+pub(crate) enum CommitProgress {
+    Started(UpdateCommit),
+    Deferred(DeferredUpdate),
+}
+
+pub(crate) struct DeferredUpdate {
+    pub(crate) update: LiveEvent,
+    pub(crate) scope: String,
+}
 
 impl UpdateCommitter {
     /// Creates a commit gate at the last durable cursor.
@@ -80,32 +88,66 @@ impl UpdateCommitter {
 
     /// Starts one atomic update commit. The returned future yields adapter
     /// events only after SQLite confirms the records and cursor are durable.
-    pub fn commit(&mut self, mut update: LiveEvent) -> Result<UpdateCommit> {
-        let had_cursors = !update.cursors.is_empty();
-        let mut advanced = false;
-        let mut cursors = Vec::with_capacity(update.cursors.len());
-        for delta in update.cursors.drain(..) {
-            let scope = delta.scope.storage_key();
-            let current = self.cursors.get(&scope).cloned().unwrap_or(SyncCursor {
-                scope: scope.clone(),
-                ..SyncCursor::default()
-            });
-            let (cursor, cursor_advanced) = apply_cursor_delta(current, delta)?;
-            advanced |= cursor_advanced;
-            self.cursors.insert(scope, cursor.clone());
-            cursors.push(cursor);
+    pub fn commit(&mut self, update: LiveEvent) -> Result<UpdateCommit> {
+        match self.commit_or_defer(update)? {
+            CommitProgress::Started(request) => Ok(request),
+            CommitProgress::Deferred(deferred) => UpdateGapSnafu {
+                scope: deferred.scope,
+            }
+            .fail(),
         }
-        if had_cursors && !advanced {
+    }
+
+    pub(crate) fn commit_or_defer(&mut self, mut update: LiveEvent) -> Result<CommitProgress> {
+        let had_cursors = !update.cursors.is_empty();
+        let mut expose_events = false;
+        let mut cursors: Vec<(String, SyncCursor)> = Vec::with_capacity(update.cursors.len());
+        for delta in &update.cursors {
+            let scope = delta.scope.storage_key();
+            let current = cursors
+                .iter()
+                .rev()
+                .find(|(planned_scope, _)| planned_scope == &scope)
+                .map_or_else(
+                    || {
+                        self.cursors.get(&scope).cloned().unwrap_or(SyncCursor {
+                            scope: scope.clone(),
+                            ..SyncCursor::default()
+                        })
+                    },
+                    |(_, cursor)| cursor.clone(),
+                );
+            match apply_cursor_delta(current, delta)? {
+                CursorDelta::Applied {
+                    cursor,
+                    expose_events: cursor_exposes_events,
+                } => {
+                    expose_events |= cursor_exposes_events;
+                    cursors.push((scope, cursor));
+                }
+                CursorDelta::Deferred { scope } => {
+                    return Ok(CommitProgress::Deferred(DeferredUpdate { update, scope }));
+                }
+            }
+        }
+        update.cursors.clear();
+        if had_cursors && !expose_events {
             update.events.clear();
         }
         discover_missing_chats(&mut self.known_chats, &mut update.events);
-        let batch = sync_batch_for_event(cursors, &update);
+        let batch = sync_batch_for_event(
+            cursors.iter().map(|(_, cursor)| cursor.clone()).collect(),
+            &update,
+        );
         let request = self.store.commit_sync(batch).context(EnqueueUpdateSnafu)?;
-        Ok(UpdateCommit {
+        for (scope, cursor) in cursors {
+            self.cursors.insert(scope, cursor);
+        }
+        Ok(CommitProgress::Started(UpdateCommit {
             request: Box::pin(request),
             events: Some(update.events.into()),
             peers: Some(update.peers),
-        })
+        }))
     }
 }
 

@@ -5,15 +5,19 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+aes.workspace = true
 base64.workspace = true
 compio-mtproto.workspace = true
-compio = { version = "0.19.1", default-features = false, features = ["time"] }
+compio = { workspace = true, features = ["time"] }
+ctr.workspace = true
 futures-util.workspace = true
+flume.workspace = true
 grammers-crypto.workspace = true
 grammers-tl-types.workspace = true
 intuigram-lib.workspace = true
 md5.workspace = true
 snafu.workspace = true
+sha2.workspace = true
 time = { workspace = true, features = ["local-offset"] }
 
 [lints]

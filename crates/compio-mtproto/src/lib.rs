@@ -9,7 +9,9 @@ mod transport;
 
 pub use abridged::{AbridgedCodec, AbridgedConnection, Error as TransportError};
 pub use driver::{ConnectionDriver, Invocation, InvocationHandle, UpdateStream};
-pub use key_exchange::{AuthKeyMaterial, Error as KeyExchangeError, generate_auth_key};
+pub use key_exchange::{
+    AuthKeyMaterial, Error as KeyExchangeError, generate_auth_key, generate_auth_key_with_rsa_keys,
+};
 pub use proxy::{
     DnsStrategy, Error as ProxyError, MtProxySecret, Proxy, ProxyCredentials, ProxyEndpoint, Route,
     TargetAddress, connect_route, connect_route_target,

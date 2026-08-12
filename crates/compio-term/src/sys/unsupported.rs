@@ -1,17 +1,21 @@
+use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use crossterm::event::Event;
 use futures_util::stream::{FusedStream, Stream};
 
-use crate::event::{Result, UnsupportedPlatformSnafu};
+use crate::event::Result;
 
 #[derive(Debug)]
 pub(crate) struct EventStream;
 
 impl EventStream {
     pub(crate) fn new() -> Result<Self> {
-        UnsupportedPlatformSnafu.fail()
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "compio-term event input is not implemented on this platform",
+        ))
     }
 }
 

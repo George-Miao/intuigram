@@ -2,13 +2,6 @@ use rasterm::{CellSize, Image, ImageId, text_cells, unicode_placeholder};
 
 use super::*;
 
-pub(super) fn avatar_badge(name: &str) -> Span<'static> {
-    Span::styled(
-        format!("[{}] ", avatar_initials(name)),
-        Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
-    )
-}
-
 pub(super) fn avatar_spans(
     view: &View,
     peer: Option<ChatId>,
@@ -46,6 +39,7 @@ fn avatar_rows(
     focused: bool,
     row_count: u16,
 ) -> Vec<Vec<Span<'static>>> {
+    let columns = graphics.square_columns(row_count);
     let Some((image, id)) = peer
         .and_then(|peer| {
             view.avatars
@@ -54,19 +48,15 @@ fn avatar_rows(
         })
         .zip(id)
     else {
-        let badge = avatar_badge(name);
-        let width = Line::from(badge.clone()).width();
-        return (0..row_count)
-            .map(|row| {
-                if row == 0 {
-                    vec![badge.clone()]
-                } else {
-                    vec![Span::raw(" ".repeat(width))]
-                }
-            })
-            .collect();
+        let loading =
+            peer.is_some_and(|peer| view.avatar_loads.iter().any(|avatar| avatar.peer == peer));
+        let color = if loading {
+            Color::Rgb(128, 128, 128)
+        } else {
+            avatar_tile_color(peer, name)
+        };
+        return unicode_tile_rows(row_count, columns, color);
     };
-    let columns = graphics.square_columns(row_count);
     let size = CellSize {
         columns,
         rows: row_count,
@@ -134,48 +124,35 @@ fn avatar_rows(
     rows
 }
 
-pub(super) fn avatar_width(
-    view: &View,
-    peer: Option<ChatId>,
-    name: &str,
-    graphics: &GraphicsFrame,
-) -> usize {
-    if peer.is_some_and(|peer| view.avatars.iter().any(|avatar| avatar.avatar.peer == peer)) {
-        usize::from(graphics.square_columns(2).saturating_add(1))
+fn unicode_tile_rows(row_count: u16, columns: u16, color: Color) -> Vec<Vec<Span<'static>>> {
+    let tile = Span::styled("█".repeat(usize::from(columns)), Style::default().fg(color));
+    (0..row_count)
+        .map(|_| vec![tile.clone(), Span::raw(" ")])
+        .collect()
+}
+
+fn avatar_tile_color(peer: Option<ChatId>, name: &str) -> Color {
+    const COLORS: [Color; 6] = [
+        PRIMARY,
+        SECONDARY,
+        Color::Rgb(245, 125, 38),
+        Color::Rgb(232, 104, 90),
+        Color::Rgb(159, 116, 196),
+        Color::Rgb(53, 167, 156),
+    ];
+    let mut hash = 2_166_136_261_u32;
+    if let Some(peer) = peer {
+        for byte in peer.0.to_le_bytes() {
+            hash = (hash ^ u32::from(byte)).wrapping_mul(16_777_619);
+        }
     } else {
-        Line::from(avatar_badge(name)).width()
+        for byte in name.as_bytes() {
+            hash = (hash ^ u32::from(*byte)).wrapping_mul(16_777_619);
+        }
     }
+    COLORS[hash as usize % COLORS.len()]
 }
 
-fn avatar_initials(name: &str) -> String {
-    let words = name
-        .split_whitespace()
-        .filter_map(|word| word.chars().find(|character| character.is_alphanumeric()))
-        .collect::<Vec<_>>();
-    let initials = match words.as_slice() {
-        [] => vec!['?'],
-        [_] => name
-            .chars()
-            .filter(|character| character.is_alphanumeric())
-            .take(2)
-            .collect(),
-        [first, rest @ ..] => vec![
-            *first,
-            *rest.last().expect("multiple words have a last item"),
-        ],
-    };
-    initials.into_iter().flat_map(char::to_uppercase).collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::avatar_initials;
-
-    #[test]
-    fn initials_are_deterministic_for_words_unicode_and_empty_names() {
-        assert_eq!(avatar_initials("Intuigram Team"), "IT");
-        assert_eq!(avatar_initials("alice"), "AL");
-        assert_eq!(avatar_initials("李 雷"), "李雷");
-        assert_eq!(avatar_initials(""), "?");
-    }
+pub(super) fn avatar_width(graphics: &GraphicsFrame, row_count: u16) -> usize {
+    usize::from(graphics.square_columns(row_count).saturating_add(1))
 }

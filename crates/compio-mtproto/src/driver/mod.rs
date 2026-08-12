@@ -7,19 +7,23 @@ use std::num::NonZeroUsize;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::task::{Context, Poll, Waker};
+use std::time::Duration;
 
-use futures_util::Stream;
 use grammers_mtproto::MsgId;
 use grammers_mtproto::mtp::{Deserialization, Encrypted, Mtp};
-use grammers_tl_types::{Deserializable, RemoteCall, Serializable};
 use snafu::ResultExt;
 
 use crate::BoxedTransport;
 use crate::sender::{
-    BadMessageSnafu, DeserializeEnvelopeSnafu, DeserializeResponseSnafu, DriverStoppedSnafu,
-    EncodedEnvelope, Error, ResponseFailureSnafu, Result, RpcSnafu, encode_envelope,
-    finalize_service_envelope,
+    BadMessageSnafu, DeserializeEnvelopeSnafu, DriverStoppedSnafu, EncodedEnvelope, Error,
+    ResponseFailureSnafu, Result, RpcSnafu, encode_envelope, finalize_service_envelope,
 };
+
+mod invocation;
+mod keepalive;
+
+pub use invocation::{Invocation, InvocationHandle, UpdateStream};
+use keepalive::Keepalive;
 
 struct QueuedRequest {
     body: Vec<u8>,
@@ -31,6 +35,7 @@ struct QueuedRequest {
 struct Response {
     result: RefCell<Option<Result<Vec<u8>>>>,
     waker: RefCell<Option<Waker>>,
+    completed: Cell<bool>,
 }
 
 impl Response {
@@ -38,6 +43,7 @@ impl Response {
         Self {
             result: RefCell::new(None),
             waker: RefCell::new(None),
+            completed: Cell::new(false),
         }
     }
 
@@ -72,7 +78,7 @@ impl Shared {
         })
     }
 
-    fn enqueue(&self, body: Vec<u8>) -> Result<Invocation> {
+    fn enqueue(self: &Rc<Self>, body: Vec<u8>) -> Result<Invocation> {
         if self.stopped.get() {
             return DriverStoppedSnafu.fail();
         }
@@ -91,10 +97,16 @@ impl Shared {
         if let Some(waker) = self.driver_waker.borrow_mut().take() {
             waker.wake();
         }
-        Ok(Invocation { response })
+        Ok(Invocation {
+            response,
+            shared: Rc::clone(self),
+        })
     }
 
     fn complete(&self, response: &Response, result: Result<Vec<u8>>) {
+        if response.completed.replace(true) {
+            return;
+        }
         self.outstanding
             .set(self.outstanding.get().saturating_sub(1));
         response.finish(result);
@@ -120,74 +132,6 @@ impl Shared {
     }
 }
 
-/// Cloneable raw invocation endpoint for one MTProto connection driver.
-#[derive(Clone)]
-pub struct InvocationHandle {
-    shared: Rc<Shared>,
-}
-
-impl InvocationHandle {
-    /// Enqueues one serialized TL request without waiting for network progress.
-    pub fn invoke_raw(&self, body: Vec<u8>) -> Result<Invocation> {
-        self.shared.enqueue(body)
-    }
-
-    /// Invokes one typed Telegram method through the connection driver.
-    pub async fn invoke<R>(&self, request: &R) -> Result<R::Return>
-    where
-        R: RemoteCall + Serializable,
-        R::Return: Deserializable,
-    {
-        let body = self.invoke_raw(request.to_bytes())?.await?;
-        R::Return::from_bytes(&body).context(DeserializeResponseSnafu)
-    }
-}
-
-/// Awaitable completion of one raw MTProto invocation.
-#[derive(Debug)]
-pub struct Invocation {
-    response: Rc<Response>,
-}
-
-impl Future for Invocation {
-    type Output = Result<Vec<u8>>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if let Some(result) = self.response.result.borrow_mut().take() {
-            return Poll::Ready(result);
-        }
-        *self.response.waker.borrow_mut() = Some(cx.waker().clone());
-        Poll::Pending
-    }
-}
-
-/// Passive raw Telegram updates produced independently of RPC activity.
-pub struct UpdateStream {
-    shared: Rc<Shared>,
-}
-
-impl Stream for UpdateStream {
-    type Item = Vec<u8>;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        if let Some(update) = self.shared.updates.borrow_mut().pop_front() {
-            return Poll::Ready(Some(update));
-        }
-        if self.shared.stopped.get() {
-            return Poll::Ready(None);
-        }
-        *self.shared.update_waker.borrow_mut() = Some(cx.waker().clone());
-        Poll::Pending
-    }
-}
-
-impl UpdateStream {
-    /// Returns the number of updates already buffered for delivery.
-    pub fn buffered_len(&self) -> usize {
-        self.shared.updates.borrow().len()
-    }
-}
-
 /// Persistent single-owner MTProto network driver.
 pub struct ConnectionDriver {
     transport: BoxedTransport,
@@ -198,6 +142,7 @@ pub struct ConnectionDriver {
     in_flight: HashMap<MsgId, QueuedRequest>,
     outgoing: VecDeque<Vec<u8>>,
     sending: bool,
+    keepalive: Keepalive,
 }
 
 impl ConnectionDriver {
@@ -205,11 +150,24 @@ impl ConnectionDriver {
         if !self.outgoing.is_empty() || self.sending {
             return Ok(false);
         }
-        if self.pending.is_none() {
-            self.pending = self
+        if self.pending.is_none() && self.keepalive.is_pending() {
+            let Some(payload) = self.keepalive.prepare(&mut self.mtp)? else {
+                return Ok(false);
+            };
+            self.outgoing.push_back(payload);
+            return Ok(true);
+        }
+        while self.pending.is_none() {
+            let next = self
                 .retries
                 .pop_front()
                 .or_else(|| self.shared.requests.borrow_mut().pop_front());
+            let Some(next) = next else {
+                break;
+            };
+            if !next.response.completed.get() {
+                self.pending = Some(next);
+            }
         }
         let Some(request) = self.pending.as_ref() else {
             if let Some(service) = finalize_service_envelope(&mut self.mtp) {
@@ -279,6 +237,9 @@ impl ConnectionDriver {
                 let Some(mut request) = self.in_flight.remove(&result.msg_id) else {
                     return;
                 };
+                if request.response.completed.get() {
+                    return;
+                }
                 if result.retryable() && request.attempts < super::sender::MAX_BAD_MESSAGE_RETRIES {
                     request.attempts += 1;
                     self.retries.push_back(request);
@@ -323,7 +284,16 @@ impl Future for ConnectionDriver {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         *self.shared.driver_waker.borrow_mut() = Some(cx.waker().clone());
+        if self.shared.stopped.get() {
+            self.stop_pending();
+            return Poll::Ready(Ok(()));
+        }
+        self.keepalive.poll(cx);
         loop {
+            if self.shared.stopped.get() {
+                self.stop_pending();
+                return Poll::Ready(Ok(()));
+            }
             if let Err(error) = self.prepare_outgoing() {
                 self.stop_pending();
                 return Poll::Ready(Err(error));
@@ -397,6 +367,7 @@ pub(crate) fn from_parts(
             in_flight: HashMap::new(),
             outgoing: VecDeque::new(),
             sending: false,
+            keepalive: Keepalive::new(Duration::from_secs(60)),
         },
     )
 }

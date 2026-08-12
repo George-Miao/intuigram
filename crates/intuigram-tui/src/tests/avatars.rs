@@ -2,7 +2,7 @@ use super::*;
 use crate::source::graphics::GraphicsProtocol;
 
 #[test]
-fn text_avatar_fallbacks_render_in_chat_list_header_and_transcript() {
+fn avatar_tiles_distinguish_loading_from_fallback() {
     let mut current = view(Vec::new());
     current.chats = vec![ChatView {
         id: ChatId(10),
@@ -31,24 +31,49 @@ fn text_avatar_fallbacks_render_in_chat_list_header_and_transcript() {
         reply_to: None,
         details: MessageDetails::default(),
     }];
+    current.avatar_loads = vec![intuigram_lib::AvatarRef {
+        peer: ChatId(10),
+        id: intuigram_lib::AvatarId(1),
+    }];
 
     let frame = render_test_frame(&current, 100, 40);
+    let avatar_cells = frame
+        .buffer
+        .content
+        .iter()
+        .filter(|cell| cell.symbol() == "█")
+        .collect::<Vec<_>>();
+    let loading = Color::Rgb(128, 128, 128);
+
+    assert_eq!(avatar_cells.len(), 24);
+    assert_eq!(
+        avatar_cells
+            .iter()
+            .filter(|cell| cell.fg == loading)
+            .count(),
+        16
+    );
+    assert_eq!(
+        avatar_cells
+            .iter()
+            .filter(|cell| cell.fg != loading)
+            .count(),
+        8
+    );
     let rendered = frame
         .buffer
         .content
         .iter()
         .map(|cell| cell.symbol())
         .collect::<String>();
-
-    assert_eq!(rendered.matches("[IT]").count(), 2);
-    assert!(rendered.contains("[LQ]"));
+    assert!(!rendered.contains("[IT]"));
+    assert!(!rendered.contains("[LQ]"));
     assert!(rendered.contains("12:34"));
     assert!(rendered.contains("Lin Qiao: daily driver"));
-    assert!(!rendered.contains("[LQ] daily driver"));
 }
 
 #[test]
-fn decoded_avatar_images_replace_badges_in_every_visible_peer_position() {
+fn decoded_avatar_images_replace_tiles_in_every_visible_peer_position() {
     let mut current = view(Vec::new());
     current.chats = vec![ChatView {
         id: ChatId(10),

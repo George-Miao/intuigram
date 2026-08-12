@@ -11,6 +11,7 @@ use super::composer_effects::ComposerSend;
 use super::downloads::ONE_PIXEL_PNG;
 use super::telegram_control::block_on;
 use crate::error::{Error, Result, StoreSnafu};
+use crate::telegram::MediaPreviewResult;
 
 impl TestSystem {
     pub(super) fn drain_effects(&mut self) -> Result<()> {
@@ -21,7 +22,7 @@ impl TestSystem {
                 self.application.revision(),
             );
             match effect {
-                effect @ (Effect::SetChatMediaOffline(_) | Effect::CacheMediaOffline(_)) => {
+                effect @ (Effect::SetChatMediaOffline(_) | Effect::CacheMediaOffline { .. }) => {
                     self.handle_offline_media_effect(effect)?;
                 }
                 Effect::LoadScheduledMessages { chat, saved_peer } => {
@@ -137,6 +138,11 @@ impl TestSystem {
                     saved_peer,
                     path,
                 } => self.select_composer_attachment(chat, thread_root, saved_peer, path),
+                Effect::ReadClipboard {
+                    chat,
+                    thread_root,
+                    saved_peer,
+                } => self.paste_clipboard_image(chat, thread_root, saved_peer)?,
                 Effect::SendMessage {
                     chat,
                     text,
@@ -147,7 +153,7 @@ impl TestSystem {
                     saved_peer,
                     attachments,
                     local_id,
-                } if attachments.is_empty() => self.hold_composer_send(ComposerSend {
+                } => self.hold_composer_send(ComposerSend {
                     chat,
                     text,
                     entities,
@@ -156,6 +162,7 @@ impl TestSystem {
                     thread_root,
                     saved_peer,
                     local_id,
+                    attachments,
                 })?,
                 Effect::SendPoll {
                     chat,
@@ -332,21 +339,25 @@ impl TestSystem {
                     chat,
                     message,
                     destination,
+                    ..
                 } => {
                     self.download_media_effect(chat, message, destination)?;
                 }
-                Effect::LoadMediaPreview { chat, message } => {
-                    self.telegram
+                Effect::LoadMediaPreview { chat, message, .. } => {
+                    let result = self
+                        .telegram
                         .load_media_preview(chat, message)
                         .map_err(|error| self.scenario_error(error))?;
-                    let image = intuigram_media::decode_preview(ONE_PIXEL_PNG)
-                        .expect("the committed behavior PNG should decode");
-                    self.application
-                        .handle_adapter(AdapterEvent::MediaPreviewReady(MediaPreviewView {
-                            chat,
-                            message,
-                            image,
-                        }));
+                    if matches!(result, MediaPreviewResult::Ready) {
+                        let image = intuigram_media::decode_preview(ONE_PIXEL_PNG)
+                            .expect("the committed behavior PNG should decode");
+                        self.application
+                            .handle_adapter(AdapterEvent::MediaPreviewReady(MediaPreviewView {
+                                chat,
+                                message,
+                                image,
+                            }));
+                    }
                 }
                 Effect::LoadAvatar { avatar } => {
                     self.handle_avatar_load(avatar)?;
@@ -362,14 +373,7 @@ impl TestSystem {
                     chat,
                     thread_root,
                     saved_peer,
-                } => {
-                    self.application
-                        .handle_adapter(AdapterEvent::AttachmentPathRequired {
-                            chat,
-                            thread_root,
-                            saved_peer,
-                        });
-                }
+                } => self.request_attachment_path(chat, thread_root, saved_peer),
                 Effect::Reconnect => {
                     self.telegram
                         .reconnect()

@@ -4,12 +4,12 @@ use std::cell::RefCell;
 use std::fs;
 use std::rc::Rc;
 
-use intuigram_app::{Application, UpdateCommitter, bootstrap_sync_batch};
+use intuigram_app::{UpdateCommitter, bootstrap_sync_batch};
 use intuigram_store::{AccountDatabase, AccountId, StoreLayout, StoredDraft, SyncCursor};
 use intuigram_tui::render_test_frame;
 use snafu::ResultExt;
 
-use super::TestSystem;
+use super::{Driver, TestSystem};
 use crate::error::{CreateRootsSnafu, Error, Result, StoreSnafu};
 use crate::screen::RenderedState;
 use crate::telegram::TelegramScenario;
@@ -21,6 +21,7 @@ pub struct TestSystemBuilder {
     virtual_time: String,
     seed: u64,
     telegram: Option<TelegramScenario>,
+    clipboard_image: bool,
 }
 
 impl TestSystemBuilder {
@@ -51,6 +52,13 @@ impl TestSystemBuilder {
     #[must_use]
     pub fn telegram(mut self, telegram: TelegramScenario) -> Self {
         self.telegram = Some(telegram);
+        self
+    }
+
+    /// Provides one deterministic native image clipboard response.
+    #[must_use]
+    pub fn clipboard_image(mut self) -> Self {
+        self.clipboard_image = true;
         self
     }
 
@@ -92,7 +100,7 @@ impl TestSystemBuilder {
             [cursor],
             bootstrap.chats.iter().map(|chat| chat.id),
         );
-        let application = Application::new(bootstrap);
+        let application = Driver::new(bootstrap);
         let trace = Rc::new(RefCell::new(Trace::new(
             self.name,
             self.virtual_time,
@@ -121,6 +129,7 @@ impl TestSystemBuilder {
             download_root,
             next_download_id: 0,
             next_attachment_id: 0,
+            clipboard_image: self.clipboard_image,
             attachment_names: std::collections::HashMap::new(),
             next_outbox_key: 0,
             outbox_items: std::collections::HashMap::new(),
@@ -150,6 +159,7 @@ impl Default for TestSystemBuilder {
             virtual_time: "2026-08-03T12:00:00Z".to_owned(),
             seed: 0x1_17_01_6A,
             telegram: None,
+            clipboard_image: false,
         }
     }
 }

@@ -2,7 +2,7 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 use compio::fs::{OpenOptions, create_dir_all, remove_file};
-use compio_io::AsyncWriteAtExt;
+use compio::io::AsyncWriteAtExt;
 use snafu::{ResultExt, Snafu};
 
 #[derive(Debug, Snafu)]

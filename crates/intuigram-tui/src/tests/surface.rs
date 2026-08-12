@@ -56,12 +56,16 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
         .find(|node| node.role == SemanticRole::Message)
         .expect("the active Message should have matching semantics");
 
-    assert_eq!(buffer[(0, 4)].symbol(), "│");
-    assert_eq!(buffer[(34, message.bounds.top())].symbol(), "│");
+    assert_eq!(buffer[(0, 4)].symbol(), "▌");
+    assert_eq!(buffer[(34, message.bounds.top())].symbol(), "▌");
     let reply_row = message.bounds.top() + 2;
     assert_eq!(buffer[(41, reply_row)].symbol(), "│");
     assert_eq!(buffer[(41, reply_row)].fg, Color::Rgb(58, 148, 197));
     assert_eq!(buffer[(34, 20)].symbol(), "│");
+    assert_eq!(
+        buffer[(34, message.bounds.bottom().saturating_sub(1))].symbol(),
+        " "
+    );
     assert_eq!(buffer[(36, 20)].symbol(), "T");
     assert_eq!(buffer[(5, 5)].bg, Color::Reset);
     assert_eq!(buffer[(40, 5)].bg, Color::Reset);

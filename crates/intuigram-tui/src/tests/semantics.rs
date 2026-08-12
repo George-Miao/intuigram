@@ -200,7 +200,7 @@ fn transcript_scroll_keeps_the_active_message_visible() {
         .find(|node| node.role == SemanticRole::Message && node.domain_id == Some(10))
         .expect("active Message should remain visible");
 
-    assert_eq!(rendered.buffer[(34, active.bounds.y)].symbol(), "│");
+    assert_eq!(rendered.buffer[(34, active.bounds.y)].symbol(), "▌");
     assert_eq!(rendered.buffer[(41, active.bounds.y)].symbol(), "M");
 }
 

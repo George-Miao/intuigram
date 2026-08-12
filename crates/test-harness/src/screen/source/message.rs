@@ -149,9 +149,9 @@ impl MessageLocator {
         Ok(())
     }
 
-    /// Requires the Active Message rule to span every row owned by this
-    /// Message.
-    pub fn expect_continuous_active_rule(&self) -> Result<()> {
+    /// Requires the Active Message rule to span every content row and stop
+    /// before the trailing inter-Message spacing.
+    pub fn expect_active_rule_ends_before_spacing(&self) -> Result<()> {
         let state = self.state.borrow();
         let matches = state
             .semantics
@@ -170,15 +170,22 @@ impl MessageLocator {
             });
         }
         let message = matches[0];
-        let missing = (message.bounds.top()..message.bounds.bottom())
-            .filter(|row| state.buffer[(message.bounds.x, *row)].symbol() != "│")
+        let content_bottom = message.bounds.bottom().saturating_sub(1);
+        let missing = (message.bounds.top()..content_bottom)
+            .filter(|row| state.buffer[(message.bounds.x, *row)].symbol() != "▌")
             .collect::<Vec<_>>();
-        if missing.is_empty() {
+        let spacing = state.buffer[(message.bounds.x, content_bottom)].symbol();
+        if missing.is_empty() && spacing != "▌" {
             Ok(())
         } else {
             Err(Error::Expectation {
-                expectation: format!("{} has one continuous Active Message rule", self.describe()),
-                actual: format!("missing rule on terminal rows {missing:?}"),
+                expectation: format!(
+                    "{} has one continuous Active Message rule ending before spacing",
+                    self.describe()
+                ),
+                actual: format!(
+                    "missing rule on terminal rows {missing:?}; trailing symbol {spacing:?}"
+                ),
                 artifact: self.trace.borrow().persist(),
             })
         }

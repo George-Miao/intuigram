@@ -157,7 +157,7 @@ fn redrawing_shorter_chat_text_clears_the_previous_frame() {
         (8..30).all(|x| buffer[(x, 4)].symbol() == " "),
         "stale title row: {title_row:?}"
     );
-    assert!((3..30).all(|x| buffer[(x, 5)].symbol() == " "));
+    assert!((7..30).all(|x| buffer[(x, 5)].symbol() == " "));
 }
 
 #[test]

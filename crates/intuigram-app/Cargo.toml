@@ -10,11 +10,8 @@ description = "Intuigram application composition and runtime"
 publish = false
 
 [dependencies]
-compio-actor.workspace = true
-compio = { version = "0.19.1", default-features = false, features = ["fs", "process", "runtime"] }
-compio-dispatcher.workspace = true
+compio = { workspace = true, features = ["actor", "dispatcher", "fs", "process", "runtime"] }
 compio-mtproto.workspace = true
-clap = { workspace = true, features = ["derive"] }
 crossterm.workspace = true
 dirs.workspace = true
 futures-util.workspace = true
@@ -34,6 +31,8 @@ serde_json.workspace = true
 snafu.workspace = true
 sha2.workspace = true
 time = { workspace = true, features = ["formatting", "parsing"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
 zeroize.workspace = true
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
@@ -46,7 +45,6 @@ keyring = { workspace = true, features = ["windows-native"] }
 keyring = { workspace = true, features = ["crypto-rust", "linux-native-sync-persistent"] }
 
 [dev-dependencies]
-test-harness.workspace = true
 tempfile.workspace = true
 
 [lints]

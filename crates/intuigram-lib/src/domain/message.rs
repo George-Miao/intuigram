@@ -34,6 +34,9 @@ pub struct MessageDetails {
     /// Media Card or Unsupported Content presentation.
     pub media: Option<MediaCard>,
 
+    /// Durable adapter-independent location for downloadable media.
+    pub media_locator: Option<MediaLocator>,
+
     /// Telegram grouped-media identifier for an album item.
     pub album_id: Option<i64>,
 

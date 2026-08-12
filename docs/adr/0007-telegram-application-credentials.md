@@ -1,14 +1,3 @@
 # Telegram application credential policy
 
-Official Intuigram builds never embed or distribute a shared Telegram
-application ID and hash. Each installation uses credentials created and owned
-by its user at `my.telegram.org`; automation may instead provide them through
-the documented environment variables. On first run, missing values trigger an
-explicit setup explanation and hidden hash prompt, then Intuigram writes both
-values to a dedicated `credentials.toml` with owner-only permissions where the
-platform supports them. It never overwrites that file automatically. General
-configuration remains separate, diagnostics redact the hash, and release
-artifacts contain no application credentials. This adds friction compared with
-a bundled application identity, but avoids publishing a reusable secret,
-centralizing abuse and rate limits under one identity, or misrepresenting a
-third-party distribution as Telegram's official application.
+Official Intuigram builds never embed or distribute a shared Telegram application ID and hash. Each installation uses credentials created and owned by its user at `my.telegram.org`; automation may instead provide them through the documented environment variables. On first run, missing values trigger an explicit setup explanation and hidden hash prompt, then Intuigram writes both values to a dedicated `credentials.toml` with owner-only permissions where the platform supports them. It never overwrites that file automatically. General configuration remains separate, diagnostics redact the hash, and release artifacts contain no application credentials. This adds friction compared with a bundled application identity, but avoids publishing a reusable secret, centralizing abuse and rate limits under one identity, or misrepresenting a third-party distribution as Telegram's official application.

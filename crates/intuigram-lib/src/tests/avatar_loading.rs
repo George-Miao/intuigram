@@ -15,6 +15,7 @@ fn only_known_visible_avatar_peers_are_loaded_and_retained() {
             avatar: avatar(10, 1),
         })
     );
+    assert_eq!(loading.view.avatar_loads, vec![avatar(10, 1)]);
     let image = InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
         .expect("fixture dimensions should match");
     let loaded = app.transition(Input::Adapter(AdapterEvent::AvatarReady(AvatarView {
@@ -29,6 +30,7 @@ fn only_known_visible_avatar_peers_are_loaded_and_retained() {
             image
         }]
     );
+    assert!(loaded.view.avatar_loads.is_empty());
     assert_eq!(loaded.effect, None);
 }
 
@@ -55,6 +57,36 @@ fn chat_list_previews_do_not_load_sender_avatars() {
     })));
 
     assert_eq!(completed.effect, None);
+}
+
+#[test]
+fn composition_configures_the_small_media_admission_capacity() {
+    let mut fixture = bootstrap();
+    for (id, title) in [(20, "Two"), (30, "Three")] {
+        let mut chat = fixture.chats[0].clone();
+        chat.id = ChatId(id);
+        chat.title = title.to_owned();
+        fixture.chats.push(chat);
+    }
+    fixture.avatar_peers = vec![avatar(10, 1), avatar(20, 2), avatar(30, 3)];
+    let mut app = App::new();
+    drop(app.transition(Input::ConfigureSmallMediaCapacity(2)));
+
+    assert!(matches!(
+        app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)))
+            .effect,
+        Some(Effect::LoadAvatar { .. })
+    ));
+    assert!(matches!(
+        app.transition(Input::EffectAccepted(crate::EffectAdmission::SmallMedia))
+            .effect,
+        Some(Effect::LoadAvatar { .. })
+    ));
+    assert_eq!(
+        app.transition(Input::EffectAccepted(crate::EffectAdmission::SmallMedia))
+            .effect,
+        None
+    );
 }
 
 #[test]
@@ -163,7 +195,12 @@ fn a_stale_in_flight_avatar_is_discarded_before_loading_the_new_revision() {
         peer: ChatId(10),
         id: Some(AvatarId(2)),
     }));
-    assert_eq!(changed.effect, None);
+    assert_eq!(
+        changed.effect,
+        Some(Effect::LoadAvatar {
+            avatar: avatar(10, 2),
+        })
+    );
     let image = InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
         .expect("fixture dimensions should match");
     let completed = app.transition(Input::Adapter(AdapterEvent::AvatarReady(AvatarView {
@@ -172,12 +209,7 @@ fn a_stale_in_flight_avatar_is_discarded_before_loading_the_new_revision() {
     })));
 
     assert!(completed.view.avatars.is_empty());
-    assert_eq!(
-        completed.effect,
-        Some(Effect::LoadAvatar {
-            avatar: avatar(10, 2),
-        })
-    );
+    assert_eq!(completed.effect, None);
 }
 
 const fn avatar(peer: i64, id: i64) -> AvatarRef {

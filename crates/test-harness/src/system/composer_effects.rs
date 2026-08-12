@@ -18,6 +18,7 @@ pub(super) struct ComposerSend {
     pub(super) thread_root: Option<MessageId>,
     pub(super) saved_peer: Option<ChatId>,
     pub(super) local_id: MessageId,
+    pub(super) attachments: Vec<AttachmentId>,
 }
 
 impl TestSystem {
@@ -97,9 +98,14 @@ impl TestSystem {
             thread_root,
             saved_peer,
             local_id,
+            attachments,
         } = send;
         self.persist_composer_draft(chat, thread_root, saved_peer, String::new(), None)?;
         self.admit_composer_outbox(chat, local_id);
+        let attachments = attachments
+            .iter()
+            .filter_map(|id| self.attachment_names.get(id).cloned())
+            .collect();
         let result = match saved_peer {
             Some(saved_peer) => self.telegram.hold_saved_send(ObservedSavedSend {
                 chat,
@@ -117,8 +123,54 @@ impl TestSystem {
                 reply_to,
                 thread_root,
                 local_id,
+                attachments,
             }),
         };
         result.map_err(|error| self.scenario_error(error))
+    }
+
+    pub(super) fn paste_clipboard_image(
+        &mut self,
+        chat: ChatId,
+        thread_root: Option<MessageId>,
+        saved_peer: Option<ChatId>,
+    ) -> Result<()> {
+        if !std::mem::take(&mut self.clipboard_image) {
+            return Err(crate::error::Error::UnexpectedEffect {
+                effect: "native clipboard read without a scripted response".to_owned(),
+                artifact: self.trace.borrow().persist(),
+            });
+        }
+        self.next_attachment_id = self.next_attachment_id.saturating_add(1);
+        let id = AttachmentId(self.next_attachment_id);
+        let name = "clipboard.png".to_owned();
+        self.attachment_names.insert(id, name.clone());
+        self.application
+            .handle_adapter(AdapterEvent::ClipboardReady {
+                chat,
+                thread_root,
+                saved_peer,
+                text: None,
+                attachments: vec![AttachmentView {
+                    id,
+                    kind: AttachmentKind::Photo,
+                    name,
+                }],
+            });
+        Ok(())
+    }
+
+    pub(super) fn request_attachment_path(
+        &mut self,
+        chat: ChatId,
+        thread_root: Option<MessageId>,
+        saved_peer: Option<ChatId>,
+    ) {
+        self.application
+            .handle_adapter(AdapterEvent::AttachmentPathRequired {
+                chat,
+                thread_root,
+                saved_peer,
+            });
     }
 }

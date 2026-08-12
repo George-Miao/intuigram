@@ -18,6 +18,7 @@ pub struct App {
     pub(super) offline_media: OfflineMedia,
     pub(super) avatar_peers: HashMap<ChatId, AvatarId>,
     pub(super) avatar_loads: AvatarLoads,
+    pub(super) small_media_capacity: usize,
     pub(super) next_local_message_id: i64,
     pub(super) pending_drafts: HashMap<MessageId, PendingDraft>,
     pub(super) saved_poll_draft: Option<ComposerView>,

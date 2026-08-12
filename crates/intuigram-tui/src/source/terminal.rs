@@ -140,7 +140,7 @@ pub(crate) fn draw_terminal_view<W: io::Write>(
 ) -> Result<Vec<SemanticNode>> {
     let prepared = if state.protocol.uses_placements() {
         let area = terminal.get_frame().area();
-        let (_, mut graphics) = test_renderer::render_test_frame_for_protocol_with_viewport(
+        let (frame, mut graphics) = test_renderer::render_test_frame_for_protocol_with_viewport(
             view,
             area.width,
             area.height,
@@ -151,12 +151,12 @@ pub(crate) fn draw_terminal_view<W: io::Write>(
         );
         graphics.set_multiplexer(state.multiplexer);
         graphics.set_cell_pixels(state.cell_pixels);
-        Some(graphics)
+        Some((frame, graphics))
     } else {
         None
     };
 
-    if let Some(graphics) = &prepared {
+    if let Some((_, graphics)) = &prepared {
         state
             .graphics
             .request(graphics.requests())
@@ -167,7 +167,10 @@ pub(crate) fn draw_terminal_view<W: io::Write>(
         && let Some(output) = &output
     {
         GraphicsWorker::write(terminal.backend_mut(), output).context(GraphicsSnafu)?;
-        terminal.swap_buffers();
+        if let Some((frame, graphics)) = &prepared {
+            redraw_graphics_cells(terminal.backend_mut(), &frame.buffer, graphics.requests())
+                .context(DrawSnafu)?;
+        }
     }
 
     let mut semantics = Vec::new();
@@ -191,6 +194,28 @@ pub(crate) fn draw_terminal_view<W: io::Write>(
         GraphicsWorker::write(terminal.backend_mut(), output).context(GraphicsSnafu)?;
     }
     Ok(semantics)
+}
+
+fn redraw_graphics_cells<W: io::Write>(
+    backend: &mut CrosstermBackend<W>,
+    buffer: &Buffer,
+    requests: &[GraphicsRequest],
+) -> io::Result<()> {
+    let area = buffer.area;
+    let cells = requests.iter().flat_map(|request| {
+        let left = request.x.max(area.left());
+        let top = request.y.max(area.top());
+        let right = request
+            .x
+            .saturating_add(request.size.columns)
+            .min(area.right());
+        let bottom = request
+            .y
+            .saturating_add(request.size.rows)
+            .min(area.bottom());
+        (top..bottom).flat_map(move |y| (left..right).map(move |x| (x, y, &buffer[(x, y)])))
+    });
+    backend.draw(cells)
 }
 
 /// Persistent Compio-driven terminal input source.

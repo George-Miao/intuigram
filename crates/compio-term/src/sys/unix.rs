@@ -11,13 +11,7 @@ use futures_util::stream::{FusedStream, Stream};
 use signal_hook::SigId;
 use signal_hook::consts::SIGWINCH;
 use signal_hook::low_level::pipe;
-use snafu::ResultExt;
-
-use crate::event::{
-    ConfigureResizeWakeSnafu, CreatePollSourceSnafu, CreateResizeWakeSnafu, DrainResizeWakeSnafu,
-    OpenTtySnafu, PollEventSnafu, PollResizeWakeSnafu, PollTtySnafu, ReadEventSnafu,
-    RegisterResizeWakeSnafu, Result,
-};
+use crate::event::Result;
 
 #[derive(Debug)]
 pub(crate) struct EventStream {
@@ -35,9 +29,8 @@ impl EventStream {
         };
         let tty = OpenOptions::new()
             .read(true)
-            .open(path)
-            .context(OpenTtySnafu)?;
-        let tty = PollFd::new(tty).context(CreatePollSourceSnafu)?;
+            .open(path)?;
+        let tty = PollFd::new(tty)?;
         Ok(Self {
             tty,
             resize: ResizeWake::new()?,
@@ -46,13 +39,13 @@ impl EventStream {
     }
 
     fn ready_event() -> Result<Option<Event>> {
-        if crossterm::event::poll(Duration::ZERO).context(PollEventSnafu)? {
-            return crossterm::event::read().map(Some).context(ReadEventSnafu);
+        if crossterm::event::poll(Duration::ZERO)? {
+            return crossterm::event::read().map(Some);
         }
         Ok(None)
     }
 
-    fn finish_with(&mut self, error: crate::event::Error) -> Poll<Option<Result<Event>>> {
+    fn finish_with(&mut self, error: std::io::Error) -> Poll<Option<Result<Event>>> {
         self.terminated = true;
         Poll::Ready(Some(Err(error)))
     }
@@ -78,7 +71,7 @@ impl Stream for EventStream {
 
             match tty_ready {
                 Poll::Ready(result) => {
-                    if let Err(error) = result.context(PollTtySnafu) {
+                    if let Err(error) = result {
                         return self.finish_with(error);
                     }
                     continue;
@@ -117,12 +110,10 @@ impl ResizeWake {
     }
 
     fn for_signal(signal: i32) -> Result<Self> {
-        let (reader, writer) = UnixStream::pair().context(CreateResizeWakeSnafu)?;
-        reader
-            .set_nonblocking(true)
-            .context(ConfigureResizeWakeSnafu)?;
-        let registration = pipe::register(signal, writer).context(RegisterResizeWakeSnafu)?;
-        let source = PollFd::new(reader).context(CreatePollSourceSnafu)?;
+        let (reader, writer) = UnixStream::pair()?;
+        reader.set_nonblocking(true)?;
+        let registration = pipe::register(signal, writer)?;
+        let source = PollFd::new(reader)?;
         Ok(Self {
             source,
             registration,
@@ -133,7 +124,7 @@ impl ResizeWake {
         match self.source.poll_read_ready(cx) {
             Poll::Pending => Poll::Pending,
             Poll::Ready(result) => {
-                result.context(PollResizeWakeSnafu)?;
+                result?;
                 self.drain()?;
                 Poll::Ready(Ok(()))
             }
@@ -149,7 +140,7 @@ impl ResizeWake {
                 Ok(_) => {}
                 Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => return Ok(()),
-                Err(source) => return Err(source).context(DrainResizeWakeSnafu),
+                Err(error) => return Err(error),
             }
         }
     }

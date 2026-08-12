@@ -8,4 +8,4 @@ mod event;
 mod sys;
 
 pub use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-pub use event::{Error as EventError, EventStream, Result};
+pub use event::{EventStream, Result};
