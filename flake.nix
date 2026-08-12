@@ -26,16 +26,24 @@
       with pkgs;
       {
         devShells.default = mkShell {
+          # SQLCipher includes Apple's os/log.h, which requires Clang builtins.
+          CC = "${stdenv.cc}/bin/cc";
+
           buildInputs = [
             ffmpeg
             openssl
             pkg-config
+            (mdformat.withPlugins (ps: [
+              ps.mdformat-frontmatter
+              ps.mdformat-gfm
+            ]))
             cargo-nextest
             (rust-bin.selectLatestNightlyWith (
               toolchain:
               toolchain.default.override {
                 extensions = [
                   "rust-src"
+                  "rust-analyzer"
                   "miri"
                 ];
                 targets = [
