@@ -30,10 +30,11 @@ impl std::fmt::Debug for ConsoleInput {
 
 impl ConsoleInput {
     fn new() -> io::Result<Self> {
-        Ok(Self {
-            handle: Handle::current_in_handle()?,
-            wait: None,
-        })
+        Ok(Self::from_handle(Handle::current_in_handle()?))
+    }
+
+    fn from_handle(handle: Handle) -> Self {
+        Self { handle, wait: None }
     }
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
@@ -132,5 +133,50 @@ impl Stream for EventStream {
 impl FusedStream for EventStream {
     fn is_terminated(&self) -> bool {
         self.terminated
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::future::poll_fn;
+    use std::io;
+    use std::ptr;
+
+    use crossterm_winapi::Handle;
+    use windows_sys::Win32::System::Threading::{CreateEventW, SetEvent};
+
+    use super::ConsoleInput;
+
+    #[test]
+    fn console_input_signalled_handle_completes_wait() {
+        // SAFETY: Null security attributes and name request an unnamed event
+        // whose handle is validated immediately below.
+        let event = unsafe { CreateEventW(ptr::null(), 0, 0, ptr::null()) };
+        assert!(
+            !event.is_null(),
+            "test event should be created: {}",
+            io::Error::last_os_error(),
+        );
+
+        // SAFETY: The event is an exclusively owned, thread-safe kernel handle.
+        let handle = unsafe { Handle::from_raw(event.cast()) };
+        let signal = handle.clone();
+        let runtime = compio::runtime::Runtime::new().expect("test runtime should initialize");
+        runtime.block_on(async {
+            let mut input = ConsoleInput::from_handle(handle);
+
+            // SAFETY: `signal` keeps the valid event handle alive for this call.
+            let signalled = unsafe { SetEvent((*signal).cast()) };
+            assert_ne!(
+                signalled,
+                0,
+                "test event should be signalled: {}",
+                io::Error::last_os_error(),
+            );
+
+            poll_fn(|cx| input.poll_ready(cx))
+                .await
+                .expect("signalled handle should wake the console input source");
+        });
     }
 }
