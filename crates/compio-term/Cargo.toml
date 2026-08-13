@@ -5,14 +5,19 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-compio = { workspace = true, features = ["runtime"] }
+compio = { workspace = true, features = ["polling", "runtime"] }
 crossterm.workspace = true
 futures-util.workspace = true
 signal-hook.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 crossterm_winapi.workspace = true
-windows-sys = { workspace = true, features = ["Win32_System_IO"] }
+windows-sys = { workspace = true, features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_System_IO",
+  "Win32_System_Threading",
+] }
 
 [lints.rust]
 unsafe_code = "allow"
