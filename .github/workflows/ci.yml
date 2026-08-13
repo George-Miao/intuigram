@@ -23,4 +23,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test --locked -p compio-term --all-features --all-targets
+      - uses: taiki-e/install-action@nextest
+      - run: cargo nextest run --profile ci --locked -p compio-term --all-features --all-targets
