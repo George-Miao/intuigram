@@ -13,10 +13,11 @@ use crate::{
     Error, LoginCodeDelivery, LoginCodeDeliveryMethod, LoginErrorAction, MediaLibraryEntry,
     MediaLibraryKind, PeerDirectory, UpdateScope, chat_traits, contains_login_token_update,
     direct_data_centers, ensure_production_environment, login_error_action,
-    normalize_code_delivery, normalize_code_delivery_method, normalize_dialog_folder_details,
-    normalize_dialog_folders, normalize_live_update, normalize_serialized_media,
-    normalize_serialized_peer_kind, qr_login_uri, rpc_migration_dc, service_event_description,
-    service_event_media, set_dialog_filter_membership, thread_root_message_id,
+    normalize_code_delivery, normalize_code_delivery_method, normalize_correlated_update,
+    normalize_dialog_folder_details, normalize_dialog_folders, normalize_live_update,
+    normalize_serialized_media, normalize_serialized_peer_kind, qr_login_uri, rpc_migration_dc,
+    service_event_description, service_event_media, set_dialog_filter_membership,
+    thread_root_message_id,
 };
 
 #[test]

@@ -22,7 +22,7 @@ use crate::sender::{
 mod invocation;
 mod keepalive;
 
-pub use invocation::{Invocation, InvocationHandle, UpdateStream};
+pub use invocation::{Invocation, InvocationHandle, RawUpdate, UpdateStream};
 use keepalive::Keepalive;
 
 struct QueuedRequest {
@@ -59,7 +59,7 @@ struct Shared {
     capacity: usize,
     outstanding: Cell<usize>,
     requests: RefCell<VecDeque<QueuedRequest>>,
-    updates: RefCell<VecDeque<Vec<u8>>>,
+    updates: RefCell<VecDeque<RawUpdate>>,
     driver_waker: RefCell<Option<Waker>>,
     update_waker: RefCell<Option<Waker>>,
     stopped: Cell<bool>,
@@ -112,7 +112,7 @@ impl Shared {
         response.finish(result);
     }
 
-    fn publish_update(&self, update: Vec<u8>) {
+    fn publish_update(&self, update: RawUpdate) {
         self.updates.borrow_mut().push_back(update);
         if let Some(waker) = self.update_waker.borrow_mut().take() {
             waker.wake();
@@ -213,8 +213,16 @@ impl ConnectionDriver {
 
     fn process_result(&mut self, result: Deserialization) {
         match result {
-            Deserialization::OwnUpdate { update, .. } | Deserialization::Update(update) => {
-                self.shared.publish_update(update);
+            Deserialization::OwnUpdate { msg_id, update } => {
+                let request = self
+                    .in_flight
+                    .get(&msg_id)
+                    .map(|request| request.body.clone());
+                self.shared
+                    .publish_update(RawUpdate::correlated(update, request));
+            }
+            Deserialization::Update(update) => {
+                self.shared.publish_update(RawUpdate::passive(update));
             }
             Deserialization::RpcResult(result) => {
                 if let Some(request) = self.in_flight.remove(&result.msg_id) {
@@ -349,7 +357,7 @@ pub(crate) fn from_parts(
 ) -> (InvocationHandle, UpdateStream, ConnectionDriver) {
     let shared = Shared::new(capacity);
     for update in pending_updates {
-        shared.publish_update(update);
+        shared.publish_update(RawUpdate::passive(update));
     }
     (
         InvocationHandle {

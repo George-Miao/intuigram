@@ -8,7 +8,7 @@ use std::time::Duration;
 use futures_util::{FutureExt as _, StreamExt};
 use grammers_mtproto::mtp::{BadMessage, Deserialization, RpcResult};
 
-use super::{ConnectionDriver, InvocationHandle, Shared, UpdateStream};
+use super::{ConnectionDriver, InvocationHandle, RawUpdate, Shared, UpdateStream};
 use crate::{AuthKeyMaterial, BoxedTransport, Transport, TransportError};
 
 #[test]
@@ -174,9 +174,43 @@ fn passive_updates_are_awaitable_without_an_rpc() {
     runtime.block_on(async {
         let (_handle, mut updates, shared) =
             test_parts(NonZeroUsize::new(1).expect("fixture capacity is positive"));
-        shared.publish_update(vec![0x42, 0x24]);
+        shared.publish_update(RawUpdate::passive(vec![0x42, 0x24]));
 
-        assert_eq!(updates.next().await, Some(vec![0x42, 0x24]));
+        assert_eq!(
+            updates.next().await,
+            Some(RawUpdate::passive(vec![0x42, 0x24]))
+        );
+    });
+}
+
+#[test]
+fn own_update_retains_correlated_request_context() {
+    let runtime = compio::runtime::Runtime::new().expect("test runtime should initialize");
+    runtime.block_on(async {
+        let (handle, mut updates, driver) = driver_parts();
+        let request_body = vec![1, 2, 3, 4];
+        let _invocation = handle
+            .invoke_raw(request_body.clone())
+            .expect("request should fit");
+        let mut driver = Box::pin(driver);
+        poll_driver(&mut driver);
+        let request_id = *driver
+            .in_flight
+            .keys()
+            .next()
+            .expect("request should be in flight");
+
+        driver.process_result(Deserialization::OwnUpdate {
+            msg_id: request_id,
+            update: vec![9, 10, 11, 12],
+        });
+
+        let update = updates
+            .next()
+            .await
+            .expect("own update should be published");
+        assert_eq!(update.body(), [9, 10, 11, 12]);
+        assert_eq!(update.request(), Some(request_body.as_slice()));
     });
 }
 

@@ -8,7 +8,7 @@ mod sender;
 mod transport;
 
 pub use abridged::{AbridgedCodec, AbridgedConnection, Error as TransportError};
-pub use driver::{ConnectionDriver, Invocation, InvocationHandle, UpdateStream};
+pub use driver::{ConnectionDriver, Invocation, InvocationHandle, RawUpdate, UpdateStream};
 pub use key_exchange::{
     AuthKeyMaterial, Error as KeyExchangeError, generate_auth_key, generate_auth_key_with_rsa_keys,
 };

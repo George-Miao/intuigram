@@ -38,3 +38,61 @@ fn passive_short_message_is_normalized_at_the_serialized_tl_boundary() {
     assert_eq!(message.details.sender_peer, Some(ChatId(7)));
     assert!(!message.details.date_label.is_empty());
 }
+
+#[test]
+fn affected_messages_rpc_result_advances_account_cursor() {
+    let affected =
+        tl::enums::messages::AffectedMessages::Messages(tl::types::messages::AffectedMessages {
+            pts: 41,
+            pts_count: 2,
+        });
+
+    let batch = normalize_live_update(&affected.to_bytes(), &mut HashMap::new())
+        .expect("affected Messages should normalize as an own update");
+
+    assert!(batch.events.is_empty());
+    assert_eq!(
+        batch.cursors,
+        vec![crate::UpdateCursor {
+            scope: UpdateScope::Account,
+            pts: Some(41),
+            pts_count: 2,
+            ..crate::UpdateCursor::default()
+        }]
+    );
+}
+
+#[test]
+fn affected_messages_channel_request_uses_channel_cursor() {
+    let affected =
+        tl::enums::messages::AffectedMessages::Messages(tl::types::messages::AffectedMessages {
+            pts: 43,
+            pts_count: 1,
+        });
+    let request = tl::functions::channels::DeleteMessages {
+        channel: tl::types::InputChannel {
+            channel_id: 73,
+            access_hash: 91,
+        }
+        .into(),
+        id: vec![5],
+    };
+
+    let batch = normalize_correlated_update(
+        &affected.to_bytes(),
+        Some(&request.to_bytes()),
+        &mut HashMap::new(),
+    )
+    .expect("channel mutation cursor should normalize");
+
+    assert!(batch.events.is_empty());
+    assert_eq!(
+        batch.cursors,
+        vec![crate::UpdateCursor {
+            scope: UpdateScope::Channel(ChatId(crate::mark_channel_id(73))),
+            pts: Some(43),
+            pts_count: 1,
+            ..crate::UpdateCursor::default()
+        }]
+    );
+}

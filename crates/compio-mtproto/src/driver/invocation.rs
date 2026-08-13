@@ -11,6 +11,50 @@ use snafu::ResultExt;
 use super::{Response, Shared};
 use crate::sender::{DeserializeResponseSnafu, Result};
 
+/// One raw Telegram update and the request that produced it, when applicable.
+#[derive(Clone, Eq, PartialEq)]
+pub struct RawUpdate {
+    body: Vec<u8>,
+    request: Option<Vec<u8>>,
+}
+
+impl RawUpdate {
+    pub(super) fn passive(body: Vec<u8>) -> Self {
+        Self {
+            body,
+            request: None,
+        }
+    }
+
+    pub(super) fn correlated(body: Vec<u8>, request: Option<Vec<u8>>) -> Self {
+        Self { body, request }
+    }
+
+    /// Returns the serialized update body.
+    #[must_use]
+    pub fn body(&self) -> &[u8] {
+        &self.body
+    }
+
+    /// Returns the serialized RPC request that produced this update.
+    ///
+    /// The request can contain private user data. Do not log it.
+    #[must_use]
+    pub fn request(&self) -> Option<&[u8]> {
+        self.request.as_deref()
+    }
+}
+
+impl fmt::Debug for RawUpdate {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("RawUpdate")
+            .field("body_bytes", &self.body.len())
+            .field("has_request", &self.request.is_some())
+            .finish()
+    }
+}
+
 /// Cloneable raw invocation endpoint for one MTProto connection driver.
 #[derive(Clone)]
 pub struct InvocationHandle {
@@ -84,7 +128,7 @@ pub struct UpdateStream {
 }
 
 impl Stream for UpdateStream {
-    type Item = Vec<u8>;
+    type Item = RawUpdate;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         if let Some(update) = self.shared.updates.borrow_mut().pop_front() {

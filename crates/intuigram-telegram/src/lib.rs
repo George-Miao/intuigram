@@ -73,6 +73,8 @@ use dialog_status::{cloud_chat_status, user_status};
 use entity_conversion::serialize_entities;
 use error::*;
 pub use error::{Error, Result, RetryDisposition};
+#[cfg(test)]
+pub(crate) use live_normalization::normalize_correlated_update;
 pub(crate) use live_normalization::normalize_live_update;
 pub(crate) use login_normalization::{
     cdn_data_centers, direct_data_centers, ensure_production_environment, input_reply_to,

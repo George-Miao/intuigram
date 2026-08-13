@@ -1,7 +1,9 @@
 use super::*;
 
+mod affected;
 mod cursor;
 
+use affected::affected_messages_cursor;
 use cursor::{sort_updates, updates_cursors};
 
 pub(crate) struct NormalizedLive {
@@ -12,6 +14,14 @@ pub(crate) struct NormalizedLive {
 
 pub(crate) fn normalize_live_update(
     bytes: &[u8],
+    names: &mut HashMap<ChatId, String>,
+) -> Result<NormalizedLive> {
+    normalize_correlated_update(bytes, None, names)
+}
+
+pub(crate) fn normalize_correlated_update(
+    bytes: &[u8],
+    request: Option<&[u8]>,
     names: &mut HashMap<ChatId, String>,
 ) -> Result<NormalizedLive> {
     if let Ok(mut updates) = tl::enums::Updates::from_bytes(bytes) {
@@ -48,6 +58,13 @@ pub(crate) fn normalize_live_update(
             events,
             cursors,
             peers,
+        });
+    }
+    if let Some(cursor) = affected_messages_cursor(bytes, request) {
+        return Ok(NormalizedLive {
+            events: Vec::new(),
+            cursors: vec![cursor],
+            peers: PeerDirectory::default(),
         });
     }
     let update = tl::enums::Update::from_bytes(bytes).context(DecodeUpdateSnafu)?;

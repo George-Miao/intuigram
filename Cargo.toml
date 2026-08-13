@@ -45,7 +45,7 @@ crossterm_winapi = "0.9.1"
 ctr = "0.9.2"
 grammers-crypto = "0.10"
 grammers-mtproto = "0.10"
-grammers-tl-types = "0.10"
+grammers-tl-types = { version = "0.10", features = ["deserializable-functions"] }
 getrandom = { version = "0.3", features = ["std"] }
 keyring = "3.6.3"
 pbkdf2 = "0.13"

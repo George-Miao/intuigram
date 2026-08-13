@@ -156,7 +156,11 @@ impl Stream for LiveUpdates {
             Poll::Pending => {}
         }
         match Pin::new(&mut self.updates).poll_next(cx) {
-            Poll::Ready(Some(bytes)) => match normalize_live_update(&bytes, &mut self.names) {
+            Poll::Ready(Some(update)) => match live_normalization::normalize_correlated_update(
+                update.body(),
+                update.request(),
+                &mut self.names,
+            ) {
                 Ok(batch) => Poll::Ready(Some(Ok(LiveEvent {
                     events: batch.events,
                     cursors: batch.cursors,
