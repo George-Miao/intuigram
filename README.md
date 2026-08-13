@@ -1,24 +1,21 @@
 # Intuigram
 
-Telegram, at terminal speed.
+Telegram, now in TUI.
 
-Intuigram is a local-first Telegram client for people who want routine messaging to feel fast, focused, and native to the keyboard. It keeps Chats, Messages, Drafts, and navigation state close at hand, connects directly to Telegram, and presents the parts that matter in a dense terminal interface rather than a web wrapper.
+Intuigram is a local-first Telegram client for people who want routine messaging to feel fast, focused, and native to the keyboard. It keeps Chats, Messages, Drafts, and navigation state close at hand, connects directly to Telegram, and presents the parts that matter in a dense terminal interface.
 
-![Intuigram showing a generated group Chat with realistic demo Messages and text avatars](docs/assets/intuigram.webp)
-
-The screenshot comes from Intuigram's production Ratatui renderer. It uses generated demo conversations and text-avatar fallbacks; it contains no real Telegram data.
+![Intuigram showing a generated group Chat with realistic demo Messages, avatars, and an inline sticker](docs/assets/intuigram.webp)
 
 ## Why Intuigram
 
 - Move through Folders and Chats without reaching for a mouse.
 - Keep the Composer ready while reading and replying to Messages.
+- Inline terminal graphics where supported while retaining useful text fallbacks everywhere.
 - Resume from locally synchronized Chats, Drafts, and Transcript positions.
-- See optimistic sends, Telegram acknowledgements, downloads, and reconnect state instead of waiting behind an opaque spinner.
-- Use inline terminal graphics where supported while retaining useful text fallbacks everywhere.
+- See optimistic sends, Telegram acknowledgements, downloads, and reconnect state.
 - Keep multiple Accounts in isolated local databases.
 - Protect authorization and synchronized Message text with optional SQLCipher Local Lock.
 - Connect directly or through ordered SOCKS5, HTTP CONNECT, and MTProxy routes.
-- Discover every important key from the context-sensitive Action Bar and `?` Help.
 
 Intuigram talks to Telegram through a Compio-native MTProto stack. It does not embed TDLib.
 
