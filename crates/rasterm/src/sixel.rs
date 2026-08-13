@@ -21,7 +21,7 @@ pub(crate) fn encode(placement: &Placement) -> Vec<u8> {
     }
 
     let mut output = format!(
-        "\x1b[{};{}H\x1bPq\"1;1;{};{}",
+        "\x1b7\x1b[{};{}H\x1bPq\"1;1;{};{}",
         placement.y.saturating_add(1),
         placement.x.saturating_add(1),
         target_width,
@@ -50,7 +50,7 @@ pub(crate) fn encode(placement: &Placement) -> Vec<u8> {
             output.push('-');
         }
     }
-    output.push_str("\x1b\\");
+    output.push_str("\x1b\\\x1b8");
     crate::kitty::wrap(output.into_bytes(), placement.multiplexer)
 }
 

@@ -138,6 +138,9 @@ impl TestSystem {
                     saved_peer,
                     path,
                 } => self.select_composer_attachment(chat, thread_root, saved_peer, path),
+                Effect::DiscardAttachment { attachment } => {
+                    self.attachment_names.remove(&attachment);
+                }
                 Effect::ReadClipboard {
                     chat,
                     thread_root,

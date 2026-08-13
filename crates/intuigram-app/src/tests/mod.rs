@@ -10,7 +10,7 @@ use intuigram_lib::{
 };
 use intuigram_tui::UiEvent;
 
-use super::runtime::{AdapterBatch, BackendOutput, PendingEffect};
+use super::runtime::{AdapterBatch, BackendOutput, PendingEffect, append_ready_text};
 use super::{
     AdapterEffect, ApplicationAdapterEvents, ApplicationBackend, ApplicationEvents,
     ApplicationExit, ApplicationState, ApplicationUi, AttachmentPayload, AttachmentStore,
@@ -173,6 +173,35 @@ impl ApplicationBackend for PeerAwareBackend {
 
 fn key(character: char) -> Event {
     Event::Key(KeyEvent::new(KeyCode::Char(character), KeyModifiers::NONE))
+}
+
+#[test]
+fn queued_text_events_form_one_input() {
+    let terminal = RecordingUi {
+        views: Rc::new(RefCell::new(Vec::new())),
+    };
+    let mut events = ScriptedEvents {
+        steps: [
+            EventStep::Ready(key('x')),
+            EventStep::Ready(key('x')),
+            EventStep::Ready(key('q')),
+        ]
+        .into(),
+    };
+    let (_, update) = application_state(application_fixture());
+    let mut text = "x".to_owned();
+
+    let pending = append_ready_text(&terminal, &mut events, &update.view, &mut text)
+        .expect("queued terminal input should resolve");
+
+    assert_eq!(text, "xxx");
+    assert!(matches!(
+        pending,
+        Some(Event::Key(KeyEvent {
+            code: KeyCode::Char('q'),
+            ..
+        }))
+    ));
 }
 
 #[test]

@@ -11,6 +11,7 @@ homepage = "https://github.com/George-Miao/popgram"
 rust-version = "1.85"
 
 [workspace.dependencies]
+arboard = { version = "3.6.1", default-features = false, features = ["image-data"] }
 compio-mtproto = { version = "0.1.0", path = "crates/compio-mtproto" }
 compio-term = { version = "0.1.0", path = "crates/compio-term" }
 intuigram-app = { version = "0.1.0", path = "crates/intuigram-app" }

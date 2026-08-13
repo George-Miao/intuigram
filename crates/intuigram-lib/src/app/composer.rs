@@ -36,6 +36,67 @@ impl App {
         self.view.active_message = None;
         self.view.composer.cursor = valid_cursor(&self.view.composer.text, cursor);
     }
+
+    pub(super) fn move_active_attachment(&mut self, forward: bool) {
+        let attachments = &mut self.view.composer.attachments;
+        let Some(current) = active_attachment_index(attachments) else {
+            return;
+        };
+        let next = if forward {
+            current
+                .saturating_add(1)
+                .min(attachments.len().saturating_sub(1))
+        } else {
+            current.saturating_sub(1)
+        };
+        for (index, attachment) in attachments.iter_mut().enumerate() {
+            attachment.active = index == next;
+        }
+    }
+
+    pub(super) fn remove_active_attachment(&mut self) -> Option<Effect> {
+        let attachments = &mut self.view.composer.attachments;
+        let current = active_attachment_index(attachments)?;
+        let removed = attachments.remove(current);
+        let next = current.min(attachments.len().saturating_sub(1));
+        for (index, attachment) in attachments.iter_mut().enumerate() {
+            attachment.active = index == next;
+        }
+        Some(Effect::DiscardAttachment {
+            attachment: removed.id,
+        })
+    }
+}
+
+pub(super) fn append_attachments(
+    existing: &mut Vec<AttachmentView>,
+    mut incoming: Vec<AttachmentView>,
+    replace: bool,
+) {
+    if incoming.is_empty() {
+        return;
+    }
+    if replace {
+        existing.clear();
+    } else {
+        for attachment in existing.iter_mut() {
+            attachment.active = false;
+        }
+    }
+    for attachment in &mut incoming {
+        attachment.active = false;
+    }
+    if let Some(last) = incoming.last_mut() {
+        last.active = true;
+    }
+    existing.extend(incoming);
+}
+
+fn active_attachment_index(attachments: &[AttachmentView]) -> Option<usize> {
+    attachments
+        .iter()
+        .position(|attachment| attachment.active)
+        .or_else(|| attachments.len().checked_sub(1))
 }
 
 fn valid_cursor(text: &str, cursor: usize) -> usize {

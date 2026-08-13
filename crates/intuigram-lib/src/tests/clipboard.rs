@@ -14,16 +14,22 @@ fn clipboard_text_and_media_candidates_join_the_active_composer() {
             id: AttachmentId(1),
             kind: AttachmentKind::Photo,
             name: "clipboard.png".to_owned(),
+            preview: None,
+            active: false,
         },
         AttachmentView {
             id: AttachmentId(2),
             kind: AttachmentKind::Video,
             name: "clip.mp4".to_owned(),
+            preview: None,
+            active: false,
         },
         AttachmentView {
             id: AttachmentId(3),
             kind: AttachmentKind::File,
             name: "notes.pdf".to_owned(),
+            preview: None,
+            active: false,
         },
     ];
 
@@ -36,7 +42,9 @@ fn clipboard_text_and_media_candidates_join_the_active_composer() {
     }));
 
     assert_eq!(pasted.view.composer.text, "caption");
-    assert_eq!(pasted.view.composer.attachments, attachments);
+    let mut expected = attachments;
+    expected[2].active = true;
+    assert_eq!(pasted.view.composer.attachments, expected);
     let sent = app.transition(Input::Intent(Intent::Action(Action::Send)));
     assert!(matches!(
         sent.effect,

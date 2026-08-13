@@ -123,7 +123,15 @@ fn displayed_action_bar_and_help_bindings_are_the_bindings_input_resolves() {
         Some(Action::JumpLatest)
     );
 
-    let mut composer = view(vec![Action::Send, Action::Newline, Action::OpenActions]);
+    let mut composer = view(vec![
+        Action::Send,
+        Action::Newline,
+        Action::OpenActions,
+        Action::Paste,
+        Action::PreviousAttachment,
+        Action::NextAttachment,
+        Action::RemoveAttachment,
+    ]);
     composer.focus = Focus::Composer;
     assert_eq!(
         keymap.resolve(&composer, KeyChord::control(Key::Char('s'))),
@@ -143,6 +151,54 @@ fn displayed_action_bar_and_help_bindings_are_the_bindings_input_resolves() {
     assert_eq!(
         keymap.resolve(&composer, KeyChord::alt(Key::Char('a'))),
         Some(Action::OpenActions)
+    );
+    assert_eq!(
+        keymap.resolve(&composer, KeyChord::control(Key::Char('v'))),
+        Some(Action::Paste)
+    );
+    assert_eq!(
+        keymap.resolve(&composer, KeyChord::super_key(Key::Char('v'))),
+        Some(Action::Paste)
+    );
+    assert_eq!(
+        resolve_event(
+            &keymap,
+            &composer,
+            Event::Key(KeyEvent::new_with_kind(
+                CrosstermKey::Char('v'),
+                KeyModifiers::SUPER,
+                KeyEventKind::Press,
+            )),
+        ),
+        Some(UiEvent::Intent(intuigram_lib::Intent::Action(
+            Action::Paste
+        )))
+    );
+    assert_eq!(
+        keymap
+            .action_bar(&composer)
+            .find(|binding| binding.action == Action::Paste)
+            .map(|binding| binding.key),
+        Some(KeyChord::control(Key::Char('v')))
+    );
+    assert_eq!(
+        keymap.resolve(&composer, KeyChord::alt(Key::Left)),
+        Some(Action::PreviousAttachment)
+    );
+    assert_eq!(
+        keymap.resolve(&composer, KeyChord::alt(Key::Right)),
+        Some(Action::NextAttachment)
+    );
+    assert_eq!(
+        keymap.resolve(&composer, KeyChord::control(Key::Char('d'))),
+        Some(Action::RemoveAttachment)
+    );
+    assert_eq!(
+        keymap
+            .action_bar(&composer)
+            .find(|binding| binding.action == Action::RemoveAttachment)
+            .map(|binding| binding.key),
+        Some(KeyChord::control(Key::Char('d')))
     );
     let chats = view(vec![Action::OpenActions]);
     assert_eq!(

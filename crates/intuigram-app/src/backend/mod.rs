@@ -58,6 +58,7 @@ impl Backend {
         let (text, attachments) = match content {
             rich_clipboard::ClipboardContent::Text(text) => (Some(text), Vec::new()),
             rich_clipboard::ClipboardContent::Image { mime_type, bytes } => {
+                let preview = intuigram_media::decode_preview(&bytes).ok();
                 let id = self
                     .attachment_store()
                     .register(AttachmentPayload::Image { mime_type, bytes });
@@ -67,28 +68,16 @@ impl Backend {
                         id,
                         kind: AttachmentKind::Photo,
                         name: "clipboard.png".to_owned(),
+                        preview,
+                        active: false,
                     }],
                 )
             }
             rich_clipboard::ClipboardContent::Files(paths) => {
-                let attachments = paths
-                    .into_iter()
-                    .map(|path| {
-                        let name = path.file_name().map_or_else(
-                            || "attachment".to_owned(),
-                            |name| name.to_string_lossy().into_owned(),
-                        );
-                        let kind = if mime_type_for_path(&path).starts_with("video/") {
-                            AttachmentKind::Video
-                        } else {
-                            AttachmentKind::File
-                        };
-                        let id = self
-                            .attachment_store()
-                            .register(AttachmentPayload::File { path, kind });
-                        AttachmentView { id, kind, name }
-                    })
-                    .collect();
+                let mut attachments = Vec::with_capacity(paths.len());
+                for path in paths {
+                    attachments.push(self.register_attachment_file(path).await);
+                }
                 (None, attachments)
             }
         };

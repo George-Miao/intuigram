@@ -77,19 +77,21 @@ impl App {
     }
 
     pub(in crate::app) fn available_composer_actions(&self) -> Vec<Action> {
-        if self.view.composer.editing.is_some() {
-            return vec![Action::Paste, Action::Attach];
-        }
         if self.view.poll_composer {
             return Vec::new();
         }
-        vec![
-            Action::Paste,
-            Action::Attach,
-            Action::OpenRichMedia,
-            Action::OpenScheduled,
-            Action::CreatePoll,
-        ]
+        let mut actions = vec![Action::Paste, Action::Attach];
+        if !self.view.composer.attachments.is_empty() {
+            actions.push(Action::RemoveAttachment);
+        }
+        if self.view.composer.editing.is_none() {
+            actions.extend([
+                Action::OpenRichMedia,
+                Action::OpenScheduled,
+                Action::CreatePoll,
+            ]);
+        }
+        actions
     }
 
     pub(in crate::app) fn available_chat_actions(&self) -> Vec<Action> {
@@ -186,6 +188,7 @@ impl App {
             Action::DismissOutbox => "Dismiss Pending Operation",
             Action::Paste => "Paste",
             Action::Attach => "Attach File",
+            Action::RemoveAttachment => "Remove Selected Attachment",
             Action::OpenRichMedia => "Media & Contacts",
             Action::OpenScheduled => "Scheduled Messages",
             Action::CreatePoll => "Create Poll",

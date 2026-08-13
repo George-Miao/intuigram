@@ -126,6 +126,12 @@ pub struct AttachmentView {
 
     /// Filename or clipboard image label.
     pub name: String,
+
+    /// Bounded image preview, when the adapter can decode one safely.
+    pub preview: Option<super::InlineImage>,
+
+    /// Whether Composer attachment actions target this item.
+    pub active: bool,
 }
 
 /// Active search query.

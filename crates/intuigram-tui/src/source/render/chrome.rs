@@ -124,18 +124,21 @@ const fn action_bar_rank(key: KeyChord) -> u8 {
             control: false,
             shift: false,
             alt: false,
+            super_modifier: false,
         } => 0,
         KeyChord {
             key: Key::Char(_),
             control: false,
             shift: false,
             alt: false,
+            super_modifier: false,
         } => 1,
         KeyChord {
             key: Key::Up | Key::Down | Key::Left | Key::Right,
             control: false,
             shift: false,
             alt: false,
+            super_modifier: false,
         } => 3,
         _ => 2,
     }

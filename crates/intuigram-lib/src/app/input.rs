@@ -1,3 +1,4 @@
+use super::composer::append_attachments;
 use super::*;
 
 impl App {
@@ -219,11 +220,8 @@ impl App {
                     if let Some(text) = text {
                         self.insert_composer_text(&text);
                     }
-                    if self.view.composer.editing.is_some() && !attachments.is_empty() {
-                        self.view.composer.attachments = attachments;
-                    } else {
-                        self.view.composer.attachments.extend(attachments);
-                    }
+                    let replace = self.view.composer.editing.is_some();
+                    append_attachments(&mut self.view.composer.attachments, attachments, replace);
                     self.view.focus = Focus::Composer;
                     self.draft_effect()
                 } else {
@@ -232,7 +230,7 @@ impl App {
                         draft.text.push_str(&text);
                         draft.cursor = draft.text.len();
                     }
-                    draft.attachments.extend(attachments);
+                    append_attachments(&mut draft.attachments, attachments, false);
                     Some(Effect::SaveDraft {
                         chat: key.chat,
                         thread_root: key.thread,

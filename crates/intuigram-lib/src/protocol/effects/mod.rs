@@ -231,6 +231,11 @@ pub enum Effect {
 
         path: String,
     },
+    /// Release one adapter-owned attachment that the Composer removed.
+    DiscardAttachment {
+        /// Opaque attachment identifier.
+        attachment: AttachmentId,
+    },
     /// Persist a changed Draft before any saved indication is emitted.
     SaveDraft {
         chat: ChatId,

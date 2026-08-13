@@ -49,11 +49,12 @@ fn semantic_nodes_are_generated_with_the_cells_they_describe() {
 }
 
 #[test]
-fn terminal_keyboard_protocol_disambiguates_modified_enter() {
+fn terminal_keyboard_protocol_preserves_committed_text() {
     let flags = terminal_keyboard_flags();
 
     assert!(flags.contains(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES));
-    assert!(flags.contains(KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES));
+    assert!(flags.contains(KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS));
+    assert!(!flags.contains(KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES));
 }
 
 #[test]

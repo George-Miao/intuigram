@@ -30,6 +30,7 @@ pub struct KeyChord {
     pub(super) control: bool,
     pub(super) shift: bool,
     pub(super) alt: bool,
+    pub(super) super_modifier: bool,
 }
 
 /// One context-sensitive shortcut shown in the Action Bar and Help.
@@ -54,6 +55,7 @@ impl KeyChord {
             control: false,
             shift: false,
             alt: false,
+            super_modifier: false,
         }
     }
 
@@ -65,6 +67,7 @@ impl KeyChord {
             control: true,
             shift: false,
             alt: false,
+            super_modifier: false,
         }
     }
 
@@ -76,6 +79,7 @@ impl KeyChord {
             control: false,
             shift: false,
             alt: true,
+            super_modifier: false,
         }
     }
 
@@ -87,6 +91,20 @@ impl KeyChord {
             control: false,
             shift: true,
             alt: false,
+            super_modifier: false,
+        }
+    }
+
+    /// Creates a Super-modified key. macOS terminals report the Command key as
+    /// Super.
+    #[must_use]
+    pub const fn super_key(key: Key) -> Self {
+        Self {
+            key,
+            control: false,
+            shift: false,
+            alt: false,
+            super_modifier: true,
         }
     }
 
@@ -102,6 +120,13 @@ impl KeyChord {
         }
         if self.shift {
             label.push_str("Shift+");
+        }
+        if self.super_modifier {
+            label.push_str(if cfg!(target_os = "macos") {
+                "Cmd+"
+            } else {
+                "Super+"
+            });
         }
         label.push_str(match self.key {
             Key::Char(character) => return format!("{label}{}", character.to_ascii_uppercase()),

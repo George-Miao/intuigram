@@ -43,7 +43,7 @@ fn kitty_unicode_upload_creates_only_a_virtual_placement() {
         .expect("memory output should accept a graphics request");
     let encoded = String::from_utf8(output).expect("graphics commands are ASCII");
 
-    assert!(encoded.starts_with("\u{1b}_Gq=2,a=T,C=1,U=1,f=32,s=1,v=1,i=42,c=32,r=6,m=0;"));
+    assert!(encoded.starts_with("\u{1b}_Gq=2,a=T,C=1,U=1,z=-1,f=32,s=1,v=1,i=42,c=32,r=6,m=0;"));
     assert!(!encoded.contains("\u{1b}[10;8H"));
     assert!(encoded.contains("/wAA/w=="));
     assert!(encoded.ends_with("\u{1b}\\"));
@@ -213,6 +213,68 @@ fn background_kitty_upload_precedes_the_followup_placeholder() {
             .count(),
         1,
         "graphics completion should not repaint unchanged text"
+    );
+}
+
+#[test]
+fn attachment_preview_preserves_composer_cursor() {
+    let mut current = image_message_view();
+    current.messages.clear();
+    current.composer.attachments = vec![intuigram_lib::AttachmentView {
+        id: intuigram_lib::AttachmentId(7),
+        kind: intuigram_lib::AttachmentKind::Photo,
+        name: "clipboard.png".to_owned(),
+        preview: Some(
+            intuigram_lib::InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
+                .expect("fixture pixels should match their dimensions"),
+        ),
+        active: true,
+    }];
+
+    let mut expected_terminal =
+        Terminal::new(TestBackend::new(100, 28)).expect("test terminal should initialize");
+    expected_terminal
+        .draw(|frame| render(frame, &current, &EffectiveKeymap::defaults()))
+        .expect("Composer should render");
+    let expected = expected_terminal.backend().cursor_position();
+
+    let mut output = Vec::new();
+    {
+        let backend = CrosstermBackend::new(&mut output);
+        let options = TerminalOptions {
+            viewport: Viewport::Fixed(Rect::new(0, 0, 100, 28)),
+        };
+        let mut terminal = Terminal::with_options(backend, options)
+            .expect("fixed memory terminal should initialize");
+        let mut frame_state =
+            TerminalFrameState::new(GraphicsProtocol::KittyLegacy, Multiplexer::None)
+                .expect("graphics worker should start");
+
+        draw_terminal_view(
+            &mut terminal,
+            &mut frame_state,
+            &EffectiveKeymap::defaults(),
+            ViewOptions::default(),
+            &current,
+        )
+        .expect("initial attachment frame should render");
+        wait_for_graphics(&mut frame_state);
+        draw_terminal_view(
+            &mut terminal,
+            &mut frame_state,
+            &EffectiveKeymap::defaults(),
+            ViewOptions::default(),
+            &current,
+        )
+        .expect("prepared attachment preview should render");
+    }
+
+    let mut parser = vt100::Parser::new(28, 100, 0);
+    parser.process(&output);
+    assert_eq!(
+        parser.screen().cursor_position(),
+        (expected.y, expected.x),
+        "native attachment output must restore the Composer cursor"
     );
 }
 

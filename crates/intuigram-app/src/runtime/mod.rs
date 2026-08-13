@@ -3,6 +3,7 @@ use super::*;
 mod adapters;
 mod cancellation;
 mod effect_route;
+mod input;
 mod loop_state;
 mod pending_operation;
 mod types;
@@ -18,6 +19,7 @@ pub(super) use adapters::{
 pub(super) use cancellation::EffectCancellation;
 use cancellation::{cancel_superseded_work, cancelled_media_event};
 pub(super) use effect_route::{EffectRoute, effect_data_center, effect_priority, effect_route};
+pub(super) use input::append_ready_text;
 #[cfg(test)]
 pub(super) use loop_state::run_application;
 use loop_state::{RequestedExit, decrement_lane, replace_update};
@@ -68,6 +70,7 @@ where
     let mut active_notifications = Vec::new();
     let mut requested_exit = None;
     let mut stopping_error = None;
+    let mut pending_terminal_event: Option<crossterm::event::Event> = None;
     let mut draw_requested = true;
 
     loop {
@@ -195,25 +198,29 @@ where
             animation_timer = None;
         }
 
-        let wake = poll_fn(|cx| {
-            wake_poller.poll(
-                WakeSources {
-                    ui: terminal,
-                    events,
-                    adapter_events,
-                    active_effects: &mut active_effects,
-                    backend: &backend,
-                    animation_timer: &mut animation_timer,
-                },
-                WakePolicy {
-                    poll_adapter: !disconnected,
-                    poll_interaction: requested_exit.is_none(),
-                    poll_background: !disconnected && requested_exit.is_none(),
-                },
-                cx,
-            )
-        })
-        .await;
+        let wake = if let Some(event) = pending_terminal_event.take() {
+            ApplicationWake::Terminal(Ok(event))
+        } else {
+            poll_fn(|cx| {
+                wake_poller.poll(
+                    WakeSources {
+                        ui: terminal,
+                        events,
+                        adapter_events,
+                        active_effects: &mut active_effects,
+                        backend: &backend,
+                        animation_timer: &mut animation_timer,
+                    },
+                    WakePolicy {
+                        poll_adapter: !disconnected,
+                        poll_interaction: requested_exit.is_none(),
+                        poll_background: !disconnected && requested_exit.is_none(),
+                    },
+                    cx,
+                )
+            })
+            .await
+        };
 
         match wake {
             ApplicationWake::Redraw(result) => {
@@ -224,6 +231,13 @@ where
                 let event = event.context(TerminalSnafu)?;
                 let Some(event) = terminal.resolve_event(&update.view, event) else {
                     continue;
+                };
+                let event = if let UiEvent::Intent(Intent::Insert(mut text)) = event {
+                    pending_terminal_event =
+                        append_ready_text(terminal, events, &update.view, &mut text)?;
+                    UiEvent::Intent(Intent::Insert(text))
+                } else {
+                    event
                 };
                 match event {
                     UiEvent::Redraw => draw_requested = true,
