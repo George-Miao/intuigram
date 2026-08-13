@@ -3,7 +3,7 @@ use std::{fs, thread};
 
 use tempfile::tempdir;
 
-use super::{CacheKey, CacheKind, CacheOwner, MediaCache};
+use super::{CacheKey, CacheKind, CacheOwner, MediaCache, entry_from_child};
 
 #[test]
 fn cache_is_bounded_across_media_and_thumbnails() {
@@ -85,4 +85,25 @@ fn clear_never_reaches_sibling_durable_records() {
         b"message text"
     );
     assert_eq!(cache.usage().expect("usage should be readable").bytes, 0);
+}
+
+#[test]
+fn cache_scan_vanished_partial_remains_available() {
+    let temporary = tempdir().expect("temporary cache root should be created");
+    let directory = temporary.path().join("thumbnails");
+    fs::create_dir(&directory).expect("thumbnail directory should be created");
+    let partial = directory.join("2f4ff9b66ff93247.partial");
+    fs::write(&partial, b"in flight").expect("partial entry should be written");
+    let child = fs::read_dir(&directory)
+        .expect("thumbnail directory should be readable")
+        .next()
+        .expect("partial entry should be listed")
+        .expect("partial directory entry should be readable");
+    fs::rename(&partial, directory.join("2f4ff9b66ff93247.cache"))
+        .expect("writer should atomically install the partial entry");
+    assert!(
+        entry_from_child(child)
+            .expect("transient partial files should not make the cache unavailable")
+            .is_none()
+    );
 }

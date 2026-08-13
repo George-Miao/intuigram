@@ -301,14 +301,8 @@ impl MediaCache {
                 let child = child.context(DirectorySnafu {
                     path: directory.clone(),
                 })?;
-                let path = child.path();
-                let metadata = child.metadata().context(ReadSnafu { path: path.clone() })?;
-                if metadata.is_file() && path.extension().is_some_and(|value| value == "cache") {
-                    entries.push(Entry {
-                        path,
-                        bytes: metadata.len(),
-                        used: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
-                    });
+                if let Some(entry) = entry_from_child(child)? {
+                    entries.push(entry);
                 }
             }
         }
@@ -343,18 +337,35 @@ fn collect_retained_entries(directory: &std::path::Path, entries: &mut Vec<Entry
             path: directory.to_path_buf(),
         })?;
         let path = child.path();
-        let metadata = child.metadata().context(ReadSnafu { path: path.clone() })?;
-        if metadata.is_dir() {
+        let file_type = match child.file_type() {
+            Ok(file_type) => file_type,
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(source) => return Err(Error::Read { path, source }),
+        };
+        if file_type.is_dir() {
             collect_retained_entries(&path, entries)?;
-        } else if metadata.is_file() && path.extension().is_some_and(|value| value == "cache") {
-            entries.push(Entry {
-                path,
-                bytes: metadata.len(),
-                used: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
-            });
+        } else if let Some(entry) = entry_from_child(child)? {
+            entries.push(entry);
         }
     }
     Ok(())
+}
+
+fn entry_from_child(child: fs::DirEntry) -> Result<Option<Entry>> {
+    let path = child.path();
+    if path.extension().is_none_or(|value| value != "cache") {
+        return Ok(None);
+    }
+    let metadata = match child.metadata() {
+        Ok(metadata) => metadata,
+        Err(source) if source.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(source) => return Err(Error::Read { path, source }),
+    };
+    Ok(metadata.is_file().then(|| Entry {
+        path,
+        bytes: metadata.len(),
+        used: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
+    }))
 }
 
 #[derive(Debug)]
