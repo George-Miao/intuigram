@@ -6,6 +6,8 @@
 
 The Unix implementation uses `compio::runtime::fd::PollFd` for the actual wait. The Windows implementation attaches the console input handle to Compio's IOCP event wait. Both delegate decoding to Crossterm's public zero-timeout `poll`/`read` API and drain events already buffered by Crossterm before submitting another readiness wait.
 
+The repository runs the crate's native backend tests on Linux, macOS, and Windows for every pull request.
+
 Run the interactive probe from a terminal:
 
 ```sh
