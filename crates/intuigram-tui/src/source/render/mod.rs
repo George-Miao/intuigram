@@ -3,6 +3,7 @@
 use super::*;
 
 pub(in crate::source) mod accounts;
+pub(in crate::source) mod attachment_tray;
 pub(in crate::source) mod chrome;
 pub(in crate::source) mod composer;
 pub(in crate::source) mod details;

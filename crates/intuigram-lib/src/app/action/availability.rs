@@ -306,20 +306,36 @@ impl App {
                     actions.extend([
                         Action::SaveEdit,
                         Action::Newline,
+                        Action::Paste,
                         Action::OpenActions,
                         Action::Cancel,
                     ]);
+                    if !self.view.composer.attachments.is_empty() {
+                        actions.extend([
+                            Action::PreviousAttachment,
+                            Action::NextAttachment,
+                            Action::RemoveAttachment,
+                        ]);
+                    }
                 } else if self.view.poll_composer {
                     actions.extend([Action::SendPoll, Action::Newline, Action::Cancel]);
                 } else {
                     actions.extend([
                         Action::Send,
                         Action::Newline,
+                        Action::Paste,
                         Action::OpenActions,
                         Action::Cancel,
                         Action::Search,
                         Action::TargetPreviousMessage,
                     ]);
+                    if !self.view.composer.attachments.is_empty() {
+                        actions.extend([
+                            Action::PreviousAttachment,
+                            Action::NextAttachment,
+                            Action::RemoveAttachment,
+                        ]);
+                    }
                     if self.view.composer.text.is_empty()
                         && self.view.messages.iter().any(|message| {
                             message.direction == MessageDirection::Outgoing && message.id.0 > 0

@@ -14,7 +14,7 @@ fn kitty_unicode_upload_is_virtual_and_position_independent() {
         .expect("memory output should accept a Kitty upload");
     let first = output.len();
     let text = String::from_utf8(output.clone()).expect("Kitty commands are ASCII");
-    assert!(text.starts_with("\x1b_Gq=2,a=T,C=1,U=1,f=32,s=1,v=1,i=42,c=12,r=6,m=0;"));
+    assert!(text.starts_with("\x1b_Gq=2,a=T,C=1,U=1,z=-1,f=32,s=1,v=1,i=42,c=12,r=6,m=0;"));
     assert!(!text.contains("\x1b[10;8H"));
 
     placement.x = 20;
@@ -33,8 +33,8 @@ fn kitty_legacy_is_cursor_anchored_and_tmux_escaped() {
         .sync(&mut output, &[placement(Multiplexer::Tmux)])
         .expect("memory output should accept a wrapped Kitty upload");
 
-    assert!(output.starts_with(b"\x1bPtmux;\x1b\x1b[10;8H\x1b\x1b_G"));
-    assert!(output.ends_with(b"\x1b\\"));
+    assert!(output.starts_with(b"\x1bPtmux;\x1b\x1b7\x1b\x1b[10;8H\x1b\x1b_G"));
+    assert!(output.ends_with(b"\x1b\x1b8\x1b\\"));
 }
 
 #[test]
@@ -46,9 +46,24 @@ fn zellij_kitty_placement_is_unwrapped_and_avoids_unicode_placeholders() {
         .expect("memory output should accept a Zellij Kitty upload");
 
     let text = String::from_utf8(output).expect("Kitty commands are ASCII");
-    assert!(text.starts_with("\x1b[10;8H\x1b_Gq=2,a=T,C=1,f=32"));
+    assert!(text.starts_with("\x1b7\x1b[10;8H\x1b_Gq=2,a=T,C=1,z=-1,f=32"));
     assert!(!text.contains("U=1"));
     assert!(!text.contains("tmux;"));
+}
+
+#[test]
+fn kitty_images_render_below_terminal_text() {
+    for protocol in [Protocol::KittyUnicode, Protocol::KittyLegacy] {
+        let mut renderer = Renderer::new(protocol);
+        let mut output = Vec::new();
+
+        renderer
+            .sync(&mut output, &[placement(Multiplexer::None)])
+            .expect("memory output should accept a Kitty image");
+
+        let text = String::from_utf8(output).expect("Kitty commands are ASCII");
+        assert!(text.contains(",z=-1,"));
+    }
 }
 
 #[test]
@@ -64,14 +79,16 @@ fn iterm2_and_sixel_encoders_emit_their_native_framing() {
             .windows(b"\x1b]1337;File=inline=1".len())
             .any(|window| window == b"\x1b]1337;File=inline=1")
     );
+    assert!(iterm_output.starts_with(b"\x1b7\x1b[10;8H"));
+    assert!(iterm_output.ends_with(b"\x1b8"));
 
     let mut sixel = Renderer::new(Protocol::Sixel);
     let mut sixel_output = Vec::new();
     sixel
         .sync(&mut sixel_output, &[request])
         .expect("the RGBA fixture should encode as Sixel");
-    assert!(sixel_output.starts_with(b"\x1b[10;8H\x1bPq\"1;1;96;96"));
-    assert!(sixel_output.ends_with(b"\x1b\\"));
+    assert!(sixel_output.starts_with(b"\x1b7\x1b[10;8H\x1bPq\"1;1;96;96"));
+    assert!(sixel_output.ends_with(b"\x1b\\\x1b8"));
 }
 
 #[test]

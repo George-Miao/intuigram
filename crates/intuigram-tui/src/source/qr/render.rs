@@ -166,6 +166,7 @@ pub(crate) fn chord_from_crossterm(
         control: modifiers.contains(KeyModifiers::CONTROL),
         shift: modifiers.contains(KeyModifiers::SHIFT),
         alt: modifiers.contains(KeyModifiers::ALT),
+        super_modifier: modifiers.contains(KeyModifiers::SUPER),
     })
 }
 use super::*;

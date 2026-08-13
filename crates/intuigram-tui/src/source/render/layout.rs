@@ -367,7 +367,7 @@ pub(in crate::source) fn render_active_chat(
         graphics,
     );
     if composer_height > 0 {
-        render_composer(frame, rows[2], view, semantics);
+        render_composer(frame, rows[2], view, semantics, graphics);
     }
 }
 use super::*;

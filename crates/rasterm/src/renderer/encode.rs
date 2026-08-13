@@ -41,8 +41,8 @@ fn encode_iterm2(placement: &Placement) -> Result<Vec<u8>> {
     let encoded = base64::engine::general_purpose::STANDARD.encode(png);
     Ok(kitty::wrap(
         format!(
-            "\x1b[{};{}H\x1b]1337;File=inline=1;width={};height={};preserveAspectRatio=1:\
-             {encoded}\x07",
+            "\x1b7\x1b[{};{}H\x1b]1337;File=inline=1;width={};height={};preserveAspectRatio=1:\
+             {encoded}\x07\x1b8",
             placement.y.saturating_add(1),
             placement.x.saturating_add(1),
             placement.size.columns,

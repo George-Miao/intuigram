@@ -5,19 +5,24 @@ use base64::Engine as _;
 use crate::{ImageId, Multiplexer, Placement};
 
 const RAW_CHUNK_BYTES: usize = 3_072;
+const IMAGE_Z_INDEX: i8 = -1;
 
 pub(crate) fn encode_unicode(placement: &Placement) -> Vec<u8> {
     wrap(encode_transmission(placement, true), placement.multiplexer)
 }
 
 pub(crate) fn encode_legacy(placement: &Placement) -> Vec<u8> {
-    let mut output = format!(
-        "\x1b[{};{}H",
-        placement.y.saturating_add(1),
-        placement.x.saturating_add(1)
-    )
-    .into_bytes();
+    let mut output = b"\x1b7".to_vec();
+    output.extend_from_slice(
+        format!(
+            "\x1b[{};{}H",
+            placement.y.saturating_add(1),
+            placement.x.saturating_add(1)
+        )
+        .as_bytes(),
+    );
     output.extend_from_slice(&encode_transmission(placement, false));
+    output.extend_from_slice(b"\x1b8");
     wrap(output, placement.multiplexer)
 }
 
@@ -74,7 +79,7 @@ fn write_first(output: &mut String, placement: &Placement, unicode: bool, more: 
     let placement_flags = if unicode { ",C=1,U=1" } else { ",C=1" };
     write!(
         output,
-        "\x1b_Gq=2,a=T{placement_flags},f=32,s={},v={},i={},c={},r={},m={more};",
+        "\x1b_Gq=2,a=T{placement_flags},z={IMAGE_Z_INDEX},f=32,s={},v={},i={},c={},r={},m={more};",
         placement.image.width(),
         placement.image.height(),
         placement.id.get(),

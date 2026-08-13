@@ -54,6 +54,10 @@ pub(super) async fn execute(
             saved_peer,
             path,
         } => Some(select_attachment(state, chat, thread_root, saved_peer, path).await),
+        Effect::DiscardAttachment { attachment } => {
+            state.borrow_mut().attachments.payloads.remove(&attachment);
+            None
+        }
         Effect::OpenDownload { download, reveal } => {
             let path = state.borrow().downloaded.paths.get(&download).cloned();
             Some(match path {
@@ -97,6 +101,7 @@ async fn read_clipboard(
     let (text, attachments) = match content {
         rich_clipboard::ClipboardContent::Text(text) => (Some(text), Vec::new()),
         rich_clipboard::ClipboardContent::Image { mime_type, bytes } => {
+            let preview = intuigram_media::decode_preview(&bytes).ok();
             let id = state
                 .borrow_mut()
                 .attachments
@@ -107,14 +112,16 @@ async fn read_clipboard(
                     id,
                     kind: AttachmentKind::Photo,
                     name: "clipboard.png".to_owned(),
+                    preview,
+                    active: false,
                 }],
             )
         }
         rich_clipboard::ClipboardContent::Files(paths) => {
-            let attachments = paths
-                .into_iter()
-                .map(|path| register_file(state, path))
-                .collect();
+            let mut attachments = Vec::with_capacity(paths.len());
+            for path in paths {
+                attachments.push(register_file(state, path).await);
+            }
             (None, attachments)
         }
     };
@@ -144,7 +151,7 @@ async fn select_attachment(
             thread_root,
             saved_peer,
             text: None,
-            attachments: vec![register_file(state, path)],
+            attachments: vec![register_file(state, path).await],
         },
         Ok(_) => {
             AdapterEvent::OperationFailed("Attachment path must identify a regular file".to_owned())
@@ -153,7 +160,7 @@ async fn select_attachment(
     }
 }
 
-fn register_file(state: &RefCell<State>, path: PathBuf) -> AttachmentView {
+async fn register_file(state: &RefCell<State>, path: PathBuf) -> AttachmentView {
     let name = path.file_name().map_or_else(
         || "attachment".to_owned(),
         |name| name.to_string_lossy().into_owned(),
@@ -166,11 +173,25 @@ fn register_file(state: &RefCell<State>, path: PathBuf) -> AttachmentView {
     } else {
         AttachmentKind::File
     };
+    let preview = if kind == AttachmentKind::Photo {
+        compio::fs::read(&path)
+            .await
+            .ok()
+            .and_then(|bytes| intuigram_media::decode_preview(&bytes).ok())
+    } else {
+        None
+    };
     let id = state
         .borrow_mut()
         .attachments
         .register(AttachmentPayload::File { path, kind });
-    AttachmentView { id, kind, name }
+    AttachmentView {
+        id,
+        kind,
+        name,
+        preview,
+        active: false,
+    }
 }
 
 async fn open_download(path: PathBuf, reveal: bool) -> AdapterEvent {

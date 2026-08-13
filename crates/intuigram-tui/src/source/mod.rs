@@ -213,6 +213,36 @@ const BINDINGS: &[Binding] = &[
         Action::Compose,
         true,
     ),
+    binding(
+        KeyChord::control(Key::Char('v')),
+        "Paste",
+        Action::Paste,
+        true,
+    ),
+    binding(
+        KeyChord::super_key(Key::Char('v')),
+        "Paste",
+        Action::Paste,
+        false,
+    ),
+    binding(
+        KeyChord::alt(Key::Left),
+        "Previous Attachment",
+        Action::PreviousAttachment,
+        false,
+    ),
+    binding(
+        KeyChord::alt(Key::Right),
+        "Next Attachment",
+        Action::NextAttachment,
+        false,
+    ),
+    binding(
+        KeyChord::control(Key::Char('d')),
+        "Remove Attachment",
+        Action::RemoveAttachment,
+        true,
+    ),
     binding(KeyChord::plain(Key::Enter), "Send", Action::Send, true),
     binding(
         KeyChord::shift(Key::Enter),

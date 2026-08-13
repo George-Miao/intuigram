@@ -70,6 +70,12 @@ pub enum Action {
     Attach,
     /// Add the exact path entered in the attachment editor.
     ConfirmAttachment,
+    /// Target the previous staged Composer attachment.
+    PreviousAttachment,
+    /// Target the next staged Composer attachment.
+    NextAttachment,
+    /// Remove the targeted staged Composer attachment.
+    RemoveAttachment,
     /// Open rich-media choices from the active Composer.
     OpenRichMedia,
     /// Activate the selected rich-media choice or submit its editor.

@@ -18,10 +18,14 @@ pub mod key {
     pub const ALT_UP: TestKey = TestKey::AltUp;
     pub const ALT_DOWN: TestKey = TestKey::AltDown;
     pub const ALT_EDIT: TestKey = TestKey::AltEdit;
+    pub const ALT_LEFT: TestKey = TestKey::AltLeft;
+    pub const ALT_RIGHT: TestKey = TestKey::AltRight;
     pub const ALT_DELETE: TestKey = TestKey::AltDelete;
     pub const ALT_FORWARD: TestKey = TestKey::AltForward;
     pub const ALT_REACT: TestKey = TestKey::AltReact;
     pub const ALT_ACTIONS: TestKey = TestKey::AltActions;
+    pub const SUPER_PASTE: TestKey = TestKey::SuperPaste;
+    pub const CTRL_PASTE: TestKey = TestKey::ControlPaste;
     pub const ALT_PIN: TestKey = TestKey::AltPin;
     pub const PINNED: TestKey = TestKey::Pinned;
     pub const CTRL_POLL: TestKey = TestKey::ControlPoll;
@@ -42,6 +46,7 @@ pub mod key {
     pub const CTRL_LINK: TestKey = TestKey::ControlLink;
     pub const CTRL_DOWNLOAD: TestKey = TestKey::ControlDownload;
     pub const CTRL_OPEN: TestKey = TestKey::ControlOpen;
+    pub const REMOVE_ATTACHMENT: TestKey = TestKey::ControlDownload;
     pub const ACCOUNTS: TestKey = TestKey::Accounts;
     pub const ALT_LOGOUT: TestKey = TestKey::AltLogout;
     pub const ALT_REMOVE_LOCAL: TestKey = TestKey::AltRemoveLocal;
@@ -64,11 +69,15 @@ pub enum TestKey {
     Right,
     AltUp,
     AltDown,
+    AltLeft,
+    AltRight,
     AltEdit,
     AltDelete,
     AltForward,
     AltReact,
     AltActions,
+    SuperPaste,
+    ControlPaste,
     AltPin,
     Pinned,
     ControlPoll,
@@ -108,11 +117,15 @@ impl TestKey {
             Self::Right => (KeyCode::Right, KeyModifiers::NONE),
             Self::AltUp => (KeyCode::Up, KeyModifiers::ALT),
             Self::AltDown => (KeyCode::Down, KeyModifiers::ALT),
+            Self::AltLeft => (KeyCode::Left, KeyModifiers::ALT),
+            Self::AltRight => (KeyCode::Right, KeyModifiers::ALT),
             Self::AltEdit => (KeyCode::Char('e'), KeyModifiers::ALT),
             Self::AltDelete => (KeyCode::Char('d'), KeyModifiers::ALT),
             Self::AltForward => (KeyCode::Char('f'), KeyModifiers::ALT),
             Self::AltReact => (KeyCode::Char('r'), KeyModifiers::ALT),
             Self::AltActions => (KeyCode::Char('a'), KeyModifiers::ALT),
+            Self::SuperPaste => (KeyCode::Char('v'), KeyModifiers::SUPER),
+            Self::ControlPaste => (KeyCode::Char('v'), KeyModifiers::CONTROL),
             Self::AltPin => (KeyCode::Char('p'), KeyModifiers::ALT),
             Self::Pinned => (KeyCode::Char('p'), KeyModifiers::NONE),
             Self::ControlPoll => (KeyCode::Char('p'), KeyModifiers::CONTROL),

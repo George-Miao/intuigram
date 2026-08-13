@@ -246,6 +246,15 @@ impl App {
                 saved_peer: key.saved_peer,
             }),
             Action::ConfirmAttachment => self.confirm_attachment(),
+            Action::PreviousAttachment => {
+                self.move_active_attachment(false);
+                None
+            }
+            Action::NextAttachment => {
+                self.move_active_attachment(true);
+                None
+            }
+            Action::RemoveAttachment => self.remove_active_attachment(),
             Action::CreatePoll => {
                 self.begin_poll();
                 None

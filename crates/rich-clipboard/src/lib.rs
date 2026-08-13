@@ -79,6 +79,29 @@ pub enum Error {
         source: std::io::Error,
     },
 
+    /// The native clipboard could not provide its content.
+    #[cfg(target_os = "macos")]
+    #[snafu(display("failed to read the native clipboard"))]
+    ReadNative { source: arboard::Error },
+
+    /// Native image dimensions did not match its RGBA bytes.
+    #[cfg(target_os = "macos")]
+    #[snafu(display(
+        "clipboard image dimensions {width} by {height} do not match {bytes} RGBA bytes"
+    ))]
+    InvalidImage {
+        width: usize,
+
+        height: usize,
+
+        bytes: usize,
+    },
+
+    /// A native clipboard image could not be encoded as PNG.
+    #[cfg(target_os = "macos")]
+    #[snafu(display("failed to encode the clipboard image as PNG"))]
+    EncodeImage { source: image::ImageError },
+
     /// The clipboard has no supported file, image, or text representation.
     #[snafu(display("clipboard does not contain supported files, image data, or text"))]
     UnsupportedContent,
@@ -109,9 +132,17 @@ async fn output(program: &'static str, arguments: &[&str]) -> Result<std::proces
 
 #[cfg(target_os = "macos")]
 mod sys {
+    use std::io::Cursor;
     use std::path::PathBuf;
 
-    use super::{ClipboardContent, ClipboardSnapshot, Result, output};
+    use compio::runtime::ResumeUnwind;
+    use image::{DynamicImage, ImageFormat, RgbaImage};
+    use snafu::ResultExt;
+
+    use super::{
+        ClipboardContent, ClipboardSnapshot, EncodeImageSnafu, InvalidImageSnafu, ReadNativeSnafu,
+        Result, output,
+    };
 
     const FILE_SCRIPT: &str = "try\nset xs to the clipboard as list\nset out to \"\"\nrepeat with \
                                x in xs\nset out to out & POSIX path of x & linefeed\nend \
@@ -134,26 +165,57 @@ mod sys {
             }
         }
 
-        if let Ok(image) = output("pngpaste", &["-"]).await
-            && image.status.success()
-            && !image.stdout.is_empty()
-        {
-            return ClipboardSnapshot {
-                png: Some(image.stdout),
-                ..ClipboardSnapshot::default()
-            }
-            .resolve();
-        }
+        compio::runtime::spawn_blocking(read_native)
+            .await
+            .resume_unwind()
+            .expect("an awaited native clipboard read cannot be cancelled")
+    }
 
-        let text = output("pbpaste", &[]).await?;
-        if text.status.success() && !text.stdout.is_empty() {
-            return ClipboardSnapshot {
-                text: Some(String::from_utf8_lossy(&text.stdout).into_owned()),
-                ..ClipboardSnapshot::default()
+    fn read_native() -> Result<ClipboardContent> {
+        let mut clipboard = arboard::Clipboard::new().context(ReadNativeSnafu)?;
+        match clipboard.get_image() {
+            Ok(image) => {
+                let png = encode_png(
+                    image.width,
+                    image.height,
+                    image.into_owned_bytes().into_owned(),
+                )?;
+                return Ok(ClipboardContent::Image {
+                    mime_type: "image/png".to_owned(),
+                    bytes: png,
+                });
             }
-            .resolve();
+            Err(arboard::Error::ContentNotAvailable) => {}
+            Err(source) => return Err(source).context(ReadNativeSnafu),
         }
-        ClipboardSnapshot::default().resolve()
+        match clipboard.get_text() {
+            Ok(text) if !text.is_empty() => Ok(ClipboardContent::Text(text)),
+            Ok(_) | Err(arboard::Error::ContentNotAvailable) => {
+                ClipboardSnapshot::default().resolve()
+            }
+            Err(source) => Err(source).context(ReadNativeSnafu),
+        }
+    }
+
+    pub(super) fn encode_png(width: usize, height: usize, bytes: Vec<u8>) -> Result<Vec<u8>> {
+        let byte_count = bytes.len();
+        let image = u32::try_from(width)
+            .ok()
+            .zip(u32::try_from(height).ok())
+            .and_then(|(width, height)| RgbaImage::from_raw(width, height, bytes));
+        let Some(image) = image else {
+            return InvalidImageSnafu {
+                width,
+                height,
+                bytes: byte_count,
+            }
+            .fail();
+        };
+        let mut png = Cursor::new(Vec::new());
+        DynamicImage::ImageRgba8(image)
+            .write_to(&mut png, ImageFormat::Png)
+            .context(EncodeImageSnafu)?;
+        Ok(png.into_inner())
     }
 }
 
@@ -238,5 +300,17 @@ mod tests {
             }
         );
         assert!(ClipboardSnapshot::default().resolve().is_err());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn native_rgba_image_encodes_valid_png() {
+        let png = super::sys::encode_png(1, 1, vec![0x11, 0x22, 0x33, 0xff])
+            .expect("one RGBA pixel should encode");
+        let decoded = image::load_from_memory(&png).expect("encoded clipboard image should decode");
+
+        assert_eq!(decoded.width(), 1);
+        assert_eq!(decoded.height(), 1);
+        assert_eq!(decoded.to_rgba8().as_raw(), &[0x11, 0x22, 0x33, 0xff]);
     }
 }

@@ -1,6 +1,6 @@
 use intuigram_lib::{
-    AdapterEvent, AttachmentId, AttachmentKind, AttachmentView, ChatId, MessageId, OutboxItemView,
-    OutboxKey, OutboxStateView, TextEntity,
+    AdapterEvent, AttachmentId, AttachmentKind, AttachmentView, ChatId, InlineImage, MessageId,
+    OutboxItemView, OutboxKey, OutboxStateView, TextEntity,
 };
 use intuigram_store::StoredDraft;
 use snafu::ResultExt;
@@ -84,7 +84,13 @@ impl TestSystem {
                 thread_root,
                 saved_peer,
                 text: None,
-                attachments: vec![AttachmentView { id, kind, name }],
+                attachments: vec![AttachmentView {
+                    id,
+                    kind,
+                    name,
+                    preview: attachment_preview(kind),
+                    active: false,
+                }],
             });
     }
 
@@ -155,6 +161,8 @@ impl TestSystem {
                     id,
                     kind: AttachmentKind::Photo,
                     name,
+                    preview: attachment_preview(AttachmentKind::Photo),
+                    active: false,
                 }],
             });
         Ok(())
@@ -173,4 +181,11 @@ impl TestSystem {
                 saved_peer,
             });
     }
+}
+
+fn attachment_preview(kind: AttachmentKind) -> Option<InlineImage> {
+    (kind == AttachmentKind::Photo).then(|| {
+        InlineImage::from_rgba(2, 2, [0x44, 0x88, 0xcc, 0xff].repeat(4))
+            .expect("the attachment preview fixture has valid dimensions")
+    })
 }

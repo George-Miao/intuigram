@@ -1,6 +1,6 @@
 use super::chrome::interaction_rule;
 use super::composer_wrap::{WrappedText, wrap_text};
-use super::*;
+use super::{attachment_tray, *};
 
 const MAX_COMPOSER_HEIGHT: u16 = 9;
 const RESERVED_TRANSCRIPT_HEIGHT: u16 = 5;
@@ -16,6 +16,7 @@ pub(in crate::source) fn composer_height(area: Rect, view: &View) -> u16 {
     }) {
         return 0;
     }
+    let tray_height = attachment_tray::HEIGHT * u16::from(!view.composer.attachments.is_empty());
     let label = composer_label(view);
     let width = content_width(area.width, label.as_deref());
     let wrapped = wrap_text(&view.composer.text, view.composer.cursor, width);
@@ -25,11 +26,11 @@ pub(in crate::source) fn composer_height(area: Rect, view: &View) -> u16 {
         .saturating_add(2)
         .saturating_add(context_height)
         .max(3_u16.saturating_add(context_height));
-    let cap = area
-        .height
+    let editor_height = area.height.saturating_sub(tray_height);
+    let cap = editor_height
         .saturating_sub(2 + RESERVED_TRANSCRIPT_HEIGHT)
         .clamp(3_u16.saturating_add(context_height), MAX_COMPOSER_HEIGHT);
-    desired.min(cap)
+    tray_height.saturating_add(desired.min(cap))
 }
 
 pub(in crate::source) fn render_composer(
@@ -37,7 +38,14 @@ pub(in crate::source) fn render_composer(
     area: Rect,
     view: &View,
     semantics: &mut Vec<SemanticNode>,
+    graphics: &mut GraphicsFrame,
 ) {
+    let tray_height = attachment_tray::HEIGHT * u16::from(!view.composer.attachments.is_empty());
+    let rows = Layout::vertical([Constraint::Length(tray_height), Constraint::Min(1)]).split(area);
+    if tray_height > 0 {
+        attachment_tray::render(frame, rows[0], view, graphics);
+    }
+    let area = rows[1];
     let focused = view.focus == Focus::Composer;
     semantics.push(SemanticNode {
         role: SemanticRole::Composer,
@@ -195,7 +203,7 @@ fn composer_lines(
 }
 
 fn composer_label(view: &View) -> Option<String> {
-    let label = if view.poll_composer {
+    if view.poll_composer {
         Some("Poll · question first, then one option per line".to_owned())
     } else if view.composer.editing.is_some() {
         None
@@ -203,19 +211,6 @@ fn composer_label(view: &View) -> Option<String> {
         view.composer
             .reply_to
             .map(|id| format!("Reply to {}", id.0))
-    };
-    if view.composer.attachments.is_empty() {
-        label
-    } else {
-        Some(label.map_or_else(
-            || format!("{} attachment(s)", view.composer.attachments.len()),
-            |label| {
-                format!(
-                    "{label} · {} attachment(s)",
-                    view.composer.attachments.len()
-                )
-            },
-        ))
     }
 }
 

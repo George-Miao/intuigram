@@ -1,6 +1,6 @@
 mod worker;
 
-use intuigram_lib::{ChatId, InlineImage, MessageId};
+use intuigram_lib::{AttachmentId, ChatId, InlineImage, MessageId};
 use rasterm::{
     CellPixels, CellSize, Environment, Image, ImageId, Multiplexer, Placement, Protocol,
 };
@@ -138,6 +138,16 @@ pub(crate) fn image_id(chat: ChatId, message: MessageId) -> ImageId {
     }
     ImageId::new((hash & 0x00ff_ffff).max(1))
         .expect("masking and clamping an image hash always produces a nonzero ID")
+}
+
+pub(crate) fn attachment_image_id(attachment: AttachmentId) -> ImageId {
+    let mut hash = 2_166_136_261_u32 ^ 0x4154_5443;
+    for byte in attachment.0.to_le_bytes() {
+        hash ^= u32::from(byte);
+        hash = hash.wrapping_mul(16_777_619);
+    }
+    ImageId::new((hash & 0x00ff_ffff).max(1))
+        .expect("masking and clamping an attachment hash always produces a nonzero ID")
 }
 
 pub(crate) fn avatar_image_id(peer: ChatId, placement: i64) -> ImageId {
