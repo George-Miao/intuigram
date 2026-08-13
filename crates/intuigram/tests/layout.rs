@@ -102,7 +102,8 @@ fn chat_list_uses_dense_left_edge_while_transcript_and_chrome_stay_padded() -> R
     let chat_rows = app.screen().rows();
     let title_row = row_within(&chat_rows, "abcdefghijkl", 0, 32);
     let preview_row = row_within(&chat_rows, "owned buffers", 0, 32);
-    assert_eq!(row_segment(&chat_rows, title_row, 0, 6), "▌ ████");
+    assert_eq!(row_segment(&chat_rows, title_row, 0, 2), "▌ ");
+    assert!((2..6).all(|x| !app.screen().background_is_default_at(x, title_row as u16)));
     assert_eq!(row_segment(&chat_rows, title_row, 24, 27), "...");
     assert_eq!(row_segment(&chat_rows, title_row, 28, 30), "83");
     assert_eq!(row_segment(&chat_rows, preview_row, 27, 30), "...");
@@ -113,7 +114,9 @@ fn chat_list_uses_dense_left_edge_while_transcript_and_chrome_stay_padded() -> R
     let message_row = row_within(&rows, "hello", 33, 100);
 
     assert!(row_segment(&rows, 4, 33, 100).trim().is_empty());
-    assert_eq!(row_segment(&rows, message_row, 33, 42), "   ████ h");
+    assert_eq!(row_segment(&rows, message_row, 33, 36), "   ");
+    assert!((36..40).all(|x| !app.screen().background_is_default_at(x, message_row as u16)));
+    assert_eq!(row_segment(&rows, message_row, 40, 42), " h");
     let folder = rows
         .iter()
         .position(|row| row.contains("All"))
