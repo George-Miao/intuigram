@@ -191,4 +191,5 @@ During the proof-of-concept-to-workspace transition, use the equivalent root-pac
 - Do not edit generated TL sources manually; update their schema input or generator.
 - Do not update `Cargo.lock` unless dependency resolution genuinely changed.
 - Keep each plain-text Markdown paragraph on one physical line; preserve line breaks that define tables, lists, code blocks, and other structured Markdown.
-- Keep changes scoped and use Conventional Commit subjects if the user asks for commits. Do not push unless explicitly requested.
+- When creating commits, use exactly one Conventional Commit subject line; do not add a body or co-author trailer. Do not push unless explicitly requested.
+- When creating a pull request, reuse the commit subject unchanged as the pull request title and keep the body to a brief description. Never use emoji or excessive Markdown formatting in commit messages or pull requests.
