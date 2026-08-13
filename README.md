@@ -1,35 +1,35 @@
 # Intuigram
 
-Telegram, now in TUI.
+Telegram in a TUI.
 
-Intuigram is a local-first Telegram client for people who want routine messaging to feel fast, focused, and native to the keyboard. It keeps Chats, Messages, Drafts, and navigation state close at hand, connects directly to Telegram, and presents the parts that matter in a dense terminal interface.
+Intuigram is a local-first Telegram client. It makes routine messaging fast and keyboard-native. It keeps Chats, Messages, Drafts, and navigation state available. It connects directly to Telegram. It shows important information in a dense terminal interface.
 
 ![Intuigram showing a generated group Chat with realistic demo Messages, avatars, and an inline sticker](docs/assets/intuigram.webp)
 
-## Why Intuigram
+## Why use Intuigram
 
-- Move through Folders and Chats without reaching for a mouse.
-- Keep the Composer ready while reading and replying to Messages.
-- Inline terminal graphics where supported while retaining useful text fallbacks everywhere.
+- Move through Folders and Chats without a mouse.
+- Keep the Composer ready while you read and reply to Messages.
+- Show inline terminal graphics on supported terminals and show useful text fallbacks on all terminals.
 - Resume from locally synchronized Chats, Drafts, and Transcript positions.
-- See optimistic sends, Telegram acknowledgements, downloads, and reconnect state.
-- Keep multiple Accounts in isolated local databases.
+- Show optimistic sends, Telegram acknowledgements, downloads, and reconnect state.
+- Keep multiple Accounts in separate local databases.
 - Protect authorization and synchronized Message text with optional SQLCipher Local Lock.
-- Connect directly or through ordered SOCKS5, HTTP CONNECT, and MTProxy routes.
+- Connect directly or use ordered SOCKS5, HTTP CONNECT, and MTProxy routes.
 
-Intuigram talks to Telegram through a Compio-native MTProto stack. It does not embed TDLib.
+Intuigram communicates with Telegram through a Compio-native MTProto stack. It does not contain TDLib.
 
-## A keyboard-first hierarchy
+## Keyboard-first hierarchy
 
-Intuigram follows one predictable path:
+Intuigram uses one navigation path:
 
 ```text
 Chat list → Active Chat → Active Message
 ```
 
-Moving in the Chat list changes the adjacent Transcript immediately. `Enter` opens the Active Chat with the Composer ready. `Alt+Up` moves from the Composer into Messages, `Alt+Down` returns toward the Composer, and `Esc` climbs back one level at a time. `Left` and `Right` switch Folders while the Chat list is active.
+Movement in the Chat list immediately changes the adjacent Transcript. `Enter` opens the Active Chat and makes the Composer ready. `Alt+Up` moves from the Composer into Messages. `Alt+Down` moves back toward the Composer. `Esc` moves up one level. `Left` and `Right` switch Folders when the Chat list is active.
 
-Useful defaults include:
+The default keys include:
 
 | Key                   | Action                                         |
 | --------------------- | ---------------------------------------------- |
@@ -41,13 +41,13 @@ Useful defaults include:
 | `?`                   | Show all keys available in the current context |
 | `Ctrl+C`              | Quit cleanly                                   |
 
-The Action Bar always reflects the current context, so a shortcut is shown only when its action is available.
+The Action Bar always shows the current context. It shows a shortcut only when its action is available.
 
 ## Current status
 
-Intuigram is under active development. The current proof of concept can authorize and resume Telegram Accounts, synchronize Folders and Chats, load Message History, send text Messages and replies, manage Drafts, display common rich content with fallbacks, operate a durable Outbox, and perform Account, Folder, media, and Scheduled Message tasks through the CLI.
+Intuigram is in active development. The current proof of concept can authorize and resume Telegram Accounts. It can synchronize Folders and Chats, load Message History, send text Messages and replies, manage Drafts, show common rich content with fallbacks, and operate a durable Outbox. It can also do Account, Folder, media, and Scheduled Message tasks through the CLI.
 
-It is not yet a complete replacement for every Telegram client. Many features are outside the current product promise, and several performance and media-workflow items remain open. The live scope and priorities are tracked in [TODO.md](TODO.md).
+Intuigram does not yet replace all Telegram clients. Some features are outside the current product promise. Some performance and media-workflow tasks are not complete. [TODO.md](TODO.md) contains the current scope and priorities.
 
 ## Install and start
 
@@ -57,22 +57,22 @@ Tagged releases provide archives for Linux x86-64, macOS Apple Silicon, and Wind
 
 ### Compile from source
 
-From a source checkout:
+Run these commands from a source checkout:
 
 ```sh
 cargo install --locked --path crates/intuigram
 intuigram
 ```
 
-Running `intuigram` without a subcommand starts the TUI. `intuigram start` is the explicit equivalent.
+The `intuigram` command starts the TUI when you do not give a subcommand. `intuigram start` has the same result.
 
-Official Intuigram builds contain no shared Telegram application credentials. Create an application at [my.telegram.org](https://my.telegram.org), then start Intuigram. The first-run flow explains the policy, prompts for the application ID and hidden hash, and saves them separately in an owner-protected `credentials.toml`.
+Official Intuigram builds contain no shared Telegram application credentials. Create an application at [my.telegram.org](https://my.telegram.org). Then start Intuigram. The first-run procedure explains the policy. It asks for the application ID and hidden hash. It stores them separately in an owner-protected `credentials.toml`.
 
-Intuigram then shows a QR code. In another Telegram client, open `Settings → Devices → Link Desktop Device` and scan it. Press `P` on the login screen to use phone-number login instead. Intuigram prompts for the delivered code and, when enabled, a hidden 2FA password.
+Intuigram then shows a QR code. In a different Telegram client, open `Settings → Devices → Link Desktop Device`. Scan the code. To use phone-number login, press `P` on the login screen. Intuigram asks for the delivered code. If 2FA is enabled, it also asks for the hidden 2FA password.
 
 ## Configuration
 
-Copy [`config.example.toml`](config.example.toml) to the platform configuration directory as `config.toml`, then replace the example credentials:
+Copy [`config.example.toml`](config.example.toml) to the platform configuration directory as `config.toml`. Then replace the example credentials:
 
 ```toml
 [telegram]
@@ -85,7 +85,7 @@ mode = "default"
 message_max_width = 96
 ```
 
-Intuigram loads `config.toml`, `config.yaml`, `config.yml`, and `config.json`, plus `INTUIGRAM_`-prefixed environment variables and command-line overrides. Later sources take precedence. Environment variables use `__` between nested keys:
+Intuigram loads `config.toml`, `config.yaml`, `config.yml`, and `config.json`. It also loads environment variables with the `INTUIGRAM_` prefix and command-line overrides. Later sources have higher priority. Environment variables use `__` between nested keys:
 
 ```sh
 INTUIGRAM_TELEGRAM__API_ID=123456 \
@@ -93,7 +93,7 @@ INTUIGRAM_TELEGRAM__API_HASH=your-api-hash \
 intuigram
 ```
 
-The example configuration documents connection routes, file logging, media-cache limits, view density, external path pickers, Local Lock, and platform-directory overrides. Intuigram appends diagnostics to `<data>/intuigram/intuigram.log` by default. Override the exact destination when needed:
+The example configuration describes connection routes, file logging, Media Cache limits, view density, external path pickers, Local Lock, and platform-directory overrides. By default, Intuigram appends diagnostics to `<data>/intuigram/intuigram.log`. You can set a different destination:
 
 ```toml
 [logging]
@@ -102,7 +102,7 @@ path = "/path/to/intuigram.log"
 
 ## Connections and proxies
 
-Intuigram can try an ordered mix of SOCKS5, HTTP CONNECT, and MTProxy routes before an optional direct connection. SOCKS5 supports local or proxy-side target DNS and RFC 1929 authentication. HTTP CONNECT supports Basic authentication. MTProxy accepts bare abridged and `dd` padded-intermediate secrets. Intuigram redacts passwords and secrets from diagnostics.
+Intuigram can try an ordered set of SOCKS5, HTTP CONNECT, and MTProxy routes before an optional direct connection. SOCKS5 supports local or proxy-side target DNS and RFC 1929 authentication. HTTP CONNECT supports Basic authentication. MTProxy accepts bare abridged secrets and `dd` padded-intermediate secrets. Intuigram removes passwords and secrets from diagnostics.
 
 Run a complete connection check without opening an Account:
 
@@ -110,11 +110,11 @@ Run a complete connection check without opening an Account:
 intuigram --test-connection
 ```
 
-Conventional proxy variables are supported in this order: `all_proxy`, `ALL_PROXY`, `https_proxy`, `HTTPS_PROXY`, `http_proxy`, then `HTTP_PROXY`. Use `socks5://` for local target DNS, `socks5h://` for proxy-side target DNS, and `http://` for HTTP CONNECT.
+Intuigram reads standard proxy variables in this order: `all_proxy`, `ALL_PROXY`, `https_proxy`, `HTTPS_PROXY`, `http_proxy`, and `HTTP_PROXY`. Use `socks5://` for local target DNS. Use `socks5h://` for proxy-side target DNS. Use `http://` for HTTP CONNECT.
 
 ## Accounts and local data
 
-Add, inspect, or open isolated Accounts:
+Use these commands to add, inspect, or open separate Accounts:
 
 ```sh
 intuigram account add
@@ -122,9 +122,9 @@ intuigram account list
 intuigram --account TELEGRAM_USER_ID
 ```
 
-Intuigram remembers the active Account. Each Account reopens its own Folder, Active Chat, Transcript position, Drafts, synchronized records, Media Cache, Local Lock key, and displayed identity.
+Intuigram remembers the active Account. Each Account opens its own Folder, Active Chat, Transcript position, Drafts, synchronized records, Media Cache, Local Lock key, and displayed identity.
 
-Inspect or explicitly clear local data without starting the TUI:
+Use these commands to inspect or clear local data without starting the TUI:
 
 ```sh
 intuigram --account TELEGRAM_USER_ID cache usage
@@ -134,11 +134,11 @@ intuigram --account TELEGRAM_USER_ID account remove
 intuigram --account TELEGRAM_USER_ID account logout
 ```
 
-Clearing media never deletes Chat metadata or Message text. Destructive Account commands name the exact data they remove and require an Account-specific confirmation. `account logout` deletes local data only after Telegram acknowledges server-side revocation. `account remove` deletes locally and warns that the authorization may still need termination from another Telegram client.
+Clearing media never deletes Chat metadata or Message text. Destructive Account commands identify the data that they remove. They require confirmation for the specified Account. `account logout` deletes local data only after Telegram confirms server-side revocation. `account remove` deletes local data and warns that the user can have to terminate the authorization from a different Telegram client.
 
 ## Local Lock
 
-Account files always use owner-only filesystem permissions. Optional Local Lock encrypts the complete Account database, including Telegram authorization and synchronized Message text:
+Account files always use owner-only file permissions. Optional Local Lock encrypts the complete Account database. This includes Telegram authorization and synchronized Message text:
 
 ```toml
 [local_lock]
@@ -146,11 +146,11 @@ enabled = true
 unlock = "keyring" # or "passphrase"
 ```
 
-Enabling Local Lock converts the Account database and retained backups before the TUI opens. Redownloadable Media Cache bytes remain outside Local Lock and can be cleared independently.
+When you enable Local Lock, Intuigram converts the Account database and retained backups before it opens the TUI. Redownloadable Media Cache bytes stay outside Local Lock. You can clear them independently.
 
 ## Filesystem layout
 
-Intuigram uses platform-native configuration, data, cache, and download directories:
+Intuigram uses the platform configuration, data, cache, and download directories:
 
 ```text
 <config>/intuigram/config.toml
@@ -165,21 +165,21 @@ Intuigram uses platform-native configuration, data, cache, and download director
 <cache>/intuigram/<telegram-user-id>/thumbnails/
 ```
 
-Database migrations are versioned and transactional. Intuigram creates a backup and runs integrity checks before normal startup instead of silently replacing damaged Account data.
+Database migrations are versioned and transactional. Intuigram creates a backup and runs integrity checks before normal startup. It never silently replaces damaged Account data.
 
 ## More commands
 
-Folder management is available through `intuigram folder --help`, including create, rename, reorder, share, delete, and rule operations. The TUI also provides explicit per-Chat Folder membership overrides.
+Use `intuigram folder --help` for Folder management. The commands can create, rename, reorder, share, delete, and apply rules. The TUI also provides explicit per-Chat Folder membership overrides.
 
-Rich-media commands are listed under `intuigram media --help`. They cover recent stickers, saved GIFs, custom emoji, local files, contacts, and asynchronous voice or circular-video capture through `ffmpeg`.
+Use `intuigram media --help` for rich-media commands. These commands include recent stickers, saved GIFs, custom emoji, local files, contacts, and asynchronous voice or circular-video capture through `ffmpeg`.
 
-Scheduled Messages remain owned by Telegram and survive Intuigram exiting. Use `intuigram scheduled --help` to create, list, edit, reschedule, delete, or send them immediately.
+Telegram owns Scheduled Messages, and they remain after Intuigram exits. Use `intuigram scheduled --help` to create, list, edit, reschedule, delete, or immediately send them.
 
 ## Development
 
-The product vocabulary lives in [CONTEXT.md](CONTEXT.md), architectural decisions live in [`docs/adr`](docs/adr), and implementation priorities live in [TODO.md](TODO.md).
+[CONTEXT.md](CONTEXT.md) contains the product vocabulary. [`docs/adr`](docs/adr) contains the architecture decisions. [TODO.md](TODO.md) contains the implementation priorities.
 
-Run the repository checks from the workspace root:
+Run these checks from the workspace root:
 
 ```sh
 cargo fmt --all --check

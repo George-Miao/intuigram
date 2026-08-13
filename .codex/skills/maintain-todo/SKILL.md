@@ -1,11 +1,11 @@
 ---
 name: maintain-todo
-description: Maintain a repository TODO.md as an actionable, prioritized checklist. Use when the user asks to add, reprioritize, promote all priorities, split, deduplicate, audit, or mark roadmap tasks complete, including invocations such as `$maintain-todo p-high ...` and `$maintain-todo promote`.
+description: Maintain a repository TODO.md as an actionable prioritized checklist. Use this skill when the user asks to add, change priority, promote all priorities, split, remove duplicates, audit, or complete roadmap tasks. This includes requests such as `$maintain-todo p-high ...` and `$maintain-todo promote`.
 ---
 
 # Maintain TODO
 
-Invoke as:
+Use one of these commands:
 
 ```text
 $maintain-todo <priority-tag> <request>
@@ -14,46 +14,46 @@ $maintain-todo promote
 
 ## Priority
 
-- Treat the priority tag as required except for `promote`.
-- Accept only tags defined by the target `TODO.md`, such as `p-core`, `p-high`, `p-mid`, or `p-low`.
-- Scope additions, updates, and completion audits to that priority.
-- If the tag is missing, unknown, or ambiguous, ask the user which priority to use before editing. Do not infer it from urgency.
+- Require a priority tag except for `promote`.
+- Accept only tags that the target `TODO.md` defines. Examples are `p-core`, `p-high`, `p-mid`, and `p-low`.
+- Apply additions, updates, and completion audits only to that priority.
+- If the tag is missing, unknown, or not clear, ask the user which priority to use before you edit. Do not infer priority from urgency.
 
 ## Promote
 
-For `$maintain-todo promote`, update every roadmap item exactly once from its original priority:
+For `$maintain-todo promote`, update each roadmap item one time from its original priority:
 
 - Keep `p-core` unchanged.
 - Move `p-high` to `p-core`.
 - Move `p-mid` to `p-high`.
 - Move `p-low` to `p-mid`.
 
-Do not cascade an item through multiple levels during one promotion. Preserve checkbox state, wording, ordering, and unrelated content.
+Do not move an item through more than one level during one promotion. Preserve checkbox state, wording, order, and unrelated content.
 
-## Workflow
+## Procedure
 
-1. Locate the repository root and its `TODO.md`; prefer a path explicitly supplied by the user.
-2. Read applicable repository instructions and the priority definitions in `TODO.md`.
-3. Inspect implementation or documentation only as needed to verify completion claims. Skip implementation inspection for `promote`.
-4. Edit only `TODO.md`. Do not change code, other documentation, or Git state unless explicitly requested separately.
-5. Validate the resulting TODO diff with `git diff --check -- TODO.md` or the equivalent explicit path.
+1. Locate the repository root and its `TODO.md`. Prefer a path that the user gives explicitly.
+2. Read the repository instructions and the priority definitions in `TODO.md`.
+3. Inspect implementation or documentation only as necessary to verify completion claims. Do not inspect implementation for `promote`.
+4. Edit only `TODO.md`. Do not change code, other documentation, or Git state unless the user requests it separately.
+5. Validate the TODO diff with `git diff --check -- TODO.md` or the equivalent explicit path.
 
-## Writing tasks
+## Write tasks
 
-- Write an unchecked Markdown checkbox with the explicit priority tag.
-- Begin with an imperative action and include concise acceptance criteria where useful.
-- Put the task in the section used by the repository for that priority.
-- Keep only actionable work in `TODO.md`; do not add background, status reports, observations about the current implementation, or architectural narration.
-- Avoid duplicates. Merge overlapping tasks without weakening either requirement.
-- Keep unrelated tasks and the repository's existing terminology intact.
+- Write an unchecked Markdown checkbox with an explicit priority tag.
+- Start with an imperative action. Add concise acceptance criteria where useful.
+- Put the task in the section for that priority.
+- Keep only actionable work in `TODO.md`. Do not add background information, status reports, implementation observations, or architecture descriptions.
+- Do not create duplicates. Combine overlapping tasks without removing requirements.
+- Preserve unrelated tasks and repository terms.
 
-## Completing tasks
+## Complete tasks
 
-- Mark `[x]` only when every clause in the task is verifiably complete.
-- If an umbrella task is partially complete, split it into an exact completed `[x]` task and one or more remaining `[ ]` tasks.
-- Never mark a partial implementation complete, silently weaken its wording, or discard unfinished acceptance criteria.
-- When asked to mark finished work, audit all plausible tasks at the requested priority and briefly identify why any close candidates remain open.
+- Mark `[x]` only when all parts of the task are verifiably complete.
+- If part of an umbrella task is complete, split it into one exact completed `[x]` task and one or more remaining `[ ]` tasks.
+- Never mark a partial implementation complete. Never reduce its requirements without an explicit instruction. Never remove incomplete acceptance criteria.
+- When the user asks you to mark work complete, audit all plausible tasks at the specified priority. Briefly state why close candidates stay open.
 
 ## Report
 
-Summarize tasks added, changed, split, completed, or promoted. State that only `TODO.md` was edited.
+Summarize the tasks that you added, changed, split, completed, or promoted. State that you edited only `TODO.md`.

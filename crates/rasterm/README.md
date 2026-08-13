@@ -1,6 +1,6 @@
 # rasterm
 
-`rasterm` is a terminal-UI-independent raster graphics seam. It validates owned RGBA images, fits them to cell geometry, detects a presentation protocol, encodes native terminal graphics, and retains image lifecycle state. It has no Ratatui or Intuigram model dependency.
+`rasterm` provides a raster graphics interface that does not depend on a terminal UI. It validates owned RGBA images, fits them to cell geometry, detects a presentation protocol, encodes native terminal graphics, and keeps image lifecycle state. It does not depend on Ratatui or the Intuigram model.
 
 ## Protocols
 
@@ -14,23 +14,23 @@
 | `chafa` fallback                        | Chafa                      | Shell-free argv descriptors for an asynchronous caller              |
 | Everything else                         | Unicode half blocks        | In-process RGBA sampling with alpha blending                        |
 
-Native byte output is written through a caller-provided `Write`; the crate does not own a terminal. Its stateful renderer owns the optional external helper and temporary-image lifecycle. Encoding and helper work may block, so TUI consumers must call it outside their input and draw loop. Consumers can always use `text_cells` while an external result is unavailable.
+The caller provides the `Write` target for native byte output. The crate does not own a terminal. Its stateful renderer owns the optional external helper and temporary-image lifecycle. Encoding and helper work can block. Therefore, TUI consumers must call it outside the input and draw loop. Consumers can always use `text_cells` when an external result is not available.
 
-The detector follows the same broad priority and environment signals described by [Yazi's image-preview documentation][yazi-preview]: `$TERM`, `$TERM_PROGRAM`, then graphical/external fallbacks.
+The detector uses the priority and environment signals in the [Yazi image-preview documentation][yazi-preview]. It checks `$TERM`, then `$TERM_PROGRAM`, and then graphical or external fallbacks.
 
 ## Multiplexers
 
-tmux commands are DCS-wrapped with escaped `ESC` bytes. Users must enable `allow-passthrough` and preserve `TERM` and `TERM_PROGRAM`. Legacy cursor-anchored Kitty placement is intentionally not selected for tmux.
+`rasterm` wraps tmux commands in DCS and escapes `ESC` bytes. Users must enable `allow-passthrough`. They must also preserve `TERM` and `TERM_PROGRAM`. `rasterm` intentionally does not select legacy cursor-anchored Kitty placement for tmux.
 
-Zellij is represented explicitly and leaves native sequences unwrapped. Stable Zellij releases historically exposed Sixel; [Zellij main added Kitty graphics support][zellij-changelog] after 0.44.3. A Zellij build containing that change uses cursor-anchored Kitty placement when `TERM_PROGRAM` identifies a compatible Ghostty, kitty, or Konsole host. Zellij does not support Kitty Unicode placeholders, so `rasterm` never selects them through that multiplexer. Other Zellij hosts keep the Sixel fallback and require Sixel support in both Zellij and the outer terminal.
+`rasterm` represents Zellij explicitly and does not wrap native sequences. Stable Zellij releases historically provided Sixel. [Zellij main added Kitty graphics support][zellij-changelog] after version 0.44.3. A Zellij build with this change uses cursor-anchored Kitty placement when `TERM_PROGRAM` identifies a compatible Ghostty, kitty, or Konsole host. Zellij does not support Kitty Unicode placeholders. Therefore, `rasterm` never selects them through Zellij. Other Zellij hosts continue to use Sixel. Sixel support is necessary in Zellij and in the outer terminal.
 
 ## Alacritty
 
-Alacritty exposes no native inline-image protocol. On X11/Wayland, install Überzug++ and execute the generated layer commands outside the UI thread. On other platforms, install Chafa and execute the generated argv asynchronously, or use the built-in half-block cells.
+Alacritty does not provide a native inline-image protocol. On X11 or Wayland, install Überzug++ and execute the generated layer commands outside the UI thread. On other platforms, install Chafa and execute the generated argv asynchronously. As an alternative, use the built-in half-block cells.
 
 ## Licensing
 
-`rasterm` is original code under the workspace's `MIT OR Apache-2.0` license. The research reference, [Yazi], is MIT-licensed and is not linked or copied. Überzug++ (GPL-3.0) and Chafa (LGPL-3.0-or-later) are optional external programs; `rasterm` only describes commands and does not distribute or link them.
+`rasterm` is original code under the workspace `MIT OR Apache-2.0` license. The research reference, [Yazi], uses the MIT license. `rasterm` does not link or copy Yazi. Überzug++ uses GPL-3.0. Chafa uses LGPL-3.0-or-later. They are optional external programs. `rasterm` only describes commands. It does not distribute or link these programs.
 
 [yazi]: https://github.com/sxyazi/yazi
 [yazi-preview]: https://yazi-rs.github.io/docs/image-preview/

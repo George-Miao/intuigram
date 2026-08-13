@@ -1,95 +1,95 @@
 # Intuigram
 
-Intuigram is a terminal interface for using Telegram fluently as a primary client.
+Intuigram is a terminal interface for Telegram. It is designed for fluent use as a primary client.
 
 ## Language
 
-**Daily Driver**: A primary Telegram client that supports routine communication fluently, including major chat-management functions and the message types people commonly encounter. Calls are currently outside this promise. _Avoid_: Minimal client, text-only client, companion client
+**Daily Driver**: A primary Telegram client that supports routine communication. It includes important Chat-management functions and common Message types. Calls are outside the current promise. _Avoid_: Minimal client, text-only client, companion client
 
-**Folder**: A user-defined Telegram grouping that determines which Chats appear together. The Active Folder scopes the Chat list without becoming an interaction target; All Chats and Archive use the same navigation concept. _Avoid_: Workspace, category, tab
+**Folder**: A user-defined Telegram group that controls which Chats appear together. The Active Folder limits the Chat list. It is not an interaction target. All Chats and Archive use the same navigation concept. _Avoid_: Workspace, category, tab
 
-**Message**: An item in a Chat whose content may be text, media, a file, a poll, a location, a contact, or a Telegram service event. _Avoid_: Text message
+**Message**: An item in a Chat. Its content can be text, media, a file, a poll, a location, a contact, or a Telegram service event. _Avoid_: Text message
 
-**Message History**: The complete chronological sequence of Messages in a Chat, loaded incrementally without an artificial recent-message limit. _Avoid_: Latest page, 100-message snapshot
+**Message History**: The complete chronological sequence of Messages in a Chat. Intuigram loads it in increments without an artificial limit on recent Messages. _Avoid_: Latest page, 100-message snapshot
 
-**Active Message**: The single Message temporarily targeted by navigation and compatible Current Actions within the Active Chat. Activating a Message transfers interaction from the Composer to the Transcript until the target is cleared. _Avoid_: Selected Message, Read Message, newest Message
+**Active Message**: The one Message that navigation and compatible Current Actions temporarily target in the Active Chat. When a Message becomes active, interaction moves from the Composer to the Transcript. Interaction stays there until the target is cleared. _Avoid_: Selected Message, Read Message, newest Message
 
-**Message Selection**: One or more explicitly selected Messages targeted together by compatible Current Actions. _Avoid_: Active Message, visible Messages
+**Message Selection**: One or more Messages that the user explicitly selects. Compatible Current Actions target them together. _Avoid_: Active Message, visible Messages
 
-**Chat**: A Telegram conversation and the container for its Messages. _Avoid_: Conversation, thread
+**Chat**: A Telegram communication channel that contains its Messages. _Avoid_: Conversation, thread
 
-**Active Chat**: The single Chat currently shown in the Transcript and targeted by Chat-level actions. Moving through the Chat list changes the Active Chat immediately, independently of whether the Chat list or the Chat itself has focus. _Avoid_: Selected Chat, current Chat, preview Chat
+**Active Chat**: The one Chat that the Transcript shows and Chat-level actions target. Movement through the Chat list immediately changes the Active Chat. This does not depend on whether the Chat list or the Chat has focus. _Avoid_: Selected Chat, current Chat, preview Chat
 
-**Private Chat**: A Chat whose peer is a human user, bot, or the current Account itself. _Avoid_: Direct Message when referring to the Chat itself
+**Private Chat**: A Chat whose peer is a human user, a bot, or the current Account. _Avoid_: Direct Message when referring to the Chat itself
 
-**Secret Chat**: A device-specific, end-to-end encrypted Telegram conversation that is not part of the Telegram cloud. Secret Chats are explicitly outside Intuigram's Daily Driver promise; they must not be represented as ordinary Private Chats or partially implemented without a complete, reviewed security design. _Avoid_: Private Chat, cloud Chat, encrypted-at-rest Chat
+**Secret Chat**: A device-specific Telegram communication channel with end-to-end encryption. It is not part of the Telegram cloud. Secret Chats are outside the Intuigram Daily Driver promise. Do not represent them as ordinary Private Chats. Do not implement part of the feature without a complete reviewed security design. _Avoid_: Private Chat, cloud Chat, encrypted-at-rest Chat
 
 **Basic Group**: A legacy Telegram group with a `peerChat` identity and a limited feature set. _Avoid_: Supergroup
 
-**Supergroup**: A group with a `peerChannel` identity and Telegram's full group feature set. _Avoid_: Basic Group, Channel
+**Supergroup**: A group with a `peerChannel` identity and the complete Telegram group feature set. _Avoid_: Basic Group, Channel
 
-**Gigagroup**: A Supergroup large enough that only administrators can post. _Avoid_: Channel
+**Gigagroup**: A Supergroup in which only administrators can post because of its size. _Avoid_: Channel
 
-**Channel**: A broadcast Chat where administrators publish and subscribers primarily consume. _Avoid_: Supergroup
+**Channel**: A broadcast Chat. Administrators publish, and subscribers primarily read. _Avoid_: Supergroup
 
-**Topic**: A nested Message history within a forum Supergroup or topic-enabled bot Private Chat. _Avoid_: Chat, Folder, generic thread
+**Topic**: A nested Message History in a forum Supergroup or a topic-enabled bot Private Chat. _Avoid_: Chat, Folder, generic thread
 
-**Thread**: A nested reply history rooted at a Message. Channel comments are Threads backed by the Channel's linked discussion Supergroup. _Avoid_: Topic, Chat
+**Thread**: A nested reply history that starts at a Message. Channel comments are Threads in the linked discussion Supergroup of the Channel. _Avoid_: Topic, Chat
 
-**Account**: A Telegram user identity, identified in storage by its unique Telegram user ID. _Avoid_: Local UUID, profile
+**Account**: A Telegram user identity. Its unique Telegram user ID identifies it in storage. _Avoid_: Local UUID, profile
 
-**Read State**: Telegram's acknowledgement that incoming Messages have been seen. Intuigram advances Read State only when the Chat has focus and its newest Message is visible, not when the Chat is selected, previewed, or synchronized. _Avoid_: Loaded state, selected state
+**Read State**: The Telegram acknowledgement that a user saw incoming Messages. Intuigram advances Read State only when the Chat has focus and its newest Message is visible. It does not advance Read State when the Chat is selected, previewed, or synchronized. _Avoid_: Loaded state, selected state
 
-**Notification**: An operating-system alert for an incoming Message outside the focused Chat, subject to Telegram mute settings and Intuigram's privacy preference. A terminal bell is the fallback when desktop integration is unavailable. _Avoid_: In-app status message
+**Notification**: An operating-system alert for an incoming Message outside the focused Chat. Telegram mute settings and the Intuigram privacy preference control it. A terminal bell is the fallback when desktop integration is not available. _Avoid_: In-app status message
 
-**Unsupported Content**: Message content that Intuigram cannot present natively but still represents with an explicit, informative placeholder. _Avoid_: Empty message, omitted message
+**Unsupported Content**: Message content that Intuigram cannot show in its native form. Intuigram continues to represent it with an explicit informative placeholder. _Avoid_: Empty message, omitted message
 
-**Media Card**: A Message presentation that communicates a media item's identity, metadata, state, and available actions. It may include inline terminal graphics, but remains useful through its text fallback. _Avoid_: Attachment placeholder
+**Media Card**: A Message presentation that shows the identity, metadata, state, and available actions of a media item. It can include inline terminal graphics. Its text fallback always stays useful. _Avoid_: Attachment placeholder
 
-**Transcript**: The dense chronological presentation of a Chat's Messages. Consecutive Messages are visually grouped, while sender accents and delivery markers provide distinction without chat bubbles. _Avoid_: Chat bubbles, message bubbles
+**Transcript**: A dense chronological presentation of the Messages in a Chat. It groups consecutive Messages visually. Sender accents and delivery markers distinguish Messages without Chat bubbles. _Avoid_: Chat bubbles, message bubbles
 
-**Responsive Hierarchy**: Normal and wide terminals show the Chat list beside the Active Chat. Narrow terminals show the current hierarchy level: Chat-list interaction presents Chats, while Composer or Active-Message interaction presents the Active Chat. Resizing changes only this projection and preserves the Active Folder, Active Chat, Active Message, anchored history, Draft, and interaction target. _Avoid_: Resize reset, independent mobile mode
+**Responsive Hierarchy**: Normal and wide terminals show the Chat list next to the Active Chat. Narrow terminals show the current hierarchy level. Chat-list interaction shows Chats. Composer or Active-Message interaction shows the Active Chat. A resize changes only this presentation. It preserves the Active Folder, Active Chat, Active Message, anchored history, Draft, and interaction target. _Avoid_: Resize reset, independent mobile mode
 
-**Details**: Secondary content for the active Chat, such as information, members, shared media, or search results. Details appear as a third pane only when requested and space permits, otherwise they participate in the same navigation stack as the Chat list and Transcript. _Avoid_: Permanent sidebar, empty third pane
+**Details**: Secondary content for the Active Chat. Examples are information, members, shared media, and search results. Details appear as a third pane only when the user requests them and sufficient space is available. Otherwise, they use the same navigation stack as the Chat list and Transcript. _Avoid_: Permanent sidebar, empty third pane
 
-**Chat Search**: Search for Messages within the Active Chat, invoked with `Ctrl+F` from anywhere inside that Chat. _Avoid_: Global Search
+**Chat Search**: A search for Messages in the Active Chat. `Ctrl+F` starts it from any location in that Chat. _Avoid_: Global Search
 
-**Global Search**: Search for Chats and Messages across the active Account, invoked with `Ctrl+F` from the Chat list. _Avoid_: Chat Search
+**Global Search**: A search for Chats and Messages in the active Account. `Ctrl+F` starts it from the Chat list. _Avoid_: Chat Search
 
-**Draft**: The durable, Telegram-synchronized unsent content for a Chat. Concurrent local and remote changes resolve by last writer, except that active typing is never replaced in place. _Avoid_: Composer buffer
+**Draft**: Durable unsent content for a Chat that synchronizes with Telegram. The last writer resolves concurrent local and remote changes. Active typing is never replaced in place. _Avoid_: Composer buffer
 
-**Composer**: The Chat input surface associated with the Active Chat's Draft and pending reply or attachment context. _Avoid_: Draft bar, input bar, text box
+**Composer**: The Chat input surface for the Draft of the Active Chat and its pending reply or attachment context. _Avoid_: Draft bar, input bar, text box
 
-**Draft History**: A small local recovery history containing Draft versions displaced during synchronization. _Avoid_: Conflict prompt, second active Draft
+**Draft History**: A small local recovery history. It contains Draft versions that synchronization displaced. _Avoid_: Conflict prompt, second active Draft
 
-**Synchronized Cache**: The local representation of Telegram data that is immediately usable at startup and continuously reconciled with Telegram while connected. _Avoid_: Offline snapshot, manual refresh
+**Synchronized Cache**: The local Telegram data that Intuigram can use immediately at startup. Intuigram continuously reconciles it with Telegram while connected. _Avoid_: Offline snapshot, manual refresh
 
-**Local Record**: Durable Account data that Intuigram retains until the user explicitly clears Account data or logs out, including synchronized Chat metadata, Message text, Drafts, Draft History, search data, and operation state. _Avoid_: Media Cache, temporary file
+**Local Record**: Durable Account data that Intuigram keeps until the user explicitly clears Account data or logs out. It includes synchronized Chat metadata, Message text, Drafts, Draft History, search data, and operation state. _Avoid_: Media Cache, temporary file
 
-**Media Cache**: Size-bounded, redownloadable media and thumbnails stored locally for responsive presentation. Eviction may remove cached bytes but never the corresponding Message or its metadata. _Avoid_: Local Record, Message History
+**Media Cache**: Size-bounded redownloadable media and thumbnails that Intuigram stores locally for responsive presentation. Eviction can remove cached bytes. It never removes the related Message or its metadata. _Avoid_: Local Record, Message History
 
-**Local Lock**: Optional full-database encryption for one Account's Telegram authorization and Local Records. Unlock material comes from a hidden passphrase or an operating-system credential vault and never enters application state, logs, or configuration. _Avoid_: Telegram 2FA, screen lock, Media Cache encryption
+**Local Lock**: Optional full-database encryption for the Telegram authorization and Local Records of one Account. Unlock material comes from a hidden passphrase or an operating-system credential vault. It never enters application state, logs, or configuration. _Avoid_: Telegram 2FA, screen lock, Media Cache encryption
 
-**Active Account**: The registered Telegram Account selected for the current process. Switching it updates `global.db`, then opens only that Account's isolated authorization, navigation, Drafts, scroll position, records, cache, and notification identity. _Avoid_: Active Chat, shared session
+**Active Account**: The registered Telegram Account that the current process uses. Switching it updates `global.db`. Intuigram then opens only the authorization, navigation, Drafts, scroll position, records, cache, and notification identity for that Account. _Avoid_: Active Chat, shared session
 
-**Clipboard Paste**: A context-sensitive composer action that queries the platform clipboard directly. Text is inserted into the Draft, images become photo attachment candidates, and copied files become file attachment candidates; unavailable or unsupported clipboard formats fail visibly without altering the Draft. _Avoid_: Terminal text paste only, shell evaluation, path picker
+**Clipboard Paste**: A context-sensitive Composer action that reads the platform clipboard directly. It inserts text into the Draft. It creates photo attachment candidates from images. It creates file attachment candidates from copied files. Unavailable or unsupported clipboard formats produce a visible failure and do not change the Draft. _Avoid_: Terminal text paste only, shell evaluation, path picker
 
-**Logout**: A verified server-side revocation of an Account's current Telegram authorization, followed by deletion of that Account's local session, Local Records, and Media Cache. It succeeds only after Telegram acknowledges revocation. _Avoid_: Remove locally, clear media cache, exit
+**Logout**: A verified server-side revocation of the current Telegram authorization for an Account. Intuigram then deletes the local session, Local Records, and Media Cache for that Account. Logout succeeds only after Telegram acknowledges the revocation. _Avoid_: Remove locally, clear media cache, exit
 
-**Remove Locally**: A destructive deletion of an Account's local session, Local Records, and Media Cache without claiming that Telegram revoked the server-side authorization. It requires a warning that the authorization may need termination from another Telegram client. _Avoid_: Logout, clear media cache
+**Remove Locally**: A destructive deletion of the local session, Local Records, and Media Cache for an Account. It does not state that Telegram revoked the server-side authorization. It gives a warning that the user can have to terminate the authorization from a different Telegram client. _Avoid_: Logout, clear media cache
 
-**Rebuild Cache**: An explicit recovery operation that replaces only redownloadable synchronized Account data while preserving authorization, Drafts, Draft History, configuration, and other unique Local Records. If preservation cannot be guaranteed, Intuigram must require export or explicit abandonment instead of presenting the operation as a safe rebuild. _Avoid_: Delete Account, Logout, automatic database recreation
+**Rebuild Cache**: An explicit recovery operation. It replaces only redownloadable synchronized Account data. It preserves authorization, Drafts, Draft History, configuration, and other unique Local Records. If Intuigram cannot guarantee preservation, it must require export or explicit abandonment. It must not present the operation as a safe rebuild. _Avoid_: Delete Account, Logout, automatic database recreation
 
-**Reconnect Cooldown**: A disconnected state in which automatic reconnection is deliberately paused after unsuccessful attempts. Only in this state does Intuigram offer an explicit Reconnect action. _Avoid_: Any transient connection loss
+**Reconnect Cooldown**: A disconnected state. Automatic reconnection stops temporarily after unsuccessful attempts. Intuigram provides an explicit Reconnect action only in this state. _Avoid_: Any transient connection loss
 
-**Pending Action**: An optimistic Telegram operation durably accepted but not yet acknowledged by Telegram. It remains visibly pending and survives reconnection, process exit, and crashes through its Outbox item. _Avoid_: Draft, completed action, transient request
+**Pending Action**: An optimistic Telegram operation that Intuigram durably accepted but Telegram did not acknowledge. It stays visibly pending. Its Outbox item lets it continue through reconnection, process exit, and crashes. _Avoid_: Draft, completed action, transient request
 
-**Outbox**: A per-Account durable FIFO of Pending Actions. Each item preserves versioned semantic intent, a stable Telegram operation identity, exact referenced media, and explicit retry, cancellation, expiry, conflict, or unknown-outcome state until acknowledgement or user resolution. _Avoid_: Draft, in-memory request queue
+**Outbox**: A durable FIFO for each Account that contains Pending Actions. Each item keeps versioned semantic intent, a stable Telegram operation identity, the exact referenced media, and explicit retry, cancellation, expiry, conflict, or unknown-outcome state. It stays there until acknowledgement or user resolution. _Avoid_: Draft, in-memory request queue
 
-**Scheduled Message**: A Message submitted to Telegram for future delivery at a specified time or, where supported, when the recipient is online. It is managed through a Chat's scheduled-message history and survives Intuigram exiting. _Avoid_: Draft, Pending Action, Outbox item
+**Scheduled Message**: A Message that Telegram will deliver at a specified future time or, where supported, when the recipient is online. The scheduled-message history of a Chat manages it. It stays available after Intuigram exits. _Avoid_: Draft, Pending Action, Outbox item
 
-**Current Action**: An operation available for the focused item in the active view. _Avoid_: Global shortcut
+**Current Action**: An operation that is available for the focused item in the active view. _Avoid_: Global shortcut
 
-**Action Bar**: A persistent summary of all important Current Actions and their keys. Complete and uncommon bindings belong in Help rather than the Action Bar. _Avoid_: Status bar, exhaustive key list
+**Action Bar**: A persistent summary of all important Current Actions and their keys. Help contains complete and uncommon bindings. The Action Bar does not contain them. _Avoid_: Status bar, exhaustive key list
 
-**Help**: The complete, context-sensitive reference for bindings available from the active view. _Avoid_: Action Bar
+**Help**: The complete context-sensitive reference for bindings that are available from the active view. _Avoid_: Action Bar
