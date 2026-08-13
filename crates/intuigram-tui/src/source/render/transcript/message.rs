@@ -19,8 +19,69 @@ pub(super) struct MessageLayout {
 struct MessageState {
     active: bool,
     selected: bool,
-    forwarded: bool,
-    content_indent: usize,
+    component: MessageComponent,
+}
+
+#[derive(Clone, Copy)]
+struct ContentContext<'a> {
+    layout: &'a MessageLayout,
+    message: MessageState,
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum MessageComponent {
+    Plain {
+        avatar_padding: usize,
+    },
+    Forwarded {
+        avatar_padding: usize,
+    },
+    Reply {
+        avatar_padding: usize,
+        forwarded: bool,
+    },
+}
+
+impl MessageComponent {
+    pub(super) fn prefix(self, active: bool, selected: bool) -> Vec<Span<'static>> {
+        self.prefix_with_avatar(active, selected, None)
+    }
+
+    fn prefix_with_avatar(
+        self,
+        active: bool,
+        selected: bool,
+        avatar: Option<Vec<Span<'static>>>,
+    ) -> Vec<Span<'static>> {
+        let mut spans = vec![selection_rule(active), message_selection_marker(selected)];
+        if let Some(avatar) = avatar {
+            spans.extend(avatar);
+        } else {
+            let avatar_padding = match self {
+                Self::Plain { avatar_padding }
+                | Self::Forwarded { avatar_padding }
+                | Self::Reply { avatar_padding, .. } => avatar_padding,
+            };
+            spans.push(Span::raw(" ".repeat(avatar_padding)));
+        }
+        match self {
+            Self::Plain { .. }
+            | Self::Reply {
+                forwarded: false, ..
+            } => {}
+            Self::Forwarded { .. }
+            | Self::Reply {
+                forwarded: true, ..
+            } => {
+                spans.push(Span::styled("│ ", Style::default().fg(PRIMARY)));
+            }
+        }
+        spans
+    }
+
+    const fn is_forwarded(self) -> bool {
+        matches!(self, Self::Forwarded { .. })
+    }
 }
 
 pub(super) fn message_lines(
@@ -30,11 +91,16 @@ pub(super) fn message_lines(
     layout: MessageLayout,
     graphics: &mut GraphicsFrame,
 ) -> Vec<Line<'static>> {
+    let avatar_padding = avatar_width(graphics, 2);
+    let component = if message.details.forwarded_from.is_some() {
+        MessageComponent::Forwarded { avatar_padding }
+    } else {
+        MessageComponent::Plain { avatar_padding }
+    };
     let state = MessageState {
         active: view.active_message == Some(index),
         selected: view.selected_messages.contains(&message.id),
-        forwarded: message.details.forwarded_from.is_some(),
-        content_indent: avatar_width(graphics, 2),
+        component,
     };
     let avatar = (!layout.grouped_with_previous).then(|| {
         let id = active_chat(view)
@@ -49,17 +115,18 @@ pub(super) fn message_lines(
             layout.focused,
         )
     });
-    let mut lines = message_heading(
-        message,
-        state,
-        &layout,
-        avatar.as_ref().map(|rows| rows[0].clone()),
-    );
-    let content_start = lines.len();
+    let (avatar_top, mut avatar_bottom) =
+        avatar.map_or((None, None), |[top, bottom]| (Some(top), Some(bottom)));
+    let mut lines = message_heading(message, state, &layout, avatar_top);
     if let Some(source) = &message.details.forwarded_from {
-        lines.push(message_spacing(state.active));
-        let mut provenance =
-            content_prefix(state.active, state.selected, true, state.content_indent);
+        if avatar_bottom.is_none() {
+            lines.push(message_spacing(state.active));
+        }
+        let mut provenance = MessageComponent::Forwarded { avatar_padding }.prefix_with_avatar(
+            state.active,
+            state.selected,
+            avatar_bottom.take(),
+        );
         provenance.push(Span::styled(
             format!("Forwarded from {source}"),
             Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
@@ -67,13 +134,15 @@ pub(super) fn message_lines(
         lines.push(Line::from(provenance));
     }
     if let Some(reply) = message.reply_to {
-        lines.push(message_spacing(state.active));
-        let mut spans = content_prefix(
-            state.active,
-            state.selected,
-            state.forwarded,
-            state.content_indent,
-        );
+        if avatar_bottom.is_none() {
+            lines.push(message_spacing(state.active));
+        }
+        let reply_component = MessageComponent::Reply {
+            avatar_padding,
+            forwarded: state.component.is_forwarded(),
+        };
+        let mut spans =
+            reply_component.prefix_with_avatar(state.active, state.selected, avatar_bottom.take());
         spans.push(Span::styled("│ ", Style::default().fg(SECONDARY)));
         spans.push(Span::styled(
             reply_preview(view, reply),
@@ -81,9 +150,22 @@ pub(super) fn message_lines(
         ));
         lines.push(Line::from(spans));
     }
-    append_content(view, index, message, &layout, state, &mut lines, graphics);
-    if let Some([_, bottom]) = avatar {
-        place_avatar_bottom(&mut lines[content_start..], bottom);
+    if state.component.is_forwarded() {
+        lines.push(Line::from(
+            state.component.prefix(state.active, state.selected),
+        ));
+    }
+    let content = ContentContext {
+        layout: &layout,
+        message: state,
+    };
+    let content_start = lines.len();
+    append_content(view, index, message, content, &mut lines, graphics);
+    if let Some(bottom) = avatar_bottom.take() {
+        let line = lines
+            .get_mut(content_start)
+            .expect("Every Message has a content line below its sender heading");
+        place_avatar_row(line, state, bottom);
     }
     append_message_metadata(
         &mut lines,
@@ -103,7 +185,7 @@ fn message_heading(
     message: &MessageView,
     state: MessageState,
     layout: &MessageLayout,
-    avatar_top: Option<Vec<Span<'static>>>,
+    avatar: Option<Vec<Span<'static>>>,
 ) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
     if layout.unread {
@@ -129,7 +211,7 @@ fn message_heading(
             selection_rule(state.active),
             message_selection_marker(state.selected),
         ];
-        heading.extend(avatar_top.unwrap_or_default());
+        heading.extend(avatar.unwrap_or_default());
         heading.push(Span::styled(
             message.sender.clone(),
             Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
@@ -139,38 +221,26 @@ fn message_heading(
     lines
 }
 
-fn place_avatar_bottom(lines: &mut [Line<'static>], bottom: Vec<Span<'static>>) {
-    let indent_index = 2;
-    let Some(line) = lines
-        .iter_mut()
-        .find(|line| line.spans.len() > indent_index)
-    else {
-        return;
-    };
-    line.spans.splice(indent_index..=indent_index, bottom);
-}
-
 fn append_content(
     view: &View,
     index: usize,
     message: &MessageView,
-    layout: &MessageLayout,
-    state: MessageState,
+    context: ContentContext<'_>,
     lines: &mut Vec<Line<'static>>,
     graphics: &mut GraphicsFrame,
 ) {
+    let ContentContext {
+        layout,
+        message: state,
+    } = context;
+    let component = state.component;
+    let prefix = component.prefix(state.active, state.selected);
+    let content_width =
+        usize::from(layout.content_width).saturating_sub(Line::from(prefix.as_slice()).width());
     let preview = media_preview(view, message.id);
     let loading = media_preview_is_loading(view, message.id);
     let inline_media = message.details.media.is_some() && (preview.is_some() || loading);
     let show_body = !inline_media || !body_is_media_fallback(message);
-    let prefix = content_prefix(
-        state.active,
-        state.selected,
-        state.forwarded,
-        state.content_indent,
-    );
-    let content_width =
-        usize::from(layout.content_width).saturating_sub(Line::from(prefix.as_slice()).width());
     let media_lines = message
         .details
         .media
@@ -183,13 +253,12 @@ fn append_content(
                 MediaRenderContext {
                     active: state.active,
                     selected: state.selected,
-                    forwarded: state.forwarded,
+                    component,
                     focused: layout.focused,
                     album: album_position(view, index, message.details.album_id),
                     animation_frame: view.animation_frame,
                     max_width: u16::try_from(content_width).unwrap_or(u16::MAX).max(1),
                     max_height: layout.available_height.saturating_sub(5).max(1),
-                    content_indent: state.content_indent,
                 },
                 active_chat(view).map(|chat| image_id(chat, message.id)),
                 graphics,
@@ -201,15 +270,11 @@ fn append_content(
         .flatten()
         .map(|body| {
             Line::from(
-                content_prefix(
-                    state.active,
-                    state.selected,
-                    state.forwarded,
-                    state.content_indent,
-                )
-                .into_iter()
-                .chain(body)
-                .collect::<Vec<_>>(),
+                component
+                    .prefix(state.active, state.selected)
+                    .into_iter()
+                    .chain(body)
+                    .collect::<Vec<_>>(),
             )
         });
     if inline_media {
@@ -260,14 +325,9 @@ fn append_message_metadata(
     width: u16,
     state: MessageState,
 ) {
+    let component = state.component;
     let width = usize::from(width);
-    let prefix_width = Line::from(content_prefix(
-        state.active,
-        state.selected,
-        state.forwarded,
-        state.content_indent,
-    ))
-    .width();
+    let prefix_width = Line::from(component.prefix(state.active, state.selected)).width();
     let metadata = message_metadata(
         message,
         outbox,
@@ -288,12 +348,7 @@ fn append_message_metadata(
         line.extend(metadata);
         return;
     }
-    let mut spans = content_prefix(
-        state.active,
-        state.selected,
-        state.forwarded,
-        state.content_indent,
-    );
+    let mut spans = component.prefix(state.active, state.selected);
     let prefix_width = Line::from(spans.clone()).width();
     spans.push(Span::raw(
         " ".repeat(
@@ -306,21 +361,13 @@ fn append_message_metadata(
     lines.push(Line::from(spans));
 }
 
-pub(super) fn content_prefix(
-    active: bool,
-    selected: bool,
-    forwarded: bool,
-    indent: usize,
-) -> Vec<Span<'static>> {
-    let mut spans = vec![
-        selection_rule(active),
-        message_selection_marker(selected),
-        Span::raw(" ".repeat(indent)),
-    ];
-    if forwarded {
-        spans.push(Span::styled("│ ", Style::default().fg(PRIMARY)));
-    }
-    spans
+fn place_avatar_row(line: &mut Line<'static>, state: MessageState, avatar: Vec<Span<'static>>) {
+    let prefix_len = state.component.prefix(state.active, state.selected).len();
+    let tail = line.spans.split_off(prefix_len);
+    line.spans = state
+        .component
+        .prefix_with_avatar(state.active, state.selected, Some(avatar));
+    line.spans.extend(tail);
 }
 
 pub(super) fn message_spacing(active: bool) -> Line<'static> {

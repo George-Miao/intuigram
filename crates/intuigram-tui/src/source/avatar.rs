@@ -125,7 +125,7 @@ fn avatar_rows(
 }
 
 fn unicode_tile_rows(row_count: u16, columns: u16, color: Color) -> Vec<Vec<Span<'static>>> {
-    let tile = Span::styled("█".repeat(usize::from(columns)), Style::default().fg(color));
+    let tile = Span::styled(" ".repeat(usize::from(columns)), Style::default().bg(color));
     (0..row_count)
         .map(|_| vec![tile.clone(), Span::raw(" ")])
         .collect()

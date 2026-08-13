@@ -58,16 +58,21 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
 
     assert_eq!(buffer[(0, 4)].symbol(), "▌");
     assert_eq!(buffer[(34, message.bounds.top())].symbol(), "▌");
-    let reply_row = message.bounds.top() + 2;
-    assert_eq!(buffer[(41, reply_row)].symbol(), "│");
-    assert_eq!(buffer[(41, reply_row)].fg, Color::Rgb(58, 148, 197));
+    let reply_row = message.bounds.top() + 1;
+    let reply_rule = (message.bounds.left()..message.bounds.right())
+        .find(|column| {
+            buffer[(*column, reply_row)].symbol() == "│"
+                && buffer[(*column, reply_row)].fg == Color::Rgb(58, 148, 197)
+        })
+        .expect("the reply rule should render beside the avatar's second row");
+    assert!(reply_rule > message.bounds.left());
     assert_eq!(buffer[(34, 20)].symbol(), "│");
     assert_eq!(
         buffer[(34, message.bounds.bottom().saturating_sub(1))].symbol(),
         " "
     );
     assert_eq!(buffer[(36, 20)].symbol(), "T");
-    assert_eq!(buffer[(5, 5)].bg, Color::Reset);
+    assert_eq!(buffer[(10, 5)].bg, Color::Reset);
     assert_eq!(buffer[(40, 5)].bg, Color::Reset);
     assert_eq!(buffer[(40, 19)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(buffer[(40, 20)].bg, Color::Rgb(230, 226, 204));
@@ -91,7 +96,7 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
         .draw(|frame| render(frame, &view, &EffectiveKeymap::defaults()))
         .expect("Chat-list focus should render");
     let buffer = terminal.backend().buffer();
-    assert_eq!(buffer[(5, 5)].bg, Color::Rgb(230, 226, 204));
+    assert_eq!(buffer[(10, 5)].bg, Color::Rgb(230, 226, 204));
     assert_eq!(buffer[(40, 19)].bg, Color::Reset);
     assert_eq!(buffer[(40, 21)].bg, Color::Reset);
 

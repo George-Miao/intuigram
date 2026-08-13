@@ -61,14 +61,33 @@ fn forwarded_provenance_rule_spans_source_caption_and_media() {
 
     let sender = rows
         .iter()
-        .position(|row| row.contains("████ Lin"))
+        .position(|row| row.trim_end().ends_with("Lin"))
         .expect("the sender heading should render");
     let forwarded = rows
         .iter()
         .position(|row| row.contains("Forwarded from Runtime News"))
         .expect("the forwarded provenance should render");
-    assert_eq!(forwarded, sender + 2);
-    assert!(rows[sender + 1].trim().is_empty());
+    assert_eq!(forwarded, sender + 1);
+    assert!(
+        rows[forwarded]
+            .find("Forwarded from Runtime News")
+            .is_some_and(|column| column > 0),
+        "the provenance should share the avatar's second row"
+    );
+    let caption = rows
+        .iter()
+        .position(|row| row.contains("a forwarded caption"))
+        .expect("the forwarded caption should render");
+    assert_eq!(
+        caption,
+        forwarded + 2,
+        "forwarded content should have one line of top padding"
+    );
+    assert_eq!(
+        rows[forwarded + 1].trim(),
+        "│",
+        "the provenance rule should span the top padding"
+    );
 }
 
 #[test]

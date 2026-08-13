@@ -63,7 +63,7 @@ fn message_metadata_is_right_aligned_and_omits_zero_counters_except_views() {
     assert!(rows.iter().all(|row| !row.contains("👍 0")));
     let sender = rows
         .iter()
-        .find(|row| row.contains("████ Lin"))
+        .find(|row| row.trim_end().ends_with("Lin"))
         .expect("sender header should render");
     assert!(!sender.contains("12:34"));
 }

@@ -9,11 +9,10 @@ pub(super) struct ImageRenderContext {
     pub(super) id: Option<ImageId>,
     pub(super) active: bool,
     pub(super) selected: bool,
-    pub(super) forwarded: bool,
     pub(super) focused: bool,
     pub(super) max_width: u16,
     pub(super) max_height: u16,
-    pub(super) content_indent: usize,
+    pub(super) component: MessageComponent,
 }
 
 pub(super) fn render_image(
@@ -41,11 +40,10 @@ pub(super) fn render_image(
 pub(super) fn render_loading_image(
     selected: bool,
     active: bool,
-    forwarded: bool,
+    component: MessageComponent,
     animation_frame: u8,
     max_width: u16,
     max_height: u16,
-    content_indent: usize,
 ) -> Vec<Line<'static>> {
     let width = WIDTH.min(max_width);
     let highlight = u16::from(animation_frame) % width;
@@ -59,7 +57,7 @@ pub(super) fn render_loading_image(
     (0..height)
         .map(|row| {
             let mut spans = Vec::with_capacity(usize::from(width).saturating_add(1));
-            spans.extend(content_prefix(active, selected, forwarded, content_indent));
+            spans.extend(component.prefix(active, selected));
             spans.extend((0..label_start).map(|column| {
                 let highlighted = column == highlight;
                 Span::styled(
@@ -107,12 +105,7 @@ fn render_native_image(
     (0..size.rows)
         .map(|row| {
             let mut spans = Vec::with_capacity(usize::from(size.columns).saturating_add(1));
-            spans.extend(content_prefix(
-                context.active,
-                context.selected,
-                context.forwarded,
-                context.content_indent,
-            ));
+            spans.extend(context.component.prefix(context.active, context.selected));
             spans.extend((0..size.columns).map(|column| {
                 let symbol = if graphics.protocol().uses_unicode_placeholders() {
                     unicode_placeholder(row, column)
@@ -148,12 +141,7 @@ fn render_text_image(
     (0..size.rows)
         .map(|line| {
             let mut spans = Vec::with_capacity(usize::from(size.columns).saturating_add(1));
-            spans.extend(content_prefix(
-                context.active,
-                context.selected,
-                context.forwarded,
-                context.content_indent,
-            ));
+            spans.extend(context.component.prefix(context.active, context.selected));
             let offset = usize::from(line) * usize::from(size.columns);
             spans.extend(
                 cells[offset..offset + usize::from(size.columns)]

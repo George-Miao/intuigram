@@ -201,7 +201,12 @@ fn transcript_scroll_keeps_the_active_message_visible() {
         .expect("active Message should remain visible");
 
     assert_eq!(rendered.buffer[(34, active.bounds.y)].symbol(), "▌");
-    assert_eq!(rendered.buffer[(41, active.bounds.y)].symbol(), "M");
+    assert!(
+        (0..rendered.buffer.area.width)
+            .map(|column| rendered.buffer[(column, active.bounds.y)].symbol())
+            .collect::<String>()
+            .contains("Message 10")
+    );
 }
 
 #[test]
@@ -246,8 +251,22 @@ fn transcript_scroll_preserves_an_inactive_anchor() {
         .expect("view should render");
     let buffer = terminal.backend().buffer();
 
-    assert_eq!(buffer[(34, 11)].symbol(), " ");
-    assert_eq!(buffer[(41, 12)].symbol(), "M");
+    let rows = (0..buffer.area.height)
+        .map(|row| {
+            (0..buffer.area.width)
+                .map(|column| buffer[(column, row)].symbol())
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>();
+    let anchor_row = rows
+        .iter()
+        .position(|row| row.contains("Message 10"))
+        .expect("inactive transcript anchor should remain visible");
+
+    assert_eq!(
+        buffer[(34, u16::try_from(anchor_row).unwrap())].symbol(),
+        " "
+    );
 }
 
 #[test]

@@ -15,13 +15,12 @@ pub(super) enum AlbumPosition {
 pub(super) struct MediaRenderContext {
     pub(super) active: bool,
     pub(super) selected: bool,
-    pub(super) forwarded: bool,
     pub(super) focused: bool,
     pub(super) album: AlbumPosition,
     pub(super) animation_frame: u8,
     pub(super) max_width: u16,
     pub(super) max_height: u16,
-    pub(super) content_indent: usize,
+    pub(super) component: MessageComponent,
 }
 
 impl AlbumPosition {
@@ -56,47 +55,44 @@ pub(super) fn render_media(
     let MediaRenderContext {
         active,
         selected,
-        forwarded,
         focused,
         album,
         animation_frame,
         max_width,
         max_height,
-        content_indent,
+        component,
     } = context;
     let mut lines = Vec::new();
     if let Some(preview) = preview {
-        lines.push(media_spacing(active, selected, forwarded, content_indent));
+        lines.push(media_spacing(active, selected, component));
         lines.extend(render_image(
             preview,
             ImageRenderContext {
                 id: image_id,
                 active,
                 selected,
-                forwarded,
+                component,
                 focused,
                 max_width,
                 max_height,
-                content_indent,
             },
             graphics,
         ));
-        lines.push(media_spacing(active, selected, forwarded, content_indent));
+        lines.push(media_spacing(active, selected, component));
     } else if loading {
-        lines.push(media_spacing(active, selected, forwarded, content_indent));
+        lines.push(media_spacing(active, selected, component));
         lines.extend(render_loading_image(
             selected,
             active,
-            forwarded,
+            component,
             animation_frame,
             max_width,
             max_height,
-            content_indent,
         ));
-        lines.push(media_spacing(active, selected, forwarded, content_indent));
+        lines.push(media_spacing(active, selected, component));
     } else {
         let description = media.display_description();
-        let mut card = content_prefix(active, selected, forwarded, content_indent);
+        let mut card = component.prefix(active, selected);
         card.extend([
             Span::styled(
                 format!("[{}{}]", album.label(), media.title),
@@ -108,7 +104,7 @@ pub(super) fn render_media(
     }
     if preview.is_none() && !loading {
         lines.extend(media.display_details().into_iter().map(|detail| {
-            let mut spans = content_prefix(active, selected, forwarded, content_indent);
+            let mut spans = component.prefix(active, selected);
             spans.push(Span::styled(
                 format!("  {detail}"),
                 Style::default().fg(MUTED_TEXT),
@@ -118,9 +114,9 @@ pub(super) fn render_media(
     }
     if let Some(poll) = &media.poll {
         lines.extend(
-            poll.options.iter().map(|option| {
-                poll_option_line(option, active, selected, forwarded, content_indent)
-            }),
+            poll.options
+                .iter()
+                .map(|option| poll_option_line(option, active, selected, component)),
         );
         if let Some(total) = poll.total_voters {
             let state = if poll.closed { " · closed" } else { "" };
@@ -129,7 +125,7 @@ pub(super) fn render_media(
             } else {
                 ""
             };
-            let mut spans = content_prefix(active, selected, forwarded, content_indent);
+            let mut spans = component.prefix(active, selected);
             spans.push(Span::styled(
                 format!("  {total} voters{choice}{state}"),
                 Style::default().fg(MUTED_TEXT),
@@ -137,7 +133,7 @@ pub(super) fn render_media(
             lines.push(Line::from(spans));
         }
         if let Some(solution) = &poll.solution {
-            let mut spans = content_prefix(active, selected, forwarded, content_indent);
+            let mut spans = component.prefix(active, selected);
             spans.push(Span::styled(
                 format!("  Explanation: {solution}"),
                 Style::default().fg(PRIMARY),
@@ -148,21 +144,15 @@ pub(super) fn render_media(
     lines
 }
 
-fn media_spacing(
-    active: bool,
-    selected: bool,
-    forwarded: bool,
-    content_indent: usize,
-) -> Line<'static> {
-    Line::from(content_prefix(active, selected, forwarded, content_indent))
+fn media_spacing(active: bool, selected: bool, component: MessageComponent) -> Line<'static> {
+    Line::from(component.prefix(active, selected))
 }
 
 fn poll_option_line(
     option: &PollOptionView,
     active: bool,
     selected: bool,
-    forwarded: bool,
-    content_indent: usize,
+    component: MessageComponent,
 ) -> Line<'static> {
     let marker = if option.correct {
         "✓"
@@ -179,7 +169,7 @@ fn poll_option_line(
     } else {
         Style::default()
     };
-    let mut spans = content_prefix(active, selected, forwarded, content_indent);
+    let mut spans = component.prefix(active, selected);
     spans.push(Span::styled(
         format!("  {marker} {}{votes}", option.text),
         style,

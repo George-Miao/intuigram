@@ -37,28 +37,26 @@ fn avatar_tiles_distinguish_loading_from_fallback() {
     }];
 
     let frame = render_test_frame(&current, 100, 40);
-    let avatar_cells = frame
+    let loading = Color::Rgb(128, 128, 128);
+    let fallback = Color::Rgb(159, 116, 196);
+    let loading_cells = frame
         .buffer
         .content
         .iter()
-        .filter(|cell| cell.symbol() == "█")
-        .collect::<Vec<_>>();
-    let loading = Color::Rgb(128, 128, 128);
+        .filter(|cell| cell.symbol() == " " && cell.bg == loading)
+        .count();
+    let fallback_cells = frame
+        .buffer
+        .content
+        .iter()
+        .filter(|cell| cell.symbol() == " " && cell.bg == fallback)
+        .count();
 
-    assert_eq!(avatar_cells.len(), 24);
-    assert_eq!(
-        avatar_cells
-            .iter()
-            .filter(|cell| cell.fg == loading)
-            .count(),
-        16
-    );
-    assert_eq!(
-        avatar_cells
-            .iter()
-            .filter(|cell| cell.fg != loading)
-            .count(),
-        8
+    assert_eq!(loading_cells, 16);
+    assert_eq!(fallback_cells, 8);
+    assert!(
+        frame.buffer.content.iter().all(|cell| cell.symbol() != "█"),
+        "avatar tiles must fill cell backgrounds instead of relying on font block coverage"
     );
     let rendered = frame
         .buffer
@@ -70,6 +68,80 @@ fn avatar_tiles_distinguish_loading_from_fallback() {
     assert!(!rendered.contains("[LQ]"));
     assert!(rendered.contains("12:34"));
     assert!(rendered.contains("Lin Qiao: daily driver"));
+}
+
+#[test]
+fn message_avatar_spans_two_aligned_lead_rows() {
+    let mut current = view(Vec::new());
+    current.chats = vec![ChatView {
+        id: ChatId(10),
+        title: "Intuigram".to_owned(),
+        preview: String::new(),
+        preview_sender: None,
+        preview_sender_peer: None,
+        preview_timestamp: String::new(),
+        status: String::new(),
+        unread: 0,
+        pinned: false,
+        can_pin_messages: true,
+        has_topics: false,
+        has_direct_messages: false,
+        kind: ChatKind::Supergroup,
+        folders: vec![0],
+    }];
+    current.active_chat = Some(0);
+    current.messages = vec![MessageView {
+        id: MessageId(2),
+        sender: "Berrysoft".to_owned(),
+        body: "response".to_owned(),
+        timestamp: "12:00".to_owned(),
+        direction: MessageDirection::Incoming,
+        delivery: DeliveryState::Read,
+        reply_to: None,
+        details: MessageDetails {
+            sender_peer: Some(ChatId(20)),
+            ..MessageDetails::default()
+        },
+    }];
+    current.avatar_loads = vec![intuigram_lib::AvatarRef {
+        peer: ChatId(20),
+        id: intuigram_lib::AvatarId(1),
+    }];
+
+    let frame = render_test_frame(&current, 100, 40);
+    let loading = Color::Rgb(128, 128, 128);
+    let rows = (0..frame.buffer.area.height)
+        .filter(|row| {
+            (0..frame.buffer.area.width).any(|column| frame.buffer[(column, *row)].bg == loading)
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[1], rows[0] + 1);
+    let rendered = (0..frame.buffer.area.height)
+        .map(|row| {
+            (0..frame.buffer.area.width)
+                .map(|column| frame.buffer[(column, row)].symbol())
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>();
+    let heading_row = rendered
+        .iter()
+        .position(|row| row.contains("Berrysoft"))
+        .expect("sender heading should render");
+    let body_row = rendered
+        .iter()
+        .position(|row| row.contains("response"))
+        .expect("Message body should render");
+    assert_eq!(usize::from(rows[0]), heading_row);
+    assert_eq!(usize::from(rows[1]), body_row);
+    let heading = &rendered[heading_row];
+    let body = &rendered[body_row];
+    assert_eq!(
+        heading.find("Berrysoft"),
+        body.find("response"),
+        "the Message body should align with the sender heading"
+    );
 }
 
 #[test]
