@@ -3,7 +3,7 @@ use std::collections::{HashSet, VecDeque};
 use super::*;
 
 const CHAT_WINDOW_RADIUS: usize = 8;
-const MAX_QUEUED_AVATARS: usize = 12;
+const MAX_QUEUED_AVATARS: usize = CHAT_WINDOW_RADIUS * 2 + 1;
 
 #[derive(Default)]
 pub(super) struct AvatarLoads {

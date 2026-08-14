@@ -60,6 +60,33 @@ fn chat_list_previews_do_not_load_sender_avatars() {
 }
 
 #[test]
+fn visible_chat_window_queues_every_avatar() {
+    let mut fixture = bootstrap();
+    let template = fixture.chats[0].clone();
+    fixture.chats = (0..17)
+        .map(|offset| {
+            let mut chat = template.clone();
+            chat.id = ChatId(10 + offset);
+            chat.title = format!("Chat {offset}");
+            chat
+        })
+        .collect();
+    fixture.avatar_peers = (0..17).map(|offset| avatar(10 + offset, 1)).collect();
+    fixture.restored_selection = Some(SelectionView {
+        folder: 0,
+        chat: Some(ChatId(18)),
+        message: None,
+    });
+    let mut app = App::new();
+
+    let loading = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+
+    assert_eq!(loading.view.avatar_loads.len(), 17);
+    assert_eq!(loading.view.avatar_loads[0], avatar(10, 1));
+    assert_eq!(loading.view.avatar_loads[16], avatar(26, 1));
+}
+
+#[test]
 fn composition_configures_the_small_media_admission_capacity() {
     let mut fixture = bootstrap();
     for (id, title) in [(20, "Two"), (30, "Three")] {

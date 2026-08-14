@@ -36,6 +36,52 @@ fn group_chat_rows_show_last_sender_preview_and_message_time() -> Result<()> {
 }
 
 #[test]
+fn full_avatar_queue_drains_and_renders_visible_peers() -> Result<()> {
+    let sender_peers = 20..36;
+    let messages = sender_peers
+        .clone()
+        .enumerate()
+        .map(|(index, peer)| {
+            let mut message = incoming(index as i64 + 1, format!("Sender {peer}"), "message");
+            message.details.sender_peer = Some(intuigram_lib::ChatId(peer));
+            message
+        })
+        .collect::<Vec<_>>();
+    let mut group = chat(10, "Chat 10");
+    group.kind = ChatKind::Supergroup;
+    let account = sender_peers.clone().fold(
+        account("Ada")
+            .with_chat(group)
+            .with_avatar(10)
+            .with_history(messages),
+        |account, peer| account.with_avatar(peer),
+    );
+    let telegram = sender_peers.clone().rev().fold(
+        TelegramScenario::new().bootstrap(account).expect_avatar(10),
+        |scenario, peer| scenario.expect_avatar(peer),
+    );
+    let mut app = TestSystem::builder()
+        .name("layout-visible-avatar-window")
+        .terminal(100, 42)
+        .telegram(telegram)
+        .start()?;
+
+    let rows = app.screen().rows();
+    let title_row = row_within(&rows, "Chat 10", 0, 32);
+    assert!(row_segment(&rows, title_row, 0, 32).contains('▀'));
+    let sender_rows = rows
+        .iter()
+        .enumerate()
+        .filter_map(|(index, row)| row.contains("Sender ").then_some(index))
+        .collect::<Vec<_>>();
+    assert!(!sender_rows.is_empty());
+    for sender_row in sender_rows {
+        assert!(row_segment(&rows, sender_row, 33, 100).contains('▀'));
+    }
+    app.expect_no_unhandled_work()
+}
+
+#[test]
 fn transcript_sender_avatar_uses_two_row_message_layout() -> Result<()> {
     let mut group = chat(10, "Intuigram Team");
     group.kind = ChatKind::Supergroup;
