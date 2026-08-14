@@ -46,42 +46,22 @@ pub(super) fn render_loading_image(
     max_height: u16,
 ) -> Vec<Line<'static>> {
     let width = WIDTH.min(max_width);
-    let highlight = u16::from(animation_frame) % width;
     let height = HEIGHT.min(max_height);
-    let label = " loading image ";
-    let label_width = u16::try_from(label.len()).expect("the loading label width fits in u16");
-    let visible_label_width = label_width.min(width);
-    let visible_label = &label[..usize::from(visible_label_width)];
-    let label_start = width.saturating_sub(visible_label_width) / 2;
-    let label_end = label_start.saturating_add(visible_label_width);
+    let cycle = width.saturating_add(height).saturating_add(4);
+    let phase = u16::from(animation_frame).wrapping_mul(2) % cycle;
     (0..height)
         .map(|row| {
             let mut spans = Vec::with_capacity(usize::from(width).saturating_add(1));
             spans.extend(component.prefix(active, selected));
-            spans.extend((0..label_start).map(|column| {
-                let highlighted = column == highlight;
-                Span::styled(
-                    if highlighted { "▒" } else { "░" },
-                    Style::default().fg(if highlighted { PRIMARY } else { MUTED_TEXT }),
-                )
-            }));
-            if row == height / 2 {
-                spans.push(Span::styled(
-                    visible_label.to_owned(),
-                    Style::default().fg(MUTED_TEXT),
-                ));
-            } else {
-                spans.push(Span::styled(
-                    "░".repeat(usize::from(label_end.saturating_sub(label_start))),
-                    Style::default().fg(MUTED_TEXT),
-                ));
-            }
-            spans.extend((label_end..width).map(|column| {
-                let highlighted = column == highlight;
-                Span::styled(
-                    if highlighted { "▒" } else { "░" },
-                    Style::default().fg(if highlighted { PRIMARY } else { MUTED_TEXT }),
-                )
+            spans.extend((0..width).map(|column| {
+                let distance = phase.abs_diff(column.saturating_add(row));
+                let (symbol, color) = match distance {
+                    0 => ("▓", PRIMARY),
+                    1 => ("▒", PRIMARY),
+                    2..=3 => ("▒", MUTED_TEXT),
+                    _ => ("░", MUTED_TEXT),
+                };
+                Span::styled(symbol, Style::default().fg(color))
             }));
             Line::from(spans)
         })

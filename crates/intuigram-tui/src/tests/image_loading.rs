@@ -15,8 +15,10 @@ fn image_placeholder_animates_in_the_final_preview_geometry() {
     let loading = render_test_frame(&current, 100, 40);
     let loading_height = message_height(&loading);
     let loading_text = symbols(&loading.buffer);
-    assert!(loading_text.contains("loading image"));
+    assert!(!loading_text.contains("loading image"));
     assert!(loading_text.matches('░').count() > 150);
+    assert!(loading_text.contains('▒'));
+    assert!(loading_text.contains('▓'));
     assert_forwarded_rule_is_continuous(&rendered_rows(&loading.buffer));
 
     current.animation_frame = 1;
