@@ -14,8 +14,10 @@ mod rsa_key;
 pub struct AuthKeyMaterial {
     /// Secret 2048-bit authorization key. Never log this value.
     pub auth_key: [u8; 256],
+
     /// Initial difference between local and Telegram server time.
     pub time_offset: i32,
+
     /// Initial server salt for encrypted envelopes.
     pub first_salt: i64,
 }

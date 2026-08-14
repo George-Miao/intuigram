@@ -28,7 +28,6 @@ pub enum Error {
     #[snafu(display("failed to open backup location for {}", path.display()))]
     OpenBackupLocation {
         path: PathBuf,
-
         source: std::io::Error,
     },
 }

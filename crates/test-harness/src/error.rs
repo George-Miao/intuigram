@@ -23,7 +23,6 @@ pub enum Error {
     #[snafu(display("failed to write behavior-test media {}", path.display()))]
     WriteMedia {
         path: PathBuf,
-
         source: std::io::Error,
     },
 

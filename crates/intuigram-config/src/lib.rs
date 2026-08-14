@@ -157,8 +157,10 @@ pub enum ViewMode {
 pub struct Telegram {
     /// Telegram application ID from my.telegram.org.
     pub api_id: Option<i32>,
+
     /// Telegram application hash from my.telegram.org.
     pub api_hash: Option<ApiHash>,
+
     /// Phone number used when a new authorization is required.
     pub phone_number: Option<String>,
 }
@@ -195,8 +197,10 @@ impl ops::Deref for ApiHash {
 pub struct Paths {
     /// Directory containing durable databases.
     pub data: PathBuf,
+
     /// Directory containing redownloadable cache data.
     pub cache: PathBuf,
+
     /// Default destination for downloads.
     pub downloads: PathBuf,
 }
@@ -224,10 +228,13 @@ impl Config {
 pub struct PlatformDefaults {
     /// Directory containing configuration files.
     pub config: PathBuf,
+
     /// Directory containing durable databases.
     pub data: PathBuf,
+
     /// Directory containing redownloadable cache data.
     pub cache: PathBuf,
+
     /// Default destination for downloads.
     pub downloads: PathBuf,
 }
@@ -237,10 +244,13 @@ pub struct PlatformDefaults {
 pub struct Overrides {
     /// Override for the durable data directory.
     pub data: Option<PathBuf>,
+
     /// Override for the redownloadable cache directory.
     pub cache: Option<PathBuf>,
+
     /// Override for the default download directory.
     pub downloads: Option<PathBuf>,
+
     /// Override for the maximum media cache size.
     pub media_cache_bytes: Option<u64>,
 }

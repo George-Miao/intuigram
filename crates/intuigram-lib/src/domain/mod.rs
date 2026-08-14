@@ -111,8 +111,10 @@ pub enum SearchScope {
 pub struct FolderView {
     /// Telegram Folder identifier.
     pub id: i32,
+
     /// Display name.
     pub title: String,
+
     /// Aggregate unread count.
     pub unread: u32,
 }
@@ -227,8 +229,10 @@ pub enum ChatKind {
 pub struct ChatView {
     /// Telegram Chat identifier.
     pub id: ChatId,
+
     /// Display name.
     pub title: String,
+
     /// Compact last-message preview.
     pub preview: String,
 
@@ -246,6 +250,7 @@ pub struct ChatView {
 
     /// Unread message count.
     pub unread: u32,
+
     /// Whether Telegram pins this Chat.
     pub pinned: bool,
 

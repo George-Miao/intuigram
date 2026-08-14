@@ -35,10 +35,13 @@ pub use error::{Error, Result};
 pub struct AccountRecord {
     /// Telegram user ID and Account database identity.
     pub id: AccountId,
+
     /// Last synchronized display name.
     pub display_name: String,
+
     /// Whether Intuigram should open this Account at startup.
     pub active: bool,
+
     /// Stable identity used to replace notifications from this Account.
     pub notification_identity: String,
 }

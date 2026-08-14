@@ -28,7 +28,9 @@ pub struct App {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(super) struct HistoryKey {
     pub(super) chat: ChatId,
+
     pub(super) thread: Option<MessageId>,
+
     /// Saved Messages or Channel direct-message origin.
     pub(super) saved_peer: Option<ChatId>,
 }

@@ -120,6 +120,7 @@ pub(crate) enum LoginErrorAction {
 pub struct ApplicationCredentials {
     /// Numeric API identifier from my.telegram.org.
     pub api_id: i32,
+
     api_hash: String,
 }
 
@@ -232,8 +233,10 @@ pub struct PasswordPrompt {
 pub struct AuthorizedUser {
     /// Stable Telegram user ID.
     pub id: i64,
+
     /// Best available display name.
     pub display_name: String,
+
     /// Username without `@`, when configured.
     pub username: Option<String>,
 }

@@ -152,7 +152,7 @@ Use owner-only permissions for authorization and Account data. Never log authori
 - Never use `include!` to join handwritten Rust source files. Use normal `mod` declarations, explicit imports and re-exports, and real module privacy boundaries.
 - Put attributes that configure a complete module as inner attributes at the start of the source file for that module. Use attributes on a parent `mod` declaration only for conditions or paths that control loading of the child module.
 - Document public items and important invariants. Do not add decorative section-divider comments.
-- If one field in a struct has an attribute or comment, put a blank line between all fields in that struct. If one enum variant has an attribute, put a blank line between all variants in that enum.
+- If one field in a struct or enum variant has an attribute or comment, put a blank line between all fields in that struct or variant. Otherwise, do not put blank lines between fields. If one enum variant has an attribute, put a blank line between all variants in that enum.
 - Do not use wildcard imports outside test modules and intentional preludes.
 - Do not optimize a possible hot path without measurements. Measure before you add performance complexity.
 

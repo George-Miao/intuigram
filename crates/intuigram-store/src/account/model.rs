@@ -3,12 +3,16 @@
 pub struct SessionMaterial {
     /// Telegram data-center number.
     pub dc_id: i32,
+
     /// Direct TCP endpoint associated with this authorization.
     pub endpoint: String,
+
     /// Secret authorization key. Never include this value in diagnostics.
     auth_key: [u8; 256],
+
     /// Difference between local and Telegram server time.
     pub time_offset: i32,
+
     /// Most recently known server salt.
     pub first_salt: i64,
 }

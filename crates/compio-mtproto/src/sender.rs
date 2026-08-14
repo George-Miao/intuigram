@@ -45,6 +45,7 @@ pub enum Error {
     Rpc {
         /// Telegram RPC error code.
         code: i32,
+
         /// Telegram RPC error message.
         message: String,
     },

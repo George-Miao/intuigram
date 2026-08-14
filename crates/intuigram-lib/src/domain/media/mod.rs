@@ -222,9 +222,7 @@ impl MediaCard {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct InlineImage {
     width: u16,
-
     height: u16,
-
     rgba: Arc<[u8]>,
 }
 

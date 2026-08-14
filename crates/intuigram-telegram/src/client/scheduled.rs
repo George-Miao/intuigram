@@ -34,8 +34,10 @@ impl ScheduledDelivery {
 pub struct ScheduledMessage {
     /// Telegram Message identifier used by edit/delete/send-now operations.
     pub id: i32,
+
     /// UTC Unix timestamp at which Telegram plans to deliver it.
     pub delivery: ScheduledDelivery,
+
     /// Text or a stable media fallback.
     pub summary: String,
 

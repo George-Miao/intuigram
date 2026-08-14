@@ -91,9 +91,7 @@ pub enum Error {
     ))]
     InvalidImage {
         width: usize,
-
         height: usize,
-
         bytes: usize,
     },
 

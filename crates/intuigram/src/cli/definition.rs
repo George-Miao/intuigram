@@ -110,6 +110,7 @@ pub(super) enum FolderCommand {
     Create {
         #[arg(value_name = "TITLE")]
         title: String,
+
         #[arg(value_name = "RULES")]
         rules: String,
     },
@@ -118,6 +119,7 @@ pub(super) enum FolderCommand {
     Rename {
         #[arg(value_name = "FOLDER")]
         folder: String,
+
         #[arg(value_name = "TITLE")]
         title: String,
     },
@@ -126,6 +128,7 @@ pub(super) enum FolderCommand {
     Reorder {
         #[arg(value_name = "FOLDER")]
         folder: String,
+
         #[arg(value_name = "POSITION")]
         position: String,
     },
@@ -146,6 +149,7 @@ pub(super) enum FolderCommand {
     Rules {
         #[arg(value_name = "FOLDER")]
         folder: String,
+
         #[arg(value_name = "RULES")]
         rules: String,
     },
@@ -157,6 +161,7 @@ pub(super) enum MediaCommand {
     Browse {
         #[arg(value_name = "KIND")]
         kind: String,
+
         #[arg(value_name = "QUERY", allow_hyphen_values = true)]
         query: String,
     },
@@ -165,10 +170,13 @@ pub(super) enum MediaCommand {
     Send {
         #[arg(value_name = "CHAT", allow_hyphen_values = true)]
         chat: String,
+
         #[arg(value_name = "KIND")]
         kind: String,
+
         #[arg(value_name = "INDEX")]
         index: String,
+
         #[arg(value_name = "QUERY", allow_hyphen_values = true)]
         query: String,
     },
@@ -177,8 +185,10 @@ pub(super) enum MediaCommand {
     File {
         #[arg(value_name = "CHAT", allow_hyphen_values = true)]
         chat: String,
+
         #[arg(value_name = "KIND")]
         kind: String,
+
         #[arg(value_name = "PATH", allow_hyphen_values = true)]
         path: String,
     },
@@ -187,10 +197,13 @@ pub(super) enum MediaCommand {
     Record {
         #[arg(value_name = "CHAT", allow_hyphen_values = true)]
         chat: String,
+
         #[arg(value_name = "KIND")]
         kind: String,
+
         #[arg(value_name = "SECONDS")]
         seconds: String,
+
         #[arg(value_name = "DEVICE", allow_hyphen_values = true)]
         device: String,
     },
@@ -199,10 +212,13 @@ pub(super) enum MediaCommand {
     Contact {
         #[arg(value_name = "CHAT", allow_hyphen_values = true)]
         chat: String,
+
         #[arg(value_name = "PHONE")]
         phone: String,
+
         #[arg(value_name = "FIRST")]
         first_name: String,
+
         #[arg(value_name = "LAST", allow_hyphen_values = true)]
         last_name: String,
     },
@@ -214,8 +230,10 @@ pub(super) enum ScheduledCommand {
     Create {
         #[arg(value_name = "CHAT", allow_hyphen_values = true)]
         chat: String,
+
         #[arg(value_name = "DELIVERY")]
         delivery: String,
+
         #[arg(value_name = "TEXT", allow_hyphen_values = true)]
         text: String,
     },
@@ -230,8 +248,10 @@ pub(super) enum ScheduledCommand {
     Edit {
         #[arg(value_name = "CHAT", allow_hyphen_values = true)]
         chat: String,
+
         #[arg(value_name = "MESSAGE")]
         message: String,
+
         #[arg(value_name = "TEXT", allow_hyphen_values = true)]
         text: String,
     },
@@ -240,8 +260,10 @@ pub(super) enum ScheduledCommand {
     Reschedule {
         #[arg(value_name = "CHAT", allow_hyphen_values = true)]
         chat: String,
+
         #[arg(value_name = "MESSAGE")]
         message: String,
+
         #[arg(value_name = "DELIVERY")]
         delivery: String,
     },
@@ -250,6 +272,7 @@ pub(super) enum ScheduledCommand {
     Delete {
         #[arg(value_name = "CHAT", allow_hyphen_values = true)]
         chat: String,
+
         #[arg(value_name = "MESSAGE")]
         message: String,
     },
@@ -258,6 +281,7 @@ pub(super) enum ScheduledCommand {
     SendNow {
         #[arg(value_name = "CHAT", allow_hyphen_values = true)]
         chat: String,
+
         #[arg(value_name = "MESSAGE")]
         message: String,
     },

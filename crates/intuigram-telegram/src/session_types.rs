@@ -109,12 +109,16 @@ pub enum QrLogin {
 pub struct Session {
     /// Telegram data-center number.
     pub dc_id: i32,
+
     /// Direct endpoint selected for the data center.
     pub endpoint: SocketAddr,
+
     /// Secret authorization key.
     pub(super) auth_key: [u8; 256],
+
     /// Difference between local and Telegram server time.
     pub time_offset: i32,
+
     /// Initial server salt established by the key exchange.
     pub first_salt: i64,
 }

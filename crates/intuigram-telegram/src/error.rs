@@ -23,6 +23,7 @@ pub enum Error {
     Connect {
         /// Telegram data-center endpoint.
         endpoint: SocketAddr,
+
         /// Underlying transport failure.
         source: compio_mtproto::ProxyError,
     },

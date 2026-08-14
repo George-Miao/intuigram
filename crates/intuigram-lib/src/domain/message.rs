@@ -55,16 +55,22 @@ pub struct MessageDetails {
 pub struct MessageView {
     /// Telegram Message identifier.
     pub id: MessageId,
+
     /// Sender display name.
     pub sender: String,
+
     /// Plain-text or semantic fallback body.
     pub body: String,
+
     /// Compact local-time label supplied by the adapter.
     pub timestamp: String,
+
     /// Incoming or outgoing presentation.
     pub direction: MessageDirection,
+
     /// Delivery/read state.
     pub delivery: DeliveryState,
+
     /// Message being replied to, when any.
     pub reply_to: Option<MessageId>,
 
@@ -77,8 +83,10 @@ pub struct MessageView {
 pub struct ComposerView {
     /// Draft text.
     pub text: String,
+
     /// UTF-8 byte offset of the insertion cursor within `text`.
     pub cursor: usize,
+
     /// Message targeted by a reply.
     pub reply_to: Option<MessageId>,
 
@@ -139,6 +147,7 @@ pub struct AttachmentView {
 pub struct SearchView {
     /// Search scope selected from the prior focus.
     pub scope: SearchScope,
+
     /// Query entered so far.
     pub query: String,
 }

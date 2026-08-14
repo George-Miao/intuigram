@@ -75,6 +75,7 @@ pub enum Error {
     CreateDataDirectory {
         /// Directory that could not be created.
         path: PathBuf,
+
         /// Underlying filesystem failure.
         source: std::io::Error,
     },
@@ -84,6 +85,7 @@ pub enum Error {
     ProtectDataPath {
         /// Path whose permissions could not be changed.
         path: PathBuf,
+
         /// Underlying filesystem failure.
         source: std::io::Error,
     },
@@ -93,6 +95,7 @@ pub enum Error {
     OpenDatabase {
         /// Database path that could not be opened.
         path: PathBuf,
+
         /// Underlying database failure.
         source: rusqlite::Error,
     },
@@ -116,6 +119,7 @@ pub enum Error {
     MigrateDatabase {
         /// Database path that could not be migrated.
         path: PathBuf,
+
         /// Underlying migration failure.
         source: refinery::Error,
     },
@@ -125,6 +129,7 @@ pub enum Error {
     InspectMigrations {
         /// Database path being inspected.
         path: PathBuf,
+
         /// Underlying database failure.
         source: rusqlite::Error,
     },
@@ -138,8 +143,10 @@ pub enum Error {
     ReserveBackup {
         /// Database being protected.
         path: PathBuf,
+
         /// Backup destination.
         backup: PathBuf,
+
         /// Underlying filesystem failure.
         source: std::io::Error,
     },
@@ -153,8 +160,10 @@ pub enum Error {
     BackupDatabase {
         /// Database being protected.
         path: PathBuf,
+
         /// Backup destination.
         backup: PathBuf,
+
         /// Underlying database failure.
         source: rusqlite::Error,
     },
@@ -171,8 +180,10 @@ pub enum Error {
     RunDatabaseCheck {
         /// Database that failed validation.
         path: PathBuf,
+
         /// Check that could not run.
         check: &'static str,
+
         /// Underlying database failure.
         source: rusqlite::Error,
     },
@@ -182,6 +193,7 @@ pub enum Error {
     DatabaseCheckFailed {
         /// Database that failed validation.
         path: PathBuf,
+
         /// Check that reported a failure.
         check: &'static str,
     },
@@ -198,6 +210,7 @@ pub enum Error {
     WriteIdentity {
         /// Telegram user ID being stored.
         account: AccountId,
+
         /// Underlying database failure.
         source: rusqlite::Error,
     },
@@ -211,8 +224,10 @@ pub enum Error {
     PromoteDatabase {
         /// Pending database path.
         from: PathBuf,
+
         /// Authorized account database path.
         to: PathBuf,
+
         /// Underlying filesystem failure.
         source: std::io::Error,
     },
@@ -252,6 +267,7 @@ pub enum Error {
     IdentityMismatch {
         /// Telegram user ID implied by the filename.
         expected: AccountId,
+
         /// Telegram user ID stored inside the database.
         actual: Option<AccountId>,
     },

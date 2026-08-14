@@ -5,18 +5,25 @@ use super::*;
 pub struct FolderRules {
     /// Include saved contacts.
     pub contacts: bool,
+
     /// Include private Chats with non-contacts.
     pub non_contacts: bool,
+
     /// Include groups and supergroups.
     pub groups: bool,
+
     /// Include Channels.
     pub broadcasts: bool,
+
     /// Include bots.
     pub bots: bool,
+
     /// Exclude muted Chats after applying inclusion rules.
     pub exclude_muted: bool,
+
     /// Exclude read Chats after applying inclusion rules.
     pub exclude_read: bool,
+
     /// Exclude archived Chats after applying inclusion rules.
     pub exclude_archived: bool,
 }

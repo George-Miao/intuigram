@@ -31,14 +31,19 @@ impl LoginField {
 pub struct LoginPrompt<'a> {
     /// Current step.
     pub field: LoginField,
+
     /// User-facing field label.
     pub label: &'a str,
+
     /// Context such as code delivery or password hint.
     pub description: &'a str,
+
     /// Validation or recoverable adapter error shown in place.
     pub error: Option<&'a str>,
+
     /// Hide the entered value.
     pub secret: bool,
+
     /// Permit returning to the prior non-secret step.
     pub can_go_back: bool,
 }

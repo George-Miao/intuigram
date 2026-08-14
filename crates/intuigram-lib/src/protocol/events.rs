@@ -45,16 +45,13 @@ pub enum AdapterEvent {
     /// A requested Chat Folder membership change was acknowledged.
     FolderMembershipChanged {
         chat: ChatId,
-
         folder: i32,
-
         included: bool,
     },
 
     /// A Folder lifecycle request was accepted and normalized.
     FolderOperationCompleted {
         result: FolderOperationResult,
-
         reconciliation: Option<Box<FolderReconciliation>>,
     },
 
@@ -79,31 +76,23 @@ pub enum AdapterEvent {
     /// A correlated Telegram place search completed.
     PlaceSearchReady {
         chat: ChatId,
-
         query: String,
-
         near: Option<GeoPointView>,
-
         places: Vec<PlaceView>,
     },
 
     /// A correlated Telegram place search failed.
     PlaceSearchFailed {
         chat: ChatId,
-
         query: String,
-
         near: Option<GeoPointView>,
-
         reason: String,
     },
 
     /// One rich-media send was accepted by Telegram.
     RichMediaAcknowledged {
         chat: ChatId,
-
         local_id: MessageId,
-
         server_id: MessageId,
     },
 
@@ -117,7 +106,6 @@ pub enum AdapterEvent {
     /// Server-owned Scheduled Message history loaded for one Chat.
     ScheduledMessagesReady {
         chat: ChatId,
-
         saved_peer: Option<ChatId>,
         messages: Vec<ScheduledMessageView>,
     },
@@ -125,7 +113,6 @@ pub enum AdapterEvent {
     /// A Scheduled Message mutation completed and returned a fresh projection.
     ScheduledOperationCompleted {
         chat: ChatId,
-
         saved_peer: Option<ChatId>,
         messages: Vec<ScheduledMessageView>,
         notice: String,
@@ -134,7 +121,6 @@ pub enum AdapterEvent {
     /// Scheduled Message work failed without changing ordinary Message History.
     ScheduledOperationFailed {
         chat: ChatId,
-
         saved_peer: Option<ChatId>,
         reason: String,
     },
@@ -160,16 +146,13 @@ pub enum AdapterEvent {
     /// An existing Message changed content or metadata.
     MessageUpdated {
         chat: ChatId,
-
         message: Box<MessageView>,
     },
 
     /// Telegram revealed newer ordered paid-media child state for one Message.
     PaidMediaItemsUpdated {
         chat: ChatId,
-
         message: MessageId,
-
         items: Vec<PaidMediaItemView>,
     },
 
@@ -177,42 +160,31 @@ pub enum AdapterEvent {
     /// content.
     MessagesPinChanged {
         chat: ChatId,
-
         ids: Vec<MessageId>,
-
         pinned: bool,
     },
 
     /// A terminal edit failure restored the attempted text for correction.
     MessageEditFailed {
         chat: ChatId,
-
         message: MessageId,
-
         text: String,
-
         attachments: Vec<AttachmentView>,
-
         reason: String,
     },
 
     /// Telegram removed Messages from one Chat or the account-wide ID space.
     MessagesDeleted {
         chat: Option<ChatId>,
-
         ids: Vec<MessageId>,
     },
 
     /// Telegram advanced incoming unread state or outgoing read receipts.
     HistoryRead {
         chat: ChatId,
-
         saved_peer: Option<ChatId>,
-
         max_id: MessageId,
-
         outgoing: bool,
-
         unread: Option<u32>,
     },
 
@@ -222,7 +194,6 @@ pub enum AdapterEvent {
     /// Telegram changed whether the Account may pin Messages in a Chat.
     ChatPinPermissionChanged {
         chat: ChatId,
-
         can_pin_messages: bool,
     },
     /// Telegram changed whether one Chat presents Topic navigation.
@@ -230,71 +201,52 @@ pub enum AdapterEvent {
     /// A requested Chat history became available.
     ChatLoaded {
         chat: ChatId,
-
         status: Option<String>,
-
         messages: Vec<MessageView>,
-
         pinned_messages: Vec<MessageView>,
     },
 
     /// A requested root or Thread history could not be refreshed.
     HistoryLoadFailed {
         chat: ChatId,
-
         thread_root: Option<MessageId>,
-
         saved_peer: Option<ChatId>,
-
         reason: String,
     },
 
     /// A requested Thread history became available.
     ThreadLoaded {
         chat: ChatId,
-
         root: MessageId,
-
         saved_peer: Option<ChatId>,
-
         messages: Vec<MessageView>,
     },
 
     /// Saved Messages filtered to one original peer became available.
     SavedHistoryLoaded {
         chat: ChatId,
-
         peer: ChatId,
-
         messages: Vec<MessageView>,
     },
 
     /// One original-peer Saved Messages history could not be refreshed.
     SavedHistoryLoadFailed {
         chat: ChatId,
-
         peer: ChatId,
-
         reason: String,
     },
     /// Native clipboard content became available for a Composer.
     ClipboardReady {
         chat: ChatId,
-
         thread_root: Option<MessageId>,
-
         saved_peer: Option<ChatId>,
-
         text: Option<String>,
-
         attachments: Vec<AttachmentView>,
     },
     /// No external path picker is configured, so the built-in field is needed.
     AttachmentPathRequired {
         chat: ChatId,
-
         thread_root: Option<MessageId>,
-
         saved_peer: Option<ChatId>,
     },
     /// Telegram acknowledged an optimistic local Message.
@@ -304,35 +256,25 @@ pub enum AdapterEvent {
     /// cached Message metadata.
     MessageEditAcknowledged {
         chat: ChatId,
-
         message: MessageId,
-
         text: String,
-
         entities: Vec<TextEntity>,
     },
 
     /// Telegram returned authoritative media state for one durable mutation.
     MessageMediaUpdated {
         chat: ChatId,
-
         message: MessageId,
-
         media: MediaCard,
     },
 
     /// A pending send reached a terminal failure.
     MessageFailed {
         chat: ChatId,
-
         local_id: MessageId,
-
         thread_root: Option<MessageId>,
-
         saved_peer: Option<ChatId>,
-
         text: String,
-
         reason: String,
     },
 
@@ -346,9 +288,7 @@ pub enum AdapterEvent {
     /// projection must now be reloaded.
     ScheduledOperationAcknowledged {
         chat: ChatId,
-
         saved_peer: Option<ChatId>,
-
         notice: String,
     },
 
@@ -356,15 +296,10 @@ pub enum AdapterEvent {
     /// recoverable.
     PollFailed {
         chat: ChatId,
-
         local_id: MessageId,
-
         thread_root: Option<MessageId>,
-
         saved_peer: Option<ChatId>,
-
         text: String,
-
         reason: String,
     },
 
@@ -374,7 +309,6 @@ pub enum AdapterEvent {
     /// Media bytes were saved to the configured download directory.
     DownloadReady {
         chat: ChatId,
-
         download: DownloadView,
     },
 

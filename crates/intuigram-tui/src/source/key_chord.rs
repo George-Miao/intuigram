@@ -38,10 +38,13 @@ pub struct KeyChord {
 pub struct Binding {
     /// Shortcut accepted by input handling.
     pub key: KeyChord,
+
     /// User-facing action label.
     pub label: &'static str,
+
     /// Application action produced by the shortcut.
     pub action: Action,
+
     /// Whether this is the compact Action Bar binding for its action.
     pub primary: bool,
 }
