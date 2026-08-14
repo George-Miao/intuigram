@@ -182,7 +182,7 @@ fn editing_a_photo_can_replace_the_media_without_inventing_a_caption() -> Result
         app.screen()
             .rows()
             .iter()
-            .any(|row| row.contains("1 attachment(s)"))
+            .any(|row| row.contains("replacement.png"))
     );
     app.press(key::ENTER)?;
 
