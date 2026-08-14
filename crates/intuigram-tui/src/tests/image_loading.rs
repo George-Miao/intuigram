@@ -58,6 +58,17 @@ fn image_placeholder_animates_in_the_final_preview_geometry() {
     assert!(!uncaptioned.contains("[Photo] image"));
 }
 
+#[test]
+fn media_fallback_renders_once_without_preview() {
+    let mut current = image_message_view();
+    current.messages[0].body = "[Photo] image".to_owned();
+
+    let rendered = symbols(&render_test_frame(&current, 100, 40).buffer);
+
+    assert_eq!(rendered.matches("[Photo]").count(), 1);
+    assert_eq!(rendered.matches("image").count(), 1);
+}
+
 fn image_message_view() -> View {
     let mut current = view(Vec::new());
     current.chats = vec![ChatView {

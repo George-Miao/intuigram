@@ -240,7 +240,7 @@ fn append_content(
     let preview = media_preview(view, message.id);
     let loading = media_preview_is_loading(view, message.id);
     let inline_media = message.details.media.is_some() && (preview.is_some() || loading);
-    let show_body = !inline_media || !body_is_media_fallback(message);
+    let show_body = !body_is_media_fallback(message);
     let media_lines = message
         .details
         .media
