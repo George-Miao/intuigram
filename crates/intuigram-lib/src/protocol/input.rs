@@ -19,9 +19,15 @@ pub enum Input {
     ConfigureSmallMediaCapacity(usize),
 }
 
-/// Bounded effect families whose admission lets state offer more work.
+/// Effect families whose admission lets state offer more work.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EffectAdmission {
     /// A visible image preview or avatar entered the small-media lane.
     SmallMedia,
+
+    /// A notification entered independent local work.
+    Notification,
+
+    /// A read acknowledgement entered Telegram control work.
+    ReadState,
 }

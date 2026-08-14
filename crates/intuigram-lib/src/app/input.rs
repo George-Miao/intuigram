@@ -105,6 +105,9 @@ impl App {
             Input::Adapter(AdapterEvent::MessageAdded { chat, message }) => {
                 let effect = self.apply_added_message(chat, *message);
                 self.queue_offline_media(chat);
+                if self.active_chat_id() == Some(chat) {
+                    self.queue_active_media_previews();
+                }
                 effect.or_else(|| self.request_next_offline_media())
             }
             Input::Adapter(AdapterEvent::MessageUpdated { chat, message }) => {
@@ -363,6 +366,10 @@ impl App {
             }
             Input::Intent(intent) => self.apply_intent(intent),
             Input::EffectAccepted(EffectAdmission::SmallMedia) => self.request_next_small_media(),
+            Input::EffectAccepted(EffectAdmission::Notification | EffectAdmission::ReadState) => {
+                self.request_next_offline_media()
+                    .or_else(|| self.request_next_small_media())
+            }
             Input::ConfigureSmallMediaCapacity(capacity) => {
                 self.small_media_capacity = capacity.max(1);
                 None

@@ -1,4 +1,4 @@
-use intuigram_lib::{AdapterEvent, ChatId};
+use intuigram_lib::{AdapterEvent, ChatId, MediaCard, MediaKind, MessageView};
 use intuigram_telegram::UpdateCursor;
 use test_harness::{Result, TelegramScenario, TestSystem, account, chat, incoming, key};
 
@@ -31,6 +31,72 @@ fn live_message_is_committed_with_its_cursor_before_it_is_rendered() -> Result<(
     app.expect_durable_message(10, 52, "durable before visible")?;
     app.expect_sync_cursor("account", 19, 0, 1_786_000_000, 7)?;
     app.expect_no_unhandled_work()
+}
+
+#[test]
+fn live_photo_preview_loads_in_visible_transcript() -> Result<()> {
+    let mut app = TestSystem::builder()
+        .name("synchronization-live-photo-preview")
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_media_preview(10, 47),
+        )
+        .start()?;
+    let photo = photo(47);
+
+    app.telegram().inject_update(
+        UpdateCursor {
+            pts: Some(19),
+            pts_count: 1,
+            ..UpdateCursor::default()
+        },
+        AdapterEvent::MessageAdded {
+            chat: ChatId(10),
+            message: Box::new(photo),
+        },
+    )?;
+
+    assert!(app.screen().rows().iter().any(|row| row.contains('▀')));
+    assert_eq!(app.notifications(), &[ChatId(10)]);
+    assert!(app.downloaded_paths().is_empty());
+    app.expect_no_unhandled_work()
+}
+
+#[test]
+fn live_photo_preview_loads_in_focused_transcript() -> Result<()> {
+    let mut app = TestSystem::builder()
+        .name("synchronization-focused-live-photo-preview")
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, [])
+                .expect_read_history(10, 48)
+                .expect_media_preview(10, 48),
+        )
+        .start()?;
+    app.press(key::ENTER)?;
+    app.telegram().inject(AdapterEvent::MessageAdded {
+        chat: ChatId(10),
+        message: Box::new(photo(48)),
+    })?;
+
+    assert!(app.screen().rows().iter().any(|row| row.contains('▀')));
+    app.expect_no_unhandled_work()
+}
+
+fn photo(id: i64) -> MessageView {
+    let mut photo = incoming(id, "Lin", "new photo");
+    photo.details.media = Some(MediaCard {
+        kind: MediaKind::Photo,
+        title: "live.png".to_owned(),
+        description: "image/png".to_owned(),
+        details: Vec::new(),
+        poll: None,
+        specialized: None,
+        remote_id: Some(format!("photo:{id}")),
+    });
+    photo
 }
 
 #[test]
