@@ -1,4 +1,0 @@
-interface:
-  display_name: "Implement Feature"
-  short_description: "Build Intuigram features behavior-first"
-  default_prompt: "Use $implement-feature to implement the next Intuigram feature with hermetic behavior coverage."
