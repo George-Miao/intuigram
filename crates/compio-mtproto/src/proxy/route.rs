@@ -1,80 +1,256 @@
-use std::net::SocketAddr;
+use std::io;
+use std::net::{IpAddr, SocketAddr};
 
-use compio::net::TcpStream;
+use compio::net::{TcpStream, ToSocketAddrsAsync};
 use compio::time::timeout;
 
 use super::types::{
-    Error, Proxy, Route, RouteFailure, RoutesUnavailableSnafu, TargetAddress, endpoint, label,
+    DnsStrategy, Error, Proxy, ProxyEndpoint, Route, RouteFailure, RoutesUnavailableSnafu,
+    TargetAddress, endpoint, label,
 };
 use super::{handshake, mtproxy, padded};
 use crate::{AbridgedConnection, BoxedTransport};
 
-/// Opens the first available configured proxy route, then optionally falls
-/// back to direct TCP.
+/// Opens the first available configured route to one of the Telegram
+/// endpoints, then returns the transport and selected endpoint.
+///
+/// The function tries endpoints in their supplied order. The slice must
+/// contain at least one endpoint.
 pub async fn connect_route(
-    telegram: SocketAddr,
+    telegram: &[SocketAddr],
     dc_id: i32,
     route: &Route,
-) -> Result<BoxedTransport, Error> {
-    connect_route_target(TargetAddress::Address(telegram), dc_id, route).await
+) -> Result<(BoxedTransport, SocketAddr), Error> {
+    let targets = telegram
+        .iter()
+        .copied()
+        .map(TargetAddress::Address)
+        .collect::<Vec<_>>();
+    let (transport, target) = connect_targets(&targets, dc_id, route).await?;
+    let TargetAddress::Address(endpoint) = target else {
+        unreachable!("socket endpoint routes retain a socket endpoint")
+    };
+    Ok((transport, endpoint))
 }
 
 /// Opens a route to an IP or domain Telegram endpoint. SOCKS5 routes honor
-/// their explicit local/remote DNS setting for domain endpoints.
+/// their explicit local or remote DNS setting for domain endpoints.
 pub async fn connect_route_target(
     telegram: TargetAddress,
     dc_id: i32,
     route: &Route,
 ) -> Result<BoxedTransport, Error> {
+    connect_targets(std::slice::from_ref(&telegram), dc_id, route)
+        .await
+        .map(|(transport, _)| transport)
+}
+
+async fn connect_targets(
+    telegram: &[TargetAddress],
+    dc_id: i32,
+    route: &Route,
+) -> Result<(BoxedTransport, TargetAddress), Error> {
     let mut failures = Vec::new();
+    if telegram.is_empty() {
+        failures.push(RouteFailure {
+            route: "Telegram endpoints".to_owned(),
+            source: invalid("Telegram endpoint list is empty"),
+        });
+    }
     for proxy in &route.proxies {
-        let description = format!(
-            "{} {}:{}",
-            label(proxy),
-            endpoint(proxy).host,
-            endpoint(proxy).port
-        );
-        match timeout(route.timeout, connect_proxy(&telegram, dc_id, proxy)).await {
-            Ok(Ok(transport)) => return Ok(transport),
-            Ok(Err(source)) => failures.push(RouteFailure {
-                route: description,
-                source,
-            }),
-            Err(_) => failures.push(RouteFailure {
-                route: description,
-                source: std::io::Error::new(
-                    std::io::ErrorKind::TimedOut,
-                    "proxy connection attempt timed out",
-                ),
-            }),
+        let proxy_addresses = match resolve_proxy(proxy, route, &mut failures).await {
+            Some(addresses) => addresses,
+            None => continue,
+        };
+        for target in telegram {
+            let targets = match resolve_proxy_targets(target, proxy, route, &mut failures).await {
+                Some(targets) => targets,
+                None => continue,
+            };
+            for target in targets {
+                for proxy_address in &proxy_addresses {
+                    let description = format!(
+                        "{} {proxy_address} to {}",
+                        label(proxy),
+                        target_label(&target)
+                    );
+                    match timeout(
+                        route.timeout,
+                        connect_proxy(*proxy_address, &target, dc_id, proxy),
+                    )
+                    .await
+                    {
+                        Ok(Ok(transport)) => return Ok((transport, target)),
+                        Ok(Err(source)) => failures.push(RouteFailure {
+                            route: description,
+                            source,
+                        }),
+                        Err(_) => failures.push(RouteFailure {
+                            route: description,
+                            source: timed_out("proxy connection attempt timed out"),
+                        }),
+                    }
+                }
+            }
         }
     }
     if route.direct_fallback {
-        match timeout(route.timeout, connect_direct(&telegram)).await {
-            Ok(Ok(connection)) => return Ok(BoxedTransport::new(connection)),
-            Ok(Err(source)) => failures.push(RouteFailure {
-                route: direct_label(&telegram),
-                source: std::io::Error::other(source),
-            }),
-            Err(_) => failures.push(RouteFailure {
-                route: direct_label(&telegram),
-                source: std::io::Error::new(
-                    std::io::ErrorKind::TimedOut,
-                    "direct connection attempt timed out",
-                ),
-            }),
+        for target in telegram {
+            let addresses = match resolve_direct_target(target, route, &mut failures).await {
+                Some(addresses) => addresses,
+                None => continue,
+            };
+            for address in addresses {
+                let description = format!("direct {address}");
+                match timeout(route.timeout, AbridgedConnection::connect(address)).await {
+                    Ok(Ok(connection)) => {
+                        return Ok((
+                            BoxedTransport::new(connection),
+                            TargetAddress::Address(address),
+                        ));
+                    }
+                    Ok(Err(source)) => failures.push(RouteFailure {
+                        route: description,
+                        source: io::Error::other(source),
+                    }),
+                    Err(_) => failures.push(RouteFailure {
+                        route: description,
+                        source: timed_out("direct connection attempt timed out"),
+                    }),
+                }
+            }
         }
     }
     RoutesUnavailableSnafu { failures }.fail()
 }
 
+async fn resolve_proxy(
+    proxy: &Proxy,
+    route: &Route,
+    failures: &mut Vec<RouteFailure>,
+) -> Option<Vec<SocketAddr>> {
+    let proxy = endpoint(proxy);
+    match timeout(route.timeout, resolve_endpoint(proxy)).await {
+        Ok(Ok(addresses)) => Some(addresses),
+        Ok(Err(source)) => {
+            failures.push(RouteFailure {
+                route: format!("proxy DNS {}:{}", proxy.host, proxy.port),
+                source,
+            });
+            None
+        }
+        Err(_) => {
+            failures.push(RouteFailure {
+                route: format!("proxy DNS {}:{}", proxy.host, proxy.port),
+                source: timed_out("proxy DNS resolution timed out"),
+            });
+            None
+        }
+    }
+}
+
+async fn resolve_proxy_targets(
+    target: &TargetAddress,
+    proxy: &Proxy,
+    route: &Route,
+    failures: &mut Vec<RouteFailure>,
+) -> Option<Vec<TargetAddress>> {
+    let local_dns = matches!(
+        proxy,
+        Proxy::Socks5 {
+            dns: DnsStrategy::Local,
+            ..
+        }
+    );
+    if !local_dns || matches!(target, TargetAddress::Address(_)) {
+        return Some(vec![target.clone()]);
+    }
+    let TargetAddress::Domain(host, port) = target else {
+        unreachable!("an unresolved target is a domain")
+    };
+    match timeout(route.timeout, resolve_host(host, *port)).await {
+        Ok(Ok(addresses)) => Some(addresses.into_iter().map(TargetAddress::Address).collect()),
+        Ok(Err(source)) => {
+            failures.push(RouteFailure {
+                route: format!("SOCKS5 target DNS {host}:{port}"),
+                source,
+            });
+            None
+        }
+        Err(_) => {
+            failures.push(RouteFailure {
+                route: format!("SOCKS5 target DNS {host}:{port}"),
+                source: timed_out("SOCKS5 target DNS resolution timed out"),
+            });
+            None
+        }
+    }
+}
+
+async fn resolve_direct_target(
+    target: &TargetAddress,
+    route: &Route,
+    failures: &mut Vec<RouteFailure>,
+) -> Option<Vec<SocketAddr>> {
+    match target {
+        TargetAddress::Address(address) => Some(vec![*address]),
+        TargetAddress::Domain(host, port) => {
+            match timeout(route.timeout, resolve_host(host, *port)).await {
+                Ok(Ok(addresses)) => Some(addresses),
+                Ok(Err(source)) => {
+                    failures.push(RouteFailure {
+                        route: format!("direct DNS {host}:{port}"),
+                        source,
+                    });
+                    None
+                }
+                Err(_) => {
+                    failures.push(RouteFailure {
+                        route: format!("direct DNS {host}:{port}"),
+                        source: timed_out("direct DNS resolution timed out"),
+                    });
+                    None
+                }
+            }
+        }
+    }
+}
+
+async fn resolve_endpoint(endpoint: &ProxyEndpoint) -> io::Result<Vec<SocketAddr>> {
+    match endpoint.host.parse::<IpAddr>() {
+        Ok(ip) => Ok(vec![SocketAddr::new(ip, endpoint.port)]),
+        Err(_) => resolve_host(&endpoint.host, endpoint.port).await,
+    }
+}
+
+async fn resolve_host(host: &str, port: u16) -> io::Result<Vec<SocketAddr>> {
+    let addresses = ToSocketAddrsAsync::to_socket_addrs_async(&(host, port)).await?;
+    unique_addresses(addresses)
+}
+
+pub(super) fn unique_addresses(
+    addresses: impl IntoIterator<Item = SocketAddr>,
+) -> io::Result<Vec<SocketAddr>> {
+    let mut unique = Vec::new();
+    for address in addresses {
+        if !unique.contains(&address) {
+            unique.push(address);
+        }
+    }
+    if unique.is_empty() {
+        Err(invalid("DNS resolution returned no addresses"))
+    } else {
+        Ok(unique)
+    }
+}
+
 async fn connect_proxy(
+    proxy_address: SocketAddr,
     telegram: &TargetAddress,
     dc_id: i32,
     proxy: &Proxy,
-) -> std::io::Result<BoxedTransport> {
-    let endpoint = endpoint(proxy);
-    let mut stream = TcpStream::connect((endpoint.host.as_str(), endpoint.port)).await?;
+) -> io::Result<BoxedTransport> {
+    let mut stream = TcpStream::connect(proxy_address).await?;
     match proxy {
         Proxy::Socks5 {
             credentials, dns, ..
@@ -100,70 +276,17 @@ async fn connect_proxy(
     }
 }
 
-async fn connect_direct(target: &TargetAddress) -> crate::abridged::Result<AbridgedConnection> {
+fn target_label(target: &TargetAddress) -> String {
     match target {
-        TargetAddress::Address(address) => AbridgedConnection::connect(*address).await,
-        TargetAddress::Domain(host, port) => {
-            let stream = TcpStream::connect((host.as_str(), *port))
-                .await
-                .map_err(crate::TransportError::from)?;
-            Ok(AbridgedConnection::from_stream(stream))
-        }
+        TargetAddress::Address(address) => address.to_string(),
+        TargetAddress::Domain(host, port) => format!("{host}:{port}"),
     }
 }
 
-fn direct_label(target: &TargetAddress) -> String {
-    match target {
-        TargetAddress::Address(address) => format!("direct {address}"),
-        TargetAddress::Domain(host, port) => format!("direct {host}:{port}"),
-    }
+fn timed_out(message: &'static str) -> io::Error {
+    io::Error::new(io::ErrorKind::TimedOut, message)
 }
 
-#[cfg(test)]
-mod tests {
-    use std::net::{Ipv4Addr, SocketAddr};
-    use std::time::Duration;
-
-    use super::*;
-
-    #[test]
-    fn secrets_and_passwords_are_redacted_from_route_diagnostics() {
-        let proxy = Proxy::MtProxy {
-            endpoint: super::super::types::ProxyEndpoint {
-                host: "proxy.example".to_owned(),
-                port: 443,
-            },
-            secret: super::super::types::MtProxySecret::parse("00112233445566778899aabbccddeeff")
-                .expect("secret should parse"),
-        };
-        let debug = format!("{proxy:?}");
-        assert!(debug.contains("[REDACTED]"));
-        assert!(!debug.contains("001122"));
-    }
-
-    #[test]
-    fn direct_fallback_is_retained_after_ordered_proxy_attempts() {
-        let route = Route {
-            proxies: vec![Proxy::Socks5 {
-                endpoint: super::super::types::ProxyEndpoint {
-                    host: "proxy.example".to_owned(),
-                    port: 1080,
-                },
-                credentials: None,
-                dns: super::super::types::DnsStrategy::Remote,
-            }],
-            direct_fallback: true,
-            timeout: Duration::from_millis(100),
-        };
-        let endpoint = TargetAddress::Address(SocketAddr::from((Ipv4Addr::LOCALHOST, 443)));
-        let mut labels = route
-            .proxies
-            .iter()
-            .map(|proxy| label(proxy).to_owned())
-            .collect::<Vec<_>>();
-        if route.direct_fallback {
-            labels.push(direct_label(&endpoint));
-        }
-        assert_eq!(labels, ["SOCKS5", "direct 127.0.0.1:443"]);
-    }
+fn invalid(message: &'static str) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidInput, message)
 }

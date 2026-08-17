@@ -22,9 +22,10 @@ impl Client {
             .context(InvokeSnafu)
     }
 
-    /// Returns a direct IPv4 endpoint advertised by Telegram for a data center.
+    /// Returns the ordered direct endpoints that Telegram advertised for a
+    /// data center.
     #[must_use]
-    pub fn data_center_endpoint(&self, dc_id: i32) -> Option<SocketAddr> {
-        self.data_centers.get(&dc_id).copied()
+    pub fn data_center_endpoints(&self, dc_id: i32) -> Option<&[SocketAddr]> {
+        self.data_centers.get(&dc_id).map(Vec::as_slice)
     }
 }

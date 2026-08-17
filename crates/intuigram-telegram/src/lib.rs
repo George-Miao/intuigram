@@ -107,6 +107,7 @@ pub use session_types::{
 
 static QR_PING_ID: AtomicI64 = AtomicI64::new(1);
 const MAX_LOGIN_RESTARTS: usize = 3;
+type DataCenterEndpoints = HashMap<i32, Vec<SocketAddr>>;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum LoginErrorAction {

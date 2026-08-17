@@ -61,15 +61,22 @@ fn generic_proxy_variables_route_telegram() {
             "{variable} unexpectedly succeeded"
         );
         assert!(
-            stderr.contains("all 1 Telegram transport routes failed"),
+            stderr.contains("all 2 Telegram transport routes failed"),
             "{variable}: {stderr}"
         );
         assert!(
-            stderr.contains(&format!("{route} 127.0.0.1:9")),
+            stderr.contains(&format!("{route} 127.0.0.1:9 to 149.154.167.41:443")),
             "{variable}: {stderr}"
         );
         assert!(
-            !stderr.contains("direct 149.154.167.41:443"),
+            stderr.contains(&format!(
+                "{route} 127.0.0.1:9 to [2001:67c:4e8:f002::a]:443"
+            )),
+            "{variable}: {stderr}"
+        );
+        assert!(
+            !stderr.contains("direct 149.154.167.41:443")
+                && !stderr.contains("direct [2001:67c:4e8:f002::a]:443"),
             "{variable}: {stderr}"
         );
     }

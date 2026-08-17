@@ -14,11 +14,12 @@ pub(crate) async fn request_code_with_migration(
                 let Some(dc_id) = error.phone_migration_dc() else {
                     return Err(Error::Telegram { source: error });
                 };
-                let endpoint = client
-                    .data_center_endpoint(dc_id)
-                    .context(MissingDataCenterSnafu { dc_id })?;
+                let endpoints = client
+                    .data_center_endpoints(dc_id)
+                    .context(MissingDataCenterSnafu { dc_id })?
+                    .to_vec();
                 let route = client.connection_route();
-                let connected = Client::connect_new(dc_id, endpoint, credentials.clone(), route)
+                let connected = Client::connect_new(dc_id, &endpoints, credentials.clone(), route)
                     .await
                     .context(TelegramSnafu)?;
                 *client = connected.0;

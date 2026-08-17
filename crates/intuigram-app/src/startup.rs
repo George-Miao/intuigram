@@ -25,7 +25,7 @@ pub(super) async fn run_async(arguments: Arguments) -> Result<()> {
     if test_connection {
         let route = telegram_route(&config)?;
         let credentials = resolve_telegram_credentials(&config, &config_directory)?;
-        Client::test_connection(PRIMARY_DC_ID, PRIMARY_DC_ENDPOINT, credentials, route)
+        Client::test_connection(PRIMARY_DC_ID, &PRIMARY_DC_ENDPOINTS, credentials, route)
             .await
             .context(ProxyConnectionTestSnafu)?;
         println!("Telegram connection route completed MTProto initialization.");

@@ -94,49 +94,44 @@ pub(crate) const fn normalize_code_delivery_method(
     }
 }
 
-pub(crate) fn direct_data_centers(options: Vec<tl::enums::DcOption>) -> HashMap<i32, SocketAddr> {
-    options
-        .into_iter()
-        .filter_map(|option| {
-            let tl::enums::DcOption::Option(option) = option;
-            if option.ipv6 || option.media_only || option.cdn || option.tcpo_only {
-                return None;
-            }
-            let ip = option.ip_address.parse().ok()?;
-            let port = u16::try_from(option.port).ok()?;
-            Some((option.id, SocketAddr::new(ip, port)))
-        })
-        .collect()
+pub(crate) fn direct_data_centers(options: Vec<tl::enums::DcOption>) -> DataCenterEndpoints {
+    data_centers(options, |option| !option.media_only && !option.cdn)
 }
 
-pub(crate) fn media_data_centers(options: Vec<tl::enums::DcOption>) -> HashMap<i32, SocketAddr> {
-    options
-        .into_iter()
-        .filter_map(|option| {
-            let tl::enums::DcOption::Option(option) = option;
-            if option.ipv6 || !option.media_only || option.cdn || option.tcpo_only {
-                return None;
-            }
-            let ip = option.ip_address.parse().ok()?;
-            let port = u16::try_from(option.port).ok()?;
-            Some((option.id, SocketAddr::new(ip, port)))
-        })
-        .collect()
+pub(crate) fn media_data_centers(options: Vec<tl::enums::DcOption>) -> DataCenterEndpoints {
+    data_centers(options, |option| option.media_only && !option.cdn)
 }
 
-pub(crate) fn cdn_data_centers(options: Vec<tl::enums::DcOption>) -> HashMap<i32, SocketAddr> {
-    options
-        .into_iter()
-        .filter_map(|option| {
-            let tl::enums::DcOption::Option(option) = option;
-            if option.ipv6 || !option.cdn || option.tcpo_only {
-                return None;
-            }
-            let ip = option.ip_address.parse().ok()?;
-            let port = u16::try_from(option.port).ok()?;
-            Some((option.id, SocketAddr::new(ip, port)))
-        })
-        .collect()
+pub(crate) fn cdn_data_centers(options: Vec<tl::enums::DcOption>) -> DataCenterEndpoints {
+    data_centers(options, |option| option.cdn)
+}
+
+fn data_centers(
+    options: Vec<tl::enums::DcOption>,
+    accepts: impl Fn(&tl::types::DcOption) -> bool,
+) -> DataCenterEndpoints {
+    let mut data_centers = HashMap::<i32, Vec<SocketAddr>>::new();
+    for option in options {
+        let tl::enums::DcOption::Option(option) = option;
+        if option.tcpo_only || !accepts(&option) {
+            continue;
+        }
+        let Ok(ip) = option.ip_address.parse::<std::net::IpAddr>() else {
+            continue;
+        };
+        if ip.is_ipv6() != option.ipv6 {
+            continue;
+        }
+        let Ok(port) = u16::try_from(option.port) else {
+            continue;
+        };
+        let endpoint = SocketAddr::new(ip, port);
+        let endpoints = data_centers.entry(option.id).or_default();
+        if !endpoints.contains(&endpoint) {
+            endpoints.push(endpoint);
+        }
+    }
+    data_centers
 }
 
 pub(crate) fn ensure_production_environment(test_mode: bool) -> Result<()> {
@@ -179,7 +174,7 @@ mod tests {
 
     fn endpoint(id: i32, address: &str, cdn: bool) -> tl::enums::DcOption {
         tl::types::DcOption {
-            ipv6: false,
+            ipv6: address.contains(':'),
             media_only: false,
             tcpo_only: false,
             cdn,
@@ -219,15 +214,35 @@ mod tests {
     }
 
     #[test]
+    fn direct_data_centers_keep_ipv4_and_ipv6() {
+        let selected = direct_data_centers(vec![
+            endpoint(2, "149.154.167.41", false),
+            endpoint(2, "2001:67c:4e8:f002::a", false),
+        ]);
+        let ipv4 = "149.154.167.41:443"
+            .parse()
+            .expect("IPv4 fixture should parse");
+        let ipv6 = "[2001:67c:4e8:f002::a]:443"
+            .parse()
+            .expect("IPv6 fixture should parse");
+
+        assert_eq!(
+            selected.get(&2).map(Vec::as_slice),
+            Some([ipv4, ipv6].as_slice())
+        );
+    }
+
+    #[test]
     fn cdn_data_centers_only_keep_cdn_endpoints() {
         let selected = cdn_data_centers(vec![
             endpoint(4, "149.154.167.51", false),
             endpoint(203, "91.108.56.200", true),
         ]);
+        let expected = "91.108.56.200:443".parse().expect("fixture should parse");
 
         assert_eq!(
-            selected.get(&203),
-            Some(&"91.108.56.200:443".parse().expect("fixture should parse"))
+            selected.get(&203).map(Vec::as_slice),
+            Some([expected].as_slice())
         );
         assert!(!selected.contains_key(&4));
     }

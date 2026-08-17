@@ -19,18 +19,21 @@ pub enum RetryDisposition {
 #[snafu(visibility(pub))]
 pub enum Error {
     /// Every configured Telegram transport route failed.
-    #[snafu(display("failed to connect to Telegram at {endpoint}"))]
+    #[snafu(display("failed to connect to Telegram at {}", format_endpoints(endpoints)))]
     Connect {
-        /// Telegram data-center endpoint.
-        endpoint: SocketAddr,
+        /// Ordered Telegram data-center endpoints.
+        endpoints: Vec<SocketAddr>,
 
         /// Underlying transport failure.
         source: compio_mtproto::ProxyError,
     },
 
     /// One route did not complete MTProto initialization before its deadline.
-    #[snafu(display("Telegram route initialization timed out at {endpoint}"))]
-    RouteInitializationTimeout { endpoint: SocketAddr },
+    #[snafu(display(
+        "Telegram route initialization timed out at {}",
+        format_endpoints(endpoints)
+    ))]
+    RouteInitializationTimeout { endpoints: Vec<SocketAddr> },
 
     /// A fresh `MTProto` authorization key could not be generated.
     #[snafu(display("failed to generate Telegram authorization key"))]
@@ -255,6 +258,14 @@ pub enum Error {
     /// Intuigram connected to Telegram's isolated test environment.
     #[snafu(display("connected to a Telegram test data center instead of production"))]
     TestDataCenter,
+}
+
+fn format_endpoints(endpoints: &[SocketAddr]) -> String {
+    endpoints
+        .iter()
+        .map(SocketAddr::to_string)
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 impl Error {

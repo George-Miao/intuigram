@@ -4,13 +4,16 @@ use intuigram_telegram::{LoginCodeDelivery, LoginCodeDeliveryMethod};
 
 use super::super::runtime::connection_failure_reason;
 use super::super::{
-    Error, PRIMARY_DC_ENDPOINT, error_lines, login_code_delivery_message,
+    Error, PRIMARY_DC_ENDPOINTS, error_lines, login_code_delivery_message,
     login_code_delivery_method_name, seconds_until_at,
 };
 
 #[test]
-fn bootstrap_uses_the_production_dc_2_endpoint() {
-    assert_eq!(PRIMARY_DC_ENDPOINT.to_string(), "149.154.167.41:443");
+fn bootstrap_uses_production_dc_2_endpoints() {
+    assert_eq!(
+        PRIMARY_DC_ENDPOINTS.map(|endpoint| endpoint.to_string()),
+        ["149.154.167.41:443", "[2001:67c:4e8:f002::a]:443",]
+    );
 }
 
 #[test]

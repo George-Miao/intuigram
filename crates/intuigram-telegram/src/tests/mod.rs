@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use compio_mtproto::InvocationError;
 use grammers_tl_types::{self as tl, Serializable as _};
@@ -416,19 +416,23 @@ fn phone_migration_rpc_error_exposes_its_target_data_center() {
 }
 
 #[test]
-fn direct_data_center_selection_ignores_incompatible_endpoints() {
+fn direct_data_center_selection_keeps_compatible_endpoints() {
     let direct = dc_option(1, "149.154.175.53", 443, false, false);
     let ipv6 = dc_option(1, "2001:db8::1", 443, true, false);
     let media = dc_option(2, "149.154.167.151", 443, false, true);
 
     let selected = direct_data_centers(vec![direct, ipv6, media]);
+    let expected = [
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(149, 154, 175, 53)), 443),
+        SocketAddr::new(
+            IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)),
+            443,
+        ),
+    ];
 
     assert_eq!(
-        selected.get(&1),
-        Some(&SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::new(149, 154, 175, 53)),
-            443
-        ))
+        selected.get(&1).map(Vec::as_slice),
+        Some(expected.as_slice())
     );
     assert!(!selected.contains_key(&2));
 }

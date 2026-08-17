@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::future::{Future, poll_fn};
 use std::io::{self, Write};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -130,8 +130,13 @@ pub async fn main(arguments: Arguments) {
 }
 
 const PRIMARY_DC_ID: i32 = 2;
-const PRIMARY_DC_ENDPOINT: SocketAddr =
-    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(149, 154, 167, 41)), 443);
+const PRIMARY_DC_ENDPOINTS: [SocketAddr; 2] = [
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(149, 154, 167, 41)), 443),
+    SocketAddr::new(
+        IpAddr::V6(Ipv6Addr::new(0x2001, 0x67c, 0x4e8, 0xf002, 0, 0, 0, 0xa)),
+        443,
+    ),
+];
 const EFFECT_CAPACITY: usize = 64;
 
 #[derive(Debug, Snafu)]

@@ -118,7 +118,7 @@ pub(super) async fn authorize_new_account(
             Err(error) if error.is_test_data_center() => {
                 let connected = Client::connect_new(
                     PRIMARY_DC_ID,
-                    PRIMARY_DC_ENDPOINT,
+                    &PRIMARY_DC_ENDPOINTS,
                     credentials.clone(),
                     route.clone(),
                 )
@@ -134,7 +134,7 @@ pub(super) async fn authorize_new_account(
     } else {
         let (client, session) = Client::connect_new(
             PRIMARY_DC_ID,
-            PRIMARY_DC_ENDPOINT,
+            &PRIMARY_DC_ENDPOINTS,
             credentials.clone(),
             route,
         )
@@ -254,12 +254,13 @@ pub(super) async fn authorize_with_qr(
             },
             QrLogin::Migrate(migration) => {
                 let dc_id = migration.dc_id();
-                let endpoint = client
-                    .data_center_endpoint(dc_id)
-                    .context(MissingDataCenterSnafu { dc_id })?;
+                let endpoints = client
+                    .data_center_endpoints(dc_id)
+                    .context(MissingDataCenterSnafu { dc_id })?
+                    .to_vec();
                 let route = client.connection_route();
                 (client, session) =
-                    Client::connect_new(dc_id, endpoint, credentials.clone(), route)
+                    Client::connect_new(dc_id, &endpoints, credentials.clone(), route)
                         .await
                         .context(TelegramSnafu)?;
                 pending

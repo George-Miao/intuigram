@@ -5,7 +5,6 @@ use std::num::NonZeroUsize;
 use compio::runtime::{JoinHandle, ResumeUnwind};
 use compio_mtproto::{InvocationHandle, Route};
 use futures_util::StreamExt as _;
-use snafu::{OptionExt as _, ResultExt as _};
 
 use super::*;
 
@@ -34,9 +33,9 @@ pub(crate) struct MediaSessionConfig {
     pub(crate) primary_dc: i32,
     pub(crate) primary: InvocationHandle,
     pub(crate) primary_session: Session,
-    pub(crate) data_centers: HashMap<i32, SocketAddr>,
-    pub(crate) media_data_centers: HashMap<i32, SocketAddr>,
-    pub(crate) cdn_data_centers: HashMap<i32, SocketAddr>,
+    pub(crate) data_centers: DataCenterEndpoints,
+    pub(crate) media_data_centers: DataCenterEndpoints,
+    pub(crate) cdn_data_centers: DataCenterEndpoints,
     pub(crate) credentials: ApplicationCredentials,
     pub(crate) route: Route,
     pub(crate) capacity: NonZeroUsize,
@@ -154,19 +153,13 @@ async fn connect(
     dc_id: i32,
     config: &MediaSessionConfig,
 ) -> Result<(InvocationHandle, JoinHandle<()>)> {
-    let endpoint = media_endpoint(dc_id, &config.data_centers, &config.media_data_centers)
+    let endpoints = media_endpoints(dc_id, &config.data_centers, &config.media_data_centers)
         .context(MediaDataCenterUnavailableSnafu { dc_id })?;
     let client = if dc_id == config.primary_dc {
-        let session = Session::new(
-            config.primary_session.dc_id,
-            endpoint,
-            config.primary_session.auth_key(),
-            config.primary_session.time_offset,
-            config.primary_session.first_salt,
-        );
-        Client::connect_with_session(
+        Client::connect_with_session_endpoints(
             config.credentials.clone(),
-            &session,
+            &config.primary_session,
+            endpoints,
             None,
             config.route.clone(),
         )
@@ -180,7 +173,7 @@ async fn connect(
         let tl::enums::auth::ExportedAuthorization::Authorization(exported) = exported;
         let (mut client, _) = Client::connect_new_media(
             dc_id,
-            endpoint,
+            endpoints,
             config.credentials.clone(),
             config.route.clone(),
         )
@@ -204,15 +197,15 @@ async fn connect(
     Ok((retained, driver))
 }
 
-fn media_endpoint(
+fn media_endpoints<'a>(
     dc_id: i32,
-    data_centers: &HashMap<i32, SocketAddr>,
-    media_data_centers: &HashMap<i32, SocketAddr>,
-) -> Option<SocketAddr> {
+    data_centers: &'a DataCenterEndpoints,
+    media_data_centers: &'a DataCenterEndpoints,
+) -> Option<&'a [SocketAddr]> {
     media_data_centers
         .get(&dc_id)
         .or_else(|| data_centers.get(&dc_id))
-        .copied()
+        .map(Vec::as_slice)
 }
 
 #[cfg(test)]
@@ -220,7 +213,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn media_only_endpoint_is_preferred_for_its_data_center() {
+    fn media_only_endpoints_are_preferred() {
         let ordinary = "149.154.167.51:443"
             .parse()
             .expect("ordinary endpoint should parse");
@@ -229,24 +222,24 @@ mod tests {
             .expect("media endpoint should parse");
 
         assert_eq!(
-            media_endpoint(
+            media_endpoints(
                 4,
-                &HashMap::from([(4, ordinary)]),
-                &HashMap::from([(4, media)])
+                &HashMap::from([(4, vec![ordinary])]),
+                &HashMap::from([(4, vec![media])])
             ),
-            Some(media)
+            Some([media].as_slice())
         );
     }
 
     #[test]
-    fn ordinary_endpoint_is_the_safe_fallback() {
+    fn ordinary_endpoints_are_safe_fallback() {
         let ordinary = "149.154.167.51:443"
             .parse()
             .expect("ordinary endpoint should parse");
 
         assert_eq!(
-            media_endpoint(4, &HashMap::from([(4, ordinary)]), &HashMap::new()),
-            Some(ordinary)
+            media_endpoints(4, &HashMap::from([(4, vec![ordinary])]), &HashMap::new()),
+            Some([ordinary].as_slice())
         );
     }
 }

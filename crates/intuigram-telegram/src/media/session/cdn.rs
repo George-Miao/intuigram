@@ -125,14 +125,16 @@ async fn connect(
         .as_ref()
         .and_then(|keys| keys.get(&dc_id))
         .context(CdnPublicKeysUnavailableSnafu { dc_id })?;
-    let endpoint = config
+    let endpoints = config
         .cdn_data_centers
         .get(&dc_id)
-        .copied()
+        .map(Vec::as_slice)
         .context(CdnDataCenterUnavailableSnafu { dc_id })?;
-    let mut transport = connect_route(endpoint, -dc_id, &config.route)
+    let (mut transport, _) = connect_route(endpoints, -dc_id, &config.route)
         .await
-        .context(ConnectSnafu { endpoint })?;
+        .with_context(|_| ConnectSnafu {
+            endpoints: endpoints.to_vec(),
+        })?;
     let material = generate_auth_key_with_rsa_keys(&mut transport, public_keys)
         .await
         .context(GenerateKeySnafu)?;

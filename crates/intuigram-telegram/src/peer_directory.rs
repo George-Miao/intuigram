@@ -185,6 +185,13 @@ impl PeerDirectory {
         avatars
     }
 
+    pub(crate) fn avatar_ref(&self, peer: ChatId) -> Option<AvatarRef> {
+        self.photos.get(&peer).map(|photo| AvatarRef {
+            peer,
+            id: AvatarId(photo.id),
+        })
+    }
+
     pub(crate) fn avatar_changes(&self) -> Vec<(ChatId, Option<AvatarId>)> {
         let mut changes = self
             .photos
