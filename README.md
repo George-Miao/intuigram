@@ -11,6 +11,8 @@ Intuigram is a local-first Telegram client. It makes routine messaging fast and 
 - Move through Folders and Chats without a mouse.
 - Keep the Composer ready while you read and reply to Messages.
 - Show inline terminal graphics on supported terminals and show useful text fallbacks on all terminals.
+- Paste text, copied files, and images into the Composer without replacing the Draft caption.
+- Stage multiple local attachments with image previews and text fallbacks.
 - Resume from locally synchronized Chats, Drafts, and Transcript positions.
 - Show optimistic sends, Telegram acknowledgements, downloads, and reconnect state.
 - Keep multiple Accounts in separate local databases.
@@ -31,23 +33,34 @@ Movement in the Chat list immediately changes the adjacent Transcript. `Enter` o
 
 The default keys include:
 
-| Key                   | Action                                         |
-| --------------------- | ---------------------------------------------- |
-| `Enter`               | Open a Chat or send the current Draft          |
-| `Shift+Enter`         | Insert a line break                            |
-| `Alt+Up` / `Alt+Down` | Move between the Composer and Messages         |
-| `Ctrl+F`              | Search the Active Chat or the active Account   |
-| `Alt+A`               | Open context actions                           |
-| `?`                   | Show all keys available in the current context |
-| `Ctrl+C`              | Quit cleanly                                   |
+| Key                      | Action                                               |
+| ------------------------ | ---------------------------------------------------- |
+| `Enter`                  | Open a Chat or send the Draft and staged attachments |
+| `Shift+Enter`            | Insert a line break                                  |
+| `Ctrl+V`                 | Paste clipboard content into the Composer            |
+| `Alt+Left` / `Alt+Right` | Select a staged attachment in the Composer           |
+| `Ctrl+D`                 | Remove the selected attachment                       |
+| `Alt+Up` / `Alt+Down`    | Move between the Composer and Messages               |
+| `Ctrl+F`                 | Search the Active Chat or the active Account         |
+| `Alt+A`                  | Open context actions                                 |
+| `?`                      | Show all keys available in the current context       |
+| `Ctrl+C`                 | Quit cleanly                                         |
 
 The Action Bar always shows the current context. It shows a shortcut only when its action is available.
 
+## Composer and attachments
+
+The Composer accepts UTF-8 text and multiple lines. `Ctrl+V` reads rich clipboard content. Clipboard text enters the Draft. Copied files become file attachments. Clipboard images become photo attachments. Existing Draft text stays as the caption.
+
+Use `Alt+A` and select `Attach File` to stage a local path. Intuigram runs the configured external path picker when one is available. Otherwise, it opens the built-in path field. The attachment tray shows each file name, media type, and image preview or text fallback. `Alt+Left` and `Alt+Right` select an attachment. `Ctrl+D` removes only the selected attachment. `Enter` sends the Draft and all staged attachments.
+
+`Ctrl+V` uses native clipboard services on macOS. Linux uses `wl-paste` from `wl-clipboard`. Windows rich clipboard integration is not implemented.
+
 ## Current status
 
-Intuigram is in active development. The current proof of concept can authorize and resume Telegram Accounts. It can synchronize Folders and Chats, load Message History, send text Messages and replies, manage Drafts, show common rich content with fallbacks, and operate a durable Outbox. It can also do Account, Folder, media, and Scheduled Message tasks through the CLI.
+Intuigram is in active development. The current proof of concept can authorize and resume Telegram Accounts. It can synchronize Folders and Chats, load Message History, send text Messages and replies, stage local or clipboard attachments, manage Drafts, show common rich content with inline images and text fallbacks, download media, and operate a durable Outbox. It can also do Account, Folder, media, and Scheduled Message tasks through the CLI.
 
-Intuigram does not yet replace all Telegram clients. Some features are outside the current product promise. Some performance and media-workflow tasks are not complete. [TODO.md](TODO.md) contains the current scope and priorities.
+Intuigram does not yet replace all Telegram clients. CPU optimization and complete IPv6 support remain in the core roadmap. Configurable keys and palettes, filtered search, audio playback, Calls, current-location broadcast, and Secret Chats are not complete. Calls and Secret Chats are outside the current Daily Driver promise. [TODO.md](TODO.md) contains the current scope and priorities.
 
 ## Install and start
 
@@ -102,7 +115,7 @@ path = "/path/to/intuigram.log"
 
 ## Connections and proxies
 
-Intuigram can try an ordered set of SOCKS5, HTTP CONNECT, and MTProxy routes before an optional direct connection. SOCKS5 supports local or proxy-side target DNS and RFC 1929 authentication. HTTP CONNECT supports Basic authentication. MTProxy accepts bare abridged secrets and `dd` padded-intermediate secrets. Intuigram removes passwords and secrets from diagnostics.
+Intuigram can try an ordered set of SOCKS5, HTTP CONNECT, and MTProxy routes before an optional direct connection. Each route supports IPv4 and IPv6 proxy and Telegram endpoints. DNS resolution keeps all unique results and tries them in resolver order. SOCKS5 supports local or proxy-side target DNS and RFC 1929 authentication. HTTP CONNECT supports Basic authentication. MTProxy accepts bare abridged secrets and `dd` padded-intermediate secrets. Intuigram removes passwords and secrets from diagnostics.
 
 Run a complete connection check without opening an Account:
 
