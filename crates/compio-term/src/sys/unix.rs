@@ -11,6 +11,7 @@ use futures_util::stream::{FusedStream, Stream};
 use signal_hook::SigId;
 use signal_hook::consts::SIGWINCH;
 use signal_hook::low_level::pipe;
+
 use crate::event::Result;
 
 #[derive(Debug)]
@@ -27,9 +28,7 @@ impl EventStream {
         } else {
             "/dev/tty"
         };
-        let tty = OpenOptions::new()
-            .read(true)
-            .open(path)?;
+        let tty = OpenOptions::new().read(true).open(path)?;
         let tty = PollFd::new(tty)?;
         Ok(Self {
             tty,

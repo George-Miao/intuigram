@@ -29,7 +29,7 @@ pub(super) fn normalize_giveaway(media: &tl::types::MessageMediaGiveaway) -> Med
         only_new_subscribers: media.only_new_subscribers,
         winners_visible: media.winners_are_visible,
         country_codes: media.countries_iso2.clone().unwrap_or_default(),
-        channel_count: u32::try_from(media.channels.len()).map_or(u32::MAX, |count| count),
+        channel_count: u32::try_from(media.channels.len()).unwrap_or(u32::MAX),
         winners_count: None,
         unclaimed_count: None,
         refunded: false,
@@ -113,7 +113,7 @@ pub(super) fn normalize_paid_media(media: &tl::types::MessageMediaPaidMedia) -> 
         details: Vec::new(),
         poll: None,
         specialized: Some(SpecializedMediaView::PaidMedia(PaidMediaView {
-            stars_amount: u64::try_from(media.stars_amount).map_or(0, |amount| amount),
+            stars_amount: u64::try_from(media.stars_amount).unwrap_or(0),
             items,
         })),
         remote_id: None,

@@ -139,8 +139,7 @@ impl FusedStream for EventStream {
 #[cfg(test)]
 mod tests {
     use std::future::poll_fn;
-    use std::io;
-    use std::ptr;
+    use std::{io, ptr};
 
     use crossterm_winapi::Handle;
     use windows_sys::Win32::System::Threading::{CreateEventW, SetEvent};
