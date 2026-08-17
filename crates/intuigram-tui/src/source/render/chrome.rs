@@ -29,7 +29,7 @@ pub(in crate::source) fn render_folders(
             delivery: None,
             active: index == view.active_folder,
             selected: false,
-            focused: view.focus == Focus::Chats,
+            focused: focus_visible(view, Focus::Chats),
             bounds: Rect::new(x, content_area.y, width, content_area.height),
         });
         x = x.saturating_add(width);
@@ -82,13 +82,12 @@ pub(in crate::source) fn render_bottom_chrome(
     let mut bindings = keymap.action_bar(view).collect::<Vec<_>>();
     bindings.sort_by_key(|binding| action_bar_rank(binding.key));
     for binding in bindings {
+        let key_label = binding.key.label();
         let width = u16::try_from(
-            binding
-                .key
-                .label()
+            key_label
                 .chars()
                 .count()
-                .saturating_add(binding.label.chars().count())
+                .saturating_add(action_label_width(binding.action, binding.label))
                 .saturating_add(3),
         )
         .unwrap_or(u16::MAX)
@@ -96,7 +95,7 @@ pub(in crate::source) fn render_bottom_chrome(
         semantics.push(SemanticNode {
             role: SemanticRole::Action,
             name: binding.label.to_owned(),
-            description: Some(binding.key.label()),
+            description: Some(key_label.clone()),
             domain_id: None,
             action: Some(binding.action),
             delivery: None,
@@ -107,12 +106,14 @@ pub(in crate::source) fn render_bottom_chrome(
         });
         x = x.saturating_add(width);
         spans.push(Span::styled(
-            binding.key.label(),
+            key_label,
             Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
         ));
-        spans.push(Span::raw(format!(" {}  ", binding.label)));
+        spans.push(Span::raw(" "));
+        push_action_label(&mut spans, binding.action, binding.label);
+        spans.push(Span::raw("  "));
     }
-    let style = surface_style(view.focus == Focus::Search);
+    let style = surface_style(focus_visible(view, Focus::Search));
     frame.render_widget(Paragraph::new("").style(style), area);
     frame.render_widget(Paragraph::new(Line::from(spans)).style(style), content_area);
 }

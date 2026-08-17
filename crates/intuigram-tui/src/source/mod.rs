@@ -33,6 +33,7 @@ use snafu::{OptionExt, ResultExt, Snafu};
 
 use crate::recovery::{self, RecoveryView};
 
+mod action_presentation;
 mod avatar;
 mod composer_wrap;
 mod effort;
@@ -40,6 +41,7 @@ mod events;
 pub(crate) mod graphics;
 mod key_chord;
 mod login;
+mod overlay;
 mod palette;
 mod pointer;
 pub(crate) mod qr;
@@ -48,15 +50,18 @@ pub(crate) mod terminal;
 mod test_renderer;
 mod view_mode;
 
-use avatar::{avatar_block, avatar_spans, avatar_width};
+use action_presentation::{action_label_width, push_action_label};
+use avatar::{avatar_block, avatar_spans, avatar_width, visible_avatar_peers};
 use effort::effort_spans;
 pub use events::*;
 pub use graphics::Error as GraphicsError;
 use graphics::{
     GraphicsFrame, GraphicsProtocol, GraphicsRequest, GraphicsWorker, avatar_image_id, image_id,
+    popup_image_id,
 };
 pub use key_chord::{Binding, Key, KeyChord};
 pub use login::{LoginField, LoginInput, LoginPrompt, LoginUi};
+use overlay::{focus_visible, overlay_open};
 pub(crate) use palette::*;
 use pointer::resolve_pointer;
 use qr::render::{chord_from_crossterm, qr_login_symbols, render_qr_login};
@@ -74,8 +79,8 @@ use render::headers::{render_active_chat_header, render_chat_list_header};
 use render::layout::render_with_graphics;
 use render::overlays::{
     render_action_menu, render_attachment_path, render_delete_confirmation, render_forward_picker,
-    render_link_confirmation, render_poll_vote, render_reaction_picker, render_save_as,
-    render_todo_editor,
+    render_image_popup, render_link_confirmation, render_poll_vote, render_reaction_picker,
+    render_save_as, render_todo_editor,
 };
 use render::rich_media::render_rich_media;
 use render::saved_dialogs::render_saved_dialogs;
@@ -186,6 +191,12 @@ const BINDINGS: &[Binding] = &[
         KeyChord::plain(Key::Enter),
         "Toggle Folder",
         Action::ToggleFolderMembership,
+        true,
+    ),
+    binding(
+        KeyChord::plain(Key::Enter),
+        "Actions",
+        Action::OpenActions,
         true,
     ),
     binding(KeyChord::plain(Key::Enter), "Open", Action::Open, true),

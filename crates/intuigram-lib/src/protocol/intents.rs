@@ -140,6 +140,8 @@ pub enum Action {
     OpenLink,
     /// Confirm a suspicious or disguised link destination.
     ConfirmOpenLink,
+    /// Open the Active Message's loaded image in a larger popup.
+    OpenImage,
     /// Download the Active Message's media to the default destination.
     DownloadMedia,
     /// Choose an exact destination for the Active Message's media.

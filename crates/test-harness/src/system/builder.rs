@@ -142,6 +142,7 @@ impl TestSystemBuilder {
             scheduled_messages: std::collections::HashMap::new(),
             next_scheduled_id: 0,
             terminal: self.terminal,
+            visible_avatar_peers: Vec::new(),
             trace,
             state,
         };

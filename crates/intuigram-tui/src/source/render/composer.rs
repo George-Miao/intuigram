@@ -46,7 +46,7 @@ pub(in crate::source) fn render_composer(
         attachment_tray::render(frame, rows[0], view, graphics);
     }
     let area = rows[1];
-    let focused = view.focus == Focus::Composer;
+    let focused = focus_visible(view, Focus::Composer);
     semantics.push(SemanticNode {
         role: SemanticRole::Composer,
         name: "Composer".to_owned(),
@@ -90,7 +90,7 @@ pub(in crate::source) fn render_composer(
         Paragraph::new(lines).style(surface_style(focused)),
         content_area,
     );
-    if focused && !overlay_open(view) {
+    if focused {
         let x = area
             .x
             .saturating_add(u16::try_from(prefix_width).unwrap_or(u16::MAX))
@@ -237,20 +237,4 @@ fn content_width(area_width: u16, label: Option<&str>) -> usize {
     usize::from(area_width)
         .saturating_sub(composer_prefix_width(label).saturating_add(1))
         .max(1)
-}
-
-fn overlay_open(view: &View) -> bool {
-    view.help_open
-        || view.action_menu.is_some()
-        || view.scheduled.is_some()
-        || view.rich_media.is_some()
-        || view.attachment_path.is_some()
-        || view.save_as.is_some()
-        || view.link_confirmation.is_some()
-        || view.reaction_picker.is_some()
-        || view.poll_vote.is_some()
-        || view.todo_editor.is_some()
-        || view.forward_picker.is_some()
-        || view.delete_confirmation.is_some()
-        || view.folder_picker.is_some()
 }

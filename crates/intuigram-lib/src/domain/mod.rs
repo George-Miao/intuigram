@@ -166,6 +166,9 @@ pub enum ActivationTarget {
     /// Select a Message and descend to Transcript interaction.
     Message(MessageId),
 
+    /// Select a Message and open its loaded image preview.
+    MessageImage(MessageId),
+
     /// Focus the active Chat's Composer.
     Composer,
 }

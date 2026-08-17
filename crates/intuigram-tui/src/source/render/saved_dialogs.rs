@@ -9,7 +9,7 @@ pub(in crate::source) fn render_saved_dialogs(
     semantics: &mut Vec<SemanticNode>,
     graphics: &mut GraphicsFrame,
 ) {
-    let focused = view.focus == Focus::SavedDialogs;
+    let focused = focus_visible(view, Focus::SavedDialogs);
     let direct_messages = view
         .active_chat
         .and_then(|index| view.chats.get(index))

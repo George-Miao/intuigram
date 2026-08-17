@@ -1,7 +1,8 @@
 use intuigram_lib::{
     AccountKey, AccountView, AvatarId, AvatarRef, Bootstrap, ChatId, ChatKind, ChatView,
     ConnectionState, DeliveryState, DraftView, FolderDetailsView, FolderRulesView, FolderView,
-    MessageDetails, MessageDirection, MessageId, MessageView, SavedDialogListView, TopicListView,
+    MessageDetails, MessageDirection, MessageId, MessageView, SavedDialogListView, SelectionView,
+    TopicListView,
 };
 
 #[derive(Clone, Debug)]
@@ -11,6 +12,7 @@ pub struct AccountFixture {
     accounts: Vec<AccountView>,
     folders: Vec<FolderView>,
     folder_details: Vec<FolderDetailsView>,
+    restored_selection: Option<SelectionView>,
     chats: Vec<ChatView>,
     messages: Vec<MessageView>,
     drafts: Vec<DraftView>,
@@ -64,6 +66,17 @@ impl AccountFixture {
     #[must_use]
     pub fn with_chat(mut self, chat: ChatView) -> Self {
         self.chats.push(chat);
+        self
+    }
+
+    /// Restores the Chat-list cursor to one Chat.
+    #[must_use]
+    pub fn with_selected_chat(mut self, chat: i64) -> Self {
+        self.restored_selection = Some(SelectionView {
+            folder: 0,
+            chat: Some(ChatId(chat)),
+            message: None,
+        });
         self
     }
 
@@ -138,7 +151,7 @@ impl AccountFixture {
             offline_chats: Vec::new(),
             accounts: self.accounts,
             folder_details: self.folder_details,
-            restored_selection: None,
+            restored_selection: self.restored_selection,
             transcript_anchors: Vec::new(),
             folders: self.folders,
             chats: self.chats,
@@ -178,6 +191,7 @@ pub fn account(name: impl Into<String>) -> AccountFixture {
             },
         ],
         folder_details: Vec::new(),
+        restored_selection: None,
         chats: Vec::new(),
         messages: Vec::new(),
         drafts: Vec::new(),

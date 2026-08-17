@@ -34,6 +34,47 @@ fn primary_clicks_resolve_from_the_matching_rendered_semantics() {
 }
 
 #[test]
+fn loaded_image_click_opens_message_image() {
+    let mut current = pointer_view();
+    current.messages[0].details.media = Some(MediaCard {
+        kind: MediaKind::Photo,
+        title: "Photo".to_owned(),
+        description: "image".to_owned(),
+        details: Vec::new(),
+        poll: None,
+        specialized: None,
+        remote_id: Some("42".to_owned()),
+    });
+    current.media_previews = vec![intuigram_lib::MediaPreviewView {
+        chat: ChatId(7),
+        message: MessageId(11),
+        image: intuigram_lib::InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
+            .expect("fixture pixels should match their dimensions"),
+    }];
+    let frame = render_test_frame(&current, 120, 40);
+    let image = frame
+        .semantics
+        .iter()
+        .find(|node| node.role == SemanticRole::MediaCard)
+        .expect("the loaded image should have semantic bounds");
+    assert_eq!(image.action, Some(Action::OpenImage));
+
+    let event = Event::Mouse(MouseEvent {
+        kind: MouseEventKind::Down(MouseButton::Left),
+        column: image.bounds.x,
+        row: image.bounds.y,
+        modifiers: KeyModifiers::NONE,
+    });
+
+    assert_eq!(
+        resolve_test_frame_event(&current, &frame, event),
+        Some(UiEvent::Intent(intuigram_lib::Intent::Activate(
+            ActivationTarget::MessageImage(MessageId(11))
+        )))
+    );
+}
+
+#[test]
 fn modified_clicks_remain_available_to_the_terminal() {
     let current = view(Vec::new());
     let frame = render_test_frame(&current, 120, 40);

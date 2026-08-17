@@ -1,6 +1,10 @@
 pub(super) trait ApplicationUi {
     fn draw(&mut self, view: &intuigram_lib::View) -> intuigram_tui::Result<()>;
 
+    fn visible_avatar_peers(&self, _view: &intuigram_lib::View) -> Vec<intuigram_lib::ChatId> {
+        Vec::new()
+    }
+
     fn resolve_event(
         &self,
         view: &intuigram_lib::View,
@@ -16,6 +20,10 @@ pub(super) trait ApplicationUi {
 impl ApplicationUi for TerminalUi {
     fn draw(&mut self, view: &intuigram_lib::View) -> intuigram_tui::Result<()> {
         Self::draw(self, view)
+    }
+
+    fn visible_avatar_peers(&self, view: &intuigram_lib::View) -> Vec<intuigram_lib::ChatId> {
+        Self::visible_avatar_peers(self, view)
     }
 
     fn resolve_event(

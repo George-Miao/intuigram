@@ -2,8 +2,10 @@ use super::*;
 
 mod media;
 mod media_image;
+pub(in crate::source) use media_image::render_popup_image;
 mod message;
 mod rich_text;
+mod service;
 mod window;
 
 use message::{MessageComponent, MessageLayout, message_lines, messages_group};
@@ -225,12 +227,17 @@ fn render_semantics(
             bounds: Rect::new(area.x, y, area.width, height),
         });
         if let Some(media) = &message.details.media {
+            let has_loaded_image = active_chat(view).is_some_and(|chat| {
+                view.media_previews
+                    .iter()
+                    .any(|preview| preview.chat == chat && preview.message == message.id)
+            });
             semantics.push(SemanticNode {
                 role: SemanticRole::MediaCard,
                 name: media.title.clone(),
                 description: Some(media.display_description()),
-                domain_id: media.remote_id.as_ref().and_then(|id| id.parse().ok()),
-                action: None,
+                domain_id: Some(message.id.0),
+                action: has_loaded_image.then_some(Action::OpenImage),
                 delivery: None,
                 active: view.active_message == Some(index),
                 selected: view.selected_messages.contains(&message.id),

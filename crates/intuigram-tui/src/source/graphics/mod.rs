@@ -105,19 +105,37 @@ impl GraphicsFrame {
 
     pub(crate) fn locate(&mut self, buffer: &Buffer) {
         self.requests.retain_mut(|request| {
-            let foreground = image_color(request.id);
-            for y in buffer.area.top()..buffer.area.bottom() {
-                for x in buffer.area.left()..buffer.area.right() {
-                    if buffer[(x, y)].fg == foreground {
-                        request.x = x;
-                        request.y = y;
-                        return true;
-                    }
-                }
-            }
-            false
+            let Some((x, y)) = placement_origin(buffer, request) else {
+                return false;
+            };
+            request.x = x;
+            request.y = y;
+            true
         });
     }
+}
+
+fn placement_origin(buffer: &Buffer, request: &GraphicsRequest) -> Option<(u16, u16)> {
+    let area = buffer.area;
+    if area.is_empty() || request.size.columns == 0 || request.size.rows == 0 {
+        return None;
+    }
+    let foreground = image_color(request.id);
+    let index = buffer
+        .content
+        .iter()
+        .position(|cell| cell.fg == foreground)?;
+    let width = usize::from(area.width);
+    let x = area.x + u16::try_from(index % width).ok()?;
+    let y = area.y + u16::try_from(index / width).ok()?;
+    let right = x.saturating_add(request.size.columns);
+    let bottom = y.saturating_add(request.size.rows);
+    if right > area.right() || bottom > area.bottom() {
+        return None;
+    }
+    (y..bottom)
+        .all(|row| (x..right).all(|column| buffer[(column, row)].fg == foreground))
+        .then_some((x, y))
 }
 
 pub(crate) fn graphics_environment() -> (GraphicsProtocol, Multiplexer) {
@@ -127,6 +145,21 @@ pub(crate) fn graphics_environment() -> (GraphicsProtocol, Multiplexer) {
 
 pub(crate) fn image_id(chat: ChatId, message: MessageId) -> ImageId {
     let mut hash = 2_166_136_261_u32;
+    for byte in chat
+        .0
+        .to_le_bytes()
+        .into_iter()
+        .chain(message.0.to_le_bytes())
+    {
+        hash ^= u32::from(byte);
+        hash = hash.wrapping_mul(16_777_619);
+    }
+    ImageId::new((hash & 0x00ff_ffff).max(1))
+        .expect("masking and clamping an image hash always produces a nonzero ID")
+}
+
+pub(crate) fn popup_image_id(chat: ChatId, message: MessageId) -> ImageId {
+    let mut hash = 2_166_136_261_u32 ^ 0x504f_5055;
     for byte in chat
         .0
         .to_le_bytes()

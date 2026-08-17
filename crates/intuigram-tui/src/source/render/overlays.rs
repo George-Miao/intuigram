@@ -1,3 +1,57 @@
+use super::transcript::render_popup_image;
+
+pub(in crate::source) fn render_image_popup(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    view: &View,
+    graphics: &mut GraphicsFrame,
+) {
+    let Some(popup) = view.image_popup else {
+        return;
+    };
+    let Some(preview) = view
+        .media_previews
+        .iter()
+        .find(|preview| preview.chat == popup.chat && preview.message == popup.message)
+    else {
+        return;
+    };
+    let popup_area = centered_rect(92, 90, area);
+    render_overlay(frame, popup_area, Vec::new());
+    let content = popup_content_area(popup_area);
+    if content.is_empty() {
+        return;
+    }
+    let lines = render_popup_image(
+        &preview.image,
+        popup_image_id(popup.chat, popup.message),
+        content.width,
+        content.height,
+        graphics,
+    );
+    let width = lines
+        .iter()
+        .map(Line::width)
+        .max()
+        .and_then(|width| u16::try_from(width).ok())
+        .unwrap_or(content.width)
+        .min(content.width);
+    let height = u16::try_from(lines.len())
+        .unwrap_or(content.height)
+        .min(content.height);
+    let image_area = Rect::new(
+        content
+            .x
+            .saturating_add(content.width.saturating_sub(width) / 2),
+        content
+            .y
+            .saturating_add(content.height.saturating_sub(height) / 2),
+        width,
+        height,
+    );
+    frame.render_widget(Paragraph::new(lines).style(surface_style(true)), image_area);
+}
+
 pub(in crate::source) fn render_action_menu(frame: &mut Frame<'_>, area: Rect, view: &View) {
     let Some(menu) = &view.action_menu else {
         return;
@@ -9,10 +63,10 @@ pub(in crate::source) fn render_action_menu(frame: &mut Frame<'_>, area: Rect, v
     )))
     .chain(std::iter::once(Line::from("")))
     .chain(menu.items.iter().enumerate().map(|(index, item)| {
-        Line::from(vec![
-            selection_rule(menu.selected == index),
-            Span::raw(item.label.clone()),
-        ])
+        let mut spans = Vec::with_capacity(4);
+        spans.push(selection_rule(menu.selected == index));
+        push_action_label(&mut spans, item.action, &item.label);
+        Line::from(spans)
     }))
     .collect();
     render_overlay(frame, popup, lines);

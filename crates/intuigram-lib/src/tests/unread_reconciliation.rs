@@ -23,6 +23,7 @@ fn unread_boundary_is_stable_across_history_and_live_updates_until_read() {
     apply(
         &mut app,
         Input::Adapter(AdapterEvent::ChatLoaded {
+            avatar_peers: Vec::new(),
             chat: ChatId(10),
             status: None,
             messages: refreshed,

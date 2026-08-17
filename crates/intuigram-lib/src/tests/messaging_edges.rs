@@ -30,6 +30,7 @@ fn animation_frames_advance_only_while_effort_is_pending() {
     apply(
         &mut app,
         Input::Adapter(AdapterEvent::ChatLoaded {
+            avatar_peers: Vec::new(),
             chat: ChatId(10),
             status: None,
             messages,

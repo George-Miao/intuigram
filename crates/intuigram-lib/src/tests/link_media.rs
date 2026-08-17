@@ -1,7 +1,8 @@
 use super::{apply, bootstrap};
 use crate::{
-    Action, AdapterEvent, ChatId, DownloadId, DownloadView, Effect, InlineImage, Input, Intent,
-    MediaCard, MediaKind, MediaPreviewView, MessageId, TextEntity, TextEntityKind,
+    Action, ActivationTarget, AdapterEvent, ChatId, DownloadId, DownloadView, Effect,
+    ImagePopupView, InlineImage, Input, Intent, MediaCard, MediaKind, MediaPreviewView, MessageId,
+    TextEntity, TextEntityKind,
 };
 
 #[test]
@@ -66,6 +67,70 @@ fn image_preview_space_is_reserved_only_while_loading() {
         message: MessageId(3),
     }));
     assert!(failed.view.media_preview_loads.is_empty());
+}
+
+#[test]
+fn loaded_image_opens_from_action_and_pointer() {
+    let mut fixture = bootstrap();
+    fixture.messages[2].details.media = Some(MediaCard {
+        kind: MediaKind::Photo,
+        title: "Photo".to_owned(),
+        description: "image".to_owned(),
+        details: Vec::new(),
+        poll: None,
+        specialized: None,
+        remote_id: Some("42".to_owned()),
+    });
+    let mut app = crate::App::new();
+    apply(&mut app, Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    let image = InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
+        .expect("fixture pixels should match their dimensions");
+    apply(
+        &mut app,
+        Input::Adapter(AdapterEvent::MediaPreviewReady(MediaPreviewView {
+            chat: ChatId(10),
+            message: MessageId(3),
+            image,
+        })),
+    );
+    apply(&mut app, Input::Intent(Intent::Action(Action::Open)));
+    apply(
+        &mut app,
+        Input::Intent(Intent::Action(Action::TargetPreviousMessage)),
+    );
+
+    apply(&mut app, Input::Intent(Intent::Action(Action::OpenActions)));
+    assert!(app.view().action_menu.as_ref().is_some_and(|menu| {
+        menu.items
+            .iter()
+            .any(|item| item.action == Action::OpenImage)
+    }));
+    apply(&mut app, Input::Intent(Intent::Action(Action::Cancel)));
+    apply(&mut app, Input::Intent(Intent::Action(Action::OpenImage)));
+    assert_eq!(
+        app.view().image_popup,
+        Some(ImagePopupView {
+            chat: ChatId(10),
+            message: MessageId(3),
+        })
+    );
+    apply(&mut app, Input::Intent(Intent::Action(Action::Cancel)));
+    assert!(app.view().image_popup.is_none());
+
+    apply(
+        &mut app,
+        Input::Intent(Intent::Activate(ActivationTarget::MessageImage(MessageId(
+            3,
+        )))),
+    );
+    assert_eq!(app.view().active_message, Some(2));
+    assert_eq!(
+        app.view().image_popup,
+        Some(ImagePopupView {
+            chat: ChatId(10),
+            message: MessageId(3),
+        })
+    );
 }
 
 #[test]

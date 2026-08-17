@@ -24,6 +24,20 @@ impl App {
         self.view.media_previews.push(preview);
     }
 
+    pub(super) fn active_image_popup(&self) -> Option<ImagePopupView> {
+        let chat = self.active_chat_id()?;
+        let message = self.active_message_id()?;
+        self.view
+            .media_previews
+            .iter()
+            .any(|preview| preview.chat == chat && preview.message == message)
+            .then_some(ImagePopupView { chat, message })
+    }
+
+    pub(super) fn open_active_image(&mut self) {
+        self.view.image_popup = self.active_image_popup();
+    }
+
     pub(super) fn queue_active_media_previews(&mut self) {
         self.media_preview_loads.queued.clear();
         self.view.media_preview_loads.clear();

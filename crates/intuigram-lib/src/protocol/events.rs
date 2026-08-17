@@ -201,6 +201,8 @@ pub enum AdapterEvent {
     /// A requested Chat history became available.
     ChatLoaded {
         chat: ChatId,
+        /// Sender avatars discovered with this history projection.
+        avatar_peers: Vec<AvatarRef>,
         status: Option<String>,
         messages: Vec<MessageView>,
         pinned_messages: Vec<MessageView>,

@@ -17,6 +17,8 @@ pub enum Input {
 
     /// Configures the normalized small-media admission supplied by composition.
     ConfigureSmallMediaCapacity(usize),
+    /// Reports the avatar peers visible in the latest terminal frame.
+    SetVisibleAvatarPeers(Vec<ChatId>),
 }
 
 /// Effect families whose admission lets state offer more work.

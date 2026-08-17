@@ -46,7 +46,7 @@ Intuigram is a terminal interface for Telegram. It is designed for fluent use as
 
 **Media Card**: A Message presentation that shows the identity, metadata, state, and available actions of a media item. It can include inline terminal graphics. Its text fallback always stays useful. _Avoid_: Attachment placeholder
 
-**Transcript**: A dense chronological presentation of the Messages in a Chat. It groups consecutive Messages visually. Sender accents and delivery markers distinguish Messages without Chat bubbles. _Avoid_: Chat bubbles, message bubbles
+**Transcript**: A dense chronological presentation of the Messages in a Chat. It groups consecutive Messages visually. Sender accents and delivery markers distinguish Messages without Chat bubbles. It centers the sender and event text for each Telegram service event. It does not show a sender avatar for that event. _Avoid_: Chat bubbles, message bubbles
 
 **Responsive Hierarchy**: Normal and wide terminals show the Chat list next to the Active Chat. Narrow terminals show the current hierarchy level. Chat-list interaction shows Chats. Composer or Active-Message interaction shows the Active Chat. A resize changes only this presentation. It preserves the Active Folder, Active Chat, Active Message, anchored history, Draft, and interaction target. _Avoid_: Resize reset, independent mobile mode
 

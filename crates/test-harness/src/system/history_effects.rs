@@ -70,6 +70,7 @@ impl TestSystem {
                 pinned_messages,
             } => AdapterEvent::ChatLoaded {
                 chat,
+                avatar_peers: Vec::new(),
                 status,
                 messages,
                 pinned_messages,

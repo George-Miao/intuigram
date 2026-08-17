@@ -1,5 +1,6 @@
 use super::media::{MediaRenderContext, render_media};
 use super::rich_text::{message_metadata, render_rich_text_lines};
+use super::service::centered_message_line;
 use super::*;
 use crate::source::render::outbox::message_outbox;
 
@@ -30,6 +31,7 @@ struct ContentContext<'a> {
 
 #[derive(Clone, Copy)]
 pub(super) enum MessageComponent {
+    Service,
     Plain {
         avatar_padding: usize,
     },
@@ -58,6 +60,7 @@ impl MessageComponent {
             spans.extend(avatar);
         } else {
             let avatar_padding = match self {
+                Self::Service => 0,
                 Self::Plain { avatar_padding }
                 | Self::Forwarded { avatar_padding }
                 | Self::Reply { avatar_padding, .. } => avatar_padding,
@@ -65,7 +68,8 @@ impl MessageComponent {
             spans.push(Span::raw(" ".repeat(avatar_padding)));
         }
         match self {
-            Self::Plain { .. }
+            Self::Service
+            | Self::Plain { .. }
             | Self::Reply {
                 forwarded: false, ..
             } => {}
@@ -82,6 +86,10 @@ impl MessageComponent {
     const fn is_forwarded(self) -> bool {
         matches!(self, Self::Forwarded { .. })
     }
+
+    const fn is_service(self) -> bool {
+        matches!(self, Self::Service)
+    }
 }
 
 pub(super) fn message_lines(
@@ -92,7 +100,9 @@ pub(super) fn message_lines(
     graphics: &mut GraphicsFrame,
 ) -> Vec<Line<'static>> {
     let avatar_padding = avatar_width(graphics, 2);
-    let component = if message.details.forwarded_from.is_some() {
+    let component = if message.details.service.is_some() {
+        MessageComponent::Service
+    } else if message.details.forwarded_from.is_some() {
         MessageComponent::Forwarded { avatar_padding }
     } else {
         MessageComponent::Plain { avatar_padding }
@@ -102,7 +112,7 @@ pub(super) fn message_lines(
         selected: view.selected_messages.contains(&message.id),
         component,
     };
-    let avatar = (!layout.grouped_with_previous).then(|| {
+    let avatar = (!state.component.is_service() && !layout.grouped_with_previous).then(|| {
         let id = active_chat(view)
             .zip(message.details.sender_peer)
             .map(|(chat, peer)| avatar_image_id(peer, chat.0 ^ message.id.0 ^ 0x4d53_4741));
@@ -207,16 +217,25 @@ fn message_heading(
         );
     }
     if !layout.grouped_with_previous {
-        let mut heading = vec![
-            selection_rule(state.active),
-            message_selection_marker(state.selected),
-        ];
-        heading.extend(avatar.unwrap_or_default());
-        heading.push(Span::styled(
+        let sender = Span::styled(
             message.sender.clone(),
             Style::default().fg(SECONDARY).add_modifier(Modifier::BOLD),
-        ));
-        lines.push(Line::from(heading));
+        );
+        if state.component.is_service() {
+            lines.push(centered_message_line(
+                state.component.prefix(state.active, state.selected),
+                vec![sender],
+                layout.transcript_width,
+            ));
+        } else {
+            let mut heading = vec![
+                selection_rule(state.active),
+                message_selection_marker(state.selected),
+            ];
+            heading.extend(avatar.unwrap_or_default());
+            heading.push(sender);
+            lines.push(Line::from(heading));
+        }
     }
     lines
 }
@@ -269,13 +288,12 @@ fn append_content(
         .into_iter()
         .flatten()
         .map(|body| {
-            Line::from(
-                component
-                    .prefix(state.active, state.selected)
-                    .into_iter()
-                    .chain(body)
-                    .collect::<Vec<_>>(),
-            )
+            let prefix = component.prefix(state.active, state.selected);
+            if component.is_service() {
+                centered_message_line(prefix, body, layout.transcript_width)
+            } else {
+                Line::from(prefix.into_iter().chain(body).collect::<Vec<_>>())
+            }
         });
     if inline_media {
         lines.extend(media_lines);
@@ -285,7 +303,6 @@ fn append_content(
         lines.extend(media_lines);
     }
 }
-
 fn body_is_media_fallback(message: &MessageView) -> bool {
     message
         .details

@@ -91,6 +91,14 @@ pub struct TestFrame {
     pub semantics: Vec<SemanticNode>,
 }
 
+impl TestFrame {
+    /// Returns avatar peers that occupy cells in this frame.
+    #[must_use]
+    pub fn visible_avatar_peers(&self, view: &View) -> Vec<ChatId> {
+        visible_avatar_peers(view, &self.semantics)
+    }
+}
+
 /// Failure while operating the terminal UI.
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]

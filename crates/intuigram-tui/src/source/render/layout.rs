@@ -62,7 +62,9 @@ pub(in crate::source) fn render_with_graphics(
     );
     render_folders(frame, rows[1], view, mode, semantics);
     render_bottom_chrome(frame, rows[2], view, keymap, mode, semantics);
-    if view.folder_manager.is_some() {
+    if view.image_popup.is_some() {
+        render_image_popup(frame, area, view, graphics);
+    } else if view.folder_manager.is_some() {
         render_folder_manager(frame, area, view);
     } else if view.scheduled.is_some() {
         render_scheduled(frame, area, view);
@@ -167,7 +169,7 @@ pub(in crate::source) fn render_chats(
     graphics: &mut GraphicsFrame,
     chat_viewport: &mut ChatViewport,
 ) {
-    let focused = view.focus == Focus::Chats;
+    let focused = focus_visible(view, Focus::Chats);
     let rows = Layout::vertical([
         Constraint::Length(mode.chat_header_height()),
         Constraint::Min(1),
@@ -334,7 +336,7 @@ pub(in crate::source) fn render_active_chat(
             Constraint::Min(1),
         ])
         .split(area);
-        render_active_chat_header(frame, rows[0], view, mode, true, graphics);
+        render_active_chat_header(frame, rows[0], view, mode, !overlay_open(view), graphics);
         if view.focus == Focus::Topics {
             render_topics(frame, rows[1], view, mode, semantics);
         } else {
@@ -354,14 +356,14 @@ pub(in crate::source) fn render_active_chat(
         rows[0],
         view,
         mode,
-        matches!(view.focus, Focus::Transcript | Focus::Composer),
+        focus_visible(view, Focus::Transcript) || focus_visible(view, Focus::Composer),
         graphics,
     );
     render_transcript(
         frame,
         rows[1],
         view,
-        view.focus == Focus::Transcript,
+        focus_visible(view, Focus::Transcript),
         options,
         semantics,
         graphics,

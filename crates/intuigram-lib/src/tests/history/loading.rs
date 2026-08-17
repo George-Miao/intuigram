@@ -12,6 +12,7 @@ fn active_history_reports_fresh_and_incremental_effort_until_completion() {
     let selected = fresh_app.transition(Input::Intent(Intent::Action(Action::MoveDown)));
     assert_eq!(selected.view.chat_loading, ChatLoadingState::Fresh);
     let loaded = fresh_app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        avatar_peers: Vec::new(),
         chat: ChatId(20),
         status: None,
         messages: vec![message(20, "fresh")],
@@ -57,6 +58,7 @@ fn background_refresh_does_not_replace_a_transcript_being_read() {
 
     let refreshed = vec![cached.clone(), message(21, "loaded in the background")];
     let loaded = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        avatar_peers: Vec::new(),
         chat: ChatId(20),
         status: None,
         messages: refreshed.clone(),
@@ -80,6 +82,7 @@ fn a_live_message_already_returned_by_history_is_not_added_twice() {
     apply(
         &mut app,
         Input::Adapter(AdapterEvent::ChatLoaded {
+            avatar_peers: Vec::new(),
             chat: ChatId(20),
             status: None,
             messages: vec![loaded.clone()],
@@ -137,6 +140,7 @@ fn refresh_prunes_stale_cache_without_losing_older_live_or_pending_messages() {
     apply(
         &mut app,
         Input::Adapter(AdapterEvent::ChatLoaded {
+            avatar_peers: Vec::new(),
             chat: ChatId(20),
             status: None,
             messages: vec![message(7, "fresh"), message(10, "latest")],
@@ -190,6 +194,7 @@ fn reconnect_refreshes_the_selected_cached_chat_before_background_history() {
     assert_eq!(restored.effect, Some(load_chat(20, Some(20))));
 
     let refreshed = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        avatar_peers: Vec::new(),
         chat: ChatId(20),
         status: None,
         messages: vec![message(10, "authoritative history")],
@@ -224,6 +229,7 @@ fn rapid_navigation_does_not_drop_an_inactive_background_history() {
         apply(&mut app, Input::Intent(Intent::Action(Action::MoveDown)));
     }
     let latest = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        avatar_peers: Vec::new(),
         chat: ChatId(20),
         status: None,
         messages: Vec::new(),
@@ -232,6 +238,7 @@ fn rapid_navigation_does_not_drop_an_inactive_background_history() {
     assert_eq!(latest.effect, Some(load_chat(40, Some(40))));
 
     let resumed_background = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        avatar_peers: Vec::new(),
         chat: ChatId(40),
         status: None,
         messages: Vec::new(),
@@ -258,6 +265,7 @@ fn background_history_warmup_is_bounded_for_large_accounts() {
     while let Some(Effect::LoadChat { chat, .. }) = update.effect {
         loaded += 1;
         update = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+            avatar_peers: Vec::new(),
             chat,
             status: None,
             messages: Vec::new(),
@@ -285,6 +293,7 @@ fn background_thread_refresh_does_not_replace_a_transcript_being_read() {
     apply(
         &mut app,
         Input::Adapter(AdapterEvent::ChatLoaded {
+            avatar_peers: Vec::new(),
             chat: ChatId(10),
             status: None,
             messages: root_messages,
@@ -335,6 +344,7 @@ fn thread_read_is_emitted_after_remaining_background_history() {
     apply(&mut app, Input::Intent(Intent::Action(Action::JumpLatest)));
     apply(&mut app, Input::Intent(Intent::Action(Action::OpenThread)));
     let foreground = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        avatar_peers: Vec::new(),
         chat: ChatId(20),
         status: None,
         messages: Vec::new(),
@@ -370,6 +380,7 @@ fn thread_read_is_emitted_after_remaining_background_history() {
     );
 
     let read = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        avatar_peers: Vec::new(),
         chat: ChatId(30),
         status: None,
         messages: Vec::new(),

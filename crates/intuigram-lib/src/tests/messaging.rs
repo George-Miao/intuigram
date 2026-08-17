@@ -95,6 +95,7 @@ fn thread_navigation_preserves_parent_history_and_an_independent_draft() {
     apply(
         &mut app,
         Input::Adapter(AdapterEvent::ChatLoaded {
+            avatar_peers: Vec::new(),
             chat: ChatId(10),
             status: None,
             messages: bootstrap().messages,
@@ -171,6 +172,7 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
     apply(
         &mut app,
         Input::Adapter(AdapterEvent::ChatLoaded {
+            avatar_peers: Vec::new(),
             chat: ChatId(20),
             status: None,
             messages: Vec::new(),
@@ -194,6 +196,7 @@ fn chat_movement_changes_active_chat_and_preserves_each_draft() {
     apply(
         &mut app,
         Input::Adapter(AdapterEvent::ChatLoaded {
+            avatar_peers: Vec::new(),
             chat: ChatId(10),
             status: None,
             messages: hierarchy_bootstrap().messages,
@@ -274,6 +277,7 @@ fn revisiting_a_loaded_chat_renders_cached_history_while_refreshing() {
         details: super::MessageDetails::default(),
     }];
     let loaded = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        avatar_peers: Vec::new(),
         chat: ChatId(20),
         status: None,
         messages: second_history.clone(),
@@ -308,6 +312,7 @@ fn revisiting_a_loaded_chat_renders_cached_history_while_refreshing() {
         details: super::MessageDetails::default(),
     });
     let refreshed_view = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        avatar_peers: Vec::new(),
         chat: ChatId(10),
         status: None,
         messages: refreshed.clone(),

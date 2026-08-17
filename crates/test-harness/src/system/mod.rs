@@ -66,6 +66,7 @@ pub struct TestSystem {
     scheduled_messages: HashMap<ChatId, Vec<ScheduledMessageView>>,
     next_scheduled_id: i32,
     terminal: (u16, u16),
+    visible_avatar_peers: Vec<ChatId>,
     trace: Rc<RefCell<Trace>>,
     state: Rc<RefCell<RenderedState>>,
 }
@@ -190,7 +191,19 @@ impl TestSystem {
     }
 
     fn render(&mut self) {
-        let frame = render_test_frame(self.application.view(), self.terminal.0, self.terminal.1);
+        let mut frame =
+            render_test_frame(self.application.view(), self.terminal.0, self.terminal.1);
+        let visible_avatar_peers = frame.visible_avatar_peers(self.application.view());
+        if self.visible_avatar_peers != visible_avatar_peers {
+            self.visible_avatar_peers = visible_avatar_peers.clone();
+            if self
+                .application
+                .set_visible_avatar_peers(visible_avatar_peers)
+            {
+                frame =
+                    render_test_frame(self.application.view(), self.terminal.0, self.terminal.1);
+            }
+        }
         let screen_rows = rows(&frame.buffer);
         *self.state.borrow_mut() = RenderedState {
             view: self.application.view().clone(),

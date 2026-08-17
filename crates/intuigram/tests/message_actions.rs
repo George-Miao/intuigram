@@ -27,19 +27,25 @@ fn active_message_actions_are_grouped_in_one_selectable_popup() -> Result<()> {
     ] {
         app.screen().action(action).expect_unavailable()?;
     }
+    assert!(
+        app.screen()
+            .rows()
+            .iter()
+            .any(|row| row.contains("A ⋯ Actions"))
+    );
     app.type_text("a")?;
 
     let popup = app.screen().rows().join("\n");
+    assert!(popup.contains("Message Actions"));
     for label in [
-        "Message Actions",
-        "Reply",
-        "Edit",
-        "Delete",
-        "Forward",
-        "React",
-        "Open Thread",
-        "Pin / Unpin",
-        "Select Message",
+        "↩ Reply",
+        "✎ Edit",
+        "× Delete",
+        "↪ Forward",
+        "♡ React",
+        "# Open Thread",
+        "⌖ Pin / Unpin",
+        "□ Select Message",
     ] {
         assert!(popup.contains(label), "missing {label:?} in {popup:?}");
     }
@@ -51,6 +57,32 @@ fn active_message_actions_are_grouped_in_one_selectable_popup() -> Result<()> {
             .rows()
             .iter()
             .any(|row| row.contains("Reply to 41"))
+    );
+    app.expect_no_unhandled_work()
+}
+
+#[test]
+fn message_selection_enter_opens_action_popup() -> Result<()> {
+    let mut app = TestSystem::builder()
+        .name("message-selection-enter-actions")
+        .terminal(100, 24)
+        .telegram(
+            TelegramScenario::new()
+                .bootstrap(account("Ada").with_chat(chat(10, "Rust")))
+                .expect_load_history(10, [sent_message(41, "selected")]),
+        )
+        .start()?;
+
+    app.press(key::ENTER)?;
+    app.press(key::ALT_UP)?;
+    app.choose_action("Select Message")?;
+    app.press(key::ENTER)?;
+
+    assert!(
+        app.screen()
+            .rows()
+            .iter()
+            .any(|row| row.contains("Message Actions"))
     );
     app.expect_no_unhandled_work()
 }

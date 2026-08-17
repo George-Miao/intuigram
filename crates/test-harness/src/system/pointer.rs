@@ -14,6 +14,10 @@ impl TestSystem {
         self.click_semantic(SemanticRole::Action, Some(label), 0, 0)
     }
 
+    pub fn click_media(&mut self, title: &str) -> Result<()> {
+        self.click_semantic(SemanticRole::MediaCard, Some(title), 0, 0)
+    }
+
     pub fn scroll(&mut self, target: ScrollTarget, direction: ScrollDirection) -> Result<()> {
         let frame = render_test_frame(self.application.view(), self.terminal.0, self.terminal.1);
         let role = match target {

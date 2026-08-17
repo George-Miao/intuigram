@@ -11,7 +11,7 @@ const PREVIEW_WIDTH: u16 = 4;
 const PREVIEW_HEIGHT: u16 = 2;
 
 pub(super) fn render(frame: &mut Frame<'_>, area: Rect, view: &View, graphics: &mut GraphicsFrame) {
-    let focused = view.focus == Focus::Composer;
+    let focused = focus_visible(view, Focus::Composer);
     frame.render_widget(Paragraph::new("").style(surface_style(focused)), area);
     if area.is_empty() {
         return;

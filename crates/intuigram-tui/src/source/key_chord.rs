@@ -184,7 +184,10 @@ impl EffectiveKeymap {
 fn binding_matches_context(view: &View, binding: &Binding) -> bool {
     match (binding.action, binding.key) {
         (Action::OpenActions, key) if key == KeyChord::plain(Key::Char('a')) => {
-            view.focus == Focus::Transcript
+            view.focus == Focus::Transcript && view.selected_messages.is_empty()
+        }
+        (Action::OpenActions, key) if key == KeyChord::plain(Key::Enter) => {
+            view.focus == Focus::Transcript && !view.selected_messages.is_empty()
         }
         (Action::OpenActions, key) if key == KeyChord::alt(Key::Char('a')) => {
             matches!(view.focus, Focus::Chats | Focus::Composer)

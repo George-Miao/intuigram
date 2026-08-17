@@ -156,3 +156,29 @@ fn avatar_tile_color(peer: Option<ChatId>, name: &str) -> Color {
 pub(super) fn avatar_width(graphics: &GraphicsFrame, row_count: u16) -> usize {
     usize::from(graphics.square_columns(row_count).saturating_add(1))
 }
+
+pub(super) fn visible_avatar_peers(view: &View, semantics: &[SemanticNode]) -> Vec<ChatId> {
+    let mut peers = Vec::new();
+    for node in semantics.iter().filter(|node| node.bounds.height > 0) {
+        let peer = match node.role {
+            SemanticRole::Chat | SemanticRole::SavedDialog => node.domain_id.map(ChatId),
+            SemanticRole::Transcript => view
+                .active_chat
+                .and_then(|index| view.chats.get(index))
+                .map(|chat| chat.id),
+            SemanticRole::Message => node.domain_id.and_then(|id| {
+                view.messages
+                    .iter()
+                    .find(|message| message.id == MessageId(id))
+                    .and_then(|message| message.details.sender_peer)
+            }),
+            _ => None,
+        };
+        if let Some(peer) = peer
+            && !peers.contains(&peer)
+        {
+            peers.push(peer);
+        }
+    }
+    peers
+}

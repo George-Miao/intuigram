@@ -62,6 +62,11 @@ impl App {
                 self.activate_message(message);
                 Some(self.selection_effect())
             }
+            ActivationTarget::MessageImage(message) => {
+                self.activate_message(message);
+                self.open_active_image();
+                Some(self.selection_effect())
+            }
             ActivationTarget::Composer => {
                 if self.active_chat_id().is_some() {
                     self.focus_composer_at_anchor();

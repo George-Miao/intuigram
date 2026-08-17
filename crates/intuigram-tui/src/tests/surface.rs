@@ -1,4 +1,5 @@
 use super::*;
+use crate::source::graphics::GraphicsProtocol;
 
 #[test]
 fn side_by_side_render_separates_sections_and_highlights_the_interaction_target() {
@@ -116,5 +117,32 @@ fn side_by_side_render_separates_sections_and_highlights_the_interaction_target(
     assert_eq!(
         terminal.backend().buffer()[(5, 26)].bg,
         Color::Rgb(230, 226, 204)
+    );
+}
+
+#[test]
+fn popup_suppresses_intersecting_graphics_placement() {
+    let mut current = super::graphics::image_message_view();
+    current.media_previews = vec![intuigram_lib::MediaPreviewView {
+        chat: ChatId(10),
+        message: MessageId(40),
+        image: intuigram_lib::InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
+            .expect("fixture pixels should match their dimensions"),
+    }];
+    current.action_menu = Some(ActionMenuView {
+        title: "Message Actions".to_owned(),
+        selected: 0,
+        items: vec![ActionMenuItemView {
+            action: Action::Reply,
+            label: "Reply".to_owned(),
+        }],
+    });
+
+    let (_, graphics) =
+        render_test_frame_with_graphics(&current, 54, 30, GraphicsProtocol::KittyUnicode);
+
+    assert!(
+        graphics.requests().is_empty(),
+        "popup must cover the graphics placement"
     );
 }

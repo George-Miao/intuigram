@@ -52,6 +52,7 @@ impl App {
                 link_confirmation: None,
                 downloads: Vec::new(),
                 media_previews: Vec::new(),
+                image_popup: None,
                 avatars: Vec::new(),
                 avatar_loads: Vec::new(),
                 media_preview_loads: Vec::new(),
@@ -324,6 +325,7 @@ impl App {
         self.view.action_menu = None;
         self.view.delete_confirmation = None;
         self.view.folder_manager = None;
+        self.view.image_popup = None;
         self.view.rich_media = None;
         self.view.scheduled = None;
         self.view.account_picker = None;
@@ -350,7 +352,7 @@ impl App {
         self.reset_background_history();
         self.media_preview_loads = MediaPreviewLoads::default();
         self.view.media_preview_loads.clear();
-        self.avatar_loads = AvatarLoads::default();
+        self.avatar_loads.reset_requests();
     }
 }
 use super::*;

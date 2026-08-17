@@ -72,6 +72,7 @@ fn view(actions: Vec<Action>) -> View {
         link_confirmation: None,
         downloads: Vec::new(),
         media_previews: Vec::new(),
+        image_popup: None,
         avatars: Vec::new(),
         avatar_loads: Vec::new(),
         media_preview_loads: Vec::new(),
@@ -383,7 +384,9 @@ mod density;
 mod effort;
 mod forwarded;
 mod graphics;
+mod graphics_protocol;
 mod image_loading;
+mod keymap;
 mod loading;
 mod metadata;
 mod multiline;

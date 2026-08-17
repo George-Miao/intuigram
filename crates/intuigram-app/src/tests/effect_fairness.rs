@@ -173,6 +173,7 @@ impl ApplicationBackend for StalledHistoryBackend {
                 })
                 .await;
                 Ok(BackendOutput::event(Some(AdapterEvent::ChatLoaded {
+                    avatar_peers: Vec::new(),
                     chat,
                     status: None,
                     messages: Vec::new(),
@@ -256,6 +257,7 @@ impl ApplicationBackend for NotificationUnblocksHistoryBackend {
                 })
                 .await;
                 Ok(BackendOutput::event(Some(AdapterEvent::ChatLoaded {
+                    avatar_peers: Vec::new(),
                     chat,
                     status: None,
                     messages: Vec::new(),

@@ -8,7 +8,7 @@ pub(in crate::source) fn render_topics(
     mode: ViewMode,
     semantics: &mut Vec<SemanticNode>,
 ) {
-    let focused = view.focus == Focus::Topics;
+    let focused = focus_visible(view, Focus::Topics);
     frame.render_widget(Paragraph::new("").style(surface_style(focused)), area);
     let area = mode.horizontally_padded(area);
     semantics.push(SemanticNode {

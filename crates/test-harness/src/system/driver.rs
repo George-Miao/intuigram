@@ -2,7 +2,7 @@
 
 use std::collections::VecDeque;
 
-use intuigram_lib::{AdapterEvent, App, Bootstrap, Effect, Input, View};
+use intuigram_lib::{AdapterEvent, App, Bootstrap, ChatId, Effect, Input, View};
 use intuigram_tui::UiEvent;
 
 /// Synchronous application-state driver used by hermetic behavior tests.
@@ -57,6 +57,13 @@ impl Driver {
         self.transition(Input::Adapter(event));
     }
 
+    /// Reports avatar peers that occupy cells in the latest frame.
+    pub(super) fn set_visible_avatar_peers(&mut self, peers: Vec<ChatId>) -> bool {
+        let previous = self.view.avatar_loads.clone();
+        self.transition(Input::SetVisibleAvatarPeers(peers));
+        self.view.avatar_loads != previous
+    }
+
     /// Takes the oldest adapter effect requested by state transitions.
     pub(super) fn take_effect(&mut self) -> Option<Effect> {
         let effect = self.effects.pop_front()?;
@@ -80,7 +87,19 @@ impl Driver {
     }
 
     fn enqueue(&mut self, effect: Option<Effect>) {
-        if let Some(effect) = effect {
+        let Some(effect) = effect else {
+            return;
+        };
+        // Production admits frame-reported avatars before work retained from the
+        // pre-render update.
+        if matches!(effect, Effect::LoadAvatar { .. }) {
+            let position = self
+                .effects
+                .iter()
+                .position(|pending| !matches!(pending, Effect::LoadAvatar { .. }))
+                .unwrap_or(self.effects.len());
+            self.effects.insert(position, effect);
+        } else {
             self.effects.push_back(effect);
         }
     }

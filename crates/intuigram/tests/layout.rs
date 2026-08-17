@@ -5,6 +5,8 @@ use test_harness::{Result, TelegramScenario, TestSystem, account, chat, incoming
 mod avatars;
 #[path = "layout/density.rs"]
 mod density;
+#[path = "layout/service_messages.rs"]
+mod service_messages;
 
 #[test]
 fn long_transcript_messages_wrap_inside_the_active_chat() -> Result<()> {
@@ -175,7 +177,9 @@ fn popups_have_one_cell_padding_and_clip_safely_on_narrow_terminals() -> Result<
 
     app.press(key::ENTER)?;
     app.press(key::ALT_UP)?;
+    assert!(!app.screen().background_is_default_at(80, 6));
     app.type_text("a")?;
+    assert!(app.screen().background_is_default_at(80, 6));
     let rows = app.screen().rows();
     let title_row = rows
         .iter()

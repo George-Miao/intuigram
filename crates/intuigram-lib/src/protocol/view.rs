@@ -154,6 +154,9 @@ pub struct View {
     /// Automatically loaded inline image previews for visible histories.
     pub media_previews: Vec<MediaPreviewView>,
 
+    /// Loaded Message image currently open in the larger popup.
+    pub image_popup: Option<ImagePopupView>,
+
     /// Decoded avatars retained by normalized peer identity.
     pub avatars: Vec<AvatarView>,
 

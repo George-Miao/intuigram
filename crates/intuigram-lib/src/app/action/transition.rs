@@ -1,5 +1,11 @@
 impl App {
     pub(in crate::app) fn apply_action(&mut self, action: Action) -> Option<Effect> {
+        if self.view.image_popup.is_some() && action != Action::Quit {
+            if matches!(action, Action::Cancel | Action::OpenImage) {
+                self.view.image_popup = None;
+            }
+            return None;
+        }
         if self.view.action_menu.is_some() && action != Action::Quit {
             return self.apply_action_menu(action);
         }
@@ -134,35 +140,7 @@ impl App {
             | Action::RemoveAccountLocally
             | Action::ConfirmAccountOperation => None,
             Action::ToggleFolderMembership => None,
-            Action::Open => {
-                if self.view.focus == Focus::Topics {
-                    return self.open_active_topic();
-                }
-                if self.view.focus == Focus::SavedDialogs {
-                    return self.open_active_saved_dialog();
-                }
-                if let Some(chat) = self.active_chat_id() {
-                    if self.active_chat_has_saved_dialogs() {
-                        return self.open_saved_dialogs(chat);
-                    }
-                    if self.active_chat_has_topics() {
-                        return self.open_topics(chat);
-                    }
-                    self.focus_composer_at_anchor();
-                    self.queue_active_media_previews();
-                    self.queue_visible_avatars();
-                    self.defer_active_read();
-                    return self
-                        .request_chat_load(chat)
-                        .or_else(|| self.request_next_small_media())
-                        .or_else(|| {
-                            (!self.history_load_is_active())
-                                .then(|| self.take_pending_read())
-                                .flatten()
-                        });
-                }
-                None
-            }
+            Action::Open => self.open_active_context(),
             Action::OpenActions => {
                 self.open_action_menu();
                 None
@@ -212,6 +190,10 @@ impl App {
             }
             Action::ToggleTodoItem | Action::AppendTodoItem | Action::ConfirmTodoAppend => None,
             Action::OpenLink => self.open_active_link(),
+            Action::OpenImage => {
+                self.open_active_image();
+                None
+            }
             Action::ConfirmOpenLink => None,
             Action::DownloadMedia => self.download_active_media(),
             Action::SaveAs => {

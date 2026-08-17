@@ -8,6 +8,10 @@ impl App {
             self.view.actions = vec![Action::Quit, Action::Help, Action::Cancel];
             return;
         }
+        if self.view.image_popup.is_some() {
+            self.view.actions = vec![Action::Quit, Action::Cancel];
+            return;
+        }
         if self.view.action_menu.is_some() {
             self.view.actions = vec![
                 Action::Quit,

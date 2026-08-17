@@ -252,6 +252,16 @@ pub struct MediaPreviewView {
     pub image: super::InlineImage,
 }
 
+/// One loaded Message image presented in the larger image popup.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ImagePopupView {
+    /// Chat containing the Message.
+    pub chat: ChatId,
+
+    /// Message containing the image.
+    pub message: MessageId,
+}
+
 /// One decoded peer avatar ready for terminal presentation.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AvatarView {

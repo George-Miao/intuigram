@@ -159,10 +159,12 @@ impl App {
             }) => self.apply_chat_pin_permission(chat, can_pin_messages),
             Input::Adapter(AdapterEvent::ChatLoaded {
                 chat,
+                avatar_peers,
                 status,
                 messages,
                 pinned_messages,
             }) => {
+                self.merge_avatar_peers(avatar_peers);
                 let key = HistoryKey::root(chat);
                 if let Some(status) = status {
                     self.apply_chat_status(chat, status);
@@ -374,6 +376,7 @@ impl App {
                 self.small_media_capacity = capacity.max(1);
                 None
             }
+            Input::SetVisibleAvatarPeers(peers) => self.set_visible_avatar_peers(peers),
         }
     }
 }

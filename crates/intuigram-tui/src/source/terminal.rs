@@ -81,6 +81,12 @@ impl TerminalUi {
         Ok(())
     }
 
+    /// Returns avatar peers that occupy cells in the latest frame.
+    #[must_use]
+    pub fn visible_avatar_peers(&self, view: &View) -> Vec<ChatId> {
+        visible_avatar_peers(view, &self.semantics)
+    }
+
     /// Draws a blocking startup recovery decision without entering a second
     /// terminal session.
     pub fn draw_recovery(&mut self, view: &RecoveryView) -> Result<()> {

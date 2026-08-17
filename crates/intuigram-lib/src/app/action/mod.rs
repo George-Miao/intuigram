@@ -4,6 +4,7 @@ use super::*;
 
 mod availability;
 mod menu;
+mod open;
 mod transition;
 
 pub(in crate::app) use availability::move_index;

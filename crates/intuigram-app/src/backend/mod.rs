@@ -143,7 +143,12 @@ impl Backend {
         &mut self,
         chat: ChatId,
         refresh_status: bool,
-    ) -> Result<(Vec<MessageView>, Vec<MessageView>, Option<String>)> {
+    ) -> Result<(
+        Vec<MessageView>,
+        Vec<MessageView>,
+        Option<String>,
+        Vec<AvatarRef>,
+    )> {
         let messages = self
             .client
             .history(chat, 100)
@@ -154,6 +159,14 @@ impl Backend {
             .pinned_messages(chat, 100)
             .await
             .context(TelegramSnafu)?;
+        let mut avatar_peers = messages
+            .iter()
+            .chain(&pinned_messages)
+            .filter_map(|message| message.details.sender_peer)
+            .filter_map(|peer| self.client.avatar_ref(peer))
+            .collect::<Vec<_>>();
+        avatar_peers.sort_unstable();
+        avatar_peers.dedup();
         let status = if refresh_status {
             self.client.chat_status(chat).await.ok().flatten()
         } else {
@@ -175,7 +188,7 @@ impl Backend {
             .context(AccountDatabaseSnafu)?
             .await
             .context(AccountDatabaseSnafu)?;
-        Ok((messages, pinned_messages, status))
+        Ok((messages, pinned_messages, status, avatar_peers))
     }
 
     pub(super) async fn load_selected_chat(
@@ -195,12 +208,15 @@ impl Backend {
             .await?;
         }
         match self.load_chat(chat, refresh_status).await {
-            Ok((messages, pinned_messages, status)) => Ok(Some(AdapterEvent::ChatLoaded {
-                chat,
-                status,
-                messages,
-                pinned_messages,
-            })),
+            Ok((messages, pinned_messages, status, avatar_peers)) => {
+                Ok(Some(AdapterEvent::ChatLoaded {
+                    chat,
+                    avatar_peers,
+                    status,
+                    messages,
+                    pinned_messages,
+                }))
+            }
             Err(error) => history_failure_event(chat, None, None, error),
         }
     }

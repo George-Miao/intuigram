@@ -165,7 +165,10 @@ impl TestSystem {
     /// Chooses one visible context action through the production keymap.
     pub fn choose_action(&mut self, label: &str) -> Result<()> {
         match self.application.view().focus {
-            Focus::Transcript => self.type_text("a")?,
+            Focus::Transcript if self.application.view().selected_messages.is_empty() => {
+                self.type_text("a")?;
+            }
+            Focus::Transcript => self.press(key::ENTER)?,
             Focus::Composer => self.press(key::ALT_ACTIONS)?,
             focus => {
                 return Err(Error::Expectation {

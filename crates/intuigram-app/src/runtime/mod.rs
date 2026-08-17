@@ -22,7 +22,10 @@ pub(super) use effect_route::{EffectRoute, effect_data_center, effect_priority, 
 pub(super) use input::append_ready_text;
 #[cfg(test)]
 pub(super) use loop_state::run_application;
-use loop_state::{RequestedExit, decrement_lane, replace_update};
+use loop_state::{
+    RequestedExit, configure_small_media_capacity, decrement_lane, prepare_effect_admission,
+    replace_update,
+};
 pub(super) use pending_operation::wait_for_reconnect_cleanup;
 #[cfg(test)]
 pub(super) use types::PendingEffect;
@@ -53,12 +56,7 @@ where
         mut peers,
         media_limits,
     } = state;
-    let configured = app.transition(Input::ConfigureSmallMediaCapacity(media_limits.small));
-    debug_assert!(
-        configured.effect.is_none(),
-        "media-capacity configuration does not request adapter work"
-    );
-    update.view = configured.view;
+    configure_small_media_capacity(&mut app, &mut update, media_limits.small);
     let mut active_effects = futures_util::stream::FuturesUnordered::new();
     let mut animation_timer: Option<Pin<Box<dyn Future<Output = ()>>>> = None;
     let mut wake_poller = WakePoller::new();
@@ -72,25 +70,21 @@ where
     let mut stopping_error = None;
     let mut pending_terminal_event: Option<crossterm::event::Event> = None;
     let mut draw_requested = true;
+    let mut reported_avatar_peers = Vec::new();
 
     loop {
-        if draw_requested {
-            terminal.draw(&update.view).context(TerminalSnafu)?;
-            draw_requested = false;
-        }
-        cancel_superseded_work(&mut active_effects, update.effect.as_ref());
-        if requested_exit.is_none()
-            && enqueue_effect(
-                &mut pending_effects,
-                &active_effects,
-                &active_notifications,
-                update.effect.take(),
-            )?
-        {
-            requested_exit = Some(RequestedExit::Quit);
-            pending_effects.clear();
-            backend.begin_shutdown();
-        }
+        prepare_effect_admission(
+            terminal,
+            &mut app,
+            &mut update,
+            &mut reported_avatar_peers,
+            &mut draw_requested,
+            &mut pending_effects,
+            &mut active_effects,
+            &active_notifications,
+            &mut requested_exit,
+            &backend,
+        )?;
 
         if pending_effects.is_empty()
             && active_effects.is_empty()

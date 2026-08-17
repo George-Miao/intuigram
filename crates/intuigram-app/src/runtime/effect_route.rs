@@ -73,8 +73,8 @@ pub(crate) const fn effect_data_center(effect: &Effect) -> Option<i32> {
 
 pub(crate) const fn effect_priority(effect: &Effect) -> u8 {
     match effect {
-        Effect::LoadMediaPreview { .. } | Effect::DownloadMedia { .. } => 0,
-        Effect::LoadAvatar { .. } => 1,
+        Effect::LoadAvatar { .. } | Effect::DownloadMedia { .. } => 0,
+        Effect::LoadMediaPreview { .. } => 1,
         Effect::CacheMediaOffline { .. } => 2,
         _ => 0,
     }
@@ -82,7 +82,7 @@ pub(crate) const fn effect_priority(effect: &Effect) -> u8 {
 
 #[cfg(test)]
 mod tests {
-    use intuigram_lib::{ChatId, MessageId, OfflineMediaPolicy};
+    use intuigram_lib::{AvatarId, AvatarRef, ChatId, MessageId, OfflineMediaPolicy};
 
     use super::*;
 
@@ -175,6 +175,23 @@ mod tests {
 
         assert_eq!(effect_route(&small), EffectRoute::SmallMedia);
         assert_eq!(effect_route(&large), EffectRoute::LargeTransfer);
+    }
+
+    #[test]
+    fn visible_avatar_precedes_transcript_preview() {
+        let avatar = Effect::LoadAvatar {
+            avatar: AvatarRef {
+                peer: ChatId(7),
+                id: AvatarId(11),
+            },
+        };
+        let preview = Effect::LoadMediaPreview {
+            chat: ChatId(7),
+            message: MessageId(9),
+            locator: None,
+        };
+
+        assert!(effect_priority(&avatar) < effect_priority(&preview));
     }
 
     #[test]

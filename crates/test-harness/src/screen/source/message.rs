@@ -1,3 +1,5 @@
+use ratatui::text::Line;
+
 pub struct MessageLocator {
     pub(super) state: Rc<RefCell<RenderedState>>,
     pub(super) trace: Rc<RefCell<Trace>>,
@@ -147,6 +149,59 @@ impl MessageLocator {
             });
         }
         Ok(())
+    }
+
+    /// Requires visible text in this Message to use equal horizontal margins.
+    pub fn expect_text_centered(&self, text: &str) -> Result<()> {
+        let state = self.state.borrow();
+        let matches = state
+            .semantics
+            .iter()
+            .filter(|node| node.role == SemanticRole::Message)
+            .filter(|node| match &self.query {
+                MessageQuery::Id(id) => node.domain_id == Some(id.0),
+                MessageQuery::Text(text) => node.name == *text,
+            })
+            .collect::<Vec<_>>();
+        if matches.len() != 1 {
+            return Err(Error::LocatorCardinality {
+                query: self.describe(),
+                matches: matches.len(),
+                artifact: self.trace.borrow().persist(),
+            });
+        }
+        let bounds = matches[0].bounds;
+        let position = (bounds.top()..bounds.bottom()).find_map(|y| {
+            let row = (bounds.left()..bounds.right())
+                .map(|x| state.buffer[(x, y)].symbol())
+                .collect::<String>();
+            let start = row.find(text)?;
+            Some((
+                y,
+                Line::from(&row[..start]).width(),
+                Line::from(text).width(),
+            ))
+        });
+        let Some((row, left, text_width)) = position else {
+            return Err(Error::Expectation {
+                expectation: format!("{} shows centered text {text:?}", self.describe()),
+                actual: "text is not visible".to_owned(),
+                artifact: self.trace.borrow().persist(),
+            });
+        };
+        let right = usize::from(bounds.width).saturating_sub(left.saturating_add(text_width));
+        if left.abs_diff(right) <= 1 {
+            Ok(())
+        } else {
+            Err(Error::Expectation {
+                expectation: format!("{} shows centered text {text:?}", self.describe()),
+                actual: format!(
+                    "terminal row {row} has {left} cells before the text and {right} cells after \
+                     it"
+                ),
+                artifact: self.trace.borrow().persist(),
+            })
+        }
     }
 
     /// Requires the Active Message rule to span every content row and stop

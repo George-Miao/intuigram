@@ -36,7 +36,7 @@ fn group_chat_rows_show_last_sender_preview_and_message_time() -> Result<()> {
 }
 
 #[test]
-fn full_avatar_queue_drains_and_renders_visible_peers() -> Result<()> {
+fn visible_avatar_queue_renders_loaded_peers() -> Result<()> {
     let sender_peers = 20..36;
     let messages = sender_peers
         .clone()
@@ -56,7 +56,7 @@ fn full_avatar_queue_drains_and_renders_visible_peers() -> Result<()> {
             .with_history(messages),
         |account, peer| account.with_avatar(peer),
     );
-    let telegram = sender_peers.clone().rev().fold(
+    let telegram = (27..36).fold(
         TelegramScenario::new().bootstrap(account).expect_avatar(10),
         |scenario, peer| scenario.expect_avatar(peer),
     );
@@ -143,5 +143,36 @@ fn active_chat_avatar_spans_the_title_and_status_rows() -> Result<()> {
     assert_eq!(status, title + 1);
     assert!(row_segment(&rows, title, 33, 100).contains('▀'));
     assert!(row_segment(&rows, status, 33, 100).contains('▀'));
+    app.expect_no_unhandled_work()
+}
+
+#[test]
+fn visible_chat_avatars_load_before_cursor_neighbors() -> Result<()> {
+    let account = (0..20).fold(account("Ada").with_selected_chat(18), |account, offset| {
+        account
+            .with_chat(chat(10 + offset, format!("Chat {offset:02}")))
+            .with_avatar(10 + offset)
+    });
+    let telegram = (16..20).fold(
+        TelegramScenario::new().bootstrap(account),
+        |scenario, peer| scenario.expect_avatar(peer),
+    );
+    let telegram = std::iter::once(19)
+        .chain(22..30)
+        .chain(10..15)
+        .fold(telegram, |scenario, chat| {
+            scenario.expect_load_history(chat, [])
+        });
+    let mut app = TestSystem::builder()
+        .name("layout-visible-chat-avatar-priority")
+        .terminal(100, 24)
+        .telegram(telegram)
+        .start()?;
+
+    let rows = app.screen().rows();
+    for offset in 6..10 {
+        let row = row_within(&rows, &format!("Chat {offset:02}"), 0, 32);
+        assert!(row_segment(&rows, row, 0, 32).contains('▀'));
+    }
     app.expect_no_unhandled_work()
 }

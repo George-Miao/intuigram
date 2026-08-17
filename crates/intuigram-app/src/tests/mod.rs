@@ -61,6 +61,7 @@ impl ApplicationBackend for PendingHistoryBackend {
         })
         .await;
         Ok(BackendOutput::event(Some(AdapterEvent::ChatLoaded {
+            avatar_peers: Vec::new(),
             chat,
             status: None,
             messages: Vec::new(),
@@ -163,6 +164,7 @@ impl ApplicationBackend for PeerAwareBackend {
         };
         self.resolved.set(chat == self.chat && peers.contains(chat));
         Ok(BackendOutput::event(Some(AdapterEvent::ChatLoaded {
+            avatar_peers: Vec::new(),
             chat,
             status: None,
             messages: Vec::new(),
@@ -271,6 +273,7 @@ impl ApplicationBackend for ShutdownReleasesHistoryBackend {
         })
         .await;
         Ok(BackendOutput::event(Some(AdapterEvent::ChatLoaded {
+            avatar_peers: Vec::new(),
             chat,
             status: None,
             messages: Vec::new(),

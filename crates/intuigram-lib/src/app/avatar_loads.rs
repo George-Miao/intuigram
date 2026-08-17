@@ -2,14 +2,12 @@ use std::collections::{HashSet, VecDeque};
 
 use super::*;
 
-const CHAT_WINDOW_RADIUS: usize = 8;
-const MAX_QUEUED_AVATARS: usize = CHAT_WINDOW_RADIUS * 2 + 1;
-
 #[derive(Default)]
 pub(super) struct AvatarLoads {
     active: Vec<AvatarRef>,
     queued: VecDeque<AvatarRef>,
     failed: HashSet<AvatarRef>,
+    visible_peers: Vec<ChatId>,
 }
 
 impl App {
@@ -30,27 +28,34 @@ impl App {
         self.request_next_small_media()
     }
 
-    pub(super) fn queue_visible_avatars(&mut self) {
-        let mut peers = Vec::new();
-        if let Some(active) = self.view.active_chat {
-            let start = active.saturating_sub(CHAT_WINDOW_RADIUS);
-            let end = (active + CHAT_WINDOW_RADIUS + 1).min(self.view.chats.len());
-            for chat in &self.view.chats[start..end] {
-                peers.push(chat.id);
+    pub(super) fn merge_avatar_peers(&mut self, avatars: Vec<AvatarRef>) {
+        for avatar in avatars {
+            if self.avatar_peers.insert(avatar.peer, avatar.id) == Some(avatar.id) {
+                continue;
             }
-        }
-        peers.extend(
             self.view
-                .messages
-                .iter()
-                .rev()
-                .filter_map(|message| message.details.sender_peer),
-        );
-        peers.extend(self.view.saved_dialogs.iter().map(|dialog| dialog.peer));
+                .avatars
+                .retain(|loaded| loaded.avatar.peer != avatar.peer);
+            self.avatar_loads.invalidate(avatar.peer);
+        }
+    }
 
+    pub(super) fn set_visible_avatar_peers(&mut self, peers: Vec<ChatId>) -> Option<Effect> {
+        if self.avatar_loads.visible_peers == peers {
+            return None;
+        }
+        self.avatar_loads.visible_peers = peers;
+        self.queue_visible_avatars();
+        self.request_next_small_media()
+    }
+
+    pub(super) fn queue_visible_avatars(&mut self) {
         let mut unique = HashSet::new();
-        self.avatar_loads.queued = peers
-            .into_iter()
+        self.avatar_loads.queued = self
+            .avatar_loads
+            .visible_peers
+            .iter()
+            .copied()
             .filter_map(|peer| {
                 self.avatar_peers
                     .get(&peer)
@@ -67,7 +72,6 @@ impl App {
                     .iter()
                     .any(|loaded| loaded.avatar == *avatar)
             })
-            .take(MAX_QUEUED_AVATARS)
             .collect();
     }
 
@@ -117,6 +121,14 @@ impl App {
 impl AvatarLoads {
     pub(super) fn active_len(&self) -> usize {
         self.active.len()
+    }
+
+    pub(super) fn reset_requests(&mut self) {
+        let visible_peers = std::mem::take(&mut self.visible_peers);
+        *self = Self {
+            visible_peers,
+            ..Self::default()
+        };
     }
 
     fn invalidate(&mut self, peer: ChatId) {

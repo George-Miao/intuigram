@@ -21,6 +21,9 @@ impl App {
         if active_link(message).is_some() {
             actions.push(Action::OpenLink);
         }
+        if self.active_image_popup().is_some() {
+            actions.push(Action::OpenImage);
+        }
         if message
             .details
             .media
@@ -174,6 +177,7 @@ impl App {
                 }
             }
             Action::DownloadMedia => "Download",
+            Action::OpenImage => "View Image",
             Action::SaveAs => "Save As",
             Action::VotePoll => "Vote",
             Action::RefreshSpecialized => "Refresh",

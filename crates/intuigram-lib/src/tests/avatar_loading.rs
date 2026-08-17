@@ -7,8 +7,11 @@ fn only_known_visible_avatar_peers_are_loaded_and_retained() {
     fixture.avatar_peers = vec![avatar(10, 1), avatar(99, 2)];
     let mut app = App::new();
 
-    let loading = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    let bootstrap = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    assert_eq!(bootstrap.effect, None);
+    assert!(bootstrap.view.avatar_loads.is_empty());
 
+    let loading = report_visible(&mut app, [10]);
     assert_eq!(
         loading.effect,
         Some(Effect::LoadAvatar {
@@ -35,13 +38,42 @@ fn only_known_visible_avatar_peers_are_loaded_and_retained() {
 }
 
 #[test]
+fn loaded_history_discovers_visible_sender_avatar() {
+    let mut app = App::new();
+    let _ = app.transition(Input::Adapter(AdapterEvent::Bootstrap(bootstrap())));
+    let visible = report_visible(&mut app, [20]);
+    assert_eq!(visible.effect, None);
+
+    let restored = app.transition(Input::Adapter(
+        AdapterEvent::ConnectionRestored(bootstrap()),
+    ));
+    assert!(matches!(restored.effect, Some(Effect::LoadChat { .. })));
+    let loaded = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        chat: ChatId(10),
+        avatar_peers: vec![avatar(20, 2)],
+        status: None,
+        messages: Vec::new(),
+        pinned_messages: Vec::new(),
+    }));
+
+    assert_eq!(
+        loaded.effect,
+        Some(Effect::LoadAvatar {
+            avatar: avatar(20, 2),
+        })
+    );
+}
+
+#[test]
 fn chat_list_previews_do_not_load_sender_avatars() {
     let mut fixture = bootstrap();
     fixture.chats[0].preview_sender = Some("Lin".to_owned());
     fixture.chats[0].preview_sender_peer = Some(ChatId(20));
     fixture.avatar_peers = vec![avatar(10, 1), avatar(20, 2)];
     let mut app = App::new();
-    let loading = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    let bootstrap = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    assert_eq!(bootstrap.effect, None);
+    let loading = report_visible(&mut app, [10]);
     assert_eq!(
         loading.effect,
         Some(Effect::LoadAvatar {
@@ -79,7 +111,8 @@ fn visible_chat_window_queues_every_avatar() {
     });
     let mut app = App::new();
 
-    let loading = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    let _ = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    let loading = report_visible(&mut app, 10..27);
 
     assert_eq!(loading.view.avatar_loads.len(), 17);
     assert_eq!(loading.view.avatar_loads[0], avatar(10, 1));
@@ -99,9 +132,9 @@ fn composition_configures_the_small_media_admission_capacity() {
     let mut app = App::new();
     drop(app.transition(Input::ConfigureSmallMediaCapacity(2)));
 
+    let _ = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
     assert!(matches!(
-        app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)))
-            .effect,
+        report_visible(&mut app, [10, 20, 30]).effect,
         Some(Effect::LoadAvatar { .. })
     ));
     assert!(matches!(
@@ -117,11 +150,19 @@ fn composition_configures_the_small_media_admission_capacity() {
 }
 
 #[test]
-fn background_history_continues_after_visible_avatars_finish() {
+fn visible_avatar_loads_while_background_history_active() {
     let mut fixture = hierarchy_bootstrap();
     fixture.avatar_peers = vec![avatar(10, 1)];
     let mut app = App::new();
-    let loading = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    let background = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    assert!(matches!(
+        background.effect,
+        Some(Effect::LoadChat {
+            chat: ChatId(20),
+            ..
+        })
+    ));
+    let loading = report_visible(&mut app, [10]);
     assert_eq!(
         loading.effect,
         Some(Effect::LoadAvatar {
@@ -136,13 +177,7 @@ fn background_history_continues_after_visible_avatars_finish() {
         image,
     })));
 
-    assert!(matches!(
-        completed.effect,
-        Some(Effect::LoadChat {
-            chat: ChatId(20),
-            ..
-        })
-    ));
+    assert_eq!(completed.effect, None);
 }
 
 #[test]
@@ -151,6 +186,7 @@ fn a_new_avatar_revision_invalidates_loaded_pixels() {
     fixture.avatar_peers = vec![avatar(10, 1)];
     let mut app = App::new();
     let _ = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    let _ = report_visible(&mut app, [10]);
     let image = InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
         .expect("fixture dimensions should match");
     let _ = app.transition(Input::Adapter(AdapterEvent::AvatarReady(AvatarView {
@@ -165,6 +201,7 @@ fn a_new_avatar_revision_invalidates_loaded_pixels() {
     assert!(update.view.avatars.is_empty());
     assert!(matches!(update.effect, Some(Effect::LoadChat { .. })));
     let loaded = app.transition(Input::Adapter(AdapterEvent::ChatLoaded {
+        avatar_peers: Vec::new(),
         chat: ChatId(10),
         status: None,
         messages: Vec::new(),
@@ -184,6 +221,7 @@ fn a_live_avatar_change_queues_the_new_revision() {
     fixture.avatar_peers = vec![avatar(10, 1)];
     let mut app = App::new();
     let _ = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    let _ = report_visible(&mut app, [10]);
     let image = InlineImage::from_rgba(1, 1, vec![255, 0, 0, 255])
         .expect("fixture dimensions should match");
     let _ = app.transition(Input::Adapter(AdapterEvent::AvatarReady(AvatarView {
@@ -210,7 +248,8 @@ fn a_stale_in_flight_avatar_is_discarded_before_loading_the_new_revision() {
     let mut fixture = bootstrap();
     fixture.avatar_peers = vec![avatar(10, 1)];
     let mut app = App::new();
-    let loading = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    let _ = app.transition(Input::Adapter(AdapterEvent::Bootstrap(fixture)));
+    let loading = report_visible(&mut app, [10]);
     assert_eq!(
         loading.effect,
         Some(Effect::LoadAvatar {
@@ -244,4 +283,10 @@ const fn avatar(peer: i64, id: i64) -> AvatarRef {
         peer: ChatId(peer),
         id: AvatarId(id),
     }
+}
+
+fn report_visible(app: &mut App, peers: impl IntoIterator<Item = i64>) -> crate::Update {
+    app.transition(Input::SetVisibleAvatarPeers(
+        peers.into_iter().map(ChatId).collect(),
+    ))
 }
