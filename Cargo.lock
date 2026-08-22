@@ -81,7 +81,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -92,7 +92,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -528,7 +528,7 @@ dependencies = [
 [[package]]
 name = "compio"
 version = "0.19.1"
-source = "git+https://github.com/compio-rs/compio.git?branch=master#e13a2d17267b5954917f40a2cc4a43b58f202d5f"
+source = "git+https://github.com/compio-rs/compio.git?branch=master#9721017467cb18edbc58ff11299e321738962a20"
 dependencies = [
  "compio-actor",
  "compio-buf",
@@ -541,12 +541,13 @@ dependencies = [
  "compio-net",
  "compio-process",
  "compio-runtime",
+ "compio-term",
 ]
 
 [[package]]
 name = "compio-actor"
 version = "0.1.0"
-source = "git+https://github.com/compio-rs/compio.git?branch=master#e13a2d17267b5954917f40a2cc4a43b58f202d5f"
+source = "git+https://github.com/compio-rs/compio.git?branch=master#9721017467cb18edbc58ff11299e321738962a20"
 dependencies = [
  "compio-dispatcher",
  "flume",
@@ -559,7 +560,7 @@ dependencies = [
 [[package]]
 name = "compio-buf"
 version = "0.8.3"
-source = "git+https://github.com/compio-rs/compio.git?branch=master#e13a2d17267b5954917f40a2cc4a43b58f202d5f"
+source = "git+https://github.com/compio-rs/compio.git?branch=master#9721017467cb18edbc58ff11299e321738962a20"
 dependencies = [
  "arrayvec",
  "bytes",
@@ -569,7 +570,7 @@ dependencies = [
 [[package]]
 name = "compio-dispatcher"
 version = "0.11.0"
-source = "git+https://github.com/compio-rs/compio.git?branch=master#e13a2d17267b5954917f40a2cc4a43b58f202d5f"
+source = "git+https://github.com/compio-rs/compio.git?branch=master#9721017467cb18edbc58ff11299e321738962a20"
 dependencies = [
  "compio-driver",
  "compio-runtime",
@@ -580,7 +581,7 @@ dependencies = [
 [[package]]
 name = "compio-driver"
 version = "0.12.4"
-source = "git+https://github.com/compio-rs/compio.git?branch=master#e13a2d17267b5954917f40a2cc4a43b58f202d5f"
+source = "git+https://github.com/compio-rs/compio.git?branch=master#9721017467cb18edbc58ff11299e321738962a20"
 dependencies = [
  "bitflags 2.13.1",
  "cfg_aliases",
@@ -606,7 +607,7 @@ dependencies = [
 [[package]]
 name = "compio-executor"
 version = "0.1.3"
-source = "git+https://github.com/compio-rs/compio.git?branch=master#e13a2d17267b5954917f40a2cc4a43b58f202d5f"
+source = "git+https://github.com/compio-rs/compio.git?branch=master#9721017467cb18edbc58ff11299e321738962a20"
 dependencies = [
  "compio-log",
  "compio-send-wrapper",
@@ -618,7 +619,7 @@ dependencies = [
 [[package]]
 name = "compio-fs"
 version = "0.12.0"
-source = "git+https://github.com/compio-rs/compio.git?branch=master#e13a2d17267b5954917f40a2cc4a43b58f202d5f"
+source = "git+https://github.com/compio-rs/compio.git?branch=master#9721017467cb18edbc58ff11299e321738962a20"
 dependencies = [
  "cfg_aliases",
  "compio-buf",
@@ -636,7 +637,7 @@ dependencies = [
 [[package]]
 name = "compio-io"
 version = "0.10.1"
-source = "git+https://github.com/compio-rs/compio.git?branch=master#e13a2d17267b5954917f40a2cc4a43b58f202d5f"
+source = "git+https://github.com/compio-rs/compio.git?branch=master#9721017467cb18edbc58ff11299e321738962a20"
 dependencies = [
  "compio-buf",
  "futures-util",
@@ -651,7 +652,7 @@ dependencies = [
 [[package]]
 name = "compio-log"
 version = "0.2.0"
-source = "git+https://github.com/compio-rs/compio.git?branch=master#e13a2d17267b5954917f40a2cc4a43b58f202d5f"
+source = "git+https://github.com/compio-rs/compio.git?branch=master#9721017467cb18edbc58ff11299e321738962a20"
 dependencies = [
  "tracing",
 ]
@@ -659,7 +660,7 @@ dependencies = [
 [[package]]
 name = "compio-macros"
 version = "0.2.0"
-source = "git+https://github.com/compio-rs/compio.git?branch=master#e13a2d17267b5954917f40a2cc4a43b58f202d5f"
+source = "git+https://github.com/compio-rs/compio.git?branch=master#9721017467cb18edbc58ff11299e321738962a20"
 dependencies = [
  "darling 0.24.0",
  "proc-macro-crate",
@@ -690,7 +691,7 @@ dependencies = [
 [[package]]
 name = "compio-net"
 version = "0.12.2"
-source = "git+https://github.com/compio-rs/compio.git?branch=master#e13a2d17267b5954917f40a2cc4a43b58f202d5f"
+source = "git+https://github.com/compio-rs/compio.git?branch=master#9721017467cb18edbc58ff11299e321738962a20"
 dependencies = [
  "compio-buf",
  "compio-driver",
@@ -710,7 +711,7 @@ dependencies = [
 [[package]]
 name = "compio-process"
 version = "0.9.1"
-source = "git+https://github.com/compio-rs/compio.git?branch=master#e13a2d17267b5954917f40a2cc4a43b58f202d5f"
+source = "git+https://github.com/compio-rs/compio.git?branch=master#9721017467cb18edbc58ff11299e321738962a20"
 dependencies = [
  "compio-buf",
  "compio-driver",
@@ -723,7 +724,7 @@ dependencies = [
 [[package]]
 name = "compio-runtime"
 version = "0.12.3"
-source = "git+https://github.com/compio-rs/compio.git?branch=master#e13a2d17267b5954917f40a2cc4a43b58f202d5f"
+source = "git+https://github.com/compio-rs/compio.git?branch=master#9721017467cb18edbc58ff11299e321738962a20"
 dependencies = [
  "compio-buf",
  "compio-driver",
@@ -734,7 +735,9 @@ dependencies = [
  "futures-util",
  "libc",
  "pin-project-lite",
+ "rustix",
  "scoped-tls",
+ "socket2",
  "synchrony",
  "windows-sys 0.61.2",
 ]
@@ -750,14 +753,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "compio-signal"
+version = "0.10.0"
+source = "git+https://github.com/compio-rs/compio.git?branch=master#9721017467cb18edbc58ff11299e321738962a20"
+dependencies = [
+ "nix 0.31.3",
+ "once_cell",
+ "slab",
+ "synchrony",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "compio-term"
 version = "0.1.0"
+source = "git+https://github.com/compio-rs/compio.git?branch=master#9721017467cb18edbc58ff11299e321738962a20"
 dependencies = [
- "compio",
+ "compio-buf",
+ "compio-driver",
+ "compio-fs",
+ "compio-io",
+ "compio-log",
+ "compio-runtime",
+ "compio-signal",
  "crossterm",
- "crossterm_winapi",
- "futures-util",
- "signal-hook",
+ "futures-core",
+ "rustix",
  "windows-sys 0.61.2",
 ]
 
@@ -1129,7 +1150,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1208,7 +1229,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2016,7 +2037,7 @@ dependencies = [
 name = "intuigram-tui"
 version = "0.1.0"
 dependencies = [
- "compio-term",
+ "compio",
  "crossterm",
  "flume",
  "futures-util",
@@ -2233,7 +2254,7 @@ version = "1.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0aeb26bf5e836cc1c341c8106051b573f1766dfa05aa87f0b98be5e51b02303"
 dependencies = [
- "nix",
+ "nix 0.29.0",
  "winapi",
 ]
 
@@ -2331,6 +2352,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nix"
+version = "0.31.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf20d2fde8ff38632c426f1165ed7436270b44f199fc55284c38276f9db47c3d"
+dependencies = [
+ "bitflags 2.13.1",
+ "cfg-if",
+ "cfg_aliases",
+ "libc",
+]
+
+[[package]]
 name = "nom"
 version = "7.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2346,7 +2379,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3240,7 +3273,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3573,7 +3606,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -3708,7 +3741,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3721,7 +3754,7 @@ dependencies = [
  "parking_lot",
  "rustix",
  "signal-hook",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -3763,7 +3796,7 @@ dependencies = [
  "libc",
  "log",
  "memmem",
- "nix",
+ "nix 0.29.0",
  "num-derive",
  "num-traits",
  "ordered-float",
@@ -4092,7 +4125,7 @@ checksum = "f2f6fb2847f6742cd76af783a2a2c49e9375d0a111c7bef6f71cd9e738c72d6e"
 dependencies = [
  "memoffset",
  "tempfile",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -4399,7 +4432,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4690,7 +4723,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "hex",
- "nix",
+ "nix 0.29.0",
  "ordered-stream",
  "rand",
  "serde",

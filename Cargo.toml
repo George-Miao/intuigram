@@ -13,7 +13,6 @@ rust-version = "1.85"
 [workspace.dependencies]
 arboard = { version = "3.6.1", default-features = false, features = ["image-data"] }
 compio-mtproto = { version = "0.1.0", path = "crates/compio-mtproto" }
-compio-term = { version = "0.1.0", path = "crates/compio-term" }
 intuigram-app = { version = "0.1.0", path = "crates/intuigram-app" }
 intuigram-config = { version = "0.1.0", path = "crates/intuigram-config" }
 intuigram-lib = { version = "0.1.0", path = "crates/intuigram-lib" }
@@ -41,7 +40,6 @@ rpassword = "7.5"
 time = "0.3.54"
 aes = "0.8.4"
 compio = { git = "https://github.com/compio-rs/compio.git", branch = "master", default-features = false }
-crossterm_winapi = "0.9.1"
 ctr = "0.9.2"
 grammers-crypto = "0.10"
 grammers-mtproto = "0.10"
@@ -58,7 +56,6 @@ percent-encoding = "2.3.2"
 base64 = "0.22.1"
 clap = "4.5"
 qrcode = { version = "0.14.1", default-features = false }
-signal-hook = "0.3.18"
 sha1 = "0.10.6"
 url = "2.5.7"
 vt100 = "0.16.2"

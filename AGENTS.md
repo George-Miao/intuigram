@@ -48,7 +48,6 @@ Declare each dependency that a workspace crate uses in the root `[workspace.depe
 - `crates/intuigram-media` owns media transfer, cache policy, and media lifecycle.
 - `crates/intuigram-config` owns layered Figment configuration.
 - `crates/compio-mtproto` is a reusable Compio-based MTProto connection, session, invocation, and update-stream library.
-- `crates/compio-term` provides experimental reusable Compio-native terminal event readiness. Keep its API explicitly unstable until cross-platform behavior is complete.
 - `crates/rasterm` owns reusable terminal raster-image detection, cell geometry, protocol encoding, external-renderer commands, and image lifecycle. Keep it independent of Ratatui and Intuigram model types.
 - `crates/rich-clipboard` is a reusable native clipboard-content library.
 - `crates/test-harness` is a development-only hermetic behavior runner. It provides strict scripted adapters, separate real storage, semantic locators, and failure traces.
@@ -138,7 +137,7 @@ Use owner-only permissions for authorization and Account data. Never log authori
 
 - Use Rust 2024 edition and the toolchain from `nix develop`.
 - Format with rustfmt. Keep Clippy clean with warnings denied during verification. Do not use crate-wide `#![deny(warnings)]`.
-- Use `snafu` for error definition, propagation, and context. Each fallible module owns a module-scoped `Error` enum and `Result<T>` alias. Do not create a workspace-wide catch-all error enum. Reusable crates that explicitly return `std::io::Error`, such as `compio-term`, are exceptions when their public contract requires the OS error directly.
+- Use `snafu` for error definition, propagation, and context. Each fallible module owns a module-scoped `Error` enum and `Result<T>` alias. Do not create a workspace-wide catch-all error enum.
 - Add semantic context at each module seam with SNAFU context selectors and `.context(...)`. Error variants must state the failed operation. Keep the lower-level source when it is useful.
 - Convert dependency and adapter errors to the error type of the owning module before they cross its interface. Do not expose `rusqlite`, Compio, Telegram TL, Ratatui, clipboard, or other implementation errors through unrelated module interfaces.
 - Use SNAFU `.context(...)` selectors when possible. Use `.with_context(...)` when selector context must be evaluated only after failure. Avoid `map_err`. Use it only when propagation needs a value-shape conversion that a SNAFU context selector cannot express clearly. Never use it only to rename or wrap an error.

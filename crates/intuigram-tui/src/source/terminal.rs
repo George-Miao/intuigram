@@ -225,7 +225,6 @@ fn redraw_graphics_cells<W: io::Write>(
 }
 
 /// Persistent Compio-driven terminal input source.
-#[derive(Debug)]
 pub struct TerminalEvents {
     events: EventStream,
 }

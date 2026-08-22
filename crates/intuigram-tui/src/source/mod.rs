@@ -3,7 +3,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use compio_term::EventStream;
+use compio::term::event::EventStream;
 use crossterm::event::{
     self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode as CrosstermKey, KeyEventKind,
     KeyModifiers, KeyboardEnhancementFlags, MouseButton, MouseEventKind,
